@@ -209,6 +209,36 @@
           "type": "string",
           "description": "Компанийн вэбсайт.",
           "format": "uri"
+        },
+        "mission": {
+          "type": "string",
+          "description": "Компанийн эрхэм зорилго."
+        },
+        "vision": {
+          "type": "string",
+          "description": "Компанийн алсын хараа."
+        },
+        "values": {
+          "type": "array",
+          "description": "Компанийн үнэт зүйлс.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Үнэт зүйлийн гарчиг."
+              },
+              "description": {
+                "type": "string",
+                "description": "Үнэт зүйлийн тодорхойлолт."
+              },
+              "icon": {
+                "type": "string",
+                "description": "Үнэт зүйлийн дүрсний танигч."
+              }
+            },
+            "required": ["title", "description", "icon"]
+          }
         }
       },
       "required": [
