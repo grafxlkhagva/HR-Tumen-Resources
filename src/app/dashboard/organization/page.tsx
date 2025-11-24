@@ -33,7 +33,6 @@ import { AddDepartmentDialog } from './add-department-dialog';
 type Department = {
   id: string;
   name: string;
-  description?: string;
   typeId?: string;
   parentId?: string;
   // Locally computed properties
@@ -154,7 +153,7 @@ const StructureTab = () => {
                 onClick={() => setIsAddTypeOpen(true)}
               >
                 <Settings className="mr-2 h-4 w-4" />
-                Төрөл нэмэх
+                Төрөл удирдах
               </Button>
               <Button variant="default" size="sm" onClick={() => setIsAddDeptOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
