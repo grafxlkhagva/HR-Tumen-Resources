@@ -13,11 +13,16 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 
+function isEmail(input: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(input);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
-  const [employeeId, setEmployeeId] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +32,7 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    // Convert employeeId to a dummy email for Firebase Auth
-    const email = `${employeeId}@example.com`;
+    const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
 
     initiateEmailSignIn(auth, email, password);
 
@@ -41,24 +45,27 @@ export default function LoginPage() {
         router.push('/dashboard');
         unsubscribe();
       } else {
+        // This timeout gives Firebase auth state a moment to propagate
         setTimeout(() => {
           if (!auth.currentUser) {
-            setError('Ажилтны код эсвэл нууц үг буруу байна.');
+             const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+             setError(errorMessage);
              toast({
                 variant: 'destructive',
                 title: 'Алдаа гарлаа',
-                description: 'Ажилтны код эсвэл нууц үг буруу байна.',
+                description: errorMessage,
               });
             setIsLoading(false);
           }
         }, 2000);
       }
     }, (error) => {
-        setError('Ажилтны код эсвэл нууц үг буруу байна.');
+        const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+        setError(errorMessage);
         toast({
             variant: 'destructive',
-            title: 'Алдаа гарлаа',
-            description: error.message || 'Ажилтны код эсвэл нууц үг буруу байна.',
+            title: 'Алдаа гарлаa',
+            description: error.message || errorMessage,
         });
         console.error(error);
         setIsLoading(false);
@@ -75,33 +82,25 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl">Teal HR-т нэвтрэх</CardTitle>
           <CardDescription>
-            Ажилтны кодоо ашиглан нэвтэрнэ үү
+            Өөрийн нэвтрэх нэр эсвэл имэйл хаягаар нэвтэрнэ үү.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employeeId">Ажилтны код</Label>
+              <Label htmlFor="identifier">Ажилтны код эсвэл имэйл</Label>
               <Input
-                id="employeeId"
+                id="identifier"
                 type="text"
-                placeholder="Таны ажилтны код"
+                placeholder="Код эсвэл имэйл хаяг"
                 required
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Нууц үг</Label>
-                <Link
-                  href="#"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Нууц үгээ мартсан уу?
-                </Link>
-              </div>
+              <Label htmlFor="password">Нууц үг</Label>
               <Input
                 id="password"
                 type="password"
@@ -117,6 +116,12 @@ export default function LoginPage() {
               Нэвтрэх
             </Button>
           </form>
+           <div className="mt-4 text-center text-sm">
+            Анхны админ уу?{' '}
+            <Link href="/signup" className="underline">
+              Бүртгүүлэх
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
