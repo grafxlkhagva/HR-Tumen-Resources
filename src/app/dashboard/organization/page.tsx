@@ -29,12 +29,15 @@ import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddTypeDialog } from './add-type-dialog';
 import { AddDepartmentDialog } from './add-department-dialog';
+import { AddPositionDialog } from './add-position-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+
 
 // Interfaces for Firestore data
 type Department = {
@@ -59,37 +62,16 @@ type Position = {
   departmentId: string;
   headcount: number;
   filled: number;
+  level?: 'Executive' | 'Manager' | 'Senior' | 'Mid-level' | 'Junior' | 'Intern';
+  employmentType?: 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
+  jobCategoryCode?: string;
 };
 
 const OrgChartNode = ({ node }: { node: Department }) => (
-  <li className="relative flex flex-col items-center">
-     {/* Vertical line connecting to parent */}
-    <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
-
-    <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
-      <p className="font-semibold">{node.name}</p>
-      <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
-      <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Users className="h-4 w-4" />
-        <span>{node.headcount || 0}</span>
-      </div>
-    </div>
-    
-    {node.children && node.children.length > 0 && (
-       <ul className="relative mt-8 flex justify-center gap-8">
-        {/* Horizontal line connecting children */}
-        <div className="absolute top-0 left-0 right-0 h-px -translate-y-8 bg-border"></div>
-
-        {node.children.map((child) => (
-          <OrgChartNode key={child.id} node={child} />
-        ))}
-      </ul>
-    )}
-  </li>
-);
-
-const RootOrgChartNode = ({ node }: { node: Department }) => (
     <li className="relative flex flex-col items-center">
+      {/* Vertical line connecting to parent */}
+      <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+  
       <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
         <p className="font-semibold">{node.name}</p>
         <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
@@ -98,17 +80,45 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
           <span>{node.headcount || 0}</span>
         </div>
       </div>
+      
       {node.children && node.children.length > 0 && (
-        <ul className="relative mt-8 flex justify-center gap-8">
-           {/* Horizontal line connecting children */}
-          <div className="absolute top-0 left-0 right-0 h-px -translate-y-8 bg-border"></div>
+        <>
+         {/* Horizontal line connecting children */}
+         <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
+         <ul className="relative mt-8 flex justify-center gap-8">
           {node.children.map((child) => (
             <OrgChartNode key={child.id} node={child} />
           ))}
         </ul>
+        </>
       )}
     </li>
   );
+  
+  const RootOrgChartNode = ({ node }: { node: Department }) => (
+      <li className="relative flex flex-col items-center">
+        <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
+          <p className="font-semibold">{node.name}</p>
+          <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
+          <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>{node.headcount || 0}</span>
+          </div>
+        </div>
+        {node.children && node.children.length > 0 && (
+          <>
+            <div className="absolute top-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+            <ul className="relative mt-8 flex justify-center gap-8">
+            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
+            {node.children.map((child) => (
+              <OrgChartNode key={child.id} node={child} />
+            ))}
+          </ul>
+          </>
+        )}
+      </li>
+    );
+  
 
 
 const StructureTab = () => {
@@ -120,7 +130,9 @@ const StructureTab = () => {
 
   const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
   const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-  const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+  
+  // Note: We are fetching all positions here to calculate headcount. This might be inefficient for very large datasets.
+  const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
   
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
@@ -132,12 +144,14 @@ const StructureTab = () => {
     }
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
+    
     const positionCountByDept = positions.reduce((acc, pos) => {
-      const currentCount = acc.get(pos.departmentId) || 0;
-      acc.set(pos.departmentId, currentCount + pos.headcount);
-      return acc;
+        if (!pos.departmentId) return acc;
+        const currentCount = acc.get(pos.departmentId) || 0;
+        acc.set(pos.departmentId, currentCount + pos.headcount);
+        return acc;
     }, new Map<string, number>());
-
+    
     const deptsWithData: Department[] = departments.map(d => ({
       ...d,
       typeName: typeMap.get(d.typeId || ''),
@@ -151,7 +165,13 @@ const StructureTab = () => {
     deptsWithData.forEach(dept => {
       if (dept.parentId && deptMap.has(dept.parentId)) {
         const parent = deptMap.get(dept.parentId);
-        parent?.children?.push(dept);
+        // Ensure children array exists before pushing
+        if (parent) {
+            if (!parent.children) {
+                parent.children = [];
+            }
+            parent.children.push(dept);
+        }
       } else {
         rootNodes.push(dept);
       }
@@ -320,96 +340,173 @@ const StructureTab = () => {
   );
 };
 
+const employmentTypeBadges: Record<string, string> = {
+    'Full-time': 'Үндсэн',
+    'Part-time': 'Цагийн',
+    'Contract': 'Гэрээт',
+    'Internship': 'Дадлага',
+};
+
+const levelBadges: Record<string, string> = {
+    'Executive': 'Удирдах',
+    'Manager': 'Менежер',
+    'Senior': 'Ахлах',
+    'Mid-level': 'Дунд',
+    'Junior': 'Дэвжих',
+    'Intern': 'Дадлагажигч',
+}
+
+
 const PositionsTab = () => {
-  const { firestore } = useFirebase();
-  const positionsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'positions') : null),
-    [firestore]
-  );
-  const departmentsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'departments') : null),
-    [firestore]
-  );
+    const { firestore } = useFirebase();
+    const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+    const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
-  const { data: positions, isLoading: isLoadingPos } =
-    useCollection<Position>(positionsQuery);
-  const { data: departments, isLoading: isLoadingDepts } =
-    useCollection<Department>(departmentsQuery);
+    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
 
-  const isLoading = isLoadingPos || isLoadingDepts;
+    const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
+    const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
 
-  const departmentMap = React.useMemo(() => {
+    const isLoading = isLoadingPos || isLoadingDepts;
+
+    const departmentMap = React.useMemo(() => {
+        return departments?.reduce((acc, dept) => {
+            acc[dept.id] = dept.name;
+            return acc;
+        }, {} as Record<string, string>) || {};
+    }, [departments]);
+    
+    const handleOpenAddDialog = () => {
+        setEditingPosition(null);
+        setIsPositionDialogOpen(true);
+    };
+
+    const handleOpenEditDialog = (pos: Position) => {
+        setEditingPosition(pos);
+        setIsPositionDialogOpen(true);
+    };
+    
+    const handleDeletePosition = (posId: string) => {
+        if (!firestore) return;
+        const docRef = doc(firestore, 'positions', posId);
+        deleteDocumentNonBlocking(docRef);
+    };
+
+
     return (
-      departments?.reduce((acc, dept) => {
-        acc[dept.id] = dept.name;
-        return acc;
-      }, {} as Record<string, string>) || {}
-    );
-  }, [departments]);
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <div>
-          <CardTitle>Ажлын байрны жагсаалт</CardTitle>
-          <CardDescription>
-            Байгууллагад бүртгэлтэй бүх албан тушаал.
-          </CardDescription>
-        </div>
-        <Button size="sm" className="gap-1">
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            Ажлын байр нэмэх
-          </span>
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Албан тушаалын нэр</TableHead>
-              <TableHead>Хэлтэс</TableHead>
-              <TableHead className="text-right">Орон тоо</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-5 w-48" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-32" />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Skeleton className="ml-auto h-5 w-16" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            {!isLoading && positions?.map((pos) => (
-              <TableRow key={pos.id}>
-                <TableCell className="font-medium">{pos.title}</TableCell>
-                <TableCell>
-                  {departmentMap[pos.departmentId] || 'Тодорхойгүй'}
-                </TableCell>
-                <TableCell className="text-right">
-                  {pos.filled} / {pos.headcount}
-                </TableCell>
-              </TableRow>
-            ))}
-             {!isLoading && !positions?.length && (
+        <>
+         <AddPositionDialog
+            open={isPositionDialogOpen}
+            onOpenChange={setIsPositionDialogOpen}
+            departments={departments || []}
+            editingPosition={editingPosition}
+        />
+        <Card>
+        <CardHeader className="flex-row items-center justify-between">
+            <div>
+            <CardTitle>Ажлын байрны жагсаалт</CardTitle>
+            <CardDescription>
+                Байгууллагад бүртгэлтэй бүх албан тушаал.
+            </CardDescription>
+            </div>
+            <Button size="sm" className="gap-1" onClick={handleOpenAddDialog}>
+            <PlusCircle className="h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Ажлын байр нэмэх
+            </span>
+            </Button>
+        </CardHeader>
+        <CardContent>
+            <Table>
+            <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
-                        Ажлын байрны жагсаалт хоосон байна.
+                <TableHead>Албан тушаалын нэр</TableHead>
+                <TableHead>Хэлтэс</TableHead>
+                <TableHead>Зэрэглэл</TableHead>
+                <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
+                <TableHead className="text-right">Орон тоо</TableHead>
+                <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {isLoading &&
+                Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                    <TableCell>
+                        <Skeleton className="h-5 w-48" />
+                    </TableCell>
+                    <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                    </TableCell>
+                    <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <Skeleton className="ml-auto h-5 w-16" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <Skeleton className="ml-auto h-8 w-8" />
+                    </TableCell>
+                    </TableRow>
+                ))}
+                {!isLoading && positions?.map((pos) => (
+                <TableRow key={pos.id}>
+                    <TableCell className="font-medium">{pos.title}</TableCell>
+                    <TableCell>
+                    {departmentMap[pos.departmentId] || 'Тодорхойгүй'}
+                    </TableCell>
+                    <TableCell>
+                        {pos.level ? <Badge variant="secondary">{levelBadges[pos.level] || pos.level}</Badge> : '-'}
+                    </TableCell>
+                    <TableCell>
+                        {pos.employmentType ? <Badge variant="outline">{employmentTypeBadges[pos.employmentType] || pos.employmentType}</Badge> : '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                    {pos.filled} / {pos.headcount}
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenEditDialog(pos)}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Засах
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDeletePosition(pos.id)} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                 </TableRow>
-             )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
+                ))}
+                {!isLoading && !positions?.length && (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                            Ажлын байрны жагсаалт хоосон байна.
+                        </TableCell>
+                    </TableRow>
+                )}
+                 {(errorPos || errorDepts) && (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center text-destructive">
+                            Мэдээлэл ачаалахад алдаа гарлаа.
+                        </TableCell>
+                    </TableRow>
+                 )}
+            </TableBody>
+            </Table>
+        </CardContent>
+        </Card>
+        </>
+    );
 };
 
 const HeadcountTab = () => {
