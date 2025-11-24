@@ -39,7 +39,7 @@ const links = [
     icon: FileText,
   },
   {
-    href: '/dashboard/onboarding',
+    href: '/dashboard/new-hires',
     label: 'Шинэ ажилтан',
     icon: ClipboardCheck,
   },

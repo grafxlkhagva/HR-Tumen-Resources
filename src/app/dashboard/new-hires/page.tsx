@@ -33,7 +33,7 @@ const calculateProgress = (stages: OnboardingStage[]) => {
   return (completedTasks / allTasks.length) * 100;
 };
 
-export default function OnboardingPage() {
+export default function NewHiresPage() {
   const { firestore } = useFirebase();
 
   const newHiresQuery = useMemoFirebase(
