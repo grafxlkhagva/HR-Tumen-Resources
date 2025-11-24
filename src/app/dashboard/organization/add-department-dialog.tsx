@@ -91,8 +91,13 @@ export function AddDepartmentDialog({
       });
       return;
     }
+    
+    const finalData = {
+        ...data,
+        parentId: data.parentId === '(none)' ? undefined : data.parentId,
+    };
 
-    addDocumentNonBlocking(departmentsCollection, data);
+    addDocumentNonBlocking(departmentsCollection, finalData);
 
     toast({
       title: 'Амжилттай',
@@ -178,7 +183,7 @@ export function AddDepartmentDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">(Дээд нэгж байхгүй)</SelectItem>
+                        <SelectItem value="(none)">(Дээд нэгж байхгүй)</SelectItem>
                         {departments.map((dept) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             {dept.name}
