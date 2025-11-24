@@ -4,7 +4,6 @@ import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ClipboardCheck,
   FileText,
   LayoutDashboard,
   ShieldCheck,
@@ -38,11 +37,6 @@ const links = [
     href: '/dashboard/documents',
     label: 'Баримт бичиг',
     icon: FileText,
-  },
-  {
-    href: '/dashboard/new-hires',
-    label: 'Шинэ ажилтан',
-    icon: ClipboardCheck,
   },
   {
     href: '/dashboard/compliance',
