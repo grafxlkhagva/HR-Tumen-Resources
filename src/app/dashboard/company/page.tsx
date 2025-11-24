@@ -121,7 +121,7 @@ function CompanyProfileForm({
       <form onSubmit={form.handleSubmit(onSave)}>
         <Card>
           <CardHeader>
-            <CardTitle>Мэдээлэл засварлах</CardTitle>
+            <CardTitle>Ерөнхий мэдээлэл</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
              <FormField
