@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -121,23 +121,6 @@ function FormSkeleton() {
     );
 }
 
-const defaultFormValues: CompanyProfileFormValues = {
-  name: '',
-  legalName: '',
-  registrationNumber: '',
-  taxId: '',
-  industry: '',
-  employeeCount: '',
-  ceo: '',
-  website: '',
-  mission: '',
-  vision: '',
-  values: [],
-  phoneNumber: '',
-  contactEmail: '',
-  address: '',
-};
-
 function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValues }) {
   const router = useRouter();
   const { firestore } = useFirebase();
@@ -150,13 +133,8 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
   
   const form = useForm<CompanyProfileFormValues>({
     resolver: zodResolver(companyProfileSchema),
-    defaultValues: initialData || defaultFormValues,
+    defaultValues: initialData,
   });
-  
-  React.useEffect(() => {
-    form.reset(initialData);
-  }, [initialData]);
-
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -474,6 +452,23 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
   );
 }
 
+const defaultFormValues: CompanyProfileFormValues = {
+  name: '',
+  legalName: '',
+  registrationNumber: '',
+  taxId: '',
+  industry: '',
+  employeeCount: '',
+  ceo: '',
+  website: '',
+  mission: '',
+  vision: '',
+  values: [],
+  phoneNumber: '',
+  contactEmail: '',
+  address: '',
+};
+
 export default function EditCompanyPage() {
   const { firestore } = useFirebase();
 
@@ -500,5 +495,3 @@ export default function EditCompanyPage() {
     </div>
   );
 }
-
-    
