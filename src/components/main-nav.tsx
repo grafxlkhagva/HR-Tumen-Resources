@@ -10,7 +10,7 @@ import {
   Users,
   CalendarClock,
   Building2,
-  Sitemap,
+  Network,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -32,7 +32,7 @@ const links = [
   {
     href: '/dashboard/organization',
     label: 'Бүтэц, орон тоо',
-    icon: Sitemap,
+    icon: Network,
   },
   {
     href: '/dashboard/employees',
