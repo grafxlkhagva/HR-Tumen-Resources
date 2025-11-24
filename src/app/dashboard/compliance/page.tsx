@@ -33,7 +33,7 @@ export default function CompliancePage() {
       const response = await suggestComplianceUpdates({ documentText });
       setResult(response);
     } catch (e) {
-      setError('An error occurred while scanning the document.');
+      setError('Баримт бичгийг шалгахад алдаа гарлаа.');
       console.error(e);
     } finally {
       setIsLoading(false);
@@ -45,15 +45,14 @@ export default function CompliancePage() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Compliance AI Tool</CardTitle>
+            <CardTitle>Хуулийн зөвлөгөө</CardTitle>
             <CardDescription>
-              Paste your employment document text below to scan for compliance
-              updates.
+              Хөдөлмөрийн гэрээ, дотоод журмаа хуулж буулган шалгуулна уу.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
-              placeholder="Paste your employee handbook, contract, or policy text here..."
+              placeholder="Ажилтны гарын авлага, гэрээ, бодлогын бичвэрээ энд хуулна уу..."
               className="min-h-[400px] text-sm"
               value={documentText}
               onChange={(e) => setDocumentText(e.target.value)}
@@ -67,7 +66,7 @@ export default function CompliancePage() {
               ) : (
                 <Sparkles className="mr-2 h-4 w-4" />
               )}
-              Scan Document
+              Шалгах
             </Button>
           </CardFooter>
         </Card>
@@ -75,10 +74,10 @@ export default function CompliancePage() {
           <CardHeader>
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-6 w-6 text-primary" />
-                <CardTitle>Compliance Suggestions</CardTitle>
+                <CardTitle>Хуулийн зөвлөмж</CardTitle>
              </div>
             <CardDescription>
-              AI-powered recommendations will appear here.
+              Хиймэл оюуны санал болгосон зөвлөмж энд харагдана.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1">
@@ -108,7 +107,7 @@ export default function CompliancePage() {
                         <ShieldCheck className="h-10 w-10 text-muted-foreground" />
                     </div>
                     <p className="text-muted-foreground">
-                        Your analysis results will be displayed here.
+                        Таны шинжилгээний үр дүн энд харагдана.
                     </p>
                 </div>
             )}

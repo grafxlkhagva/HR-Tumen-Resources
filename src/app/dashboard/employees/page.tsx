@@ -66,14 +66,14 @@ function EmployeeRow({ employee }: { employee: Employee }) {
           <DropdownMenuTrigger asChild>
             <Button aria-haspopup="true" size="icon" variant="ghost">
               <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Toggle menu</span>
+              <span className="sr-only">Цэс</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem>View Profile</DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>Delete</DropdownMenuItem>
+            <DropdownMenuLabel>Үйлдлүүд</DropdownMenuLabel>
+            <DropdownMenuItem>Профайл харах</DropdownMenuItem>
+            <DropdownMenuItem>Засварлах</DropdownMenuItem>
+            <DropdownMenuItem>Устгах</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
@@ -95,15 +95,15 @@ export default function EmployeesPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Employees</CardTitle>
+            <CardTitle>Ажилчид</CardTitle>
             <CardDescription>
-              Manage your employees and view their profiles.
+              Ажилчдаа удирдаж, тэдний мэдээллийг харна уу.
             </CardDescription>
           </div>
           <Button size="sm" className="gap-1">
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Add Employee
+              Ажилтан нэмэх
             </span>
           </Button>
         </CardHeader>
@@ -111,14 +111,14 @@ export default function EmployeesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead>Нэр</TableHead>
+                <TableHead>Албан тушаал</TableHead>
                 <TableHead className="hidden md:table-cell">
-                  Department
+                  Хэлтэс
                 </TableHead>
-                <TableHead className="hidden md:table-cell">Hire Date</TableHead>
+                <TableHead className="hidden md:table-cell">Ажилд орсон огноо</TableHead>
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">Үйлдлүүд</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -155,7 +155,7 @@ export default function EmployeesPage() {
                     colSpan={5}
                     className="py-8 text-center text-destructive"
                   >
-                    Error loading employees: {error.message}
+                    Алдаа гарлаа: {error.message}
                   </TableCell>
                 </TableRow>
               )}

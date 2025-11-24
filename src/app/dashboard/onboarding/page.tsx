@@ -60,7 +60,7 @@ export default function OnboardingPage() {
   return (
     <div className="py-8 grid gap-8 md:grid-cols-[250px_1fr]">
       <div className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold">New Hires</h2>
+        <h2 className="text-lg font-semibold">Шинэ ажилчид</h2>
         <div className="grid gap-2">
           {isLoadingHires &&
             Array.from({ length: 2 }).map((_, i) => (
@@ -111,10 +111,10 @@ export default function OnboardingPage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-2xl">
-                    {selectedHire.name}'s Onboarding
+                    {selectedHire.name}-н дадлага
                   </CardTitle>
                   <CardDescription>
-                    Start Date:{' '}
+                    Эхлэх огноо:{' '}
                     {new Date(selectedHire.startDate).toLocaleDateString()}
                   </CardDescription>
                 </div>
@@ -172,7 +172,7 @@ export default function OnboardingPage() {
         {!isLoadingHires && !selectedHire && (
           <Card className="flex h-full items-center justify-center">
             <CardContent className="text-center text-muted-foreground">
-              <p>Select a new hire to view their onboarding progress.</p>
+              <p>Дадлагын явцыг харахын тулд шинэ ажилтан сонгоно уу.</p>
             </CardContent>
           </Card>
         )}

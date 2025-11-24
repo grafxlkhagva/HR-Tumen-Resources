@@ -44,12 +44,12 @@ const TimeOffTable = ({ requests }: { requests: TimeOffRequest[] }) => (
   <Table>
     <TableHeader>
       <TableRow>
-        <TableHead>Employee</TableHead>
-        <TableHead>Dates</TableHead>
-        <TableHead className="hidden md:table-cell">Type</TableHead>
-        <TableHead>Status</TableHead>
+        <TableHead>Ажилтан</TableHead>
+        <TableHead>Огноо</TableHead>
+        <TableHead className="hidden md:table-cell">Төрөл</TableHead>
+        <TableHead>Төлөв</TableHead>
         <TableHead>
-          <span className="sr-only">Actions</span>
+          <span className="sr-only">Үйлдлүүд</span>
         </TableHead>
       </TableRow>
     </TableHeader>
@@ -74,8 +74,8 @@ const TimeOffTable = ({ requests }: { requests: TimeOffRequest[] }) => (
               </div>
             </TableCell>
             <TableCell>
-              {format(new Date(req.startDate), 'LLL dd, y')} -{' '}
-              {format(new Date(req.endDate), 'LLL dd, y')}
+              {format(new Date(req.startDate), 'yyyy.MM.dd')} -{' '}
+              {format(new Date(req.endDate), 'yyyy.MM.dd')}
             </TableCell>
             <TableCell className="hidden md:table-cell">{req.type}</TableCell>
             <TableCell>
@@ -90,10 +90,10 @@ const TimeOffTable = ({ requests }: { requests: TimeOffRequest[] }) => (
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem className="gap-2">
-                    <Check className="h-4 w-4" /> Approve
+                    <Check className="h-4 w-4" /> Зөвшөөрөх
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2">
-                    <X className="h-4 w-4" /> Reject
+                    <X className="h-4 w-4" /> Татгалзах
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -109,12 +109,12 @@ const TableSkeleton = () => (
   <Table>
     <TableHeader>
       <TableRow>
-        <TableHead>Employee</TableHead>
-        <TableHead>Dates</TableHead>
-        <TableHead className="hidden md:table-cell">Type</TableHead>
-        <TableHead>Status</TableHead>
+        <TableHead>Ажилтан</TableHead>
+        <TableHead>Огноо</TableHead>
+        <TableHead className="hidden md:table-cell">Төрөл</TableHead>
+        <TableHead>Төлөв</TableHead>
         <TableHead>
-          <span className="sr-only">Actions</span>
+          <span className="sr-only">Үйлдлүүд</span>
         </TableHead>
       </TableRow>
     </TableHeader>
@@ -162,32 +162,32 @@ export default function TimeOffPage() {
       <Tabs defaultValue="all">
         <div className="flex items-center">
           <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected</TabsTrigger>
+            <TabsTrigger value="all">Бүгд</TabsTrigger>
+            <TabsTrigger value="pending">Хүлээгдэж буй</TabsTrigger>
+            <TabsTrigger value="approved">Зөвшөөрсөн</TabsTrigger>
+            <TabsTrigger value="rejected">Татгалзсан</TabsTrigger>
           </TabsList>
           <div className="ml-auto flex items-center gap-2">
             <Button size="sm" className="h-8 gap-1">
               <PlusCircle className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Request Time Off
+                Чөлөөний хүсэлт
               </span>
             </Button>
           </div>
         </div>
         <Card className="mt-4">
           <CardHeader>
-            <CardTitle>Time Off Requests</CardTitle>
+            <CardTitle>Чөлөөний хүсэлтүүд</CardTitle>
             <CardDescription>
-              Manage and approve employee time off requests.
+              Ажилтнуудын чөлөөний хүсэлтийг удирдаж, зөвшөөрөх.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading && <TableSkeleton />}
             {error && (
               <div className="py-8 text-center text-destructive">
-                Error: {error.message}
+                Алдаа: {error.message}
               </div>
             )}
             {!isLoading && !error && timeOffRequests && (

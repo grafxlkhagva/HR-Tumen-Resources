@@ -2,47 +2,47 @@
   "entities": {
     "Employee": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Employee",
+      "title": "Ажилтан",
       "type": "object",
-      "description": "Represents an employee within the HR system.",
+      "description": "Хүний нөөцийн систем дэх ажилтныг илэрхийлнэ.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the employee entity."
+          "description": "Ажилтны давтагдашгүй танигч."
         },
         "firstName": {
           "type": "string",
-          "description": "The first name of the employee."
+          "description": "Ажилтны нэр."
         },
         "lastName": {
           "type": "string",
-          "description": "The last name of the employee."
+          "description": "Ажилтны овог."
         },
         "email": {
           "type": "string",
-          "description": "The email address of the employee.",
+          "description": "Ажилтны имэйл хаяг.",
           "format": "email"
         },
         "phoneNumber": {
           "type": "string",
-          "description": "The phone number of the employee."
+          "description": "Ажилтны утасны дугаар."
         },
         "jobTitle": {
           "type": "string",
-          "description": "The job title of the employee."
+          "description": "Ажилтны албан тушаал."
         },
         "department": {
           "type": "string",
-          "description": "The department the employee belongs to."
+          "description": "Ажилтны харьяалагдах хэлтэс."
         },
         "hireDate": {
           "type": "string",
-          "description": "The date the employee was hired.",
+          "description": "Ажилтныг ажилд авсан огноо.",
           "format": "date-time"
         },
         "terminationDate": {
           "type": "string",
-          "description": "The date the employee was terminated, if applicable.",
+          "description": "Ажилтныг ажлаас халсан огноо (хэрэв байгаа бол).",
           "format": "date-time"
         }
       },
@@ -58,35 +58,35 @@
     },
     "TimeOffRequest": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TimeOffRequest",
+      "title": "Чөлөөний хүсэлт",
       "type": "object",
-      "description": "Represents a time off request submitted by an employee.",
+      "description": "Ажилтны ирүүлсэн чөлөөний хүсэлтийг илэрхийлнэ.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the time off request entity."
+          "description": "Чөлөөний хүсэлтийн давтагдашгүй танигч."
         },
         "employeeId": {
           "type": "string",
-          "description": "Reference to Employee. (Relationship: Employee 1:N TimeOffRequest)"
+          "description": "Ажилтантай холбогдох танигч. (Хамаарал: Ажилтан 1:N Чөлөөний хүсэлт)"
         },
         "startDate": {
           "type": "string",
-          "description": "The start date of the time off request.",
+          "description": "Чөлөө авах эхлэх огноо.",
           "format": "date-time"
         },
         "endDate": {
           "type": "string",
-          "description": "The end date of the time off request.",
+          "description": "Чөлөө авах дуусах огноо.",
           "format": "date-time"
         },
         "reason": {
           "type": "string",
-          "description": "The reason for the time off request."
+          "description": "Чөлөө авах болсон шалтгаан."
         },
         "status": {
           "type": "string",
-          "description": "The status of the time off request (e.g., pending, approved, rejected)."
+          "description": "Чөлөөний хүсэлтийн төлөв (жишээ нь, хүлээгдэж буй, зөвшөөрсөн, татгалзсан)."
         }
       },
       "required": [
@@ -100,30 +100,30 @@
     },
     "Document": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Document",
+      "title": "Баримт бичиг",
       "type": "object",
-      "description": "Represents a HR document.",
+      "description": "Хүний нөөцийн баримт бичгийг илэрхийлнэ.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the document entity."
+          "description": "Баримт бичгийн давтагдашгүй танигч."
         },
         "title": {
           "type": "string",
-          "description": "The title of the document."
+          "description": "Баримт бичгийн гарчиг."
         },
         "description": {
           "type": "string",
-          "description": "A description of the document."
+          "description": "Баримт бичгийн тодорхойлолт."
         },
         "url": {
           "type": "string",
-          "description": "The URL or path to the document.",
+          "description": "Баримт бичгийн URL эсвэл зам.",
           "format": "uri"
         },
         "uploadDate": {
           "type": "string",
-          "description": "The date the document was uploaded.",
+          "description": "Баримт бичгийг байршуулсан огноо.",
           "format": "date-time"
         }
       },
@@ -137,30 +137,30 @@
     },
     "OnboardingTask": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "OnboardingTask",
+      "title": "Шинэ ажилтны даалгавар",
       "type": "object",
-      "description": "Represents a task in the new hire onboarding checklist.",
+      "description": "Шинэ ажилтны дадлагын шалгах хуудасны даалгаврыг илэрхийлнэ.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the onboarding task entity."
+          "description": "Дадлагын даалгаврын давтагдашгүй танигч."
         },
         "description": {
           "type": "string",
-          "description": "A description of the onboarding task."
+          "description": "Дадлагын даалгаврын тодорхойлолт."
         },
         "dueDate": {
           "type": "string",
-          "description": "The date the task is due.",
+          "description": "Даалгаврыг дуусгах хугацаа.",
           "format": "date-time"
         },
         "completed": {
           "type": "boolean",
-          "description": "Indicates whether the task has been completed."
+          "description": "Даалгавар дууссан эсэхийг заана."
         },
         "employeeId": {
           "type": "string",
-          "description": "Reference to Employee. (Relationship: Employee 1:N OnboardingTask)"
+          "description": "Ажилтантай холбогдох танигч. (Хамаарал: Ажилтан 1:N Шинэ ажилтны даалгавар)"
         }
       },
       "required": [
@@ -187,11 +187,11 @@
           "schema": {
             "$ref": "#/backend/entities/Employee"
           },
-          "description": "Stores employee profile information.",
+          "description": "Ажилтны профайлын мэдээллийг хадгална.",
           "params": [
             {
               "name": "employeeId",
-              "description": "The unique identifier of the employee."
+              "description": "Ажилтны давтагдашгүй танигч."
             }
           ]
         }
@@ -203,15 +203,15 @@
           "schema": {
             "$ref": "#/backend/entities/TimeOffRequest"
           },
-          "description": "Stores time off requests associated with an employee.",
+          "description": "Ажилтантай холбоотой чөлөөний хүсэлтийг хадгална.",
           "params": [
             {
               "name": "employeeId",
-              "description": "The unique identifier of the employee."
+              "description": "Ажилтны давтагдашгүй танигч."
             },
             {
               "name": "timeOffRequestId",
-              "description": "The unique identifier of the time off request."
+              "description": "Чөлөөний хүсэлтийн давтагдашгүй танигч."
             }
           ]
         }
@@ -223,15 +223,15 @@
           "schema": {
             "$ref": "#/backend/entities/OnboardingTask"
           },
-          "description": "Stores onboarding tasks associated with an employee.",
+          "description": "Ажилтантай холбоотой дадлагын даалгавруудыг хадгална.",
           "params": [
             {
               "name": "employeeId",
-              "description": "The unique identifier of the employee."
+              "description": "Ажилтны давтагдашгүй танигч."
             },
             {
               "name": "onboardingTaskId",
-              "description": "The unique identifier of the onboarding task."
+              "description": "Дадлагын даалгаврын давтагдашгүй танигч."
             }
           ]
         }
@@ -243,16 +243,16 @@
           "schema": {
             "$ref": "#/backend/entities/Document"
           },
-          "description": "Stores HR documents.",
+          "description": "Хүний нөөцийн баримт бичгүүдийг хадгална.",
           "params": [
             {
               "name": "documentId",
-              "description": "The unique identifier of the document."
+              "description": "Баримт бичгийн давтагдашгүй танигч."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the Teal HR application's features, focusing on employee management, time-off requests, document management, and onboarding. The structure prioritizes Authorization Independence via denormalization, enabling secure and scalable operations. Employee profiles are stored under `/employees/{employeeId}`, and related data like time-off requests and onboarding tasks are stored in subcollections, `/employees/{employeeId}/timeOffRequests/{timeOffRequestId}` and `/employees/{employeeId}/onboardingTasks/{onboardingTaskId}`, respectively. This hierarchical structure allows for easy querying of data related to a specific employee and enforces ownership-based security rules. Documents are stored in a top-level collection, `/documents/{documentId}`. This segregation ensures that document access can be managed independently. The use of path-based ownership for employee-related data (`/employees/{employeeId}/...`) simplifies security rules by associating data directly with the employee's ID. This structure is highly secure and ensures data privacy. To ensure Authorization Independence, no `get()` calls are required, because all necessary authorization checks are performed based on the path.\n\nThis structure supports the QAPs (Rules are not Filters) by segregating data based on ownership. List operations will only return items that the user has access to, because they are segregated in collections where the path dictates ownership. The membership model is not strictly applied in this case, as all employees are assumed to have access to their own data in their own path. Documents, on the other hand, are accessible if the user has the appropriate permission to read them. No global roles are applied in this structure."
+    "reasoning": "Firestore өгөгдлийн бүтцийг Teal HR програмын онцлогт тохируулан, ажилтны удирдлага, чөлөөний хүсэлт, баримт бичгийн удирдлага, шинэ ажилтны дадлага зэрэгт төвлөрүүлэн боловсруулсан. Энэхүү бүтэц нь өгөгдлийг салгах замаар зөвшөөрлийн бие даасан байдлыг хангах, аюулгүй, өргөтгөх боломжтой үйл ажиллагааг идэвхжүүлэхэд чиглэгдсэн. Ажилтны профайлыг `/employees/{employeeId}` замд хадгалах ба чөлөөний хүсэлт, дадлагын даалгавар зэрэг холбогдох өгөгдлийг `/employees/{employeeId}/timeOffRequests/{timeOffRequestId}` болон `/employees/{employeeId}/onboardingTasks/{onboardingTaskId}` гэсэн дэд цуглуулгад хадгална. Энэхүү шаталсан бүтэц нь тодорхой ажилтантай холбоотой өгөгдлийг хялбархан асуух боломжийг олгож, өмчлөлд суурилсан аюулгүй байдлын дүрмийг хэрэгжүүлдэг. Баримт бичгүүдийг `/documents/{documentId}` гэсэн дээд түвшний цуглуулгад хадгална. Ингэж тусгаарласнаар баримт бичгийн хандалтыг бие даан удирдах боломжтой болно. Ажилтантай холбоотой өгөгдлийг замд суурилсан өмчлөл (`/employees/{employeeId}/...`) ашиглах нь өгөгдлийг ажилтны ID-тай шууд холбож, аюулгүй байдлын дүрмийг хялбаршуулдаг. Энэ бүтэц нь маш аюулгүй бөгөөд өгөгдлийн нууцлалыг хангана. Зөвшөөрлийн бие даасан байдлыг хангахын тулд `get()` дуудлага шаардлагагүй, учир нь бүх шаардлагатай зөвшөөрлийн шалгалтыг замд үндэслэн гүйцэтгэнэ.\n\nЭнэхүү бүтэц нь өгөгдлийг өмчлөлөөр нь ангилснаар QAPs (Дүрэм бол шүүлтүүр биш) -ийг дэмждэг. Жагсаалтын үйлдэл нь зөвхөн хэрэглэгчийн хандах эрхтэй зүйлсийг буцаана, учир нь тэдгээр нь зам нь өмчлөлийг заадаг цуглуулгад ангилагдсан байдаг. Энэ тохиолдолд гишүүнчлэлийн загварыг хатуу мөрддөггүй, учир нь бүх ажилчид өөрсдийн зам дахь өөрсдийн өгөгдөлд хандах эрхтэй гэж үздэг. Нөгөө талаас, баримт бичгүүдийг хэрэглэгч унших зөвшөөрөлтэй бол хандах боломжтой. Энэ бүтцэд ямар ч глобал үүрэг хэрэглэгдээгүй."
   }
 }

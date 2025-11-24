@@ -1,11 +1,11 @@
 'use server';
 
 /**
- * @fileOverview Provides AI-powered suggestions for updating HR documents to ensure compliance with the latest labor laws.
+ * @fileOverview Хүний нөөцийн баримт бичгийг хамгийн сүүлийн үеийн хөдөлмөрийн хууль тогтоомжид нийцүүлэн шинэчлэхэд зориулсан хиймэл оюун ухааны зөвлөмжийг өгдөг.
  *
- * - suggestComplianceUpdates - A function that takes HR documents as input and returns compliance update suggestions.
- * - SuggestComplianceUpdatesInput - The input type for the suggestComplianceUpdates function.
- * - SuggestComplianceUpdatesOutput - The return type for the suggestComplianceUpdates function.
+ * - suggestComplianceUpdates - Хүний нөөцийн баримт бичгийг оролт болгон авч, нийцлийн шинэчлэлтийн зөвлөмжийг буцаадаг функц.
+ * - SuggestComplianceUpdatesInput - suggestComplianceUpdates функцийн оролтын төрөл.
+ * - SuggestComplianceUpdatesOutput - suggestComplianceUpdates функцийн буцаах төрөл.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,7 +14,7 @@ import {z} from 'genkit';
 const SuggestComplianceUpdatesInputSchema = z.object({
   documentText: z
     .string()
-    .describe('The text content of the HR document to be reviewed for compliance.'),
+    .describe('Нийцлийн хувьд хянагдах хүний нөөцийн баримт бичгийн текстэн агуулга.'),
 });
 export type SuggestComplianceUpdatesInput = z.infer<
   typeof SuggestComplianceUpdatesInputSchema
@@ -24,7 +24,7 @@ const SuggestComplianceUpdatesOutputSchema = z.object({
   suggestions: z
     .string()
     .describe(
-      'AI-powered suggestions for updating the HR document to ensure compliance with the latest labor laws.'
+      'Хүний нөөцийн баримт бичгийг хамгийн сүүлийн үеийн хөдөлмөрийн хууль тогтоомжид нийцүүлэхийн тулд шинэчлэх хиймэл оюун ухааны зөвлөмж.'
     ),
 });
 export type SuggestComplianceUpdatesOutput = z.infer<
@@ -41,13 +41,13 @@ const prompt = ai.definePrompt({
   name: 'suggestComplianceUpdatesPrompt',
   input: {schema: SuggestComplianceUpdatesInputSchema},
   output: {schema: SuggestComplianceUpdatesOutputSchema},
-  prompt: `You are an AI-powered legal compliance assistant for HR departments.
+  prompt: `Та бол Хүний нөөцийн хэлтэст зориулсан хиймэл оюунд суурилсан хууль зүйн зөвлөх юм.
 
-You will receive the content of an HR document, and your task is to provide specific, actionable suggestions for updates to ensure compliance with the latest labor laws and regulations.
+Та хүний нөөцийн баримт бичгийн агуулгыг хүлээн авах бөгөөд таны даалгавар бол хамгийн сүүлийн үеийн хөдөлмөрийн хууль тогтоомж, дүрэм журамд нийцүүлэхийн тулд тодорхой, хэрэгжүүлэхүйц шинэчлэлтийн зөвлөмжийг өгөх явдал юм.
 
-Document Content: {{{documentText}}}
+Баримт бичгийн агуулга: {{{documentText}}}
 
-Compliance Suggestions:`,
+Нийцлийн зөвлөмж:`,
 });
 
 const suggestComplianceUpdatesFlow = ai.defineFlow(

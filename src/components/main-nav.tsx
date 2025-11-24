@@ -20,32 +20,32 @@ import {
 const links = [
   {
     href: '/dashboard',
-    label: 'Dashboard',
+    label: 'Хяналтын самбар',
     icon: LayoutDashboard,
   },
   {
     href: '/dashboard/employees',
-    label: 'Employees',
+    label: 'Ажилчид',
     icon: Users,
   },
   {
     href: '/dashboard/time-off',
-    label: 'Time Off',
+    label: 'Чөлөө',
     icon: CalendarClock,
   },
   {
     href: '/dashboard/documents',
-    label: 'Documents',
+    label: 'Баримт бичиг',
     icon: FileText,
   },
   {
     href: '/dashboard/onboarding',
-    label: 'Onboarding',
+    label: 'Шинэ ажилтан',
     icon: ClipboardCheck,
   },
   {
     href: '/dashboard/compliance',
-    label: 'Compliance AI',
+    label: 'Хууль тогтоомж',
     icon: ShieldCheck,
   },
 ];
