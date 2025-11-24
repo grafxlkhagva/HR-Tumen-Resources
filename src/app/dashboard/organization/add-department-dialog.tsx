@@ -42,7 +42,6 @@ const departmentSchema = z.object({
   name: z.string().min(2, {
     message: 'Нэгжийн нэр дор хаяж 2 тэмдэгттэй байх ёстой.',
   }),
-  description: z.string().optional(),
   typeId: z.string().min(1, 'Төрөл сонгоно уу.'),
   parentId: z.string().optional(),
 });
@@ -69,7 +68,6 @@ export function AddDepartmentDialog({
     resolver: zodResolver(departmentSchema),
     defaultValues: {
       name: '',
-      description: '',
       typeId: '',
       parentId: '',
     },
@@ -128,19 +126,6 @@ export function AddDepartmentDialog({
                     <FormLabel>Нэгжийн нэр</FormLabel>
                     <FormControl>
                       <Input placeholder="Жишээ нь: Маркетингийн хэлтэс" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Тайлбар</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Нэмэлт тайлбар (заавал биш)" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
