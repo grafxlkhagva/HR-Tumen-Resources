@@ -90,7 +90,7 @@ export default function CompanyPage() {
     if (companyProfile) {
       form.reset(companyProfile);
     }
-  }, [companyProfile, form]);
+  }, [companyProfile, form.reset]);
   
   const onSubmit = (values: CompanyProfileFormValues) => {
     if (!companyProfileRef) return;
