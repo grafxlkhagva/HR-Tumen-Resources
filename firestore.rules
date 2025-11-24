@@ -1,13 +1,19 @@
 /**
  * WARNING: These rules are intentionally insecure for development purposes.
- * Any authenticated user can read and write to the entire database.
  * DO NOT use these rules in a production environment.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read and write access to any document for any signed-in user.
+    // Allow anyone to check if an admin exists, but only authenticated users to write.
+    match /employees/{employeeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Allow read and write access to other documents for any signed-in user.
     match /{document=**} {
+      // This rule will not apply to /employees/{employeeId} because a more specific rule exists above.
       allow read, write: if request.auth != null;
     }
   }

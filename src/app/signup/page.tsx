@@ -63,7 +63,7 @@ export default function SignupPage() {
             firstName: 'Admin',
             lastName: 'User',
             jobTitle: 'Системийн Админ',
-            department: 'Тодорхойгүй',
+            department: 'HR',
             hireDate: new Date().toISOString(),
           };
           const userDocRef = doc(firestore, 'employees', user.uid);
@@ -104,9 +104,9 @@ export default function SignupPage() {
           unsubscribe();
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error during signup check: ", err);
-      setError('Системийн дотоод алдаа гарлаа.');
+      setError(err.message || 'Системийн дотоод алдаа гарлаа.');
       setIsLoading(false);
     }
   };
