@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -20,7 +20,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  addDocumentNonBlocking,
   useCollection,
   useFirebase,
   useMemoFirebase,
@@ -28,15 +27,24 @@ import {
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddTypeDialog } from './add-type-dialog';
+import { AddDepartmentDialog } from './add-department-dialog';
 
 // Interfaces for Firestore data
 type Department = {
   id: string;
   name: string;
   description?: string;
-  type?: string;
-  headcount?: number;
+  typeId?: string;
+  parentId?: string;
+  // Locally computed properties
   children?: Department[];
+  headcount?: number;
+  typeName?: string;
+};
+
+type DepartmentType = {
+  id: string;
+  name: string;
 };
 
 type Position = {
@@ -51,17 +59,17 @@ const OrgChartNode = ({ node }: { node: Department }) => (
   <div className="relative flex flex-col items-center">
     <div className="relative w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
       <p className="font-semibold">{node.name}</p>
-      <p className="text-sm text-muted-foreground">{node.type}</p>
+      <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
       <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />
-        <span>{node.headcount}</span>
+        <span>{node.headcount || 0}</span>
       </div>
     </div>
     {node.children && node.children.length > 0 && (
       <>
         <div className="absolute top-full h-8 w-px bg-border"></div>
-        <div className="relative flex justify-center gap-8 pt-8">
-          <div className="absolute left-1/2 top-0 h-px w-full -translate-x-1/2 bg-border"></div>
+        <div className="relative mt-8 flex justify-center gap-8">
+          <div className="absolute left-1/2 top-[-1.75rem] h-px w-full -translate-x-1/2 bg-border"></div>
           {node.children.map((child) => (
             <OrgChartNode key={child.id} node={child} />
           ))}
@@ -71,69 +79,73 @@ const OrgChartNode = ({ node }: { node: Department }) => (
   </div>
 );
 
-const mockOrgData: Department = {
-  id: 'ceo',
-  name: 'НЭ',
-  type: 'Компани',
-  headcount: 0,
-  children: [
-    {
-      id: 'eng',
-      name: 'Инженерчлэлийн хэлтэс',
-      type: 'Хэлтэс',
-      headcount: 15,
-      children: [
-        {
-          id: 'fe',
-          name: 'Frontend баг',
-          type: 'Баг',
-          headcount: 7,
-          children: [],
-        },
-        {
-          id: 'be',
-          name: 'Backend баг',
-          type: 'Баг',
-          headcount: 8,
-          children: [],
-        },
-      ],
-    },
-    {
-      id: 'mkt',
-      name: 'Маркетингийн хэлтэс',
-      type: 'Хэлтэс',
-      headcount: 8,
-      children: [
-        {
-          id: 'sales',
-          name: 'Борлуулалтын алба',
-          type: 'Алба',
-          headcount: 12,
-          children: [],
-        },
-      ],
-    },
-    {
-      id: 'hr',
-      name: 'Хүний нөөцийн алба',
-      type: 'Алба',
-      headcount: 5,
-      children: [],
-    },
-  ],
-};
-
 const StructureTab = () => {
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+  const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
+  const { firestore } = useFirebase();
+
+  const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+  const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
+  const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+  
+  const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
+  const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
+  const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+
+  const { orgTree, totalHeadcount } = useMemo(() => {
+    if (!departments || !departmentTypes || !positions) {
+      return { orgTree: null, totalHeadcount: 0 };
+    }
+
+    const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
+    const positionCountByDept = positions.reduce((acc, pos) => {
+      acc[pos.departmentId] = (acc[pos.departmentId] || 0) + pos.headcount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const deptsWithData = departments.map(d => ({
+      ...d,
+      typeName: typeMap.get(d.typeId || ''),
+      headcount: positionCountByDept[d.id] || 0,
+      children: [],
+    }));
+
+    const deptMap = new Map(deptsWithData.map(d => [d.id, d]));
+    const rootNodes: Department[] = [];
+
+    deptsWithData.forEach(dept => {
+      if (dept.parentId && deptMap.has(dept.parentId)) {
+        const parent = deptMap.get(dept.parentId);
+        parent?.children?.push(dept);
+      } else {
+        rootNodes.push(dept);
+      }
+    });
+
+    const totalCount = deptsWithData.reduce((sum, dept) => sum + (dept.headcount || 0), 0);
+
+    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount };
+  }, [departments, departmentTypes, positions]);
+  
+  const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos;
+
   return (
     <>
-      <AddTypeDialog open={isAddTypeOpen} onOpenChange={setIsAddTypeOpen} />
+      <AddTypeDialog 
+        open={isAddTypeOpen} 
+        onOpenChange={setIsAddTypeOpen} 
+      />
+      <AddDepartmentDialog 
+        open={isAddDeptOpen}
+        onOpenChange={setIsAddDeptOpen}
+        departments={departments || []}
+        departmentTypes={departmentTypes || []}
+      />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Хөхэнэгэ ХХК бүтэц (55)</CardTitle>
+              <CardTitle>Байгууллагын бүтэц ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -144,7 +156,7 @@ const StructureTab = () => {
                 <Settings className="mr-2 h-4 w-4" />
                 Төрөл нэмэх
               </Button>
-              <Button variant="default" size="sm">
+              <Button variant="default" size="sm" onClick={() => setIsAddDeptOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Бүтэц нэмэх
               </Button>
@@ -152,9 +164,30 @@ const StructureTab = () => {
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-8">
-          <div className="inline-block">
-            <OrgChartNode node={mockOrgData} />
-          </div>
+            {isLoading && (
+                 <div className="flex flex-col items-center">
+                    <Skeleton className="h-24 w-56"/>
+                    <Skeleton className="h-8 w-px mt-1"/>
+                    <div className="flex gap-8 mt-8">
+                         <Skeleton className="h-24 w-56"/>
+                         <Skeleton className="h-24 w-56"/>
+                    </div>
+                </div>
+            )}
+            {!isLoading && orgTree && (
+              <div className="inline-block">
+                <OrgChartNode node={orgTree} />
+              </div>
+            )}
+            {!isLoading && !orgTree && (
+                <div className="text-center py-10">
+                    <p className="text-muted-foreground">Байгууллагын бүтэц үүсээгүй байна.</p>
+                    <Button className="mt-4" onClick={() => setIsAddDeptOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Анхны нэгжийг нэмэх
+                    </Button>
+                </div>
+            )}
         </CardContent>
       </Card>
     </>
@@ -228,7 +261,7 @@ const PositionsTab = () => {
                   </TableCell>
                 </TableRow>
               ))}
-            {positions?.map((pos) => (
+            {!isLoading && positions?.map((pos) => (
               <TableRow key={pos.id}>
                 <TableCell className="font-medium">{pos.title}</TableCell>
                 <TableCell>
@@ -239,6 +272,13 @@ const PositionsTab = () => {
                 </TableCell>
               </TableRow>
             ))}
+             {!isLoading && !positions?.length && (
+                <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center">
+                        Ажлын байрны жагсаалт хоосон байна.
+                    </TableCell>
+                </TableRow>
+             )}
           </TableBody>
         </Table>
       </CardContent>
@@ -338,5 +378,3 @@ export default function OrganizationPage() {
     </div>
   );
 }
-
-    
