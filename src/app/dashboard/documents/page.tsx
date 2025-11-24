@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { useCollection, useFirebase } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Document } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,7 +84,10 @@ function DocumentRow({ doc }: { doc: Document }) {
 
 export default function DocumentsPage() {
   const { firestore } = useFirebase();
-  const documentsQuery = collection(firestore, 'documents');
+  const documentsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'documents') : null),
+    [firestore]
+  );
   const {
     data: documents,
     isLoading,

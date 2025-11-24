@@ -27,7 +27,7 @@ import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirebase } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Employee } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -85,7 +85,10 @@ function EmployeeRow({ employee }: { employee: Employee & {name: string} }) {
 
 export default function EmployeesPage() {
   const { firestore } = useFirebase();
-  const employeesQuery = collection(firestore, 'employees');
+  const employeesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'employees') : null),
+    [firestore]
+  );
   const {
     data: employees,
     isLoading,
