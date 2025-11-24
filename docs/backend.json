@@ -1,0 +1,258 @@
+{
+  "entities": {
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee within the HR system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the employee entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the employee."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the employee."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the employee.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The phone number of the employee."
+        },
+        "jobTitle": {
+          "type": "string",
+          "description": "The job title of the employee."
+        },
+        "department": {
+          "type": "string",
+          "description": "The department the employee belongs to."
+        },
+        "hireDate": {
+          "type": "string",
+          "description": "The date the employee was hired.",
+          "format": "date-time"
+        },
+        "terminationDate": {
+          "type": "string",
+          "description": "The date the employee was terminated, if applicable.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "jobTitle",
+        "department",
+        "hireDate"
+      ]
+    },
+    "TimeOffRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TimeOffRequest",
+      "type": "object",
+      "description": "Represents a time off request submitted by an employee.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the time off request entity."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to Employee. (Relationship: Employee 1:N TimeOffRequest)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The start date of the time off request.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The end date of the time off request.",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "description": "The reason for the time off request."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the time off request (e.g., pending, approved, rejected)."
+        }
+      },
+      "required": [
+        "id",
+        "employeeId",
+        "startDate",
+        "endDate",
+        "reason",
+        "status"
+      ]
+    },
+    "Document": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Document",
+      "type": "object",
+      "description": "Represents a HR document.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the document entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the document."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the document."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL or path to the document.",
+          "format": "uri"
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "The date the document was uploaded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "url",
+        "uploadDate"
+      ]
+    },
+    "OnboardingTask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OnboardingTask",
+      "type": "object",
+      "description": "Represents a task in the new hire onboarding checklist.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the onboarding task entity."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the onboarding task."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the task is due.",
+          "format": "date-time"
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Indicates whether the task has been completed."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to Employee. (Relationship: Employee 1:N OnboardingTask)"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "dueDate",
+        "completed",
+        "employeeId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Stores employee profile information.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "The unique identifier of the employee."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/timeOffRequests/{timeOffRequestId}",
+        "definition": {
+          "entityName": "TimeOffRequest",
+          "schema": {
+            "$ref": "#/backend/entities/TimeOffRequest"
+          },
+          "description": "Stores time off requests associated with an employee.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "The unique identifier of the employee."
+            },
+            {
+              "name": "timeOffRequestId",
+              "description": "The unique identifier of the time off request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/onboardingTasks/{onboardingTaskId}",
+        "definition": {
+          "entityName": "OnboardingTask",
+          "schema": {
+            "$ref": "#/backend/entities/OnboardingTask"
+          },
+          "description": "Stores onboarding tasks associated with an employee.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "The unique identifier of the employee."
+            },
+            {
+              "name": "onboardingTaskId",
+              "description": "The unique identifier of the onboarding task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": {
+            "$ref": "#/backend/entities/Document"
+          },
+          "description": "Stores HR documents.",
+          "params": [
+            {
+              "name": "documentId",
+              "description": "The unique identifier of the document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the Teal HR application's features, focusing on employee management, time-off requests, document management, and onboarding. The structure prioritizes Authorization Independence via denormalization, enabling secure and scalable operations. Employee profiles are stored under `/employees/{employeeId}`, and related data like time-off requests and onboarding tasks are stored in subcollections, `/employees/{employeeId}/timeOffRequests/{timeOffRequestId}` and `/employees/{employeeId}/onboardingTasks/{onboardingTaskId}`, respectively. This hierarchical structure allows for easy querying of data related to a specific employee and enforces ownership-based security rules. Documents are stored in a top-level collection, `/documents/{documentId}`. This segregation ensures that document access can be managed independently. The use of path-based ownership for employee-related data (`/employees/{employeeId}/...`) simplifies security rules by associating data directly with the employee's ID. This structure is highly secure and ensures data privacy. To ensure Authorization Independence, no `get()` calls are required, because all necessary authorization checks are performed based on the path.\n\nThis structure supports the QAPs (Rules are not Filters) by segregating data based on ownership. List operations will only return items that the user has access to, because they are segregated in collections where the path dictates ownership. The membership model is not strictly applied in this case, as all employees are assumed to have access to their own data in their own path. Documents, on the other hand, are accessible if the user has the appropriate permission to read them. No global roles are applied in this structure."
+  }
+}
