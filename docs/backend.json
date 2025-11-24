@@ -358,8 +358,7 @@
         "id",
         "title",
         "departmentId",
-        "headcount",
-        "filled"
+        "headcount"
       ]
     },
     "EmploymentType": {

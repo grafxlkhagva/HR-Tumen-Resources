@@ -47,7 +47,6 @@ const positionSchema = z.object({
   statusId: z.string().min(1, 'Төлөв сонгоно уу.'),
   jobCategoryId: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
-  filled: z.coerce.number().min(0).optional(),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -107,7 +106,6 @@ export function AddPositionDialog({
       employmentTypeId: '',
       statusId: '',
       headcount: 1,
-      filled: 0,
       jobCategoryId: '',
     },
   });
@@ -117,7 +115,6 @@ export function AddPositionDialog({
       form.reset({
         ...editingPosition,
         headcount: editingPosition.headcount || 1,
-        filled: editingPosition.filled || 0,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         statusId: editingPosition.statusId || '',
@@ -132,7 +129,6 @@ export function AddPositionDialog({
         statusId: '',
         jobCategoryId: '',
         headcount: 1,
-        filled: 0,
       });
     }
   }, [editingPosition, open, form]);
@@ -147,9 +143,12 @@ export function AddPositionDialog({
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
 
-    const finalData = {
-        ...data,
-        filled: data.filled || 0,
+    const finalData = isEditMode && editingPosition ? {
+      ...data,
+      filled: editingPosition.filled || 0, // Keep existing filled count on edit
+    } : {
+      ...data,
+      filled: 0, // Default to 0 for new positions
     };
     
     if (isEditMode && editingPosition) {
@@ -316,19 +315,6 @@ export function AddPositionDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Нийт орон тоо</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="filled"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ажиллаж буй</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
