@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +26,9 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    // Convert employeeId to a dummy email for Firebase Auth
+    const email = `${employeeId}@example.com`;
 
     initiateEmailSignIn(auth, email, password);
 
@@ -38,26 +41,24 @@ export default function LoginPage() {
         router.push('/dashboard');
         unsubscribe();
       } else {
-        // This might be called immediately if the user is not logged in yet.
-        // We set a timeout to only show the error if the login is not successful within a few seconds.
         setTimeout(() => {
           if (!auth.currentUser) {
-            setError('Имэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.');
+            setError('Ажилтны код эсвэл нууц үг буруу байна.');
              toast({
                 variant: 'destructive',
                 title: 'Алдаа гарлаа',
-                description: 'Имэйл эсвэл нууц үг буруу байна.',
+                description: 'Ажилтны код эсвэл нууц үг буруу байна.',
               });
             setIsLoading(false);
           }
         }, 2000);
       }
     }, (error) => {
-        setError('Имэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.');
+        setError('Ажилтны код эсвэл нууц үг буруу байна.');
         toast({
             variant: 'destructive',
             title: 'Алдаа гарлаа',
-            description: error.message || 'Имэйл эсвэл нууц үг буруу байна.',
+            description: error.message || 'Ажилтны код эсвэл нууц үг буруу байна.',
         });
         console.error(error);
         setIsLoading(false);
@@ -74,20 +75,20 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl">Teal HR-т нэвтрэх</CardTitle>
           <CardDescription>
-            Өөрийн бүртгэлээр нэвтэрч орно уу
+            Ажилтны кодоо ашиглан нэвтэрнэ үү
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Имэйл</Label>
+              <Label htmlFor="employeeId">Ажилтны код</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
+                id="employeeId"
+                type="text"
+                placeholder="Таны ажилтны код"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
                 disabled={isLoading}
               />
             </div>
@@ -116,12 +117,6 @@ export default function LoginPage() {
               Нэвтрэх
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Бүртгэл байхгүй юу?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Бүртгүүлэх
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
