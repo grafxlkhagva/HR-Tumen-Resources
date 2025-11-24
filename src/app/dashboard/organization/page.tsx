@@ -63,7 +63,9 @@ type Position = {
 
 const OrgChartNode = ({ node }: { node: Department }) => (
   <li className="relative flex flex-col items-center">
-    {/* The card for the current node */}
+     {/* Vertical line connecting to parent */}
+    <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+
     <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
       <p className="font-semibold">{node.name}</p>
       <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
@@ -73,15 +75,11 @@ const OrgChartNode = ({ node }: { node: Department }) => (
       </div>
     </div>
     
-    {/* Render children if they exist */}
     {node.children && node.children.length > 0 && (
-      <ul className="mt-12 flex justify-center gap-8">
-        {/* Vertical line from parent to the horizontal connector */}
-        <div className="absolute top-full h-12 w-px bg-border"></div>
-        {/* Horizontal line connecting all children */}
-        {node.children.length > 1 && (
-            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-y-[2.25rem] bg-border"></div>
-        )}
+       <ul className="relative mt-8 flex justify-center gap-8">
+        {/* Horizontal line connecting children */}
+        <div className="absolute top-0 left-0 right-0 h-px -translate-y-8 bg-border"></div>
+
         {node.children.map((child) => (
           <OrgChartNode key={child.id} node={child} />
         ))}
@@ -89,6 +87,28 @@ const OrgChartNode = ({ node }: { node: Department }) => (
     )}
   </li>
 );
+
+const RootOrgChartNode = ({ node }: { node: Department }) => (
+    <li className="relative flex flex-col items-center">
+      <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
+        <p className="font-semibold">{node.name}</p>
+        <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
+        <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Users className="h-4 w-4" />
+          <span>{node.headcount || 0}</span>
+        </div>
+      </div>
+      {node.children && node.children.length > 0 && (
+        <ul className="relative mt-8 flex justify-center gap-8">
+           {/* Horizontal line connecting children */}
+          <div className="absolute top-0 left-0 right-0 h-px -translate-y-8 bg-border"></div>
+          {node.children.map((child) => (
+            <OrgChartNode key={child.id} node={child} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
 
 
 const StructureTab = () => {
@@ -108,7 +128,7 @@ const StructureTab = () => {
 
   const { orgTree, totalHeadcount, deptsWithData } = useMemo(() => {
     if (!departments || !departmentTypes || !positions) {
-      return { orgTree: null, totalHeadcount: 0, deptsWithData: [] };
+      return { orgTree: [], totalHeadcount: 0, deptsWithData: [] };
     }
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
@@ -139,7 +159,7 @@ const StructureTab = () => {
 
     const totalCount = Array.from(positionCountByDept.values()).reduce((sum, count) => sum + count, 0);
 
-    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount, deptsWithData: deptsWithData };
+    return { orgTree: rootNodes, totalHeadcount: totalCount, deptsWithData: deptsWithData };
   }, [departments, departmentTypes, positions]);
   
   const departmentNameMap = useMemo(() => {
@@ -161,6 +181,9 @@ const StructureTab = () => {
   
   const handleDeleteDepartment = (deptId: string) => {
     if (!firestore) return;
+    // You might want to add a confirmation dialog here
+    // Also, need to handle what happens to children departments.
+    // For now, we'll just delete the department.
     const docRef = doc(firestore, 'departments', deptId);
     deleteDocumentNonBlocking(docRef);
   }
@@ -212,12 +235,12 @@ const StructureTab = () => {
                     </div>
                 </div>
             )}
-            {!isLoading && orgTree && (
-              <ul className="inline-block">
-                <OrgChartNode node={orgTree} />
-              </ul>
+            {!isLoading && orgTree.length > 0 && (
+                <ul className="flex justify-center">
+                  {orgTree.map(rootNode => <RootOrgChartNode key={rootNode.id} node={rootNode} />)}
+                </ul>
             )}
-            {!isLoading && !orgTree && (
+            {!isLoading && orgTree.length === 0 && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">Байгууллагын бүтэц үүсээгүй байна.</p>
                     <Button className="mt-4" onClick={handleOpenAddDialog}>
