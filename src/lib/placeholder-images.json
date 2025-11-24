@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "avatar-1",
+      "description": "Smiling woman with blonde hair",
+      "imageUrl": "https://images.unsplash.com/photo-1604072366595-e75dc92d6bdc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d29tYW4lMjBmYWNlfGVufDB8fHx8MTc2Mzk3NjU2M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman face"
+    },
+    {
+      "id": "avatar-2",
+      "description": "Man with glasses and a beard",
+      "imageUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxtYW4lMjBmYWNlfGVufDB8fHx8MTc2Mzg5NDM2MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man face"
+    },
+    {
+      "id": "avatar-3",
+      "description": "Woman with dark hair in a ponytail",
+      "imageUrl": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2Mzk1OTYyM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "avatar-4",
+      "description": "Man in a suit smiling",
+      "imageUrl": "https://images.unsplash.com/photo-1749664511269-0aa31a10c6dc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxtYW4lMjBwcm9mZXNzaW9uYWx8ZW58MHx8fHwxNzYzOTIyOTg4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man professional"
+    },
+    {
+      "id": "avatar-5",
+      "description": "Woman with curly red hair",
+      "imageUrl": "https://images.unsplash.com/photo-1599147651494-4626677c0fd5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx3b21hbiUyMGN1cmx5JTIwaGFpcnxlbnwwfHx8fDE3NjM5NjM4NDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman curly hair"
+    },
+    {
+      "id": "avatar-6",
+      "description": "Man with a friendly expression",
+      "imageUrl": "https://images.unsplash.com/photo-1623184663110-89ba5b565eb6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtYW4lMjBzbWlsaW5nfGVufDB8fHx8MTc2Mzk3MjcxMXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man smiling"
+    },
+    {
+      "id": "avatar-7",
+      "description": "Professional woman with glasses",
+      "imageUrl": "https://images.unsplash.com/photo-1557080883-d9ce025fa255?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx3b21hbiUyMGdsYXNzZXN8ZW58MHx8fHwxNzYzODk3MTYwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman glasses"
+    },
+    {
+      "id": "avatar-8",
+      "description": "Young man with short brown hair",
+      "imageUrl": "https://images.unsplash.com/photo-1604494747044-2e080876c5f1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtYW4lMjB5b3VuZ3xlbnwwfHx8fDE3NjM5ODM2MDN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man young"
+    }
+  ]
 }
