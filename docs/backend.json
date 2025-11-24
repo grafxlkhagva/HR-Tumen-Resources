@@ -350,6 +350,11 @@
         "filled": {
           "type": "number",
           "description": "Одоо ажиллаж буй ажилтны тоо."
+        },
+        "status": {
+          "type": "string",
+          "description": "Ажлын байрны төлөв.",
+          "enum": ["Нээлттэй", "Хаалттай", "Хүлээгдэж буй"]
         }
       },
       "required": [

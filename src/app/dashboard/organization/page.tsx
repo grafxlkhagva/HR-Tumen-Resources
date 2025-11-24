@@ -65,6 +65,7 @@ type Position = {
   level?: 'Executive' | 'Manager' | 'Senior' | 'Mid-level' | 'Junior' | 'Intern';
   employmentType?: 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
   jobCategoryCode?: string;
+  status?: 'Нээлттэй' | 'Хаалттай' | 'Хүлээгдэж буй';
 };
 
 const OrgChartNode = ({ node }: { node: Department }) => (
@@ -354,6 +355,18 @@ const levelBadges: Record<string, string> = {
     'Mid-level': 'Дунд',
     'Junior': 'Дэвжих',
     'Intern': 'Дадлагажигч',
+};
+
+const statusBadges: Record<string, 'default' | 'secondary' | 'destructive'> = {
+    'Нээлттэй': 'default',
+    'Хаалттай': 'secondary',
+    'Хүлээгдэж буй': 'destructive',
+};
+
+const statusBadgeLabels: Record<string, string> = {
+    'Нээлттэй': 'Нээлттэй',
+    'Хаалттай': 'Хаалттай',
+    'Хүлээгдэж буй': 'Хүлээгдэж буй',
 }
 
 
@@ -425,6 +438,7 @@ const PositionsTab = () => {
                 <TableHead>Хэлтэс</TableHead>
                 <TableHead>Зэрэглэл</TableHead>
                 <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
+                <TableHead>Төлөв</TableHead>
                 <TableHead className="text-right">Орон тоо</TableHead>
                 <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
                 </TableRow>
@@ -445,6 +459,9 @@ const PositionsTab = () => {
                     <TableCell>
                         <Skeleton className="h-5 w-24" />
                     </TableCell>
+                    <TableCell>
+                        <Skeleton className="h-6 w-20" />
+                    </TableCell>
                     <TableCell className="text-right">
                         <Skeleton className="ml-auto h-5 w-16" />
                     </TableCell>
@@ -464,6 +481,9 @@ const PositionsTab = () => {
                     </TableCell>
                     <TableCell>
                         {pos.employmentType ? <Badge variant="outline">{employmentTypeBadges[pos.employmentType] || pos.employmentType}</Badge> : '-'}
+                    </TableCell>
+                    <TableCell>
+                        {pos.status ? <Badge variant={statusBadges[pos.status] || 'secondary'}>{statusBadgeLabels[pos.status] || pos.status}</Badge> : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                     {pos.filled} / {pos.headcount}
@@ -489,14 +509,14 @@ const PositionsTab = () => {
                 ))}
                 {!isLoading && !positions?.length && (
                     <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                             Ажлын байрны жагсаалт хоосон байна.
                         </TableCell>
                     </TableRow>
                 )}
                  {(errorPos || errorDepts) && (
                     <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center text-destructive">
+                        <TableCell colSpan={7} className="h-24 text-center text-destructive">
                             Мэдээлэл ачаалахад алдаа гарлаа.
                         </TableCell>
                     </TableRow>
@@ -601,3 +621,4 @@ export default function OrganizationPage() {
     </div>
   );
 }
+

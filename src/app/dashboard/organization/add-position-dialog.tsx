@@ -47,6 +47,7 @@ const positionSchema = z.object({
   jobCategoryCode: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
   filled: z.coerce.number().min(0).optional(),
+  status: z.enum(['Нээлттэй', 'Хаалттай', 'Хүлээгдэж буй']).default('Нээлттэй'),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -60,6 +61,7 @@ interface Position {
   level?: 'Executive' | 'Manager' | 'Senior' | 'Mid-level' | 'Junior' | 'Intern';
   employmentType?: 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
   jobCategoryCode?: string;
+  status?: 'Нээлттэй' | 'Хаалттай' | 'Хүлээгдэж буй';
 }
 
 interface AddPositionDialogProps {
@@ -87,6 +89,7 @@ export function AddPositionDialog({
       headcount: 1,
       filled: 0,
       jobCategoryCode: '',
+      status: 'Нээлттэй',
     },
   });
 
@@ -96,6 +99,7 @@ export function AddPositionDialog({
         ...editingPosition,
         headcount: editingPosition.headcount || 1,
         filled: editingPosition.filled || 0,
+        status: editingPosition.status || 'Нээлттэй',
       });
     } else {
       form.reset({
@@ -106,6 +110,7 @@ export function AddPositionDialog({
         jobCategoryCode: '',
         headcount: 1,
         filled: 0,
+        status: 'Нээлттэй',
       });
     }
   }, [editingPosition, open, form]);
@@ -250,6 +255,28 @@ export function AddPositionDialog({
               />
               <FormField
                 control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Төлөв</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Төлөв сонгох" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Нээлттэй">Нээлттэй</SelectItem>
+                        <SelectItem value="Хаалттай">Хаалттай</SelectItem>
+                        <SelectItem value="Хүлээгдэж буй">Хүлээгдэж буй</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="headcount"
                 render={({ field }) => (
                   <FormItem>
@@ -290,3 +317,4 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
+
