@@ -24,6 +24,11 @@ const links = [
     icon: LayoutDashboard,
   },
   {
+    href: '/dashboard/company',
+    label: 'Компанийн мэдээлэл',
+    icon: Building2,
+  },
+  {
     href: '/dashboard/employees',
     label: 'Ажилчид',
     icon: Users,
@@ -42,11 +47,6 @@ const links = [
     href: '/dashboard/compliance',
     label: 'Хууль тогтоомж',
     icon: ShieldCheck,
-  },
-  {
-    href: '/dashboard/company',
-    label: 'Компанийн мэдээлэл',
-    icon: Building2,
   },
 ];
 
