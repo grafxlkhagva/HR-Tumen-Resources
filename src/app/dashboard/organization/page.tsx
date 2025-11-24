@@ -23,8 +23,9 @@ import {
   useCollection,
   useFirebase,
   useMemoFirebase,
+  deleteDocumentNonBlocking
 } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddTypeDialog } from './add-type-dialog';
 import { AddDepartmentDialog } from './add-department-dialog';
@@ -61,8 +62,9 @@ type Position = {
 };
 
 const OrgChartNode = ({ node }: { node: Department }) => (
-  <div className="relative flex flex-col items-center">
-    <div className="relative w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
+  <li className="relative flex flex-col items-center">
+    {/* The card for the current node */}
+    <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
       <p className="font-semibold">{node.name}</p>
       <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
       <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -70,19 +72,24 @@ const OrgChartNode = ({ node }: { node: Department }) => (
         <span>{node.headcount || 0}</span>
       </div>
     </div>
+    
+    {/* Render children if they exist */}
     {node.children && node.children.length > 0 && (
-      <>
-        <div className="absolute top-full h-8 w-px bg-border"></div>
-        <div className="relative mt-8 flex justify-center gap-8">
-          <div className="absolute left-1/2 top-[-1.75rem] h-px w-full -translate-x-1/2 bg-border"></div>
-          {node.children.map((child) => (
-            <OrgChartNode key={child.id} node={child} />
-          ))}
-        </div>
-      </>
+      <ul className="mt-12 flex justify-center gap-8">
+        {/* Vertical line from parent to the horizontal connector */}
+        <div className="absolute top-full h-12 w-px bg-border"></div>
+        {/* Horizontal line connecting all children */}
+        {node.children.length > 1 && (
+            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-y-[2.25rem] bg-border"></div>
+        )}
+        {node.children.map((child) => (
+          <OrgChartNode key={child.id} node={child} />
+        ))}
+      </ul>
     )}
-  </div>
+  </li>
 );
+
 
 const StructureTab = () => {
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
@@ -111,7 +118,7 @@ const StructureTab = () => {
       return acc;
     }, new Map<string, number>());
 
-    const deptsWithData = departments.map(d => ({
+    const deptsWithData: Department[] = departments.map(d => ({
       ...d,
       typeName: typeMap.get(d.typeId || ''),
       headcount: positionCountByDept.get(d.id) || 0,
@@ -132,7 +139,7 @@ const StructureTab = () => {
 
     const totalCount = Array.from(positionCountByDept.values()).reduce((sum, count) => sum + count, 0);
 
-    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount, deptsWithData };
+    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount, deptsWithData: deptsWithData };
   }, [departments, departmentTypes, positions]);
   
   const departmentNameMap = useMemo(() => {
@@ -151,6 +158,13 @@ const StructureTab = () => {
     setEditingDepartment(dept);
     setIsDeptDialogOpen(true);
   }
+  
+  const handleDeleteDepartment = (deptId: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'departments', deptId);
+    deleteDocumentNonBlocking(docRef);
+  }
+
 
   return (
     <div className="space-y-8">
@@ -199,9 +213,9 @@ const StructureTab = () => {
                 </div>
             )}
             {!isLoading && orgTree && (
-              <div className="inline-block">
+              <ul className="inline-block">
                 <OrgChartNode node={orgTree} />
-              </div>
+              </ul>
             )}
             {!isLoading && !orgTree && (
                 <div className="text-center py-10">
@@ -259,7 +273,7 @@ const StructureTab = () => {
                                             <Pencil className="mr-2 h-4 w-4" />
                                             Засах
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-destructive">
+                                        <DropdownMenuItem onClick={() => handleDeleteDepartment(dept.id)} className="text-destructive">
                                             <Trash2 className="mr-2 h-4 w-4" />
                                             Устгах
                                         </DropdownMenuItem>
