@@ -45,7 +45,7 @@ const positionSchema = z.object({
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
   statusId: z.string().min(1, 'Төлөв сонгоно уу.'),
-  jobCategoryCode: z.string().optional(),
+  jobCategoryId: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
   filled: z.coerce.number().min(0).optional(),
 });
@@ -57,6 +57,10 @@ interface Reference {
     name: string;
 }
 
+interface JobCategoryReference extends Reference {
+    code: string;
+}
+
 interface Position {
   id: string;
   title: string;
@@ -65,7 +69,7 @@ interface Position {
   filled: number;
   levelId?: string;
   employmentTypeId?: string;
-  jobCategoryCode?: string;
+  jobCategoryId?: string;
   statusId?: string;
 }
 
@@ -76,6 +80,7 @@ interface AddPositionDialogProps {
   positionLevels: Reference[];
   employmentTypes: Reference[];
   positionStatuses: Reference[];
+  jobCategories: JobCategoryReference[];
   editingPosition?: Position | null;
 }
 
@@ -86,6 +91,7 @@ export function AddPositionDialog({
   positionLevels,
   employmentTypes,
   positionStatuses,
+  jobCategories,
   editingPosition,
 }: AddPositionDialogProps) {
   const { firestore } = useFirebase();
@@ -102,7 +108,7 @@ export function AddPositionDialog({
       statusId: '',
       headcount: 1,
       filled: 0,
-      jobCategoryCode: '',
+      jobCategoryId: '',
     },
   });
 
@@ -115,6 +121,7 @@ export function AddPositionDialog({
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         statusId: editingPosition.statusId || '',
+        jobCategoryId: editingPosition.jobCategoryId || '',
       });
     } else {
       form.reset({
@@ -123,7 +130,7 @@ export function AddPositionDialog({
         levelId: '',
         employmentTypeId: '',
         statusId: '',
-        jobCategoryCode: '',
+        jobCategoryId: '',
         headcount: 1,
         filled: 0,
       });
@@ -257,13 +264,24 @@ export function AddPositionDialog({
               />
                <FormField
                 control={form.control}
-                name="jobCategoryCode"
+                name="jobCategoryId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Ажил мэргэжлийн ангилал</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ҮАМАТ код (жишээ нь: 2512)" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="ҮАМАТ сонгох" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                         {jobCategories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                                {cat.code} - {cat.name}
+                            </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

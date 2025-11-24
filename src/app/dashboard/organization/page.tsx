@@ -64,7 +64,7 @@ type Position = {
   filled: number;
   levelId?: string;
   employmentTypeId?: string;
-  jobCategoryCode?: string;
+  jobCategoryId?: string;
   statusId?: string;
 };
 
@@ -82,6 +82,12 @@ type PositionStatus = {
   id: string;
   name: string;
 };
+
+type JobCategory = {
+  id: string;
+  name: string;
+  code: string;
+}
 
 
 const OrgChartNode = ({ node }: { node: Department }) => (
@@ -365,23 +371,26 @@ const PositionsTab = () => {
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const statusesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionStatuses') : null), [firestore]);
+    const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<PositionLevel>(levelsQuery);
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(statusesQuery);
+    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
 
 
-    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses;
+    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses || isLoadingJobCategories;
 
     const lookups = React.useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
         const levelMap = positionLevels?.reduce((acc, level) => { acc[level.id] = level.name; return acc; }, {} as Record<string, string>) || {};
         const empTypeMap = employmentTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
         const statusMap = positionStatuses?.reduce((acc, status) => { acc[status.id] = status.name; return acc; }, {} as Record<string, string>) || {};
-        return { departmentMap, levelMap, empTypeMap, statusMap };
-    }, [departments, positionLevels, employmentTypes, positionStatuses]);
+        const jobCategoryMap = jobCategories?.reduce((acc, cat) => { acc[cat.id] = `${cat.code} - ${cat.name}`; return acc; }, {} as Record<string, string>) || {};
+        return { departmentMap, levelMap, empTypeMap, statusMap, jobCategoryMap };
+    }, [departments, positionLevels, employmentTypes, positionStatuses, jobCategories]);
     
     const handleOpenAddDialog = () => {
         setEditingPosition(null);
@@ -409,6 +418,7 @@ const PositionsTab = () => {
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
             positionStatuses={positionStatuses || []}
+            jobCategories={jobCategories || []}
             editingPosition={editingPosition}
         />
         <Card>

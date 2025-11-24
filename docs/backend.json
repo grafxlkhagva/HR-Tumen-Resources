@@ -337,9 +337,9 @@
           "type": "string",
           "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)"
         },
-        "jobCategoryCode": {
+        "jobCategoryId": {
           "type": "string",
-          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) код."
+          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)"
         },
         "headcount": {
           "type": "number",
