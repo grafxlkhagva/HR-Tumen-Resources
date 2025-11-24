@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2 } from 'lucide-react';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 
@@ -31,6 +31,9 @@ const companyProfileSchema = z.object({
     description: z.string(),
     icon: z.string(),
   })).optional(),
+  phoneNumber: z.string().optional(),
+  contactEmail: z.string().email().optional().or(z.literal('')),
+  address: z.string().optional(),
 });
 
 type CompanyProfileValues = z.infer<typeof companyProfileSchema>;
@@ -40,12 +43,14 @@ const InfoRow = ({
   icon: Icon,
   label,
   value,
+  className,
 }: {
   icon: React.ElementType;
   label: string;
   value?: string | null;
+  className?: string;
 }) => (
-  <div className="flex items-start gap-4">
+  <div className={`flex items-start gap-4 ${className}`}>
     <Icon className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
     <div>
       <p className="text-sm text-muted-foreground">{label}</p>
@@ -102,6 +107,35 @@ function PageSkeleton() {
                             <Skeleton className="h-32 w-full rounded-lg" />
                             <Skeleton className="h-32 w-full rounded-lg" />
                          </div>
+                    </div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <Skeleton className="h-8 w-56" />
+                    <Skeleton className="h-9 w-28" />
+                </CardHeader>
+                 <CardContent className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
+                    <div className="flex items-start gap-4">
+                        <Skeleton className="h-5 w-5 rounded-sm" />
+                        <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-5 w-36" />
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-4">
+                        <Skeleton className="h-5 w-5 rounded-sm" />
+                        <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-5 w-36" />
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-4 md:col-span-2">
+                        <Skeleton className="h-5 w-5 rounded-sm" />
+                        <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-5 w-36" />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -179,6 +213,26 @@ const MissionVisionCard = ({ profile }: { profile: CompanyProfileValues }) => {
     );
 };
 
+const ContactInfoCard = ({ profile }: { profile: CompanyProfileValues }) => {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Холбоо барих мэдээлэл</CardTitle>
+                <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/company/edit">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Засварлах
+                </Link>
+                </Button>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-y-6 gap-x-8 md:grid-cols-2">
+                <InfoRow icon={Phone} label="Утасны дугаар" value={profile.phoneNumber} />
+                <InfoRow icon={Mail} label="Ерөнхий и-мэйл" value={profile.contactEmail} />
+                <InfoRow icon={MapPin} label="Хаяг" value={profile.address} className="md:col-span-2" />
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function CompanyPage() {
   const { firestore } = useFirebase();
@@ -213,9 +267,11 @@ export default function CompanyPage() {
   }
   
   const hasGeneralInfo = companyProfile && (companyProfile.name || companyProfile.legalName || companyProfile.ceo);
-  const hasMissionInfo = companyProfile && (companyProfile.mission || companyProfile.vision || companyProfile.values);
+  const hasMissionInfo = companyProfile && (companyProfile.mission || companyProfile.vision || (companyProfile.values && companyProfile.values.length > 0));
+  const hasContactInfo = companyProfile && (companyProfile.phoneNumber || companyProfile.contactEmail || companyProfile.address);
 
-  if (!companyProfile || (!hasGeneralInfo && !hasMissionInfo)) {
+
+  if (!companyProfile || (!hasGeneralInfo && !hasMissionInfo && !hasContactInfo)) {
       return (
            <div className="py-8 text-center">
               <Card>
@@ -261,6 +317,10 @@ export default function CompanyPage() {
         </Card>
 
         <MissionVisionCard profile={companyProfile} />
+        
+        <ContactInfoCard profile={companyProfile} />
     </div>
   );
 }
+
+    

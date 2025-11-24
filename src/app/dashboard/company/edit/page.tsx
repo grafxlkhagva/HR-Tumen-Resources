@@ -50,6 +50,9 @@ const companyProfileSchema = z.object({
   mission: z.string().optional(),
   vision: z.string().optional(),
   values: z.array(valueSchema).optional(),
+  phoneNumber: z.string().optional(),
+  contactEmail: z.string().email({ message: 'Имэйл хаяг буруу байна.' }).optional().or(z.literal('')),
+  address: z.string().optional(),
 });
 
 type CompanyProfileFormValues = z.infer<typeof companyProfileSchema>;
@@ -91,6 +94,25 @@ function FormSkeleton() {
                     </div>
                 </CardContent>
             </Card>
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-56" />
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-2 md:col-span-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
              <div className="flex gap-2">
                 <Skeleton className="h-10 w-28" />
                 <Skeleton className="h-10 w-24" />
@@ -125,6 +147,9 @@ export default function EditCompanyPage() {
         mission: '',
         vision: '',
         values: [],
+        phoneNumber: '',
+        contactEmail: '',
+        address: '',
     },
   });
 
@@ -308,13 +333,13 @@ export default function EditCompanyPage() {
                       <FormLabel>Үнэт зүйлс</FormLabel>
                       <div className="mt-2 space-y-4">
                         {fields.map((field, index) => (
-                          <div key={field.id} className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto]">
+                          <div key={field.id} className="grid grid-cols-1 gap-4 items-end md:grid-cols-[1fr_1fr_1fr_auto]">
                             <FormField
                               control={form.control}
                               name={`values.${index}.title`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Гарчиг</FormLabel>
+                                  <FormLabel className="text-xs">Гарчиг</FormLabel>
                                   <FormControl>
                                     <Input placeholder="Жишээ нь: Хариуцлага" {...field} />
                                   </FormControl>
@@ -327,7 +352,7 @@ export default function EditCompanyPage() {
                               name={`values.${index}.description`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Тайлбар</FormLabel>
+                                  <FormLabel className="text-xs">Тайлбар</FormLabel>
                                   <FormControl>
                                     <Input placeholder="Богино тайлбар..." {...field} />
                                   </FormControl>
@@ -340,7 +365,7 @@ export default function EditCompanyPage() {
                               name={`values.${index}.icon`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Дүрс</FormLabel>
+                                  <FormLabel className="text-xs">Дүрс</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
                                       <SelectTrigger>
@@ -358,26 +383,26 @@ export default function EditCompanyPage() {
                                 </FormItem>
                               )}
                             />
-                             <div className="col-span-1 md:col-span-3 flex justify-between items-end">
+                             
                                 <Button
                                     type="button"
                                     variant="destructive"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => remove(index)}
-                                    className="mt-2"
                                 >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
                                 </Button>
-                             </div>
-                             {index < fields.length - 1 && <Separator className="my-4 col-span-1 md:col-span-3"/>}
+                             
+                             {index < fields.length - 1 && <Separator className="my-4 col-span-1 md:col-span-4"/>}
                           </div>
                         ))}
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="mt-2"
-                          onClick={() => append({ title: '', description: '', icon: '' })}
+                          className="mt-4"
+                          onClick={() => append({ title: '', description: '', icon: 'default' })}
                         >
                           <PlusCircle className="mr-2 h-4 w-4" />
                           Үнэт зүйл нэмэх
@@ -385,6 +410,53 @@ export default function EditCompanyPage() {
                       </div>
                     </div>
                 </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Холбоо барих мэдээлэл засах</CardTitle>
+                </CardHeader>
+                 <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                     <FormField
+                        control={form.control}
+                        name="phoneNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Утасны дугаар</FormLabel>
+                            <FormControl>
+                            <Input placeholder="+976 7700 8800" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="contactEmail"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Ерөнхий имэйл</FormLabel>
+                            <FormControl>
+                            <Input placeholder="contact@hrzen.mn" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel>Хаяг</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Улаанбаатар, Сүхбаатар дүүрэг, 1-р хороо, ABC гудамж, 123" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                 </CardContent>
             </Card>
             
             <div className="flex items-center gap-2">
@@ -406,3 +478,5 @@ export default function EditCompanyPage() {
     </div>
   );
 }
+
+    
