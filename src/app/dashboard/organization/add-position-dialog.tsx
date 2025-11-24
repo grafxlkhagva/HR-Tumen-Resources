@@ -42,15 +42,20 @@ import { Loader2 } from 'lucide-react';
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
-  level: z.enum(['Executive', 'Manager', 'Senior', 'Mid-level', 'Junior', 'Intern']),
-  employmentType: z.enum(['Full-time', 'Part-time', 'Contract', 'Internship']),
+  levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
+  employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
+  statusId: z.string().min(1, 'Төлөв сонгоно уу.'),
   jobCategoryCode: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
   filled: z.coerce.number().min(0).optional(),
-  status: z.enum(['Нээлттэй', 'Хаалттай', 'Хүлээгдэж буй']).default('Нээлттэй'),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
+
+interface Reference {
+    id: string;
+    name: string;
+}
 
 interface Position {
   id: string;
@@ -58,16 +63,19 @@ interface Position {
   departmentId: string;
   headcount: number;
   filled: number;
-  level?: 'Executive' | 'Manager' | 'Senior' | 'Mid-level' | 'Junior' | 'Intern';
-  employmentType?: 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
+  levelId?: string;
+  employmentTypeId?: string;
   jobCategoryCode?: string;
-  status?: 'Нээлттэй' | 'Хаалттай' | 'Хүлээгдэж буй';
+  statusId?: string;
 }
 
 interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  departments: { id: string; name: string }[];
+  departments: Reference[];
+  positionLevels: Reference[];
+  employmentTypes: Reference[];
+  positionStatuses: Reference[];
   editingPosition?: Position | null;
 }
 
@@ -75,6 +83,9 @@ export function AddPositionDialog({
   open,
   onOpenChange,
   departments,
+  positionLevels,
+  employmentTypes,
+  positionStatuses,
   editingPosition,
 }: AddPositionDialogProps) {
   const { firestore } = useFirebase();
@@ -86,10 +97,12 @@ export function AddPositionDialog({
     defaultValues: {
       title: '',
       departmentId: '',
+      levelId: '',
+      employmentTypeId: '',
+      statusId: '',
       headcount: 1,
       filled: 0,
       jobCategoryCode: '',
-      status: 'Нээлттэй',
     },
   });
 
@@ -99,18 +112,20 @@ export function AddPositionDialog({
         ...editingPosition,
         headcount: editingPosition.headcount || 1,
         filled: editingPosition.filled || 0,
-        status: editingPosition.status || 'Нээлттэй',
+        levelId: editingPosition.levelId || '',
+        employmentTypeId: editingPosition.employmentTypeId || '',
+        statusId: editingPosition.statusId || '',
       });
     } else {
       form.reset({
         title: '',
         departmentId: '',
-        level: 'Junior',
-        employmentType: 'Full-time',
+        levelId: '',
+        employmentTypeId: '',
+        statusId: '',
         jobCategoryCode: '',
         headcount: 1,
         filled: 0,
-        status: 'Нээлттэй',
       });
     }
   }, [editingPosition, open, form]);
@@ -194,7 +209,7 @@ export function AddPositionDialog({
               />
               <FormField
                 control={form.control}
-                name="level"
+                name="levelId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
@@ -205,12 +220,11 @@ export function AddPositionDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Executive">Удирдах</SelectItem>
-                        <SelectItem value="Manager">Менежер</SelectItem>
-                        <SelectItem value="Senior">Ахлах</SelectItem>
-                        <SelectItem value="Mid-level">Дунд</SelectItem>
-                        <SelectItem value="Junior">Дэвжих</SelectItem>
-                        <SelectItem value="Intern">Дадлагажигч</SelectItem>
+                        {positionLevels.map((level) => (
+                            <SelectItem key={level.id} value={level.id}>
+                                {level.name}
+                            </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -219,7 +233,7 @@ export function AddPositionDialog({
               />
               <FormField
                 control={form.control}
-                name="employmentType"
+                name="employmentTypeId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
@@ -230,10 +244,11 @@ export function AddPositionDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Full-time">Үндсэн</SelectItem>
-                        <SelectItem value="Part-time">Цагийн</SelectItem>
-                        <SelectItem value="Contract">Гэрээт</SelectItem>
-                        <SelectItem value="Internship">Дадлага</SelectItem>
+                         {employmentTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                                {type.name}
+                            </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -255,7 +270,7 @@ export function AddPositionDialog({
               />
               <FormField
                 control={form.control}
-                name="status"
+                name="statusId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Төлөв</FormLabel>
@@ -266,9 +281,11 @@ export function AddPositionDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Нээлттэй">Нээлттэй</SelectItem>
-                        <SelectItem value="Хаалттай">Хаалттай</SelectItem>
-                        <SelectItem value="Хүлээгдэж буй">Хүлээгдэж буй</SelectItem>
+                        {positionStatuses.map((status) => (
+                            <SelectItem key={status.id} value={status.id}>
+                                {status.name}
+                            </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -317,4 +334,3 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
-

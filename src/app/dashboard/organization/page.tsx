@@ -62,11 +62,27 @@ type Position = {
   departmentId: string;
   headcount: number;
   filled: number;
-  level?: 'Executive' | 'Manager' | 'Senior' | 'Mid-level' | 'Junior' | 'Intern';
-  employmentType?: 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
+  levelId?: string;
+  employmentTypeId?: string;
   jobCategoryCode?: string;
-  status?: 'Нээлттэй' | 'Хаалттай' | 'Хүлээгдэж буй';
+  statusId?: string;
 };
+
+type PositionLevel = {
+  id: string;
+  name: string;
+};
+
+type EmploymentType = {
+  id: string;
+  name: string;
+};
+
+type PositionStatus = {
+  id: string;
+  name: string;
+};
+
 
 const OrgChartNode = ({ node }: { node: Department }) => (
     <li className="relative flex flex-col items-center">
@@ -83,42 +99,39 @@ const OrgChartNode = ({ node }: { node: Department }) => (
       </div>
       
       {node.children && node.children.length > 0 && (
-        <>
-         {/* Horizontal line connecting children */}
-         <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
          <ul className="relative mt-8 flex justify-center gap-8">
-          {node.children.map((child) => (
-            <OrgChartNode key={child.id} node={child} />
-          ))}
+            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
+            {node.children.map((child) => (
+                <OrgChartNode key={child.id} node={child} />
+            ))}
         </ul>
-        </>
       )}
     </li>
   );
   
-  const RootOrgChartNode = ({ node }: { node: Department }) => (
-      <li className="relative flex flex-col items-center">
-        <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
-          <p className="font-semibold">{node.name}</p>
-          <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
-          <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span>{node.headcount || 0}</span>
-          </div>
+const RootOrgChartNode = ({ node }: { node: Department }) => (
+    <li className="relative flex flex-col items-center">
+    <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
+        <p className="font-semibold">{node.name}</p>
+        <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
+        <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Users className="h-4 w-4" />
+        <span>{node.headcount || 0}</span>
         </div>
-        {node.children && node.children.length > 0 && (
-          <>
-            <div className="absolute top-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
-            <ul className="relative mt-8 flex justify-center gap-8">
+    </div>
+    {node.children && node.children.length > 0 && (
+        <>
+        <div className="absolute top-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+        <ul className="relative mt-8 flex justify-center gap-8">
             <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
             {node.children.map((child) => (
-              <OrgChartNode key={child.id} node={child} />
+            <OrgChartNode key={child.id} node={child} />
             ))}
-          </ul>
-          </>
-        )}
-      </li>
-    );
+        </ul>
+        </>
+    )}
+    </li>
+);
   
 
 
@@ -341,34 +354,6 @@ const StructureTab = () => {
   );
 };
 
-const employmentTypeBadges: Record<string, string> = {
-    'Full-time': 'Үндсэн',
-    'Part-time': 'Цагийн',
-    'Contract': 'Гэрээт',
-    'Internship': 'Дадлага',
-};
-
-const levelBadges: Record<string, string> = {
-    'Executive': 'Удирдах',
-    'Manager': 'Менежер',
-    'Senior': 'Ахлах',
-    'Mid-level': 'Дунд',
-    'Junior': 'Дэвжих',
-    'Intern': 'Дадлагажигч',
-};
-
-const statusBadges: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    'Нээлттэй': 'default',
-    'Хаалттай': 'secondary',
-    'Хүлээгдэж буй': 'destructive',
-};
-
-const statusBadgeLabels: Record<string, string> = {
-    'Нээлттэй': 'Нээлттэй',
-    'Хаалттай': 'Хаалттай',
-    'Хүлээгдэж буй': 'Хүлээгдэж буй',
-}
-
 
 const PositionsTab = () => {
     const { firestore } = useFirebase();
@@ -377,18 +362,26 @@ const PositionsTab = () => {
 
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
+    const statusesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionStatuses') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
+    const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<PositionLevel>(levelsQuery);
+    const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<EmploymentType>(empTypesQuery);
+    const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(statusesQuery);
 
-    const isLoading = isLoadingPos || isLoadingDepts;
 
-    const departmentMap = React.useMemo(() => {
-        return departments?.reduce((acc, dept) => {
-            acc[dept.id] = dept.name;
-            return acc;
-        }, {} as Record<string, string>) || {};
-    }, [departments]);
+    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses;
+
+    const lookups = React.useMemo(() => {
+        const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
+        const levelMap = positionLevels?.reduce((acc, level) => { acc[level.id] = level.name; return acc; }, {} as Record<string, string>) || {};
+        const empTypeMap = employmentTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
+        const statusMap = positionStatuses?.reduce((acc, status) => { acc[status.id] = status.name; return acc; }, {} as Record<string, string>) || {};
+        return { departmentMap, levelMap, empTypeMap, statusMap };
+    }, [departments, positionLevels, employmentTypes, positionStatuses]);
     
     const handleOpenAddDialog = () => {
         setEditingPosition(null);
@@ -413,6 +406,9 @@ const PositionsTab = () => {
             open={isPositionDialogOpen}
             onOpenChange={setIsPositionDialogOpen}
             departments={departments || []}
+            positionLevels={positionLevels || []}
+            employmentTypes={employmentTypes || []}
+            positionStatuses={positionStatuses || []}
             editingPosition={editingPosition}
         />
         <Card>
@@ -454,10 +450,10 @@ const PositionsTab = () => {
                         <Skeleton className="h-5 w-32" />
                     </TableCell>
                     <TableCell>
-                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-6 w-24" />
                     </TableCell>
                     <TableCell>
-                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-6 w-24" />
                     </TableCell>
                     <TableCell>
                         <Skeleton className="h-6 w-20" />
@@ -474,16 +470,16 @@ const PositionsTab = () => {
                 <TableRow key={pos.id}>
                     <TableCell className="font-medium">{pos.title}</TableCell>
                     <TableCell>
-                    {departmentMap[pos.departmentId] || 'Тодорхойгүй'}
+                    {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
                     </TableCell>
                     <TableCell>
-                        {pos.level ? <Badge variant="secondary">{levelBadges[pos.level] || pos.level}</Badge> : '-'}
+                        {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
                     </TableCell>
                     <TableCell>
-                        {pos.employmentType ? <Badge variant="outline">{employmentTypeBadges[pos.employmentType] || pos.employmentType}</Badge> : '-'}
+                        {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                     </TableCell>
                     <TableCell>
-                        {pos.status ? <Badge variant={statusBadges[pos.status] || 'secondary'}>{statusBadgeLabels[pos.status] || pos.status}</Badge> : '-'}
+                        {pos.statusId ? <Badge variant="default">{lookups.statusMap[pos.statusId] || 'Тодорхойгүй'}</Badge> : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                     {pos.filled} / {pos.headcount}
@@ -621,4 +617,3 @@ export default function OrganizationPage() {
     </div>
   );
 }
-

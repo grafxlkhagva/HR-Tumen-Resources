@@ -326,22 +326,20 @@
           "description": "Албан тушаалын нэр."
         },
         "departmentId": {
-            "type": "string",
-            "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)"
+          "type": "string",
+          "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)"
         },
-        "level": {
-            "type": "string",
-            "description": "Албан тушаалын зэрэглэл.",
-            "enum": ["Executive", "Manager", "Senior", "Mid-level", "Junior", "Intern"]
+        "levelId": {
+          "type": "string",
+          "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)"
         },
-        "employmentType": {
-            "type": "string",
-            "description": "Ажил эрхлэлтийн төрөл.",
-            "enum": ["Full-time", "Part-time", "Contract", "Internship"]
+        "employmentTypeId": {
+          "type": "string",
+          "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)"
         },
         "jobCategoryCode": {
-            "type": "string",
-            "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) код."
+          "type": "string",
+          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) код."
         },
         "headcount": {
           "type": "number",
@@ -351,10 +349,9 @@
           "type": "number",
           "description": "Одоо ажиллаж буй ажилтны тоо."
         },
-        "status": {
+        "statusId": {
           "type": "string",
-          "description": "Ажлын байрны төлөв.",
-          "enum": ["Нээлттэй", "Хаалттай", "Хүлээгдэж буй"]
+          "description": "Ажлын байрны төлвийн танигч. (Хамаарал: PositionStatus 1:N Position)"
         }
       },
       "required": [
@@ -364,6 +361,51 @@
         "headcount",
         "filled"
       ]
+    },
+    "EmploymentType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажил эрхлэлтийн төрөл",
+      "description": "Ажил эрхлэлтийн төрлийг тодорхойлно (жишээ нь: Үндсэн, Гэрээт).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Төрлийн нэр." }
+      },
+      "required": ["id", "name"]
+    },
+    "PositionStatus": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажлын байрны төлөв",
+      "description": "Ажлын байрны төлвийг тодорхойлно (жишээ нь: Нээлттэй, Хаалттай).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Төлвийн нэр." }
+      },
+      "required": ["id", "name"]
+    },
+    "JobCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажил мэргэжлийн ангилал",
+      "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтыг (ҮАМАТ) хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string", "description": "Ангиллын код." },
+        "name": { "type": "string", "description": "Ангиллын нэр." }
+      },
+      "required": ["id", "code", "name"]
+    },
+    "PositionLevel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Албан тушаалын зэрэглэл",
+      "description": "Албан тушаалын зэрэглэлийг тодорхойлно (жишээ нь: Удирдах, Гүйцэтгэх).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Зэрэглэлийн нэр." }
+      },
+      "required": ["id", "name"]
     }
   },
   "auth": {
@@ -503,6 +545,42 @@
               "description": "Албан тушаалын давтагдашгүй танигч."
             }
           ]
+        }
+      },
+      {
+        "path": "/employmentTypes/{employmentTypeId}",
+        "definition": {
+          "entityName": "EmploymentType",
+          "schema": { "$ref": "#/backend/entities/EmploymentType" },
+          "description": "Ажил эрхлэлтийн төрлийн лавлах сан.",
+          "params": [{ "name": "employmentTypeId", "description": "Төрлийн танигч." }]
+        }
+      },
+      {
+        "path": "/positionStatuses/{positionStatusId}",
+        "definition": {
+          "entityName": "PositionStatus",
+          "schema": { "$ref": "#/backend/entities/PositionStatus" },
+          "description": "Ажлын байрны төлвийн лавлах сан.",
+          "params": [{ "name": "positionStatusId", "description": "Төлвийн танигч." }]
+        }
+      },
+      {
+        "path": "/jobCategories/{jobCategoryId}",
+        "definition": {
+          "entityName": "JobCategory",
+          "schema": { "$ref": "#/backend/entities/JobCategory" },
+          "description": "Ажил мэргэжлийн ангиллын лавлах сан.",
+          "params": [{ "name": "jobCategoryId", "description": "Ангиллын танигч." }]
+        }
+      },
+      {
+        "path": "/positionLevels/{positionLevelId}",
+        "definition": {
+          "entityName": "PositionLevel",
+          "schema": { "$ref": "#/backend/entities/PositionLevel" },
+          "description": "Албан тушаалын зэрэглэлийн лавлах сан.",
+          "params": [{ "name": "positionLevelId", "description": "Зэрэглэлийн танигч." }]
         }
       }
     ],

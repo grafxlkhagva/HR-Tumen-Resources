@@ -11,6 +11,7 @@ import {
   CalendarClock,
   Building2,
   Network,
+  Settings,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -54,6 +55,11 @@ const links = [
     label: 'Хууль тогтоомж',
     icon: ShieldCheck,
   },
+  {
+    href: '/dashboard/settings',
+    label: 'Тохиргоо',
+    icon: Settings,
+  },
 ];
 
 export function MainNav() {
@@ -67,7 +73,7 @@ export function MainNav() {
           <SidebarMenuItem key={link.href}>
             <SidebarMenuButton
               asChild
-              isActive={pathname === link.href}
+              isActive={pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard')}
               tooltip={link.label}
             >
               <Link href={link.href}>
