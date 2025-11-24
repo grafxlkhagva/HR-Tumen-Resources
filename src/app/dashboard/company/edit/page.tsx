@@ -121,6 +121,23 @@ function FormSkeleton() {
     );
 }
 
+const defaultFormValues: CompanyProfileFormValues = {
+  name: '',
+  legalName: '',
+  registrationNumber: '',
+  taxId: '',
+  industry: '',
+  employeeCount: '',
+  ceo: '',
+  website: '',
+  mission: '',
+  vision: '',
+  values: [],
+  phoneNumber: '',
+  contactEmail: '',
+  address: '',
+};
+
 export default function EditCompanyPage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -135,23 +152,14 @@ export default function EditCompanyPage() {
 
   const form = useForm<CompanyProfileFormValues>({
     resolver: zodResolver(companyProfileSchema),
-    values: companyProfile || {
-        name: '',
-        legalName: '',
-        registrationNumber: '',
-        taxId: '',
-        industry: '',
-        employeeCount: '',
-        ceo: '',
-        website: '',
-        mission: '',
-        vision: '',
-        values: [],
-        phoneNumber: '',
-        contactEmail: '',
-        address: '',
-    },
+    defaultValues: defaultFormValues,
   });
+
+  React.useEffect(() => {
+    if (companyProfile) {
+      form.reset(companyProfile);
+    }
+  }, [companyProfile, form.reset]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -478,5 +486,3 @@ export default function EditCompanyPage() {
     </div>
   );
 }
-
-    
