@@ -150,12 +150,12 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
   
   const form = useForm<CompanyProfileFormValues>({
     resolver: zodResolver(companyProfileSchema),
-    defaultValues: initialData,
+    defaultValues: initialData || defaultFormValues,
   });
   
   React.useEffect(() => {
     form.reset(initialData);
-  }, [initialData, form.reset]);
+  }, [initialData]);
 
 
   const { fields, append, remove } = useFieldArray({
