@@ -177,35 +177,41 @@
       "type": "object",
       "description": "Компанийн ерөнхий мэдээллийг хадгална.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Давтагдашгүй танигч."
-        },
         "name": {
           "type": "string",
           "description": "Компанийн нэр."
         },
-        "address": {
+        "legalName": {
           "type": "string",
-          "description": "Компанийн хаяг."
+          "description": "Хуулийн этгээдийн нэр."
         },
-        "phone": {
+        "registrationNumber": {
           "type": "string",
-          "description": "Компанийн утасны дугаар."
+          "description": "Улсын бүртгэлийн дугаар."
+        },
+        "taxId": {
+          "type": "string",
+          "description": "Татвар төлөгчийн дугаар."
+        },
+        "industry": {
+          "type": "string",
+          "description": "Үйл ажиллагааны чиглэл."
+        },
+        "employeeCount": {
+          "type": "string",
+          "description": "Ажилтны тоо."
+        },
+        "ceo": {
+          "type": "string",
+          "description": "Гүйцэтгэх захирал."
         },
         "website": {
           "type": "string",
           "description": "Компанийн вэбсайт.",
           "format": "uri"
-        },
-        "logoUrl": {
-          "type": "string",
-          "description": "Компанийн логоны URL.",
-          "format": "uri"
         }
       },
       "required": [
-        "id",
         "name"
       ]
     }
