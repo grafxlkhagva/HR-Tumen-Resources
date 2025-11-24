@@ -74,7 +74,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
@@ -116,14 +116,14 @@ export default function LoginPage() {
               Нэвтрэх
             </Button>
           </form>
-           <div className="mt-4 text-center text-sm">
-            Анхны админ уу?{' '}
-            <Link href="/signup" className="underline">
-              Бүртгүүлэх
-            </Link>
-          </div>
         </CardContent>
       </Card>
+      <div className="mt-4 text-center text-sm">
+        Анхны админ уу?{' '}
+        <Link href="/signup" className="underline">
+          Бүртгүүлэх
+        </Link>
+      </div>
     </div>
   );
 }
