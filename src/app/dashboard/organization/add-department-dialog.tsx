@@ -32,10 +32,11 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import {
   addDocumentNonBlocking,
+  updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
 } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 const departmentSchema = z.object({
@@ -48,11 +49,19 @@ const departmentSchema = z.object({
 
 type DepartmentFormValues = z.infer<typeof departmentSchema>;
 
+interface Department {
+  id: string;
+  name: string;
+  typeId?: string;
+  parentId?: string;
+}
+
 interface AddDepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: { id: string; name: string }[];
   departmentTypes: { id: string; name: string }[];
+  editingDepartment?: Department | null;
 }
 
 export function AddDepartmentDialog({
@@ -60,9 +69,11 @@ export function AddDepartmentDialog({
   onOpenChange,
   departments,
   departmentTypes,
+  editingDepartment,
 }: AddDepartmentDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const isEditMode = !!editingDepartment;
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
@@ -73,6 +84,23 @@ export function AddDepartmentDialog({
     },
   });
 
+  React.useEffect(() => {
+    if (isEditMode && editingDepartment) {
+      form.reset({
+        name: editingDepartment.name,
+        typeId: editingDepartment.typeId || '',
+        parentId: editingDepartment.parentId || '(none)',
+      });
+    } else {
+      form.reset({
+        name: '',
+        typeId: '',
+        parentId: '(none)',
+      });
+    }
+  }, [editingDepartment, isEditMode, form, open]);
+
+
   const { isSubmitting } = form.formState;
 
   const departmentsCollection = useMemoFirebase(
@@ -81,7 +109,7 @@ export function AddDepartmentDialog({
   );
 
   const onSubmit = (data: DepartmentFormValues) => {
-    if (!departmentsCollection) {
+    if (!firestore) {
       toast({
         variant: 'destructive',
         title: 'Алдаа',
@@ -95,12 +123,22 @@ export function AddDepartmentDialog({
         parentId: data.parentId === '(none)' ? undefined : data.parentId,
     };
 
-    addDocumentNonBlocking(departmentsCollection, finalData);
+    if (isEditMode && editingDepartment) {
+      const docRef = doc(firestore, 'departments', editingDepartment.id);
+      updateDocumentNonBlocking(docRef, finalData);
+      toast({
+        title: 'Амжилттай шинэчлэгдлээ',
+        description: `"${data.name}" нэгжийн мэдээлэл шинэчлэгдлээ.`,
+      });
+    } else {
+       if (!departmentsCollection) return;
+       addDocumentNonBlocking(departmentsCollection, finalData);
+       toast({
+         title: 'Амжилттай',
+         description: `"${data.name}" нэгж амжилттай нэмэгдлээ.`,
+       });
+    }
 
-    toast({
-      title: 'Амжилттай',
-      description: `"${data.name}" нэгж амжилттай нэмэгдлээ.`,
-    });
 
     form.reset();
     onOpenChange(false);
@@ -112,9 +150,9 @@ export function AddDepartmentDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Бүтцийн нэгж нэмэх</DialogTitle>
+              <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Бүтцийн нэгж нэмэх'}</DialogTitle>
               <DialogDescription>
-                Шинэ хэлтэс, алба, баг зэрэг бүтцийн нэгжийг нэмнэ үү.
+                {isEditMode ? 'Нэгжийн мэдээллийг шинэчилнэ үү.' : 'Шинэ хэлтэс, алба, баг зэрэг бүтцийн нэгжийг нэмнэ үү.'}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -137,7 +175,7 @@ export function AddDepartmentDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Төрөл</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Бүтцийн төрөл сонгох" />
@@ -161,7 +199,7 @@ export function AddDepartmentDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Харьяалагдах нэгж</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Дээд нэгжийг сонгох (заавал биш)" />
@@ -169,7 +207,9 @@ export function AddDepartmentDialog({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="(none)">(Дээд нэгж байхгүй)</SelectItem>
-                        {departments.map((dept) => (
+                        {departments
+                         .filter(d => !editingDepartment || d.id !== editingDepartment.id)
+                         .map((dept) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             {dept.name}
                           </SelectItem>
@@ -194,7 +234,7 @@ export function AddDepartmentDialog({
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Хадгалах
+                {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
               </Button>
             </DialogFooter>
           </form>

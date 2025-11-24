@@ -86,7 +86,9 @@ const OrgChartNode = ({ node }: { node: Department }) => (
 
 const StructureTab = () => {
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
-  const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
+  const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  
   const { firestore } = useFirebase();
 
   const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -104,14 +106,15 @@ const StructureTab = () => {
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
     const positionCountByDept = positions.reduce((acc, pos) => {
-      acc[pos.departmentId] = (acc[pos.departmentId] || 0) + pos.headcount;
+      const currentCount = acc.get(pos.departmentId) || 0;
+      acc.set(pos.departmentId, currentCount + pos.headcount);
       return acc;
-    }, {} as Record<string, number>);
+    }, new Map<string, number>());
 
     const deptsWithData = departments.map(d => ({
       ...d,
       typeName: typeMap.get(d.typeId || ''),
-      headcount: positionCountByDept[d.id] || 0,
+      headcount: positionCountByDept.get(d.id) || 0,
       children: [],
     }));
 
@@ -127,7 +130,7 @@ const StructureTab = () => {
       }
     });
 
-    const totalCount = deptsWithData.reduce((sum, dept) => sum + (dept.headcount || 0), 0);
+    const totalCount = Array.from(positionCountByDept.values()).reduce((sum, count) => sum + count, 0);
 
     return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount, deptsWithData };
   }, [departments, departmentTypes, positions]);
@@ -139,6 +142,16 @@ const StructureTab = () => {
 
   const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos;
 
+  const handleOpenAddDialog = () => {
+    setEditingDepartment(null);
+    setIsDeptDialogOpen(true);
+  }
+
+  const handleOpenEditDialog = (dept: Department) => {
+    setEditingDepartment(dept);
+    setIsDeptDialogOpen(true);
+  }
+
   return (
     <div className="space-y-8">
       <AddTypeDialog 
@@ -146,10 +159,11 @@ const StructureTab = () => {
         onOpenChange={setIsAddTypeOpen} 
       />
       <AddDepartmentDialog 
-        open={isAddDeptOpen}
-        onOpenChange={setIsAddDeptOpen}
+        open={isDeptDialogOpen}
+        onOpenChange={setIsDeptDialogOpen}
         departments={departments || []}
         departmentTypes={departmentTypes || []}
+        editingDepartment={editingDepartment}
       />
       <Card>
         <CardHeader>
@@ -166,7 +180,7 @@ const StructureTab = () => {
                 <Settings className="mr-2 h-4 w-4" />
                 Төрөл удирдах
               </Button>
-              <Button variant="default" size="sm" onClick={() => setIsAddDeptOpen(true)}>
+              <Button variant="default" size="sm" onClick={handleOpenAddDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Бүтэц нэмэх
               </Button>
@@ -192,7 +206,7 @@ const StructureTab = () => {
             {!isLoading && !orgTree && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">Байгууллагын бүтэц үүсээгүй байна.</p>
-                    <Button className="mt-4" onClick={() => setIsAddDeptOpen(true)}>
+                    <Button className="mt-4" onClick={handleOpenAddDialog}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Анхны нэгжийг нэмэх
                     </Button>
@@ -241,7 +255,7 @@ const StructureTab = () => {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleOpenEditDialog(dept)}>
                                             <Pencil className="mr-2 h-4 w-4" />
                                             Засах
                                         </DropdownMenuItem>
