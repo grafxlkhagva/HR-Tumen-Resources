@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Settings, Users } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -28,6 +28,12 @@ import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddTypeDialog } from './add-type-dialog';
 import { AddDepartmentDialog } from './add-department-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Interfaces for Firestore data
 type Department = {
@@ -207,6 +213,7 @@ const StructureTab = () => {
                         <TableHead>Төрөл</TableHead>
                         <TableHead>Харьяалагдах дээд нэгж</TableHead>
                         <TableHead className="text-right">Ажилтны тоо</TableHead>
+                        <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -216,6 +223,7 @@ const StructureTab = () => {
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                      ))}
                      {!isLoading && deptsWithData.map((dept) => (
@@ -224,11 +232,31 @@ const StructureTab = () => {
                             <TableCell>{dept.typeName || 'Тодорхойгүй'}</TableCell>
                             <TableCell>{dept.parentId ? departmentNameMap.get(dept.parentId) : '-'}</TableCell>
                             <TableCell className="text-right">{dept.headcount}</TableCell>
+                            <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Үйлдлүүд</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Засах
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Устгах
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
                         </TableRow>
                      ))}
                      {!isLoading && deptsWithData.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center">
+                            <TableCell colSpan={5} className="h-24 text-center">
                                 Бүртгэгдсэн нэгж байхгүй.
                             </TableCell>
                         </TableRow>
