@@ -91,9 +91,9 @@ const StructureTab = () => {
   const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
 
-  const { orgTree, totalHeadcount } = useMemo(() => {
+  const { orgTree, totalHeadcount, deptsWithData } = useMemo(() => {
     if (!departments || !departmentTypes || !positions) {
-      return { orgTree: null, totalHeadcount: 0 };
+      return { orgTree: null, totalHeadcount: 0, deptsWithData: [] };
     }
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
@@ -123,13 +123,18 @@ const StructureTab = () => {
 
     const totalCount = deptsWithData.reduce((sum, dept) => sum + (dept.headcount || 0), 0);
 
-    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount };
+    return { orgTree: rootNodes[0] || null, totalHeadcount: totalCount, deptsWithData };
   }, [departments, departmentTypes, positions]);
   
+  const departmentNameMap = useMemo(() => {
+      if (!departments) return new Map();
+      return new Map(departments.map(d => [d.id, d.name]));
+  }, [departments]);
+
   const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos;
 
   return (
-    <>
+    <div className="space-y-8">
       <AddTypeDialog 
         open={isAddTypeOpen} 
         onOpenChange={setIsAddTypeOpen} 
@@ -189,7 +194,50 @@ const StructureTab = () => {
             )}
         </CardContent>
       </Card>
-    </>
+      <Card>
+        <CardHeader>
+            <CardTitle>Бүх нэгжийн жагсаалт</CardTitle>
+            <CardDescription>Байгууллагын бүх бүртгэлтэй нэгжүүд.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Нэгжийн нэр</TableHead>
+                        <TableHead>Төрөл</TableHead>
+                        <TableHead>Харьяалагдах дээд нэгж</TableHead>
+                        <TableHead className="text-right">Ажилтны тоо</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                     {isLoading && Array.from({length: 3}).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
+                        </TableRow>
+                     ))}
+                     {!isLoading && deptsWithData.map((dept) => (
+                        <TableRow key={dept.id}>
+                            <TableCell className="font-medium">{dept.name}</TableCell>
+                            <TableCell>{dept.typeName || 'Тодорхойгүй'}</TableCell>
+                            <TableCell>{dept.parentId ? departmentNameMap.get(dept.parentId) : '-'}</TableCell>
+                            <TableCell className="text-right">{dept.headcount}</TableCell>
+                        </TableRow>
+                     ))}
+                     {!isLoading && deptsWithData.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={4} className="h-24 text-center">
+                                Бүртгэгдсэн нэгж байхгүй.
+                            </TableCell>
+                        </TableRow>
+                     )}
+                </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
