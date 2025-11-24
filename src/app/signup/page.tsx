@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignUp, useFirebase } from '@/firebase';
+import { useAuth, initiateEmailSignUp, useFirebase, setDocumentNonBlocking, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getCountFromServer, collection } from 'firebase/firestore';
+import { doc, getCountFromServer, collection } from 'firebase/firestore';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -51,8 +51,7 @@ export default function SignupPage() {
 
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
-          // Set user role to admin in Firestore
-          await setDoc(doc(firestore, 'employees', user.uid), {
+          const userData = {
             id: user.uid,
             email: user.email,
             role: 'admin', // Assign admin role
@@ -61,6 +60,16 @@ export default function SignupPage() {
             jobTitle: 'Системийн Админ',
             department: 'Тодорхойгүй',
             hireDate: new Date().toISOString(),
+          };
+          const userDocRef = doc(firestore, 'employees', user.uid);
+          
+          setDoc(userDocRef, userData).catch(err => {
+              const permissionError = new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'create',
+                requestResourceData: userData,
+              });
+              errorEmitter.emit('permission-error', permissionError);
           });
           
           toast({
