@@ -1,138 +1,14 @@
 /**
- * Core Philosophy: This ruleset enforces a strict, user-centric ownership model. All data related to an
- * employee is stored in a private data tree accessible only to that employee. This ensures strong
- * data isolation and privacy by default.
- *
- * Data Structure: Employee data is organized hierarchically under the `/employees/{employeeId}` path, where
- * the `employeeId` corresponds to the user's Authentication UID. All personal data, such as time off
- * requests and onboarding tasks, are stored in subcollections within this path. A separate top-level
- * `/documents` collection is used for company-wide documents.
- *
- * Key Security Decisions:
- * - Employee Listing Disabled: The ability to list the entire `/employees` collection is explicitly denied
- *   to prevent any user from discovering the identities of all other employees.
- * - Strict Ownership: A user can only access data within their own `/employees/{userId}` document tree.
- *   This is enforced using the document path, which is the most secure and performant method.
- * - Read-Only HR Documents: The top-level `/documents` collection is readable by any authenticated
- *   employee but is not writable. This is a secure default for shared resources like policy manuals.
- *   Writes are disabled because the data model lacks an 'ownerId' field to determine who can manage these documents.
- *
- * Denormalization for Authorization: The security model relies on path-based authorization, where the
- * `employeeId` in the path is the source of truth for ownership. Subcollection documents like
- * `TimeOffRequest` also contain a denormalized `employeeId` field. Rules enforce that this field matches
- * the path on creation and is immutable, ensuring relational integrity without costly `get()` calls.
- *
- * Structural Segregation: Private, user-specific data (e.g., `timeOffRequests`) is stored in subcollections
- * under the employee's path. Publicly readable data (e.g., company policies) is stored in a separate
- * top-level `/documents` collection. This segregation simplifies rules and improves query performance
- * and security.
+ * WARNING: These rules are intentionally insecure for development purposes.
+ * Any authenticated user can read and write to the entire database.
+ * DO NOT use these rules in a production environment.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Global Helper Functions ---
-
-    /**
-     * Checks if the user is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * Checks if the authenticated user's UID matches the provided userId.
-     * This is the foundation of the user ownership model.
-     * @param userId The user ID to check against the request's auth UID.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * Checks for ownership on an existing document. Used for update and delete
-     * operations to prevent acting on non-existent data.
-     * @param userId The user ID to check for ownership.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-
-    /**
-     * @description Controls access to employee profile documents. Each employee can create, view,
-     * and manage their own profile. Listing all employees is forbidden.
-     * @path /employees/{employeeId}
-     * @allow A user (UID 'user123') creating their own profile at `/employees/user123`. (create)
-     * @deny A user (UID 'user456') attempting to read the profile at `/employees/user123`. (get)
-     * @principle Enforces Self-Creation and strict document ownership. Prevents data leakage by disallowing user enumeration.
-     */
-    match /employees/{employeeId} {
-      // Read Rules
-      allow get: if isOwner(employeeId);
-      allow list: if false;
-
-      // Write Rules
-      allow create: if isOwner(employeeId) && request.resource.data.id == employeeId;
-      allow update: if isExistingOwner(employeeId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(employeeId);
-    }
-
-    /**
-     * @description Secures an employee's time off requests. Employees can manage their own
-     * requests, but cannot access requests belonging to other employees.
-     * @path /employees/{employeeId}/timeOffRequests/{timeOffRequestId}
-     * @allow A user (UID 'user123') listing their own requests at `/employees/user123/timeOffRequests`. (list)
-     * @deny A user (UID 'user456') trying to create a request at `/employees/user123/timeOffRequests`. (create)
-     * @principle Restricts access to a user's own data tree and validates relational integrity.
-     */
-    match /employees/{employeeId}/timeOffRequests/{timeOffRequestId} {
-      // Read Rules
-      allow get: if isOwner(employeeId);
-      allow list: if isOwner(employeeId);
-
-      // Write Rules
-      allow create: if isOwner(employeeId) && request.resource.data.employeeId == employeeId;
-      allow update: if isExistingOwner(employeeId) && request.resource.data.employeeId == resource.data.employeeId;
-      allow delete: if isExistingOwner(employeeId);
-    }
-
-    /**
-     * @description Secures an employee's onboarding tasks. Employees can view and update
-     * their own tasks as part of their onboarding process.
-     * @path /employees/{employeeId}/onboardingTasks/{onboardingTaskId}
-     * @allow A user (UID 'user123') updating a task at `/employees/user123/onboardingTasks/taskABC`. (update)
-     * @deny A user (UID 'user456') attempting to delete a task for 'user123'. (delete)
-     * @principle Restricts access to a user's own data tree and enforces immutability of ownership fields.
-     */
-    match /employees/{employeeId}/onboardingTasks/{onboardingTaskId} {
-      // Read Rules
-      allow get: if isOwner(employeeId);
-      allow list: if isOwner(employeeId);
-
-      // Write Rules
-      allow create: if isOwner(employeeId) && request.resource.data.employeeId == employeeId;
-      allow update: if isExistingOwner(employeeId) && request.resource.data.employeeId == resource.data.employeeId;
-      allow delete: if isExistingOwner(employeeId);
-    }
-
-    /**
-     * @description Manages access to the shared HR documents collection. All authenticated employees
-     * can read documents, but no one can write to them via the client.
-     * @path /documents/{documentId}
-     * @allow Any signed-in user reading a document at `/documents/policy-handbook`. (get)
-     * @deny Any user attempting to create a new document. (create)
-     * @principle Provides public read access for signed-in users while securing writes. Writes are disabled due to a missing ownership field in the data schema.
-     */
-    match /documents/{documentId} {
-      // Read Rules
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-
-      // CRITICAL: Cannot implement owner-only writes. The 'Document' entity is missing an 'ownerId' or 'authorId' field.
-      // Write operations are disabled to prevent unauthorized data modification.
-      // To enable writes, add an ownership field (e.g., 'authorId') to the 'Document' schema and update the rules below.
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    // Allow read and write access to any document for any signed-in user.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
