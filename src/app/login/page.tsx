@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, initiateEmailSignIn } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,24 +27,42 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'Амжилттай нэвтэрлээ',
-        description: 'Хяналтын самбар луу шилжиж байна.',
-      });
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError('Имэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.');
-      toast({
-        variant: 'destructive',
-        title: 'Алдаа гарлаа',
-        description: 'Имэйл эсвэл нууц үг буруу байна.',
-      });
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+    initiateEmailSignIn(auth, email, password);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        toast({
+          title: 'Амжилттай нэвтэрлээ',
+          description: 'Хяналтын самбар луу шилжиж байна.',
+        });
+        router.push('/dashboard');
+        unsubscribe();
+      } else {
+        // This might be called immediately if the user is not logged in yet.
+        // We set a timeout to only show the error if the login is not successful within a few seconds.
+        setTimeout(() => {
+          if (!auth.currentUser) {
+            setError('Имэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.');
+             toast({
+                variant: 'destructive',
+                title: 'Алдаа гарлаа',
+                description: 'Имэйл эсвэл нууц үг буруу байна.',
+              });
+            setIsLoading(false);
+          }
+        }, 2000);
+      }
+    }, (error) => {
+        setError('Имэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.');
+        toast({
+            variant: 'destructive',
+            title: 'Алдаа гарлаа',
+            description: error.message || 'Имэйл эсвэл нууц үг буруу байна.',
+        });
+        console.error(error);
+        setIsLoading(false);
+        unsubscribe();
+    });
   };
 
   return (

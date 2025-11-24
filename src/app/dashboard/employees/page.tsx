@@ -32,8 +32,10 @@ import { collection } from 'firebase/firestore';
 import type { Employee } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function EmployeeRow({ employee }: { employee: Employee }) {
+function EmployeeRow({ employee }: { employee: Employee & {name: string} }) {
   const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId);
+  const employeeName = `${employee.firstName} ${employee.lastName}`;
+
   return (
     <TableRow>
       <TableCell className="font-medium">
@@ -44,22 +46,22 @@ function EmployeeRow({ employee }: { employee: Employee }) {
               alt="Avatar"
               data-ai-hint={avatar?.imageHint}
             />
-            <AvatarFallback>{employee.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{employeeName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="grid gap-0.5">
-            <span className="font-medium">{employee.name}</span>
+            <span className="font-medium">{employeeName}</span>
             <span className="text-xs text-muted-foreground">
               {employee.email}
             </span>
           </div>
         </div>
       </TableCell>
-      <TableCell>{employee.title}</TableCell>
+      <TableCell>{employee.jobTitle}</TableCell>
       <TableCell className="hidden md:table-cell">
         <Badge variant="outline">{employee.department}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
-        {new Date(employee.hireDate).toLocaleDateString()}
+        {employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'}
       </TableCell>
       <TableCell>
         <DropdownMenu>
@@ -163,7 +165,7 @@ export default function EmployeesPage() {
                 !error &&
                 employees &&
                 employees.map((employee) => (
-                  <EmployeeRow key={employee.id} employee={employee} />
+                  <EmployeeRow key={employee.id} employee={employee as any} />
                 ))}
             </TableBody>
           </Table>

@@ -1,14 +1,15 @@
 export type Employee = {
   id: string;
-  name: string;
-  avatarId: string;
-  title: string;
-  department: 'Engineering' | 'Marketing' | 'Sales' | 'Design' | 'HR';
+  firstName: string;
+  lastName: string;
+  avatarId?: string;
+  jobTitle: string;
+  department: 'Engineering' | 'Marketing' | 'Sales' | 'Design' | 'HR' | 'Тодорхойгүй';
   email: string;
-  phone: string;
+  phone?: string;
   hireDate: string;
-  skills: string[];
-  jobHistory: { title: string; company: string; duration: string }[];
+  skills?: string[];
+  jobHistory?: { title: string; company: string; duration: string }[];
 };
 
 export const employees: Employee[] = [];
