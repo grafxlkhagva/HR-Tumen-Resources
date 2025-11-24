@@ -159,7 +159,7 @@ export default function EditCompanyPage() {
     if (companyProfile) {
       form.reset(companyProfile);
     }
-  }, [companyProfile, form.reset]);
+  }, [companyProfile, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
