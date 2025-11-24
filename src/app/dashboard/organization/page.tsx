@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import {
   MoreVertical,
   PlusCircle,
-  Briefcase,
-  Building,
+  Users,
+  Settings,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -33,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Interfaces for Firestore data
@@ -41,6 +41,9 @@ type Department = {
   id: string;
   name: string;
   description?: string;
+  type?: string;
+  headcount?: number;
+  children?: Department[];
 };
 
 type Position = {
@@ -51,122 +54,93 @@ type Position = {
   filled: number;
 };
 
-const DepartmentCard = ({
-  department,
-  positions,
-}: {
-  department: Department;
-  positions: Position[];
-}) => {
-  const totalHeadcount = positions.reduce(
-    (acc, pos) => acc + pos.headcount,
-    0
-  );
-  const totalFilled = positions.reduce((acc, pos) => acc + pos.filled, 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-              <Building className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <CardTitle>{department.name}</CardTitle>
-              <CardDescription>
-                {totalFilled} / {totalHeadcount} ажилтан
-              </CardDescription>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">Цэс</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Хэлтэс засах</DropdownMenuItem>
-              <DropdownMenuItem>Албан тушаал нэмэх</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                Хэлтэс устгах
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
-        <Separator />
-        <div className="space-y-3">
-          {positions.map((position) => (
-            <div key={position.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{position.title}</span>
-              </div>
-              <Badge
-                variant={
-                  position.filled < position.headcount ? 'secondary' : 'outline'
-                }
-              >
-                {position.filled} / {position.headcount}
-              </Badge>
-            </div>
+const OrgChartNode = ({ node }: { node: Department }) => (
+  <div className="relative flex flex-col items-center">
+    <div className="relative rounded-lg border bg-card p-4 text-card-foreground shadow-sm w-56 text-center">
+      <p className="font-semibold">{node.name}</p>
+      <p className="text-sm text-muted-foreground">{node.type}</p>
+      <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Users className="h-4 w-4" />
+        <span>{node.headcount}</span>
+      </div>
+    </div>
+    {node.children && node.children.length > 0 && (
+      <>
+        <div className="absolute top-full h-8 w-px bg-border"></div>
+        <div className="pt-8 flex justify-center gap-8 relative">
+           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-px w-full bg-border"></div>
+          {node.children.map((child) => (
+            <OrgChartNode key={child.id} node={child} />
           ))}
         </div>
-      </CardContent>
-    </Card>
-  );
-};
+      </>
+    )}
+  </div>
+);
+
+
+const mockOrgData: Department = {
+    id: 'ceo',
+    name: 'НЭ',
+    type: 'Компани',
+    headcount: 0,
+    children: [
+        {
+            id: 'eng',
+            name: 'Инженерчлэлийн хэлтэс',
+            type: 'Хэлтэс',
+            headcount: 15,
+            children: [
+                { id: 'fe', name: 'Frontend баг', type: 'Баг', headcount: 7, children: [] },
+                { id: 'be', name: 'Backend баг', type: 'Баг', headcount: 8, children: [] },
+            ]
+        },
+        {
+            id: 'mkt',
+            name: 'Маркетингийн хэлтэс',
+            type: 'Хэлтэс',
+            headcount: 8,
+            children: [
+                 { id: 'sales', name: 'Борлуулалтын алба', type: 'Алба', headcount: 12, children: [] },
+            ]
+        },
+        {
+            id: 'hr',
+            name: 'Хүний нөөцийн алба',
+            type: 'Алба',
+            headcount: 5,
+            children: []
+        }
+    ]
+}
+
 
 const StructureTab = () => {
-    const { firestore } = useFirebase();
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-
-    const isLoading = isLoadingDepts || isLoadingPos;
-
-    if (isLoading) {
-        return (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {Array.from({length: 3}).map((_, i) => (
-                    <Card key={i}>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Skeleton className="h-10 w-10 rounded-lg"/>
-                                <div className="space-y-2">
-                                    <Skeleton className="h-6 w-32"/>
-                                    <Skeleton className="h-4 w-24"/>
-                                </div>
-                            </div>
-                             <Skeleton className="h-8 w-8"/>
-                        </CardHeader>
-                        <CardContent className="space-y-4 pt-0">
-                             <Separator />
-                             <div className="space-y-3">
-                                <Skeleton className="h-5 w-full"/>
-                                <Skeleton className="h-5 w-full"/>
-                             </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-        )
-    }
-
     return (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {departments?.map((dept) => {
-                 const deptPositions = positions?.filter(p => p.departmentId === dept.id) || [];
-                 return (
-                     <DepartmentCard key={dept.id} department={dept} positions={deptPositions} />
-                 )
-            })}
-         </div>
+      <Card>
+        <CardHeader>
+           <div className="flex items-center justify-between">
+             <div>
+                <CardTitle>Хөхэнэгэ ХХК бүтэц (55)</CardTitle>
+             </div>
+             <div className='flex items-center gap-2'>
+                <Button variant="outline" size="sm">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Төрөл нэмэх
+                </Button>
+                 <Button variant="default" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Бүтэц нэмэх
+                </Button>
+             </div>
+           </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-8">
+            <div className="inline-block">
+                <OrgChartNode node={mockOrgData} />
+            </div>
+        </CardContent>
+      </Card>
     )
 }
 
@@ -294,15 +268,6 @@ export default function OrganizationPage() {
           <TabsTrigger value="headcount">Орон тоо</TabsTrigger>
         </TabsList>
         <TabsContent value="structure">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Хэлтэс, нэгжүүд</h2>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Хэлтэс нэмэх
-              </span>
-            </Button>
-          </div>
           <StructureTab />
         </TabsContent>
         <TabsContent value="positions">
