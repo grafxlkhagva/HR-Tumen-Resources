@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignUp, useFirebase, setDocumentNonBlocking, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useAuth, initiateEmailSignUp, useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,11 @@ export default function SignupPage() {
 
     try {
       // Check if any user (admin) already exists
+      if (!firestore) {
+        setError('Firestore-н тохиргоо хийгдээгүй байна.');
+        setIsLoading(false);
+        return;
+      }
       const usersCollection = collection(firestore, 'employees');
       const snapshot = await getCountFromServer(usersCollection);
       
@@ -63,14 +68,7 @@ export default function SignupPage() {
           };
           const userDocRef = doc(firestore, 'employees', user.uid);
           
-          setDoc(userDocRef, userData).catch(err => {
-              const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'create',
-                requestResourceData: userData,
-              });
-              errorEmitter.emit('permission-error', permissionError);
-          });
+          setDocumentNonBlocking(userDocRef, userData, { merge: true });
           
           toast({
             title: 'Амжилттай бүртгүүллээ',
