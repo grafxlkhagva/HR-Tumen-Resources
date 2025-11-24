@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Users,
   CalendarClock,
+  Building2,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -47,6 +48,11 @@ const links = [
     href: '/dashboard/compliance',
     label: 'Хууль тогтоомж',
     icon: ShieldCheck,
+  },
+  {
+    href: '/dashboard/company',
+    label: 'Компанийн мэдээлэл',
+    icon: Building2,
   },
 ];
 
