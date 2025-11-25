@@ -1014,89 +1014,77 @@ function LanguageForm() {
                                     )}
                                 />
                                 <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
-                                    {(['reading', 'Уншиж ойлгох'] as const).map(([name, label]) => (
-                                         <FormField
-                                            key={name}
-                                            control={form.control}
-                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
-                                            render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{label}</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                            )}
-                                        />
-                                    ))}
-                                    {(['writing', 'Бичиж орчуулах'] as const).map(([name, label]) => (
-                                         <FormField
-                                            key={name}
-                                            control={form.control}
-                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
-                                            render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{label}</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                            )}
-                                        />
-                                    ))}
-                                    {(['listening', 'Ярьсныг ойлгох'] as const).map(([name, label]) => (
-                                         <FormField
-                                            key={name}
-                                            control={form.control}
-                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
-                                            render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{label}</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                            )}
-                                        />
-                                    ))}
-                                    {(['speaking', 'Өөрөө ярих'] as const).map(([name, label]) => (
-                                         <FormField
-                                            key={name}
-                                            control={form.control}
-                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
-                                            render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{label}</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                            )}
-                                        />
-                                    ))}
+                                    <FormField
+                                        control={form.control}
+                                        name={`languages.${index}.listening`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Сонсох</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`languages.${index}.reading`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Унших</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`languages.${index}.speaking`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Ярих</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`languages.${index}.writing`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Бичих</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
                                 </div>
                                  <FormField
                                     control={form.control}
                                     name={`languages.${index}.testScore`}
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Түвшин/Зэрэг/оноо</FormLabel>
+                                        <FormLabel>Шалгалтын оноо</FormLabel>
                                         <FormControl>
                                         <Input placeholder="TOEFL-ийн оноо..." {...field} />
                                         </FormControl>
