@@ -61,7 +61,6 @@ const employeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
-  photoURL: z.string().optional(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -106,6 +105,7 @@ export default function AddEmployeePage() {
   const auth = useAuth();
   const { toast } = useToast();
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -128,7 +128,6 @@ export default function AddEmployeePage() {
       email: '',
       phoneNumber: '',
       password: 'password123',
-      photoURL: '',
     }
   });
   
@@ -154,32 +153,19 @@ export default function AddEmployeePage() {
     return newCode;
   };
   
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    const storage = getStorage();
-    const storageRef = ref(storage, `employee-photos/${new Date().getTime()}_${file.name}`);
-
-    try {
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        form.setValue('photoURL', downloadURL);
-        setPhotoPreview(downloadURL);
-        toast({ title: 'Зураг амжилттай хуулагдлаа.' });
-    } catch (error) {
-        console.error("Зураг хуулахад алдаа гарлаа: ", error);
-        toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг хуулахад алдаа гарлаа.' });
-    } finally {
-        setIsUploading(false);
-    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
 
   const handleSave = async (values: EmployeeFormValues) => {
     if (!employeesCollection || !auth || !firestore) return;
     
+    setIsUploading(true);
     try {
         const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
@@ -192,6 +178,14 @@ export default function AddEmployeePage() {
 
         if (!user) {
           throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
+        }
+
+        let photoURL = '';
+        if (photoFile) {
+            const storage = getStorage();
+            const storageRef = ref(storage, `employee-photos/${user.uid}/${photoFile.name}`);
+            await uploadBytes(storageRef, photoFile);
+            photoURL = await getDownloadURL(storageRef);
         }
 
         const position = positions?.find(p => p.id === values.positionId);
@@ -208,7 +202,7 @@ export default function AddEmployeePage() {
             positionId: values.positionId,
             hireDate: values.hireDate.toISOString(),
             jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
-            photoURL: values.photoURL,
+            photoURL: photoURL,
         };
         
         const docRef = doc(firestore, 'employees', user.uid);
@@ -228,8 +222,9 @@ export default function AddEmployeePage() {
             title: "Алдаа гарлаа",
             description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа. Имэйл бүртгэлтэй байж магадгүй."
         });
+    } finally {
+        setIsUploading(false);
     }
-
   };
 
   const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingCodeConfig;
@@ -267,7 +262,7 @@ export default function AddEmployeePage() {
                             type="file" 
                             accept="image/*"
                             ref={fileInputRef}
-                            onChange={handlePhotoUpload}
+                            onChange={handlePhotoSelect}
                             className="hidden"
                         />
                         <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
@@ -434,7 +429,7 @@ export default function AddEmployeePage() {
 
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting || isUploading}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {isSubmitting || isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
                     <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting || isUploading}>
