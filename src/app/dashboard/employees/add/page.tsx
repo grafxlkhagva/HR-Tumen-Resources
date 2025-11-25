@@ -25,9 +25,11 @@ import { Input } from '@/components/ui/input';
 import {
   useFirebase,
   setDocumentNonBlocking,
+  updateDocumentNonBlocking,
   useCollection,
   useMemoFirebase,
   useAuth,
+  useDoc,
 } from '@/firebase';
 import { collection, getDocs, query, where, doc } from 'firebase/firestore';
 import { Loader2, Save, X, Calendar as CalendarIcon } from 'lucide-react';
@@ -62,6 +64,12 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 type Position = { id: string; title: string };
 type Department = { id: string; name: string };
+type EmployeeCodeConfig = {
+    id: string;
+    prefix: string;
+    digitCount: number;
+    nextNumber: number;
+}
 
 function AddEmployeeFormSkeleton() {
     return (
@@ -96,9 +104,13 @@ export default function AddEmployeePage() {
 
   const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
   const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+  const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
+
 
   const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
   const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+  const { data: codeConfig, isLoading: isLoadingCodeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
+
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -118,24 +130,19 @@ export default function AddEmployeePage() {
     [firestore]
   );
   
-  const generateEmployeeCode = async (firstName: string, lastName: string): Promise<string> => {
-    if (!firestore) throw new Error("Firestore is not initialized");
-    
-    const firstInitial = lastName.charAt(0).toLowerCase();
-    let baseCode = `${firstInitial}.${firstName.toLowerCase().replace(/\s/g, '')}`;
-    let finalCode = baseCode;
-    let counter = 1;
-
-    // Check for uniqueness
-    while (true) {
-        const q = query(collection(firestore, 'employees'), where("employeeCode", "==", finalCode));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            return finalCode;
-        }
-        finalCode = `${baseCode}${counter}`;
-        counter++;
+  const generateEmployeeCode = async (): Promise<string> => {
+    if (!firestore || !codeConfigRef || !codeConfig) {
+      throw new Error("Кодчлолын тохиргоо олдсонгүй.");
     }
+  
+    const { prefix, digitCount, nextNumber } = codeConfig;
+    const codeNumber = nextNumber.toString().padStart(digitCount, '0');
+    const newCode = `${prefix}${codeNumber}`;
+  
+    // Increment the number for the next user
+    updateDocumentNonBlocking(codeConfigRef, { nextNumber: nextNumber + 1 });
+  
+    return newCode;
   };
 
 
@@ -143,7 +150,7 @@ export default function AddEmployeePage() {
     if (!employeesCollection || !auth || !firestore) return;
     
     try {
-        const employeeCode = await generateEmployeeCode(values.firstName, values.lastName);
+        const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
 
         // We can't use initiateEmailSignUp because we need the user's UID immediately.
@@ -192,7 +199,7 @@ export default function AddEmployeePage() {
 
   };
 
-  const isLoading = isLoadingPositions || isLoadingDepartments;
+  const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingCodeConfig;
 
   if (isLoading) {
       return (
@@ -261,7 +268,7 @@ export default function AddEmployeePage() {
                         <FormItem>
                             <FormLabel>Нэвтрэх нууц үг</FormLabel>
                             <FormControl>
-                            <Input type="password" {...field} />
+                            <Input type="password" {...field} value={field.value || ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

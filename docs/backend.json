@@ -10,6 +10,10 @@
           "type": "string",
           "description": "Ажилтны давтагдашгүй танигч."
         },
+        "employeeCode": {
+          "type": "string",
+          "description": "Ажилтны давтагдашгүй код, системд нэвтрэх нэр болно."
+        },
         "firstName": {
           "type": "string",
           "description": "Ажилтны нэр."
@@ -48,6 +52,7 @@
       },
       "required": [
         "id",
+        "employeeCode",
         "firstName",
         "lastName",
         "email",
@@ -367,10 +372,18 @@
       "description": "Ажил эрхлэлтийн төрлийг тодорхойлно (жишээ нь: Үндсэн, Гэрээт).",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string", "description": "Төрлийн нэр." }
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Төрлийн нэр."
+        }
       },
-      "required": ["id", "name"]
+      "required": [
+        "id",
+        "name"
+      ]
     },
     "PositionStatus": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -378,10 +391,18 @@
       "description": "Ажлын байрны төлвийг тодорхойлно (жишээ нь: Нээлттэй, Хаалттай).",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string", "description": "Төлвийн нэр." }
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Төлвийн нэр."
+        }
       },
-      "required": ["id", "name"]
+      "required": [
+        "id",
+        "name"
+      ]
     },
     "JobCategory": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -389,11 +410,23 @@
       "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтыг (ҮАМАТ) хадгална.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "code": { "type": "string", "description": "Ангиллын код." },
-        "name": { "type": "string", "description": "Ангиллын нэр." }
+        "id": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string",
+          "description": "Ангиллын код."
+        },
+        "name": {
+          "type": "string",
+          "description": "Ангиллын нэр."
+        }
       },
-      "required": ["id", "code", "name"]
+      "required": [
+        "id",
+        "code",
+        "name"
+      ]
     },
     "PositionLevel": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -401,10 +434,43 @@
       "description": "Албан тушаалын зэрэглэлийг тодорхойлно (жишээ нь: Удирдах, Гүйцэтгэх).",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string", "description": "Зэрэглэлийн нэр." }
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Зэрэглэлийн нэр."
+        }
       },
-      "required": ["id", "name"]
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "EmployeeCodeConfig": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажилтны кодчлолын тохиргоо",
+      "type": "object",
+      "description": "Ажилтны кодыг автоматаар үүсгэх тохиргоог хадгална.",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "Кодын угтвар үсэг (жишээ нь: 'EMP')."
+        },
+        "digitCount": {
+          "type": "number",
+          "description": "Кодын тоон хэсгийн уртын тоо (жишээ нь: 4 => 0001)."
+        },
+        "nextNumber": {
+          "type": "number",
+          "description": "Дараагийн үүсгэх кодын дугаар."
+        }
+      },
+      "required": [
+        "prefix",
+        "digitCount",
+        "nextNumber"
+      ]
     }
   },
   "auth": {
@@ -499,6 +565,17 @@
         }
       },
       {
+        "path": "/company/employeeCodeConfig",
+        "definition": {
+          "entityName": "EmployeeCodeConfig",
+          "schema": {
+            "$ref": "#/backend/entities/EmployeeCodeConfig"
+          },
+          "description": "Ажилтны кодчлолын тохиргоог хадгалах ганц баримт бичиг.",
+          "params": []
+        }
+      },
+      {
         "path": "/departments/{departmentId}",
         "definition": {
           "entityName": "Department",
@@ -550,36 +627,64 @@
         "path": "/employmentTypes/{employmentTypeId}",
         "definition": {
           "entityName": "EmploymentType",
-          "schema": { "$ref": "#/backend/entities/EmploymentType" },
+          "schema": {
+            "$ref": "#/backend/entities/EmploymentType"
+          },
           "description": "Ажил эрхлэлтийн төрлийн лавлах сан.",
-          "params": [{ "name": "employmentTypeId", "description": "Төрлийн танигч." }]
+          "params": [
+            {
+              "name": "employmentTypeId",
+              "description": "Төрлийн танигч."
+            }
+          ]
         }
       },
       {
         "path": "/positionStatuses/{positionStatusId}",
         "definition": {
           "entityName": "PositionStatus",
-          "schema": { "$ref": "#/backend/entities/PositionStatus" },
+          "schema": {
+            "$ref": "#/backend/entities/PositionStatus"
+          },
           "description": "Ажлын байрны төлвийн лавлах сан.",
-          "params": [{ "name": "positionStatusId", "description": "Төлвийн танигч." }]
+          "params": [
+            {
+              "name": "positionStatusId",
+              "description": "Төлвийн танигч."
+            }
+          ]
         }
       },
       {
         "path": "/jobCategories/{jobCategoryId}",
         "definition": {
           "entityName": "JobCategory",
-          "schema": { "$ref": "#/backend/entities/JobCategory" },
+          "schema": {
+            "$ref": "#/backend/entities/JobCategory"
+          },
           "description": "Ажил мэргэжлийн ангиллын лавлах сан.",
-          "params": [{ "name": "jobCategoryId", "description": "Ангиллын танигч." }]
+          "params": [
+            {
+              "name": "jobCategoryId",
+              "description": "Ангиллын танигч."
+            }
+          ]
         }
       },
       {
         "path": "/positionLevels/{positionLevelId}",
         "definition": {
           "entityName": "PositionLevel",
-          "schema": { "$ref": "#/backend/entities/PositionLevel" },
+          "schema": {
+            "$ref": "#/backend/entities/PositionLevel"
+          },
           "description": "Албан тушаалын зэрэглэлийн лавлах сан.",
-          "params": [{ "name": "positionLevelId", "description": "Зэрэглэлийн танигч." }]
+          "params": [
+            {
+              "name": "positionLevelId",
+              "description": "Зэрэглэлийн танигч."
+            }
+          ]
         }
       }
     ],
