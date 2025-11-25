@@ -23,7 +23,15 @@ const employeeCodeSchema = z.object({
     prefix: z.string().min(1, 'Угтвар үсэг хоосон байж болохгүй.'),
     digitCount: z.coerce.number().min(1, 'Оронгийн тоо 1-ээс бага байж болохгүй.').max(10, 'Оронгийн тоо 10-аас их байж болохгүй.'),
     nextNumber: z.coerce.number().min(1, 'Эхлэх дугаар 1-ээс бага байж болохгүй.'),
+}).refine((data) => {
+    // Check if nextNumber has more digits than allowed by digitCount
+    const maxNumber = Math.pow(10, data.digitCount);
+    return data.nextNumber < maxNumber;
+}, {
+    message: "Эхлэх дугаар нь тооны орноос хэтэрсэн байна.",
+    path: ["nextNumber"], // Path to the field that the error message applies to
 });
+
 type EmployeeCodeFormValues = z.infer<typeof employeeCodeSchema>;
 
 type EmployeeCodeConfig = {
@@ -48,7 +56,7 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
     const onSubmit = (data: EmployeeCodeFormValues) => {
         if (!codeConfigRef) return;
 
-        if (initialData.prefix) { // If there is initial data, update it
+        if (initialData.prefix || initialData.nextNumber > 1) { // Check if there is any initial data to decide between update and set
             updateDocumentNonBlocking(codeConfigRef, data);
         } else { // Otherwise create it
             setDocumentNonBlocking(codeConfigRef, data, { merge: true });
