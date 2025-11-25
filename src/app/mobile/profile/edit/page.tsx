@@ -437,13 +437,42 @@ function FamilyInfoForm({ form, isSubmitting }: { form: any; isSubmitting: boole
     );
 }
 
-// Placeholder forms for other sections for now
-const PlaceholderForm = ({ title }: { title: string }) => (
-    <div>
-        <p className="text-muted-foreground text-sm">{title} оруулах форм энд харагдана.</p>
-        <Button className="w-full mt-4"><Save className="mr-2 h-4 w-4" />Хадгалах</Button>
-    </div>
-);
+function WorkExperienceForm({ form, isSubmitting }: { form: any; isSubmitting: boolean }) {
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "experiences" });
+
+    return (
+        <>
+            <div className="space-y-4">
+                {fields.map((field, index) => (
+                    <Card key={field.id} className="relative p-4 bg-muted/50">
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                            </div>
+                            <FormField control={form.control} name={`experiences.${index}.company`} render={({ field }) => ( <FormItem><FormLabel>Компани</FormLabel><FormControl><Input placeholder="Ажиллаж байсан компани" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => ( <FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="full-time">Бүтэн цаг</SelectItem><SelectItem value="part-time">Цагаар</SelectItem><SelectItem value="contract">Гэрээт</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" className="w-full bg-background mt-4" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Ажлын туршлага нэмэх
+            </Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Хадгалах
+            </Button>
+        </>
+    );
+}
 
 
 export default function MobileProfileEditPage() {
@@ -562,7 +591,9 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="experience" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Ажлын туршлага</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <PlaceholderForm title="Ажлын туршлага" />
+                         <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
+                            {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} />}
+                        </FormSection>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
