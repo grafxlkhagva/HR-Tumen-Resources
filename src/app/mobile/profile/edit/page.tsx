@@ -298,8 +298,8 @@ function EducationForm({ form, isSubmitting }: { form: any; isSubmitting: boolea
                 <FormField control={form.control} name={`education.${index}.country`} render={({ field }) => ( <FormItem><FormLabel>Хаана</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Улс сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Монгол">Монгол</SelectItem><SelectItem value="Бусад">Бусад</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="МУИС">МУИС</SelectItem><SelectItem value="ШУТИС">ШУТИС</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name={`education.${index}.schoolCustom`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль /бичих/</FormLabel><FormControl><Input placeholder="Сонголтонд байхгүй бол энд бичнэ үү" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Элссэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Төгссөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={form.watch(`education.${index}.isCurrent`)} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Элссэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Төгссөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={form.watch(`education.${index}.isCurrent`)} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name={`education.${index}.isCurrent`} render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Одоо сурч байгаа</FormLabel></FormItem> )} />
                 <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => ( <FormItem><FormLabel>Эзэмшсэн мэргэжил</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Мэргэжил сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Нягтлан бодогч">Нягтлан бодогч</SelectItem><SelectItem value="Программист">Программист</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => ( <FormItem><FormLabel>Диплом, үнэмлэхний дугаар</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
@@ -364,6 +364,42 @@ function LanguageForm({ form, isSubmitting }: { form: any; isSubmitting: boolean
     );
 }
 
+function TrainingForm({ form, isSubmitting }: { form: any; isSubmitting: boolean }) {
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "trainings" });
+
+    return (
+        <>
+            <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Мэргэжлээрээ болон бусад төрлөөр 1 сараас дээш хугацаагаар хамрагдаж байсан сургалт.</AlertDescription></Alert>
+            <div className="space-y-4">
+                {fields.map((field, index) => (
+                    <Card key={field.id} className="p-4 bg-muted/50">
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                            </div>
+                            <FormField control={form.control} name={`trainings.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Сургалтын нэр</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.organization`} render={({ field }) => ( <FormItem><FormLabel>Сургалт явуулсан байгууллага</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.certificateNumber`} render={({ field }) => ( <FormItem><FormLabel>Үнэмлэх, сертификатын дугаар</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" className="w-full bg-background mt-4" onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Мэргэшлийн бэлтгэл нэмэх
+            </Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Хадгалах
+            </Button>
+        </>
+    );
+}
 
 // Placeholder forms for other sections for now
 const PlaceholderForm = ({ title }: { title: string }) => (
@@ -472,7 +508,9 @@ export default function MobileProfileEditPage() {
                  <AccordionItem value="training" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Мэргэшлийн бэлтгэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <PlaceholderForm title="Мэргэшлийн бэлтгэл" />
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
+                            {(form, isSubmitting) => <TrainingForm form={form} isSubmitting={isSubmitting} />}
+                        </FormSection>
                     </AccordionContent>
                 </AccordionItem>
 
