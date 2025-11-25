@@ -65,20 +65,22 @@ export default function DashboardLayout({
   const isLoading = isUserLoading || isProfileLoading;
 
   React.useEffect(() => {
-    // Don't do anything while loading
-    if (isLoading) return;
+    // While loading, do nothing.
+    if (isLoading) {
+      return;
+    }
 
-    // After loading, if there's no profile, redirect to login
+    // After loading, if there's no user or profile, redirect to login.
     if (!employeeProfile) {
       router.replace('/login');
       return;
     }
 
-    // If there is a profile, check the role
+    // If there is a profile, check the role for role-based redirects.
     if (employeeProfile.role === 'employee') {
       router.replace('/mobile/home');
     }
-    // If the role is not admin, it's an invalid state for this layout, so redirect to login.
+    // If the role is not admin, it's an invalid state, redirect to login.
     else if (employeeProfile.role !== 'admin') {
        router.replace('/login');
     }
@@ -86,8 +88,9 @@ export default function DashboardLayout({
   }, [employeeProfile, isLoading, router]);
 
 
-  // While loading, or if the user is an employee (and redirect is in progress), show a spinner.
-  if (isLoading || !employeeProfile || employeeProfile.role === 'employee') {
+  // While loading, or if the user is not an admin, show a spinner.
+  // This prevents rendering the admin dashboard for non-admin users before the redirect happens.
+  if (isLoading || !employeeProfile || employeeProfile.role !== 'admin') {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -95,15 +98,6 @@ export default function DashboardLayout({
     );
   }
   
-  // Only render the admin dashboard if loading is complete and the user is an admin.
-  if (employeeProfile.role === 'admin') {
-    return <AdminDashboard>{children}</AdminDashboard>;
-  }
-  
-  // Fallback loading spinner for any other case
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  );
+  // Only render the admin dashboard if loading is complete and the user is confirmed to be an admin.
+  return <AdminDashboard>{children}</AdminDashboard>;
 }

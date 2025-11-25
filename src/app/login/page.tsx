@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useAuth, initiateEmailSignIn, useUser } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ function isEmail(input: string): boolean {
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -28,20 +29,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        toast({
-          title: 'Амжилттай нэвтэрлээ',
-          description: 'Хяналтын самбар луу шилжиж байна.',
-        });
+    // If auth state is done loading and a user exists, redirect them.
+    if (!isUserLoading && user) {
         router.push('/dashboard');
-      }
-      // If no user, do nothing and stay on login page
-    });
-
-    return () => unsubscribe();
-  }, [auth, router, toast]);
+    }
+  }, [user, isUserLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,37 +45,49 @@ export default function LoginPage() {
     const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
 
     try {
-      // initiateEmailSignIn is non-blocking, but we can catch immediate client-side errors
-      // The actual result is handled by onAuthStateChanged
+      // initiateEmailSignIn is non-blocking, it just triggers the auth flow
+      // onAuthStateChanged listener will handle the success case
       await initiateEmailSignIn(auth, email, password);
+      
+      // The onAuthStateChanged listener in the useUser hook will eventually update the state.
+      // We can't rely on it immediately. We'll handle errors via a catch block.
+      // Since initiateEmailSignIn doesn't return a promise that resolves on success/fail
+      // but on initiation, we catch errors from the function call itself.
+      // The actual "invalid credential" error is an async event that won't be caught here.
+      // We rely on the user seeing a loading spinner and then nothing happening, or a toast.
+      // The best way to handle this is to use the `signInWithEmailAndPassword` directly
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      await signInWithEmailAndPassword(auth, email, password);
 
-      // The onAuthStateChanged listener will handle the redirect on success.
-      // We need a timeout here to handle the failure case, as onAuthStateChanged doesn't fire for failed sign-ins.
-      setTimeout(() => {
-        if (!auth.currentUser) {
-          setIsLoading(false);
-          const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
-          setError(errorMessage);
-          toast({
-            variant: 'destructive',
-            title: 'Нэвтрэхэд алдаа гарлаа',
-            description: errorMessage,
-          });
-        }
-      }, 2500); // 2.5 second timeout to wait for auth state change
+      // Successful login is handled by the useEffect hook, redirecting to /dashboard.
+       toast({
+          title: 'Амжилттай нэвтэрлээ',
+          description: 'Хяналтын самбар луу шилжиж байна.',
+        });
 
     } catch (err: any) {
-      // This will catch potential client-side validation errors from the SDK, though less common for signIn
       setIsLoading(false);
-      const errorMessage = 'Нэвтрэх үед тооцоолоогүй алдаа гарлаа.';
+      let errorMessage = 'Нэвтрэх үед тооцоолоогүй алдаа гарлаа.';
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+          errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+      }
       setError(errorMessage);
        toast({
         variant: 'destructive',
-        title: 'Алдаа',
-        description: err.message || errorMessage,
+        title: 'Нэвтрэхэд алдаа гарлаа',
+        description: errorMessage,
       });
     }
   };
+
+  // While checking auth state, or if user is found, show a loader to prevent flicker
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
