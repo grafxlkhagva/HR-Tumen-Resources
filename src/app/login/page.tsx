@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, useUser, useFirebase } from '@/firebase';
@@ -28,7 +28,6 @@ export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const { firestore } = useFirebase();
-  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -53,7 +52,6 @@ export default function LoginPage() {
         throw new Error("Хэрэглэгчийн мэдээлэл олдсонгүй.");
       }
       
-      // Fetch user role from Firestore
       const userDocRef = doc(firestore, 'employees', loggedInUser.uid);
       const userDoc = await getDoc(userDocRef);
       
@@ -69,7 +67,6 @@ export default function LoginPage() {
           description: 'Хуудас руу шилжиж байна.',
       });
 
-      // Redirect based on role
       if (userRole === 'admin') {
         router.push('/dashboard');
       } else if (userRole === 'employee') {
@@ -95,17 +92,6 @@ export default function LoginPage() {
     }
   };
   
-  // If user is already logged in and loading is finished, don't show login form, show loader instead.
-  // The respective layouts (/dashboard, /mobile) will handle the redirection.
-  if (isUserLoading || user) {
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
