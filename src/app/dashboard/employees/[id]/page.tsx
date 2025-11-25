@@ -151,9 +151,11 @@ export default function EmployeeProfilePage() {
                                         Анкет
                                     </Link>
                                 </Button>
-                                <Button variant="outline">
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Мэдээлэл засах
+                                <Button variant="outline" asChild>
+                                    <Link href={`/dashboard/employees/${employeeId}/edit`}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Мэдээлэл засах
+                                    </Link>
                                 </Button>
                             </div>
                         </div>
