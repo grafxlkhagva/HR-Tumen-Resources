@@ -20,7 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, useEmployeeProfile } from '@/firebase';
+import { useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -243,17 +244,17 @@ function ContactInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
     return (
         <>
             <div className="space-y-4">
-                <FormField control={form.control} name="workPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Албан)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="8811****" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="personalPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Хувийн)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="workEmail" render={({ field }) => ( <FormItem><FormLabel>Албан ёсны и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="name@example.com" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="personalEmail" render={({ field }) => ( <FormItem><FormLabel>Хувийн и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="personal@example.com" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="homeAddress" render={({ field }) => ( <FormItem><FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="temporaryAddress" render={({ field }) => ( <FormItem><FormLabel>Гэрийн хаяг (Түр)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="workPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Албан)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="8811****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="personalPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Хувийн)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="workEmail" render={({ field }) => ( <FormItem><FormLabel>Албан ёсны и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="name@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="personalEmail" render={({ field }) => ( <FormItem><FormLabel>Хувийн и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="personal@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="homeAddress" render={({ field }) => ( <FormItem><FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="temporaryAddress" render={({ field }) => ( <FormItem><FormLabel>Гэрийн хаяг (Түр)</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
             </div>
             
             <Card className="bg-muted/50"><CardHeader><CardTitle className="text-base">Сошиал медиа</CardTitle></CardHeader><CardContent className="space-y-4">
-                <FormField control={form.control} name="facebook" render={({ field }) => (<FormItem><FormLabel>Facebook</FormLabel><FormControl><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="instagram" render={({ field }) => (<FormItem><FormLabel>Instagram</FormLabel><FormControl><div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="facebook" render={({ field }) => (<FormItem><FormLabel>Facebook</FormLabel><FormControl><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="instagram" render={({ field }) => (<FormItem><FormLabel>Instagram</FormLabel><FormControl><div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
             </CardContent></Card>
 
             <Card className="bg-muted/50"><CardHeader><CardTitle className="text-base">Яаралтай үед холбоо барих</CardTitle></CardHeader><CardContent className="space-y-4">
