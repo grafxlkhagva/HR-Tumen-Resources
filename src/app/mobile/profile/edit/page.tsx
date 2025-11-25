@@ -401,6 +401,42 @@ function TrainingForm({ form, isSubmitting }: { form: any; isSubmitting: boolean
     );
 }
 
+function FamilyInfoForm({ form, isSubmitting }: { form: any; isSubmitting: boolean }) {
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "familyMembers" });
+    const relationshipOptions = ["Эхнэр", "Нөхөр", "Аав", "Ээж", "Ах", "Эгч", "Дүү", "Хүү", "Охин"];
+
+    return (
+        <>
+            <div className="space-y-4">
+                {fields.map((field, index) => (
+                    <Card key={field.id} className="relative p-4 bg-muted/50">
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                            </div>
+                            <FormField control={form.control} name={`familyMembers.${index}.relationship`} render={({ field }) => ( <FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{relationshipOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.lastName`} render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Овог" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.firstName`} render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Нэр" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Холбоо барих утас</FormLabel><FormControl><Input placeholder="Утасны дугаар" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+             <Button type="button" variant="outline" size="sm" className="w-full bg-background mt-4" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Гэр бүлийн гишүүн нэмэх
+            </Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Хадгалах
+            </Button>
+        </>
+    );
+}
+
 // Placeholder forms for other sections for now
 const PlaceholderForm = ({ title }: { title: string }) => (
     <div>
@@ -517,7 +553,9 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="family" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Гэр бүлийн мэдээлэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <PlaceholderForm title="Гэр бүлийн мэдээлэл" />
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
+                            {(form, isSubmitting) => <FamilyInfoForm form={form} isSubmitting={isSubmitting} />}
+                        </FormSection>
                     </AccordionContent>
                 </AccordionItem>
 
