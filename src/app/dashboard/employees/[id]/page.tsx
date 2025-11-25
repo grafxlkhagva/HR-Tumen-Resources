@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CVDisplay } from './cv-display';
 
 type Department = {
     id: string;
@@ -176,6 +177,7 @@ export default function EmployeeProfilePage() {
                         <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
                         <TabsTrigger value="performance">Гүйцэтгэл</TabsTrigger>
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
+                        <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview">
                         <Card>
@@ -198,6 +200,9 @@ export default function EmployeeProfilePage() {
                                 <p className="text-muted-foreground">Энд чөлөөний хүсэлтийн жагсаалт харагдах болно.</p>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+                    <TabsContent value="cv">
+                        <CVDisplay employeeId={employeeId} />
                     </TabsContent>
                 </Tabs>
             </div>
