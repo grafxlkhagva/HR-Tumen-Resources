@@ -27,30 +27,29 @@ export default function MobileLayout({
   const { employeeProfile, isUserLoading, isProfileLoading } =
     useEmployeeProfile();
 
+  const isLoading = isUserLoading || isProfileLoading;
+    
   React.useEffect(() => {
-    if (!isUserLoading && !employeeProfile) {
-      router.push('/login');
-    } else if (employeeProfile && employeeProfile.role !== 'employee') {
-      // If a non-employee tries to access mobile view, redirect them
-      router.push('/dashboard');
+    if (isLoading) {
+      return;
     }
-  }, [employeeProfile, isUserLoading, router]);
+    // After loading, if user is not an employee, redirect to login.
+    if (!employeeProfile || employeeProfile.role !== 'employee') {
+      router.replace('/login');
+    }
+  }, [employeeProfile, isLoading, router]);
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
   };
 
-  if (isUserLoading || isProfileLoading) {
+  if (isLoading || !employeeProfile || employeeProfile.role !== 'employee') {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!employeeProfile) {
-    return null; // or a login redirect message
   }
 
   return (

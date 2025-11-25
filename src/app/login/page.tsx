@@ -1,16 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser } from '@/firebase';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth, useUser, useFirebase } from '@/firebase';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getDoc, doc } from 'firebase/firestore';
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,6 +27,8 @@ function isEmail(input: string): boolean {
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const { firestore } = useFirebase();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +37,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth || !firestore) return;
 
     setIsLoading(true);
     setError(null);
@@ -37,20 +46,45 @@ export default function LoginPage() {
 
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const loggedInUser = userCredential.user;
+
+      if (!loggedInUser) {
+        throw new Error("Хэрэглэгчийн мэдээлэл олдсонгүй.");
+      }
+      
+      // Fetch user role from Firestore
+      const userDocRef = doc(firestore, 'employees', loggedInUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        throw new Error("Ажилтны бүртгэл олдсонгүй.");
+      }
+
+      const userData = userDoc.data();
+      const userRole = userData.role;
 
       toast({
           title: 'Амжилттай нэвтэрлээ',
-          description: 'Хяналтын самбар луу шилжиж байна.',
+          description: 'Хуудас руу шилжиж байна.',
       });
-      // Redirect to dashboard, which will then handle role-based redirection.
-      router.push('/dashboard');
+
+      // Redirect based on role
+      if (userRole === 'admin') {
+        router.push('/dashboard');
+      } else if (userRole === 'employee') {
+        router.push('/mobile/home');
+      } else {
+        throw new Error("Тодорхойгүй хэрэглэгчийн эрх.");
+      }
 
     } catch (err: any) {
       setIsLoading(false);
       let errorMessage = 'Нэвтрэх үед тооцоолоогүй алдаа гарлаа.';
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
           errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+      } else {
+        errorMessage = err.message || errorMessage;
       }
       setError(errorMessage);
        toast({
@@ -60,6 +94,17 @@ export default function LoginPage() {
       });
     }
   };
+  
+  // If user is already logged in and loading is finished, don't show login form, show loader instead.
+  // The respective layouts (/dashboard, /mobile) will handle the redirection.
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
