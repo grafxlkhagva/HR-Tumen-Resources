@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -31,8 +31,10 @@ const questionnaireSchema = z.object({
     birthDate: z.date({ required_error: "Төрсөн огноо сонгоно уу."}),
     gender: z.string().min(1, "Хүйс сонгоно уу."),
     idCardNumber: z.string().optional(),
-    hasDisability: z.string().optional(),
-    hasDriversLicense: z.string().optional(),
+    hasDisability: z.boolean().default(false).optional(),
+    disabilityPercentage: z.string().optional(),
+    disabilityDate: z.date().optional().nullable(),
+    hasDriversLicense: z.boolean().default(false).optional(),
 });
 
 type QuestionnaireFormValues = z.infer<typeof questionnaireSchema>;
@@ -47,8 +49,8 @@ function GeneralInfoForm() {
             registrationNumber: '',
             gender: '',
             idCardNumber: '',
-            hasDisability: 'false',
-            hasDriversLicense: 'false',
+            hasDisability: false,
+            hasDriversLicense: false,
         },
     });
 
@@ -57,6 +59,7 @@ function GeneralInfoForm() {
     }
     
     const { isSubmitting } = form.formState;
+    const hasDisability = form.watch("hasDisability");
 
     return (
         <Form {...form}>
@@ -192,47 +195,101 @@ function GeneralInfoForm() {
                                 </FormItem>
                                 )}
                             />
-                            <FormField
+                             <FormField
                                 control={form.control}
                                 name="hasDisability"
                                 render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 rounded-md border p-4">
-                                        <FormControl>
-                                            <RadioGroup
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                                className="flex items-center"
-                                            >
-                                                <RadioGroupItem value="true" id="disability_yes" />
-                                            </RadioGroup>
-                                        </FormControl>
-                                        <FormLabel className="font-normal" htmlFor="disability_yes">
-                                            Хөгжлийн бэрхшээлтэй эсэх
-                                        </FormLabel>
-                                    </FormItem>
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                    <FormLabel>
+                                        Хөгжлийн бэрхшээлтэй эсэх
+                                    </FormLabel>
+                                    </div>
+                                </FormItem>
                                 )}
                             />
                              <FormField
                                 control={form.control}
                                 name="hasDriversLicense"
                                 render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                                         <FormControl>
-                                            <RadioGroup
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                                className="flex items-center"
-                                            >
-                                                <RadioGroupItem value="true" id="drivers_license_yes" />
-                                            </RadioGroup>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
                                         </FormControl>
-                                        <FormLabel className="font-normal" htmlFor="drivers_license_yes">
-                                            Жолооны үнэмлэхтэй эсэх
-                                        </FormLabel>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel>
+                                                Жолооны үнэмлэхтэй эсэх
+                                            </FormLabel>
+                                        </div>
                                     </FormItem>
                                 )}
                             />
 
+                            {hasDisability && (
+                                <>
+                                    <FormField
+                                        control={form.control}
+                                        name="disabilityPercentage"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Хөдөлмөрийн чадвар алдалтын хувь (%)</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" placeholder="Хувь..." {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name="disabilityDate"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Хөдөлмөрийн чадвар алдсан огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                    >
+                                                    {field.value ? (
+                                                        format(field.value, "yyyy-MM-dd")
+                                                    ) : (
+                                                        <span>Огноо сонгох</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) => date > new Date()}
+                                                    initialFocus
+                                                />
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -1352,7 +1409,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="experience" className="w-full">
+            <Tabs defaultValue="general" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -1394,3 +1451,4 @@ export default function QuestionnairePage() {
         </div>
     );
 }
+
