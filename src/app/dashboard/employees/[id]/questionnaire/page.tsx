@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,10 +16,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2, Phone, Mail, AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const questionnaireSchema = z.object({
@@ -282,7 +284,7 @@ function ContactInfoForm() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Үндсэн мэдээлэл</CardTitle>
+                        <CardTitle>Холбоо барих мэдээлэл</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -381,6 +383,241 @@ function ContactInfoForm() {
     )
 }
 
+const educationSchema = z.object({
+  country: z.string().min(1, "Улс сонгоно уу."),
+  school: z.string().optional(),
+  schoolCustom: z.string().optional(),
+  degree: z.string().optional(),
+  entryDate: z.date().nullable(),
+  gradDate: z.date().nullable(),
+  isCurrent: z.boolean().default(false),
+}).refine(data => data.school || data.schoolCustom, {
+    message: "Төгссөн сургуулиа сонгох эсвэл бичнэ үү.",
+    path: ["school"],
+});
+
+const educationHistorySchema = z.object({
+    education: z.array(educationSchema)
+})
+
+type EducationHistoryFormValues = z.infer<typeof educationHistorySchema>;
+
+function EducationForm() {
+    const form = useForm<EducationHistoryFormValues>({
+        resolver: zodResolver(educationHistorySchema),
+        defaultValues: {
+            education: [{
+                country: 'Монгол',
+                school: '',
+                schoolCustom: '',
+                degree: '',
+                entryDate: null,
+                gradDate: null,
+                isCurrent: false,
+            }]
+        },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "education"
+    });
+
+    function onSubmit(data: EducationHistoryFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Анхаар</AlertTitle>
+                    <AlertDescription>
+                        Ерөнхий боловсролын сургуулиас эхлэн төгссөн дарааллын дагуу бичнэ үү.
+                    </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-6">
+                    {fields.map((field, index) => (
+                        <Card key={field.id} className="p-4">
+                            <CardContent className="space-y-4 pt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name={`education.${index}.country`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Хаана</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                    <SelectValue placeholder="Улс сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Монгол">Монгол</SelectItem>
+                                                    <SelectItem value="Бусад">Бусад</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`education.${index}.school`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Төгссөн сургууль</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                    <SelectValue placeholder="Сургууль сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {/* Сургуулийн жагсаалт энд орно */}
+                                                    <SelectItem value="МУИС">МУИС</SelectItem>
+                                                    <SelectItem value="ШУТИС">ШУТИС</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name={`education.${index}.schoolCustom`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Төгссөн сургууль /бичих/</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Таны төгссөн сургууль дээд талын сонголтонд байхгүй бол энд бичнэ үү" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <FormField
+                                        control={form.control}
+                                        name={`education.${index}.entryDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Элссэн огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`education.${index}.gradDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Төгссөн огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground", form.watch(`education.${index}.isCurrent`) && "disabled:opacity-50")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name={`education.${index}.isCurrent`}
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                            <FormControl>
+                                                <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                            <FormLabel className="text-sm font-normal">
+                                                Одоо сурч байгаа
+                                            </FormLabel>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name={`education.${index}.degree`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Эзэмшсэн мэргэжил</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Мэргэжлийн нэр" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                {fields.length > 1 && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Устгах
+                                </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ country: 'Монгол', school: '', schoolCustom: '', degree: '', entryDate: null, gradDate: null, isCurrent: false })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Боловсрол нэмэх
+                </Button>
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    );
+}
 
 export default function QuestionnairePage() {
     const { id } = useParams();
@@ -393,7 +630,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="general" className="w-full">
+            <Tabs defaultValue="education" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -410,10 +647,7 @@ export default function QuestionnairePage() {
                     <ContactInfoForm />
                 </TabsContent>
                  <TabsContent value="education">
-                    <Card>
-                        <CardHeader><CardTitle>Боловсрол</CardTitle></CardHeader>
-                        <CardContent><p className="text-muted-foreground">Удахгүй...</p></CardContent>
-                    </Card>
+                    <EducationForm />
                 </TabsContent>
             </Tabs>
 
