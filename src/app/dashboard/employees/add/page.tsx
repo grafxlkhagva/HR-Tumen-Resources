@@ -168,6 +168,7 @@ export default function AddEmployeePage() {
         const employeeData = {
             id: user.uid,
             employeeCode: employeeCode,
+            role: 'employee',
             firstName: values.firstName,
             lastName: values.lastName,
             email: values.email,

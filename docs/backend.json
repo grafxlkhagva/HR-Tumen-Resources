@@ -14,6 +14,10 @@
           "type": "string",
           "description": "Ажилтны давтагдашгүй код, системд нэвтрэх нэр болно."
         },
+        "role": {
+            "type": "string",
+            "description": "Ажилтны системийн эрх (жишээ нь: admin, employee)."
+        },
         "firstName": {
           "type": "string",
           "description": "Ажилтны нэр."
@@ -53,6 +57,7 @@
       "required": [
         "id",
         "employeeCode",
+        "role",
         "firstName",
         "lastName",
         "email",
