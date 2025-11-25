@@ -172,6 +172,16 @@ export default function SettingsPage() {
   const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
 
+  // Questionnaire references
+  const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
+  const { data: questionnaireSchools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
+  const { data: questionnaireDegrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
+  const { data: questionnaireAcademicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
+  const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
+  const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
+  const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+
+
   return (
     <div className="py-8">
        <div className="mb-8 flex items-center justify-between">
@@ -184,73 +194,135 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="space-y-8">
         <EmployeeCodeConfigCard />
 
         <Card>
-          <CardHeader>
-            <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
-            <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable 
-              collectionName="employmentTypes"
-              columns={[{ key: 'name', header: 'Нэр' }]}
-              itemData={employmentTypes}
-              isLoading={loadingEmpTypes}
-              dialogTitle="Ажил эрхлэлтийн төрөл"
-            />
-          </CardContent>
+            <CardHeader>
+                <CardTitle>Анкетын лавлах сан</CardTitle>
+                <CardDescription>Ажилтны анкетын сонголтуудыг эндээс удирдна.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+                 <ReferenceTable 
+                    collectionName="questionnaireCountries"
+                    columns={[{ key: 'name', header: 'Улс' }]}
+                    itemData={questionnaireCountries}
+                    isLoading={loadingCountries}
+                    dialogTitle="Улсын нэр"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireSchools"
+                    columns={[{ key: 'name', header: 'Сургууль' }]}
+                    itemData={questionnaireSchools}
+                    isLoading={loadingSchools}
+                    dialogTitle="Сургуулийн нэр"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireDegrees"
+                    columns={[{ key: 'name', header: 'Мэргэжил' }]}
+                    itemData={questionnaireDegrees}
+                    isLoading={loadingDegrees}
+                    dialogTitle="Мэргэжлийн нэр"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireAcademicRanks"
+                    columns={[{ key: 'name', header: 'Зэрэг, цол' }]}
+                    itemData={questionnaireAcademicRanks}
+                    isLoading={loadingRanks}
+                    dialogTitle="Эрдмийн зэрэг, цол"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireLanguages"
+                    columns={[{ key: 'name', header: 'Гадаад хэл' }]}
+                    itemData={questionnaireLanguages}
+                    isLoading={loadingLanguages}
+                    dialogTitle="Гадаад хэлний нэр"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireFamilyRelationships"
+                    columns={[{ key: 'name', header: 'Гэр бүлийн хамаарал' }]}
+                    itemData={questionnaireFamilyRelationships}
+                    isLoading={loadingFamilyR}
+                    dialogTitle="Гэр бүлийн гишүүний хамаарал"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireEmergencyRelationships"
+                    columns={[{ key: 'name', header: 'Яаралтай үеийн хамаарал' }]}
+                    itemData={questionnaireEmergencyRelationships}
+                    isLoading={loadingEmergencyR}
+                    dialogTitle="Яаралтай үед холбоо барих хүний хамаарал"
+                    />
+            </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ажлын байрны зэрэглэл</CardTitle>
-            <CardDescription>Удирдах, ахлах, мэргэжилтэн гэх мэт зэрэглэлүүдийг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable 
-              collectionName="positionLevels"
-              columns={[{ key: 'name', header: 'Нэр' }]}
-              itemData={positionLevels}
-              isLoading={loadingLevels}
-              dialogTitle="Албан тушаалын зэрэглэл"
-            />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <Card>
+            <CardHeader>
+                <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
+                <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                collectionName="employmentTypes"
+                columns={[{ key: 'name', header: 'Нэр' }]}
+                itemData={employmentTypes}
+                isLoading={loadingEmpTypes}
+                dialogTitle="Ажил эрхлэлтийн төрөл"
+                />
+            </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ажлын байрны төлөв</CardTitle>
-            <CardDescription>Нээлттэй, хаалттай гэх мэт төлвүүдийг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable 
-              collectionName="positionStatuses"
-              columns={[{ key: 'name', header: 'Нэр' }]}
-              itemData={positionStatuses}
-              isLoading={loadingStatuses}
-              dialogTitle="Ажлын байрны төлөв"
-            />
-          </CardContent>
-        </Card>
+            <Card>
+            <CardHeader>
+                <CardTitle>Ажлын байрны зэрэглэл</CardTitle>
+                <CardDescription>Удирдах, ахлах, мэргэжилтэн гэх мэт зэрэглэлүүдийг удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                collectionName="positionLevels"
+                columns={[{ key: 'name', header: 'Нэр' }]}
+                itemData={positionLevels}
+                isLoading={loadingLevels}
+                dialogTitle="Албан тушаалын зэрэглэл"
+                />
+            </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
-            <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable 
-              collectionName="jobCategories"
-              columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
-              itemData={jobCategories}
-              isLoading={loadingJobCategories}
-              dialogTitle="Ажил мэргэжлийн ангилал"
-            />
-          </CardContent>
-        </Card>
+            <Card>
+            <CardHeader>
+                <CardTitle>Ажлын байрны төлөв</CardTitle>
+                <CardDescription>Нээлттэй, хаалттай гэх мэт төлвүүдийг удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                collectionName="positionStatuses"
+                columns={[{ key: 'name', header: 'Нэр' }]}
+                itemData={positionStatuses}
+                isLoading={loadingStatuses}
+                dialogTitle="Ажлын байрны төлөв"
+                />
+            </CardContent>
+            </Card>
+
+            <Card>
+            <CardHeader>
+                <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
+                <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                collectionName="jobCategories"
+                columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
+                itemData={jobCategories}
+                isLoading={loadingJobCategories}
+                dialogTitle="Ажил мэргэжлийн ангилал"
+                />
+            </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );
 }
+
+    
