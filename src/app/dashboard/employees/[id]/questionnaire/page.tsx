@@ -21,10 +21,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 
 // Schemas
@@ -62,17 +63,13 @@ const contactInfoSchema = z.object({
 
 const educationSchema = z.object({
   country: z.string().min(1, "Улс сонгоно уу."),
-  school: z.string().optional(),
-  schoolCustom: z.string().optional(),
+  school: z.string().min(1, 'Төгссөн сургуулиа сонгоно уу.'),
   degree: z.string().optional(),
   diplomaNumber: z.string().optional(),
   academicRank: z.string().optional(),
   entryDate: z.date().nullable(),
   gradDate: z.date().nullable(),
   isCurrent: z.boolean().default(false),
-}).refine(data => data.school || data.schoolCustom, {
-    message: "Төгссөн сургуулиа сонгох эсвэл бичнэ үү.",
-    path: ["school"],
 });
 
 const educationHistorySchema = z.object({ education: z.array(educationSchema) });
@@ -280,9 +277,55 @@ function ContactInfoForm({ form, isSubmitting, references }: { form: any, isSubm
 
 function EducationForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "education" });
+    const { firestore } = useFirebase();
+    const [isAddSchoolOpen, setIsAddSchoolOpen] = React.useState(false);
+    const [newSchoolName, setNewSchoolName] = React.useState('');
+    const [currentFieldIndex, setCurrentFieldIndex] = React.useState<number | null>(null);
+
+    const schoolsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]);
+
+    const handleAddSchool = async () => {
+        if (!schoolsCollection || !newSchoolName.trim() || currentFieldIndex === null) return;
+        
+        try {
+            const newDoc = await addDocumentNonBlocking(schoolsCollection, { name: newSchoolName.trim() });
+            if (newDoc) {
+                form.setValue(`education.${currentFieldIndex}.school`, newSchoolName.trim());
+            }
+        } catch (e) {
+            console.error("Error adding new school: ", e);
+        } finally {
+            setNewSchoolName('');
+            setIsAddSchoolOpen(false);
+            setCurrentFieldIndex(null);
+        }
+    };
+
 
     return (
         <>
+            <Dialog open={isAddSchoolOpen} onOpenChange={setIsAddSchoolOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Шинэ сургууль нэмэх</DialogTitle>
+                        <DialogDescription>
+                            Жагсаалтад байхгүй сургуулийн нэрийг энд нэмнэ үү.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <Input 
+                            placeholder="Сургуулийн нэр" 
+                            value={newSchoolName} 
+                            onChange={(e) => setNewSchoolName(e.target.value)} 
+                        />
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setIsAddSchoolOpen(false)}>Цуцлах</Button>
+                        <Button onClick={handleAddSchool}>Хадгалах</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Ерөнхий боловсролын сургуулиас эхлэн төгссөн дарааллын дагуу бичнэ үү.</AlertDescription></Alert>
             <div className="space-y-6">
                 {fields.map((field, index) => (
@@ -290,9 +333,8 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                         <CardContent className="space-y-4 pt-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`education.${index}.country`} render={({ field }) => ( <FormItem><FormLabel>Хаана</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Улс сонгох" /></SelectTrigger></FormControl><SelectContent>{references.countries?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent>{references.schools?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={(value) => { if(value === '__add_new__') { setCurrentFieldIndex(index); setIsAddSchoolOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent>{references.schools?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-bold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                             </div>
-                            <FormField control={form.control} name={`education.${index}.schoolCustom`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль /бичих/</FormLabel><FormControl><Input placeholder="Таны төгссөн сургууль дээд талын сонголтонд байхгүй бол энд бичнэ үү" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Элссэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Төгссөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={form.watch(`education.${index}.isCurrent`)} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
@@ -306,7 +348,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                     </Card>
                 ))}
             </div>
-            <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', schoolCustom: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}><PlusCircle className="mr-2 h-4 w-4" />Боловсрол нэмэх</Button>
+            <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}><PlusCircle className="mr-2 h-4 w-4" />Боловсрол нэмэх</Button>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -554,5 +596,3 @@ export default function QuestionnairePage() {
         </div>
     );
 }
-
-    
