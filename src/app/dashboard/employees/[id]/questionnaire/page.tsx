@@ -50,6 +50,8 @@ function GeneralInfoForm() {
             gender: '',
             idCardNumber: '',
             hasDisability: false,
+            disabilityPercentage: '',
+            disabilityDate: null,
             hasDriversLicense: false,
             driverLicenseCategories: [],
         },
@@ -152,6 +154,9 @@ function GeneralInfoForm() {
                                         <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
                                             mode="single"
+                                            captionLayout="dropdown-nav"
+                                            fromYear={1960}
+                                            toYear={new Date().getFullYear()}
                                             selected={field.value}
                                             onSelect={field.onChange}
                                             disabled={(date) =>
