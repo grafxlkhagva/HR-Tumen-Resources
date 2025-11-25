@@ -90,33 +90,36 @@ type JobCategory = {
 }
 
 
-const OrgChartNode = ({ node }: { node: Department }) => (
-    <li className="relative flex flex-col items-center">
-      {/* Connector line to parent */}
-      <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
-  
-      <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
-        <p className="font-semibold">{node.name}</p>
-        <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
-        <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span>{node.headcount || 0}</span>
+const OrgChartNode = ({ node }: { node: Department }) => {
+    return (
+      <li className="relative flex flex-col items-center">
+        {/* Connector line to parent */}
+        <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+    
+        <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
+          <p className="font-semibold">{node.name}</p>
+          <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
+          <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>{node.headcount || 0}</span>
+          </div>
         </div>
-      </div>
-      
-      {node.children && node.children.length > 0 && (
-        <>
+        
+        {node.children && node.children.length > 0 && (
+          <ul className="relative mt-8 flex justify-center gap-8">
             {/* Horizontal line connecting children */}
-            <div className="absolute top-[-1px] left-0 right-0 h-px -translate-y-8 bg-border" style={{left: 'calc(50% - (100% - 4rem) / 2)', right: 'calc(50% - (100% - 4rem) / 2)' }}></div>
-             <ul className="relative mt-8 flex justify-center gap-8">
-                {node.children.map((child) => (
-                    <OrgChartNode key={child.id} node={child} />
-                ))}
-            </ul>
-        </>
-      )}
-    </li>
-  );
+            <li className="absolute top-0 h-px w-full -translate-y-8 bg-border" style={{
+                left: node.children.length > 1 ? `calc(50% - (100% * ${node.children.length - 1} / ${node.children.length}) / 2)` : '50%',
+                right: node.children.length > 1 ? `calc(50% - (100% * ${node.children.length - 1} / ${node.children.length}) / 2)` : '50%'
+            }}></li>
+            {node.children.map((child) => (
+                <OrgChartNode key={child.id} node={child} />
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+};
   
 const RootOrgChartNode = ({ node }: { node: Department }) => (
     <li className="relative flex flex-col items-center">
@@ -135,10 +138,10 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
 
         <ul className="relative mt-8 flex justify-center gap-8">
             {/* Horizontal line for children */}
-            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border" style={{
-                left: node.children.length > 1 ? 'calc(50% / ' + node.children.length + ')' : '50%',
-                right: node.children.length > 1 ? 'calc(50% / ' + node.children.length + ')' : '50%'
-            }}></div>
+            <li className="absolute top-0 h-px w-full -translate-y-8 bg-border" style={{
+                left: node.children.length > 1 ? `calc(50% / ${node.children.length})` : '50%',
+                right: node.children.length > 1 ? `calc(50% / ${node.children.length})` : '50%'
+            }}></li>
             {node.children.map((child) => (
                 <OrgChartNode key={child.id} node={child} />
             ))}
@@ -277,7 +280,7 @@ const StructureTab = () => {
             {isLoading && (
                  <div className="flex flex-col items-center">
                     <Skeleton className="h-24 w-56"/>
-                    <Skeleton className="h-8 w-px mt-1"/>
+                    <div className="w-px h-8 mt-1 bg-border"/>
                     <div className="flex gap-8 mt-8">
                          <Skeleton className="h-24 w-56"/>
                          <Skeleton className="h-24 w-56"/>
@@ -389,6 +392,9 @@ const PositionsTab = () => {
     const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(statusesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
 
+    const totalHeadcount = useMemo(() => {
+        return positions?.reduce((acc, pos) => acc + (pos.headcount || 0), 0) || 0;
+    }, [positions]);
 
     const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses || isLoadingJobCategories;
 
@@ -433,7 +439,7 @@ const PositionsTab = () => {
         <Card>
         <CardHeader className="flex-row items-center justify-between">
             <div>
-            <CardTitle>Ажлын байрны жагсаалт</CardTitle>
+            <CardTitle>Ажлын байрны жагсаалт (Нийт орон тоо: {isLoading ? <Skeleton className="h-6 w-8 inline-block" /> : totalHeadcount})</CardTitle>
             <CardDescription>
                 Байгууллагад бүртгэлтэй бүх албан тушаал.
             </CardDescription>
