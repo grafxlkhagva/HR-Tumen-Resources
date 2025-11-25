@@ -4,7 +4,7 @@ export type Employee = {
   lastName: string;
   avatarId?: string;
   jobTitle: string;
-  department: 'Engineering' | 'Marketing' | 'Sales' | 'Design' | 'HR' | 'Тодорхойгүй';
+  departmentId: string;
   email: string;
   phone?: string;
   hireDate: string;

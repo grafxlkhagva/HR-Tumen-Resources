@@ -1,5 +1,7 @@
 'use client';
 
+import * as React from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -32,7 +34,12 @@ import { collection } from 'firebase/firestore';
 import type { Employee } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function EmployeeRow({ employee }: { employee: Employee & {name: string} }) {
+type Department = {
+  id: string;
+  name: string;
+}
+
+function EmployeeRow({ employee, departmentName }: { employee: Employee; departmentName: string; }) {
   const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId);
   const employeeName = `${employee.firstName} ${employee.lastName}`;
 
@@ -58,7 +65,7 @@ function EmployeeRow({ employee }: { employee: Employee & {name: string} }) {
       </TableCell>
       <TableCell>{employee.jobTitle}</TableCell>
       <TableCell className="hidden md:table-cell">
-        <Badge variant="outline">{employee.department}</Badge>
+        <Badge variant="outline">{departmentName}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
         {employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'}
@@ -85,31 +92,47 @@ function EmployeeRow({ employee }: { employee: Employee & {name: string} }) {
 
 export default function EmployeesPage() {
   const { firestore } = useFirebase();
+
   const employeesQuery = useMemoFirebase(
     () => (firestore ? collection(firestore, 'employees') : null),
     [firestore]
   );
-  const {
-    data: employees,
-    isLoading,
-    error,
-  } = useCollection<Employee>(employeesQuery);
+  const departmentsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'departments') : null),
+    [firestore]
+  );
+
+  const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
+  const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
+
+  const departmentMap = React.useMemo(() => {
+    if (!departments) return new Map<string, string>();
+    return departments.reduce((map, dept) => {
+      map.set(dept.id, dept.name);
+      return map;
+    }, new Map<string, string>());
+  }, [departments]);
+  
+  const isLoading = isLoadingEmployees || isLoadingDepartments;
+  const error = errorEmployees || errorDepartments;
 
   return (
     <div className="py-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Ажилчид</CardTitle>
+            <CardTitle>Ажилтан</CardTitle>
             <CardDescription>
-              Ажилчдаа удирдаж, тэдний мэдээллийг харна уу.
+              Ажилтнаа удирдаж, тэдний мэдээллийг харна уу.
             </CardDescription>
           </div>
-          <Button size="sm" className="gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Ажилтан нэмэх
-            </span>
+          <Button asChild size="sm" className="gap-1">
+            <Link href="/dashboard/employees/add">
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Ажилтан нэмэх
+                </span>
+            </Link>
           </Button>
         </CardHeader>
         <CardContent>
@@ -168,7 +191,11 @@ export default function EmployeesPage() {
                 !error &&
                 employees &&
                 employees.map((employee) => (
-                  <EmployeeRow key={employee.id} employee={employee as any} />
+                  <EmployeeRow 
+                    key={employee.id} 
+                    employee={employee} 
+                    departmentName={departmentMap.get(employee.departmentId) || 'Тодорхойгүй'}
+                  />
                 ))}
             </TableBody>
           </Table>
