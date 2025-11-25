@@ -324,6 +324,47 @@ function EducationForm({ form, isSubmitting }: { form: any; isSubmitting: boolea
     );
   }
 
+function LanguageForm({ form, isSubmitting }: { form: any; isSubmitting: boolean }) {
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "languages" });
+    const proficiencyLevels = ['Анхан', 'Дунд', 'Ахисан', 'Мэргэжлийн'];
+    const languageOptions = ['Англи', 'Орос', 'Хятад', 'Япон', 'Солонгос', 'Герман'];
+
+    return (
+        <>
+            <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Түвшин оруулах</AlertTitle><AlertDescription>*Олон улсад хүлээн зөвшөөрөгдөх түвшин тогтоох шалгалтын оноог оруулна уу.</AlertDescription></Alert>
+            <div className="space-y-4">
+                {fields.map((field, index) => (
+                    <Card key={field.id} className="p-4 bg-muted/50">
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                            </div>
+                            <FormField control={form.control} name={`languages.${index}.language`} render={({ field }) => ( <FormItem><FormLabel>Гадаад хэл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хэл сонгох" /></SelectTrigger></FormControl><SelectContent>{languageOptions.map(lang => ( <SelectItem key={lang} value={lang}>{lang}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.listening`} render={({ field }) => ( <FormItem><FormLabel>Сонсох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.reading`} render={({ field }) => ( <FormItem><FormLabel>Унших</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.speaking`} render={({ field }) => ( <FormItem><FormLabel>Ярих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.writing`} render={({ field }) => ( <FormItem><FormLabel>Бичих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.testScore`} render={({ field }) => ( <FormItem><FormLabel>Шалгалтын оноо</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" className="w-full bg-background mt-4" onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Хэл нэмэх
+            </Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Хадгалах
+            </Button>
+        </>
+    );
+}
+
+
 // Placeholder forms for other sections for now
 const PlaceholderForm = ({ title }: { title: string }) => (
     <div>
@@ -422,7 +463,9 @@ export default function MobileProfileEditPage() {
                  <AccordionItem value="language" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Гадаад хэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <PlaceholderForm title="Гадаад хэлний мэдлэг" />
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
+                            {(form, isSubmitting) => <LanguageForm form={form} isSubmitting={isSubmitting} />}
+                        </FormSection>
                     </AccordionContent>
                 </AccordionItem>
 
