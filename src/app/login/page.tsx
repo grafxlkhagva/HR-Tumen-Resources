@@ -12,6 +12,8 @@ import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
