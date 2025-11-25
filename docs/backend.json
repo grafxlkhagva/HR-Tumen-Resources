@@ -476,6 +476,119 @@
         "digitCount",
         "nextNumber"
       ]
+    },
+    "EmployeeQuestionnaire": {
+      "title": "Ажилтны анкет",
+      "description": "Ажилтны дэлгэрэнгүй анкетын мэдээллийг хадгална.",
+      "type": "object",
+      "properties": {
+        "lastName": { "type": "string" },
+        "firstName": { "type": "string" },
+        "registrationNumber": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date-time" },
+        "gender": { "type": "string" },
+        "idCardNumber": { "type": "string" },
+        "hasDisability": { "type": "boolean" },
+        "disabilityPercentage": { "type": "string" },
+        "disabilityDate": { "type": "string", "format": "date-time" },
+        "hasDriversLicense": { "type": "boolean" },
+        "driverLicenseCategories": { "type": "array", "items": { "type": "string" } },
+        "workPhone": { "type": "string" },
+        "personalPhone": { "type": "string" },
+        "workEmail": { "type": "string", "format": "email" },
+        "personalEmail": { "type": "string", "format": "email" },
+        "homeAddress": { "type": "string" },
+        "temporaryAddress": { "type": "string" },
+        "facebook": { "type": "string", "format": "uri" },
+        "instagram": { "type": "string", "format": "uri" },
+        "emergencyContacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fullName": { "type": "string" },
+              "relationship": { "type": "string" },
+              "phone": { "type": "string" }
+            },
+            "required": ["fullName", "relationship", "phone"]
+          }
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "country": { "type": "string" },
+              "school": { "type": "string" },
+              "schoolCustom": { "type": "string" },
+              "degree": { "type": "string" },
+              "diplomaNumber": { "type": "string" },
+              "academicRank": { "type": "string" },
+              "entryDate": { "type": "string", "format": "date-time" },
+              "gradDate": { "type": "string", "format": "date-time" },
+              "isCurrent": { "type": "boolean" }
+            },
+            "required": ["country"]
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": { "type": "string" },
+              "listening": { "type": "string" },
+              "reading": { "type": "string" },
+              "speaking": { "type": "string" },
+              "writing": { "type": "string" },
+              "testScore": { "type": "string" }
+            },
+            "required": ["language", "listening", "reading", "speaking", "writing"]
+          }
+        },
+        "trainings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "organization": { "type": "string" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" },
+              "certificateNumber": { "type": "string" }
+            },
+            "required": ["name", "organization"]
+          }
+        },
+        "familyMembers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "relationship": { "type": "string" },
+              "lastName": { "type": "string" },
+              "firstName": { "type": "string" },
+              "phone": { "type": "string" }
+            },
+            "required": ["relationship", "lastName", "firstName"]
+          }
+        },
+        "experiences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": { "type": "string" },
+              "position": { "type": "string" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" },
+              "employmentType": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["company", "position", "employmentType"]
+          }
+        }
+      }
     }
   },
   "auth": {
@@ -494,6 +607,22 @@
             "$ref": "#/backend/entities/Employee"
           },
           "description": "Ажилтны профайлын мэдээллийг хадгална.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Ажилтны давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/questionnaire/data",
+        "definition": {
+          "entityName": "EmployeeQuestionnaire",
+          "schema": {
+            "$ref": "#/backend/entities/EmployeeQuestionnaire"
+          },
+          "description": "Ажилтантай холбоотой дэлгэрэнгүй анкетын мэдээллийг хадгалах ганц баримт бичиг.",
           "params": [
             {
               "name": "employeeId",
