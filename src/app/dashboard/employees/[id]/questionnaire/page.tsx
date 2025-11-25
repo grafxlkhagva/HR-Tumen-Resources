@@ -375,7 +375,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                         <CardContent className="space-y-4 pt-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`education.${index}.country`} render={({ field }) => ( <FormItem><FormLabel>Хаана</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Улс сонгох" /></SelectTrigger></FormControl><SelectContent>{references.countries?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={(value) => { if(value === '__add_new__') { setCurrentFieldIndex(index); setIsAddSchoolOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent>{references.schools?.map((item: ReferenceItem, index: number) => <SelectItem key={`${'item.id'}-${index}`} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-bold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => ( <FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={(value) => { if(value === '__add_new__') { setCurrentFieldIndex(index); setIsAddSchoolOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent>{references.schools?.map((item: ReferenceItem, index: number) => <SelectItem key={`${item.id}-${index}`} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-bold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Элссэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
@@ -492,7 +492,7 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
     );
 }
 
-function WorkExperienceForm({ form, isSubmitting }: { form: any, isSubmitting: boolean }) {
+function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "experiences" });
 
     return (
@@ -507,7 +507,7 @@ function WorkExperienceForm({ form, isSubmitting }: { form: any, isSubmitting: b
                                 <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => ( <FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="full-time">Бүтэн цаг</SelectItem><SelectItem value="part-time">Цагаар</SelectItem><SelectItem value="contract">Гэрээт</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             </div>
                             <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                         </CardContent>
@@ -543,6 +543,7 @@ export default function QuestionnairePage() {
     const { data: languages, isLoading: isLoadingLanguages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
     const { data: familyRelationships, isLoading: isLoadingFamilyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
     const { data: emergencyRelationships, isLoading: isLoadingEmergencyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+    const { data: questionnaireEmploymentTypes, isLoading: isLoadingEmpTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
     
     const defaultValues = React.useMemo(() => {
@@ -560,10 +561,11 @@ export default function QuestionnairePage() {
     }, [questionnaireData]);
 
     const references = {
-        countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships
+        countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships,
+        employmentTypes: questionnaireEmploymentTypes,
     };
 
-    const isLoading = isLoadingQuestionnaire || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR;
+    const isLoading = isLoadingQuestionnaire || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR || isLoadingEmpTypes;
 
 
     if (isLoading) {
@@ -576,9 +578,14 @@ export default function QuestionnairePage() {
 
     return (
         <div className="py-8">
-            <div className="mb-6">
+            <div className="mb-6 flex items-center justify-between">
                  <h1 className="text-2xl font-bold tracking-tight">Ажилтны анкет</h1>
-                 <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
+                 <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/employees/${employeeId}`}>
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Буцах
+                    </Link>
+                </Button>
             </div>
             
             <Tabs defaultValue="general" className="w-full">
@@ -624,17 +631,12 @@ export default function QuestionnairePage() {
                 </TabsContent>
                  <TabsContent value="experience">
                      <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
-                        {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} />}
+                        {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>
             </Tabs>
-
-             <Button asChild variant="outline" size="sm" className="mt-8">
-                <Link href={`/dashboard/employees/${employeeId}`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Буцах
-                </Link>
-            </Button>
         </div>
     );
 }
+
+    

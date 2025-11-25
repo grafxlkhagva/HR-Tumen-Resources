@@ -437,7 +437,7 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any; isSubmi
     );
 }
 
-function WorkExperienceForm({ form, isSubmitting }: { form: any; isSubmitting: boolean }) {
+function WorkExperienceForm({ form, isSubmitting, references }: { form: any; isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "experiences" });
 
     return (
@@ -456,7 +456,7 @@ function WorkExperienceForm({ form, isSubmitting }: { form: any; isSubmitting: b
                             <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => ( <FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal bg-background", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="full-time">Бүтэн цаг</SelectItem><SelectItem value="part-time">Цагаар</SelectItem><SelectItem value="contract">Гэрээт</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                         </div>
                     </Card>
@@ -494,6 +494,7 @@ export default function MobileProfileEditPage() {
     const { data: languages, isLoading: isLoadingLanguages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
     const { data: familyRelationships, isLoading: isLoadingFamilyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
     const { data: emergencyRelationships, isLoading: isLoadingEmergencyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+    const { data: questionnaireEmploymentTypes, isLoading: isLoadingEmpTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
     const defaultValues = React.useMemo(() => {
         const initialData = {
@@ -510,10 +511,11 @@ export default function MobileProfileEditPage() {
     }, [questionnaireData]);
 
      const references = {
-        countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships
+        countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships,
+        employmentTypes: questionnaireEmploymentTypes
     };
 
-    const isLoading = isProfileLoading || isQuestionnaireLoading || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR;
+    const isLoading = isProfileLoading || isQuestionnaireLoading || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR || isLoadingEmpTypes;
 
     if (isLoading) {
         return <PageSkeleton />;
@@ -605,7 +607,7 @@ export default function MobileProfileEditPage() {
                     <AccordionTrigger className="p-4 font-semibold text-base">Ажлын туршлага</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
                          <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
-                            {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} />}
+                            {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>
                 </AccordionItem>

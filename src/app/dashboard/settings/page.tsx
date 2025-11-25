@@ -180,6 +180,7 @@ export default function SettingsPage() {
   const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
   const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
   const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+  const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
 
   return (
@@ -251,6 +252,13 @@ export default function SettingsPage() {
                     itemData={questionnaireEmergencyRelationships}
                     isLoading={loadingEmergencyR}
                     dialogTitle="Яаралтай үед холбоо барих хүний хамаарал"
+                    />
+                <ReferenceTable 
+                    collectionName="questionnaireEmploymentTypes"
+                    columns={[{ key: 'name', header: 'Хөдөлмөрийн нөхцөл' }]}
+                    itemData={questionnaireEmploymentTypes}
+                    isLoading={loadingQuestionnaireEmpTypes}
+                    dialogTitle="Ажлын туршлагын хөдөлмөрийн нөхцөл"
                     />
             </CardContent>
         </Card>
