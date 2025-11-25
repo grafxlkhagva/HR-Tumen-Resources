@@ -28,6 +28,7 @@ export default function MobileLayout({
   const isLoading = isUserLoading || isProfileLoading;
     
   React.useEffect(() => {
+    // Wait until loading is complete before making any decisions
     if (isLoading) {
       return;
     }

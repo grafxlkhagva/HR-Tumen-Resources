@@ -64,7 +64,7 @@ export default function DashboardLayout({
   const isLoading = isUserLoading || isProfileLoading;
 
   React.useEffect(() => {
-    // Wait until loading is complete before making any decisions
+    // Don't do anything while loading
     if (isLoading) {
       return;
     }
