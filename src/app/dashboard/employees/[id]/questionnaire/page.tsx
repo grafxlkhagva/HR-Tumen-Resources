@@ -619,6 +619,218 @@ function EducationForm() {
     );
 }
 
+
+const languageSchema = z.object({
+    language: z.string().min(1, "Хэл сонгоно уу."),
+    listening: z.string().min(1, "Түвшин сонгоно уу."),
+    reading: z.string().min(1, "Түвшин сонгоно уу."),
+    speaking: z.string().min(1, "Түвшин сонгоно уу."),
+    writing: z.string().min(1, "Түвшин сонгоно уу."),
+    testScore: z.string().optional(),
+});
+
+const languageSkillsSchema = z.object({
+    languages: z.array(languageSchema)
+});
+
+type LanguageSkillsFormValues = z.infer<typeof languageSkillsSchema>;
+
+function LanguageForm() {
+    const form = useForm<LanguageSkillsFormValues>({
+        resolver: zodResolver(languageSkillsSchema),
+        defaultValues: {
+            languages: [{
+                language: '',
+                listening: '',
+                reading: '',
+                speaking: '',
+                writing: '',
+                testScore: '',
+            }]
+        },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "languages"
+    });
+
+    function onSubmit(data: LanguageSkillsFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+
+    const proficiencyLevels = ['Анхан', 'Дунд', 'Ахисан', 'Мэргэжлийн'];
+    const languageOptions = ['Англи', 'Орос', 'Хятад', 'Япон', 'Солонгос', 'Герман'];
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Түвшин оруулах</AlertTitle>
+                    <AlertDescription>
+                        *Олон улсад хүлээн зөвшөөрөгдөх түвшин тогтоох шалгалтын оноог оруулна уу.
+                    </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-6">
+                    {fields.map((field, index) => (
+                        <Card key={field.id} className="p-4">
+                            <CardContent className="space-y-4 pt-4">
+                                <FormField
+                                    control={form.control}
+                                    name={`languages.${index}.language`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Хэл</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                <SelectValue placeholder="Хэл сонгох" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {languageOptions.map(lang => (
+                                                    <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {(['listening', 'Сонсох'] as const).map(([name, label]) => (
+                                         <FormField
+                                            key={name}
+                                            control={form.control}
+                                            name={`languages.${index}.${name}`}
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{label}</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    ))}
+                                    {(['reading', 'Унших'] as const).map(([name, label]) => (
+                                         <FormField
+                                            key={name}
+                                            control={form.control}
+                                            name={`languages.${index}.${name}`}
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{label}</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    ))}
+                                    {(['speaking', 'Ярих'] as const).map(([name, label]) => (
+                                         <FormField
+                                            key={name}
+                                            control={form.control}
+                                            name={`languages.${index}.${name}`}
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{label}</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    ))}
+                                    {(['writing', 'Бичих'] as const).map(([name, label]) => (
+                                         <FormField
+                                            key={name}
+                                            control={form.control}
+                                            name={`languages.${index}.${name}`}
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{label}</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    ))}
+                                </div>
+                                 <FormField
+                                    control={form.control}
+                                    name={`languages.${index}.testScore`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Шалгалтын оноо</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="TOEFL-ийн оноо..." {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                {fields.length > 1 && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Устгах
+                                </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Хэл нэмэх
+                </Button>
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    );
+}
+
 export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -630,7 +842,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="education" className="w-full">
+            <Tabs defaultValue="language" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -648,6 +860,9 @@ export default function QuestionnairePage() {
                 </TabsContent>
                  <TabsContent value="education">
                     <EducationForm />
+                </TabsContent>
+                <TabsContent value="language">
+                    <LanguageForm />
                 </TabsContent>
             </Tabs>
 
