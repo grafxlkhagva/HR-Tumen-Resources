@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignIn, useUser } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { onAuthStateChanged } from 'firebase/auth';
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,19 +20,11 @@ function isEmail(input: string): boolean {
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // If auth state is done loading and a user exists, redirect them.
-    if (!isUserLoading && user) {
-        router.push('/dashboard');
-    }
-  }, [user, isUserLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +43,7 @@ export default function LoginPage() {
           title: 'Амжилттай нэвтэрлээ',
           description: 'Хяналтын самбар луу шилжиж байна.',
       });
-      // Successful login is handled by the useEffect hook, which will redirect to /dashboard.
+      // Redirect to dashboard, which will then handle role-based redirection.
       router.push('/dashboard');
 
     } catch (err: any) {
@@ -69,15 +60,6 @@ export default function LoginPage() {
       });
     }
   };
-
-  // While checking auth state, or if user is found, show a loader to prevent flicker
-  if (isUserLoading || user) {
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">

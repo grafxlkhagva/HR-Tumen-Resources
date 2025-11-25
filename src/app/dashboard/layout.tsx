@@ -59,7 +59,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { employeeProfile, isProfileLoading, isUserLoading } = useEmployeeProfile();
+  const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
   const router = useRouter();
 
   const isLoading = isUserLoading || isProfileLoading;
