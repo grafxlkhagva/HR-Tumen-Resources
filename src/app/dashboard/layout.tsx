@@ -62,20 +62,32 @@ export default function DashboardLayout({
   const { employeeProfile, isProfileLoading, isUserLoading } = useEmployeeProfile();
   const router = useRouter();
 
+  const isLoading = isUserLoading || isProfileLoading;
+
   React.useEffect(() => {
-    // If loading is done and there's no user, redirect to login.
-    if (!isUserLoading && !isProfileLoading && !employeeProfile) {
+    // Don't do anything while loading
+    if (isLoading) return;
+
+    // After loading, if there's no profile, redirect to login
+    if (!employeeProfile) {
       router.replace('/login');
+      return;
     }
-    // If loading is done and the user is an employee, redirect to mobile view.
-    else if (employeeProfile && employeeProfile.role === 'employee') {
+
+    // If there is a profile, check the role
+    if (employeeProfile.role === 'employee') {
       router.replace('/mobile/home');
     }
-  }, [employeeProfile, isUserLoading, isProfileLoading, router]);
+    // If the role is not admin, it's an invalid state for this layout, so redirect to login.
+    else if (employeeProfile.role !== 'admin') {
+       router.replace('/login');
+    }
+
+  }, [employeeProfile, isLoading, router]);
 
 
-  // While user or profile is loading, show a spinner.
-  if (isUserLoading || isProfileLoading) {
+  // While loading, or if the user is an employee (and redirect is in progress), show a spinner.
+  if (isLoading || !employeeProfile || employeeProfile.role === 'employee') {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -83,22 +95,12 @@ export default function DashboardLayout({
     );
   }
   
-  // If the user is an employee, they will be redirected by the useEffect.
-  // Render a spinner while the redirect is happening to avoid flashing the admin dashboard.
-  if (employeeProfile?.role === 'employee') {
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  // Only render the admin dashboard if the user profile has loaded and it's an admin.
-  if (employeeProfile?.role === 'admin') {
+  // Only render the admin dashboard if loading is complete and the user is an admin.
+  if (employeeProfile.role === 'admin') {
     return <AdminDashboard>{children}</AdminDashboard>;
   }
   
-  // Fallback for any other case (e.g., no profile found, which should be handled by the redirect).
+  // Fallback loading spinner for any other case
   return (
     <div className="flex h-screen items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
