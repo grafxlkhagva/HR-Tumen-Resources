@@ -280,9 +280,12 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
     const { firestore } = useFirebase();
     const [isAddSchoolOpen, setIsAddSchoolOpen] = React.useState(false);
     const [newSchoolName, setNewSchoolName] = React.useState('');
+    const [isAddDegreeOpen, setIsAddDegreeOpen] = React.useState(false);
+    const [newDegreeName, setNewDegreeName] = React.useState('');
     const [currentFieldIndex, setCurrentFieldIndex] = React.useState<number | null>(null);
 
     const schoolsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]);
+    const degreesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]);
 
     const handleAddSchool = async () => {
         if (!schoolsCollection || !newSchoolName.trim() || currentFieldIndex === null) return;
@@ -297,6 +300,23 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
         } finally {
             setNewSchoolName('');
             setIsAddSchoolOpen(false);
+            setCurrentFieldIndex(null);
+        }
+    };
+    
+    const handleAddDegree = async () => {
+        if (!degreesCollection || !newDegreeName.trim() || currentFieldIndex === null) return;
+        
+        try {
+            const newDoc = await addDocumentNonBlocking(degreesCollection, { name: newDegreeName.trim() });
+            if (newDoc) {
+                form.setValue(`education.${currentFieldIndex}.degree`, newDegreeName.trim());
+            }
+        } catch (e) {
+            console.error("Error adding new degree: ", e);
+        } finally {
+            setNewDegreeName('');
+            setIsAddDegreeOpen(false);
             setCurrentFieldIndex(null);
         }
     };
@@ -325,6 +345,28 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            
+            <Dialog open={isAddDegreeOpen} onOpenChange={setIsAddDegreeOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Шинэ мэргэжил нэмэх</DialogTitle>
+                        <DialogDescription>
+                            Жагсаалтад байхгүй мэргэжлийн нэрийг энд нэмнэ үү.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <Input 
+                            placeholder="Мэргэжлийн нэр" 
+                            value={newDegreeName} 
+                            onChange={(e) => setNewDegreeName(e.target.value)} 
+                        />
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setIsAddDegreeOpen(false)}>Цуцлах</Button>
+                        <Button onClick={handleAddDegree}>Хадгалах</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Ерөнхий боловсролын сургуулиас эхлэн төгссөн дарааллын дагуу бичнэ үү.</AlertDescription></Alert>
             <div className="space-y-6">
@@ -340,7 +382,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                                 <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Төгссөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={form.watch(`education.${index}.isCurrent`)} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                             </div>
                             <FormField control={form.control} name={`education.${index}.isCurrent`} render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-sm font-normal">Одоо сурч байгаа</FormLabel></FormItem> )} />
-                            <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => ( <FormItem><FormLabel>Эзэмшсэн мэргэжил</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Мэргэжил сонгох" /></SelectTrigger></FormControl><SelectContent>{references.degrees?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => ( <FormItem><FormLabel>Эзэмшсэн мэргэжил</FormLabel><Select onValueChange={(value) => { if(value === '__add_new__') { setCurrentFieldIndex(index); setIsAddDegreeOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Мэргэжил сонгох" /></SelectTrigger></FormControl><SelectContent>{references.degrees?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-bold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => ( <FormItem><FormLabel>Диплом, үнэмлэхний дугаар</FormLabel><FormControl><Input placeholder="Дипломын дугаарыг оруулна уу" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`education.${index}.academicRank`} render={({ field }) => ( <FormItem><FormLabel>Зэрэг, цол</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Зэрэг, цол сонгох" /></SelectTrigger></FormControl><SelectContent>{references.academicRanks?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             {fields.length > 1 && ( <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button> )}
@@ -596,5 +638,3 @@ export default function QuestionnairePage() {
         </div>
     );
 }
-
-    
