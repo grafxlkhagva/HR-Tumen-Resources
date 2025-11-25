@@ -63,41 +63,45 @@ export default function DashboardLayout({
   const router = useRouter();
 
   React.useEffect(() => {
-    if (!isUserLoading && !employeeProfile) {
-      router.push('/login');
+    // If loading is done and there's no user, redirect to login.
+    if (!isUserLoading && !isProfileLoading && !employeeProfile) {
+      router.replace('/login');
     }
-  }, [employeeProfile, isUserLoading, router]);
-
-  React.useEffect(() => {
-    if (employeeProfile && employeeProfile.role === 'employee') {
+    // If loading is done and the user is an employee, redirect to mobile view.
+    else if (employeeProfile && employeeProfile.role === 'employee') {
       router.replace('/mobile/home');
     }
-  }, [employeeProfile, router]);
+  }, [employeeProfile, isUserLoading, isProfileLoading, router]);
 
 
-  if (isUserLoading || isProfileLoading || !employeeProfile) {
+  // While user or profile is loading, show a spinner.
+  if (isUserLoading || isProfileLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  // If the user is an employee, they will be redirected.
-  // We can show a loader or null while redirection happens.
-  if (employeeProfile.role === 'employee') {
+  
+  // If the user is an employee, they will be redirected by the useEffect.
+  // Render a spinner while the redirect is happening to avoid flashing the admin dashboard.
+  if (employeeProfile?.role === 'employee') {
      return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  // Only render the admin dashboard if the user is an admin
-  if (employeeProfile.role === 'admin') {
+  
+  // Only render the admin dashboard if the user profile has loaded and it's an admin.
+  if (employeeProfile?.role === 'admin') {
     return <AdminDashboard>{children}</AdminDashboard>;
   }
   
-  // Fallback, though ideally should not be reached due to redirects.
-  return null;
+  // Fallback for any other case (e.g., no profile found, which should be handled by the redirect).
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
 }
