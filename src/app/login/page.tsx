@@ -45,25 +45,15 @@ export default function LoginPage() {
     const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
 
     try {
-      // initiateEmailSignIn is non-blocking, it just triggers the auth flow
-      // onAuthStateChanged listener will handle the success case
-      await initiateEmailSignIn(auth, email, password);
-      
-      // The onAuthStateChanged listener in the useUser hook will eventually update the state.
-      // We can't rely on it immediately. We'll handle errors via a catch block.
-      // Since initiateEmailSignIn doesn't return a promise that resolves on success/fail
-      // but on initiation, we catch errors from the function call itself.
-      // The actual "invalid credential" error is an async event that won't be caught here.
-      // We rely on the user seeing a loading spinner and then nothing happening, or a toast.
-      // The best way to handle this is to use the `signInWithEmailAndPassword` directly
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       await signInWithEmailAndPassword(auth, email, password);
 
-      // Successful login is handled by the useEffect hook, redirecting to /dashboard.
-       toast({
+      toast({
           title: 'Амжилттай нэвтэрлээ',
           description: 'Хяналтын самбар луу шилжиж байна.',
-        });
+      });
+      // Successful login is handled by the useEffect hook, which will redirect to /dashboard.
+      router.push('/dashboard');
 
     } catch (err: any) {
       setIsLoading(false);

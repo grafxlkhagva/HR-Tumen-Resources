@@ -65,30 +65,30 @@ export default function DashboardLayout({
   const isLoading = isUserLoading || isProfileLoading;
 
   React.useEffect(() => {
-    // While loading, do nothing.
+    // Wait until loading is complete before making any decisions
     if (isLoading) {
       return;
     }
 
-    // After loading, if there's no user or profile, redirect to login.
+    // After loading, if there's no profile, they are not logged in or not an employee
     if (!employeeProfile) {
       router.replace('/login');
       return;
     }
 
-    // If there is a profile, check the role for role-based redirects.
+    // If profile exists, check role for redirection
     if (employeeProfile.role === 'employee') {
       router.replace('/mobile/home');
+    } else if (employeeProfile.role !== 'admin') {
+      // If role is something else, also redirect to login
+      router.replace('/login');
     }
-    // If the role is not admin, it's an invalid state, redirect to login.
-    else if (employeeProfile.role !== 'admin') {
-       router.replace('/login');
-    }
-
+    
+    // If role is 'admin', do nothing and let the AdminDashboard render
   }, [employeeProfile, isLoading, router]);
 
 
-  // While loading, or if the user is not an admin, show a spinner.
+  // While loading, or if the user is not an admin yet (or will be redirected), show a spinner.
   // This prevents rendering the admin dashboard for non-admin users before the redirect happens.
   if (isLoading || !employeeProfile || employeeProfile.role !== 'admin') {
     return (
