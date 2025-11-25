@@ -92,7 +92,7 @@ type JobCategory = {
 
 const OrgChartNode = ({ node }: { node: Department }) => (
     <li className="relative flex flex-col items-center">
-      {/* Vertical line connecting to parent */}
+      {/* Connector line to parent */}
       <div className="absolute bottom-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
   
       <div className="relative z-10 w-56 rounded-lg border bg-card p-4 text-center text-card-foreground shadow-sm">
@@ -105,12 +105,15 @@ const OrgChartNode = ({ node }: { node: Department }) => (
       </div>
       
       {node.children && node.children.length > 0 && (
-         <ul className="relative mt-8 flex justify-center gap-8">
-            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
-            {node.children.map((child) => (
-                <OrgChartNode key={child.id} node={child} />
-            ))}
-        </ul>
+        <>
+            {/* Horizontal line connecting children */}
+            <div className="absolute top-[-1px] left-0 right-0 h-px -translate-y-8 bg-border" style={{left: 'calc(50% - (100% - 4rem) / 2)', right: 'calc(50% - (100% - 4rem) / 2)' }}></div>
+             <ul className="relative mt-8 flex justify-center gap-8">
+                {node.children.map((child) => (
+                    <OrgChartNode key={child.id} node={child} />
+                ))}
+            </ul>
+        </>
       )}
     </li>
   );
@@ -127,11 +130,17 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
     </div>
     {node.children && node.children.length > 0 && (
         <>
+        {/* Vertical line from root */}
         <div className="absolute top-full left-1/2 h-8 w-px -translate-x-1/2 bg-border"></div>
+
         <ul className="relative mt-8 flex justify-center gap-8">
-            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border"></div>
+            {/* Horizontal line for children */}
+            <div className="absolute top-0 h-px w-full -translate-y-8 bg-border" style={{
+                left: node.children.length > 1 ? 'calc(50% / ' + node.children.length + ')' : '50%',
+                right: node.children.length > 1 ? 'calc(50% / ' + node.children.length + ')' : '50%'
+            }}></div>
             {node.children.map((child) => (
-            <OrgChartNode key={child.id} node={child} />
+                <OrgChartNode key={child.id} node={child} />
             ))}
         </ul>
         </>
@@ -492,7 +501,7 @@ const PositionsTab = () => {
                         {pos.statusId ? <Badge variant="default">{lookups.statusMap[pos.statusId] || 'Тодорхойгүй'}</Badge> : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                    {pos.filled} / {pos.headcount}
+                        {pos.headcount}
                     </TableCell>
                     <TableCell className="text-right">
                         <DropdownMenu>
