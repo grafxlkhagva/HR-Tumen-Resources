@@ -4,6 +4,7 @@ export type Employee = {
   firstName: string;
   lastName: string;
   avatarId?: string;
+  photoURL?: string;
   jobTitle: string;
   departmentId: string;
   email: string;

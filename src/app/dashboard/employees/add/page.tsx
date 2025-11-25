@@ -32,7 +32,8 @@ import {
   useDoc,
 } from '@/firebase';
 import { collection, getDocs, query, where, doc } from 'firebase/firestore';
-import { Loader2, Save, X, Calendar as CalendarIcon } from 'lucide-react';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Loader2, Save, X, Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
     Select,
@@ -46,8 +47,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
@@ -62,7 +61,7 @@ const employeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
-  avatarId: z.string().optional(),
+  photoURL: z.string().optional(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -106,6 +105,10 @@ export default function AddEmployeePage() {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const { toast } = useToast();
+  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
   const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -125,7 +128,7 @@ export default function AddEmployeePage() {
       email: '',
       phoneNumber: '',
       password: 'password123',
-      avatarId: 'avatar-2',
+      photoURL: '',
     }
   });
   
@@ -149,6 +152,28 @@ export default function AddEmployeePage() {
     updateDocumentNonBlocking(codeConfigRef, { nextNumber: nextNumber + 1 });
   
     return newCode;
+  };
+  
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const storage = getStorage();
+    const storageRef = ref(storage, `employee-photos/${new Date().getTime()}_${file.name}`);
+
+    try {
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        form.setValue('photoURL', downloadURL);
+        setPhotoPreview(downloadURL);
+        toast({ title: 'Зураг амжилттай хуулагдлаа.' });
+    } catch (error) {
+        console.error("Зураг хуулахад алдаа гарлаа: ", error);
+        toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг хуулахад алдаа гарлаа.' });
+    } finally {
+        setIsUploading(false);
+    }
   };
 
 
@@ -183,7 +208,7 @@ export default function AddEmployeePage() {
             positionId: values.positionId,
             hireDate: values.hireDate.toISOString(),
             jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
-            avatarId: values.avatarId,
+            photoURL: values.photoURL,
         };
         
         const docRef = doc(firestore, 'employees', user.uid);
@@ -230,6 +255,26 @@ export default function AddEmployeePage() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2 flex flex-col items-center gap-4">
+                        <Avatar className="h-24 w-24">
+                            <AvatarImage src={photoPreview || undefined} />
+                            <AvatarFallback>
+                                {form.getValues('firstName')?.charAt(0)}
+                                {form.getValues('lastName')?.charAt(0)}
+                            </AvatarFallback>
+                        </Avatar>
+                        <input 
+                            type="file" 
+                            accept="image/*"
+                            ref={fileInputRef}
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                        />
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            Зураг хуулах
+                        </Button>
+                    </div>
                     <FormField
                         control={form.control}
                         name="firstName"
@@ -387,47 +432,12 @@ export default function AddEmployeePage() {
 
                 </div>
 
-                 <FormField
-                    control={form.control}
-                    name="avatarId"
-                    render={({ field }) => (
-                        <FormItem className="space-y-3">
-                        <FormLabel>Профайл зураг</FormLabel>
-                        <FormControl>
-                            <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4"
-                            >
-                            {PlaceHolderImages.map((img) => (
-                                <FormItem key={img.id} className="relative flex items-center justify-center">
-                                    <FormControl>
-                                        <RadioGroupItem value={img.id} className="sr-only" />
-                                    </FormControl>
-                                    <FormLabel className="cursor-pointer">
-                                        <Avatar className={cn(
-                                            "h-16 w-16 border-2 border-transparent transition-all",
-                                            field.value === img.id && "border-primary ring-2 ring-primary"
-                                        )}>
-                                            <AvatarImage src={img.imageUrl} alt={img.description} data-ai-hint={img.imageHint} />
-                                            <AvatarFallback>{img.id}</AvatarFallback>
-                                        </Avatar>
-                                    </FormLabel>
-                                </FormItem>
-                            ))}
-                            </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-
                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button type="submit" disabled={isSubmitting || isUploading}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting}>
+                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting || isUploading}>
                         <X className="mr-2 h-4 w-4" />
                         Цуцлах
                     </Button>

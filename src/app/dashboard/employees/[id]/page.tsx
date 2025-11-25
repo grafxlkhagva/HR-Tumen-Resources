@@ -116,7 +116,7 @@ export default function EmployeeProfilePage() {
         )
     }
     
-    const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId) || PlaceHolderImages.find(p => p.id === 'avatar-2');
+    const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId);
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
 
@@ -137,7 +137,7 @@ export default function EmployeeProfilePage() {
                     <CardHeader>
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
                             <Avatar className="h-24 w-24">
-                                <AvatarImage src={avatar?.imageUrl} alt={fullName} data-ai-hint={avatar?.imageHint} />
+                                <AvatarImage src={employee.photoURL || avatar?.imageUrl} alt={fullName} data-ai-hint={avatar?.imageHint} />
                                 <AvatarFallback className="text-3xl">{employee.firstName.charAt(0)}{employee.lastName.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-center sm:text-left">

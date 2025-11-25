@@ -12,6 +12,7 @@ export type EmployeeProfile = {
   email: string;
   employeeCode: string;
   avatarId?: string;
+  photoURL?: string;
   // Add other fields as needed
 };
 

@@ -30,7 +30,8 @@ import {
   useMemoFirebase,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2, Save, X, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Loader2, Save, X, Calendar as CalendarIcon, ArrowLeft, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
     Select,
@@ -46,9 +47,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { type Employee } from '../../data';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 
 const editEmployeeSchema = z.object({
@@ -61,7 +60,7 @@ const editEmployeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
-  avatarId: z.string().optional(),
+  photoURL: z.string().optional(),
 });
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
@@ -77,21 +76,17 @@ function EditEmployeeFormSkeleton() {
                 <Skeleton className="h-4 w-64" />
             </CardHeader>
             <CardContent className="space-y-6">
+                <div className="md:col-span-2 flex flex-col items-center gap-4">
+                    <Skeleton className="h-24 w-24 rounded-full" />
+                    <Skeleton className="h-10 w-32" />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Array.from({ length: 7 }).map((_, i) => (
+                    {Array.from({ length: 6 }).map((_, i) => (
                         <div className="space-y-2" key={i}>
                             <Skeleton className="h-4 w-20" />
                             <Skeleton className="h-10 w-full" />
                         </div>
                     ))}
-                </div>
-                 <div className="space-y-4">
-                    <Skeleton className="h-4 w-24" />
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
-                         {Array.from({ length: 8 }).map((_, i) => (
-                             <Skeleton key={i} className="h-16 w-16 rounded-full" />
-                         ))}
-                    </div>
                 </div>
                  <div className="flex items-center gap-2">
                     <Skeleton className="h-10 w-28" />
@@ -106,6 +101,9 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const [photoPreview, setPhotoPreview] = React.useState<string | null>(employeeData.photoURL || null);
+    const [isUploading, setIsUploading] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -127,6 +125,28 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         () => (firestore ? doc(firestore, 'employees', employeeData.id) : null),
         [firestore, employeeData.id]
     );
+
+    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const storage = getStorage();
+        const storageRef = ref(storage, `employee-photos/${employeeData.id}/${file.name}`);
+
+        try {
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+            form.setValue('photoURL', downloadURL);
+            setPhotoPreview(downloadURL);
+            toast({ title: 'Зураг амжилттай шинэчлэгдлээ.' });
+        } catch (error) {
+            console.error("Зураг хуулахад алдаа гарлаа: ", error);
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг хуулахад алдаа гарлаа.' });
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleSave = (values: EditEmployeeFormValues) => {
         if (!employeeDocRef || !firestore) return;
@@ -166,6 +186,26 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                 </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    <div className="md:col-span-2 flex flex-col items-center gap-4">
+                        <Avatar className="h-24 w-24">
+                            <AvatarImage src={photoPreview || undefined} />
+                            <AvatarFallback>
+                                {employeeData.firstName?.charAt(0)}
+                                {employeeData.lastName?.charAt(0)}
+                            </AvatarFallback>
+                        </Avatar>
+                        <input 
+                            type="file" 
+                            accept="image/*"
+                            ref={fileInputRef}
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                        />
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            Зураг солих
+                        </Button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Жишээ нь: Дорж" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Жишээ нь: Бат" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -176,47 +216,12 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                         <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>)} />
                     </div>
 
-                     <FormField
-                        control={form.control}
-                        name="avatarId"
-                        render={({ field }) => (
-                            <FormItem className="space-y-3">
-                            <FormLabel>Профайл зураг</FormLabel>
-                            <FormControl>
-                                <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4"
-                                >
-                                {PlaceHolderImages.map((img) => (
-                                    <FormItem key={img.id} className="relative flex items-center justify-center">
-                                        <FormControl>
-                                            <RadioGroupItem value={img.id} className="sr-only" />
-                                        </FormControl>
-                                        <FormLabel className="cursor-pointer">
-                                            <Avatar className={cn(
-                                                "h-16 w-16 border-2 border-transparent transition-all",
-                                                field.value === img.id && "border-primary ring-2 ring-primary"
-                                            )}>
-                                                <AvatarImage src={img.imageUrl} alt={img.description} data-ai-hint={img.imageHint} />
-                                                <AvatarFallback>{img.id}</AvatarFallback>
-                                            </Avatar>
-                                        </FormLabel>
-                                    </FormItem>
-                                ))}
-                                </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-
                     <div className="flex items-center gap-2">
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="submit" disabled={isSubmitting || isUploading}>
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Хадгалах
                         </Button>
-                        <Button variant="outline" type="button" onClick={() => router.push(`/dashboard/employees/${employeeData.id}`)} disabled={isSubmitting}>
+                        <Button variant="outline" type="button" onClick={() => router.push(`/dashboard/employees/${employeeData.id}`)} disabled={isSubmitting || isUploading}>
                             <X className="mr-2 h-4 w-4" />
                             Цуцлах
                         </Button>
