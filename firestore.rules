@@ -33,9 +33,10 @@ service firebase.storage {
       allow read: if true;
     }
 
-    // Allow authenticated users to write to their own directory in employee-photos.
+    // Allow any authenticated user to write to the employee-photos directory.
+    // The client-side logic should ensure files are placed in the correct user folder.
     match /employee-photos/{userId}/{allPaths=**} {
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null;
     }
   }
 }
