@@ -996,7 +996,7 @@ function LanguageForm() {
                                     name={`languages.${index}.language`}
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Хэл</FormLabel>
+                                        <FormLabel>Гадаад хэл</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
@@ -1013,8 +1013,8 @@ function LanguageForm() {
                                     </FormItem>
                                     )}
                                 />
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {(['listening', 'Сонсох'] as const).map(([name, label]) => (
+                                <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+                                    {(['reading', 'Уншиж ойлгох'] as const).map(([name, label]) => (
                                          <FormField
                                             key={name}
                                             control={form.control}
@@ -1033,7 +1033,7 @@ function LanguageForm() {
                                             )}
                                         />
                                     ))}
-                                    {(['reading', 'Унших'] as const).map(([name, label]) => (
+                                    {(['writing', 'Бичиж орчуулах'] as const).map(([name, label]) => (
                                          <FormField
                                             key={name}
                                             control={form.control}
@@ -1052,7 +1052,7 @@ function LanguageForm() {
                                             )}
                                         />
                                     ))}
-                                    {(['speaking', 'Ярих'] as const).map(([name, label]) => (
+                                    {(['listening', 'Ярьсныг ойлгох'] as const).map(([name, label]) => (
                                          <FormField
                                             key={name}
                                             control={form.control}
@@ -1071,7 +1071,7 @@ function LanguageForm() {
                                             )}
                                         />
                                     ))}
-                                    {(['writing', 'Бичих'] as const).map(([name, label]) => (
+                                    {(['speaking', 'Өөрөө ярих'] as const).map(([name, label]) => (
                                          <FormField
                                             key={name}
                                             control={form.control}
@@ -1096,7 +1096,7 @@ function LanguageForm() {
                                     name={`languages.${index}.testScore`}
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Шалгалтын оноо</FormLabel>
+                                        <FormLabel>Түвшин/Зэрэг/оноо</FormLabel>
                                         <FormControl>
                                         <Input placeholder="TOEFL-ийн оноо..." {...field} />
                                         </FormControl>
