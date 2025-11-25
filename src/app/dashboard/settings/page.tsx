@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,9 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Save, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CodeLogDialog } from './code-log-dialog';
-import type { Employee } from '../employees/data';
-
 
 type SimpleReferenceItem = ReferenceItem & { name: string };
 type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
@@ -26,12 +24,11 @@ const employeeCodeSchema = z.object({
     digitCount: z.coerce.number().min(1, 'Оронгийн тоо 1-ээс бага байж болохгүй.').max(10, 'Оронгийн тоо 10-аас их байж болохгүй.'),
     nextNumber: z.coerce.number().min(1, 'Эхлэх дугаар 1-ээс бага байж болохгүй.'),
 }).refine((data) => {
-    // Check if nextNumber has more digits than allowed by digitCount
     const maxNumber = Math.pow(10, data.digitCount);
     return data.nextNumber < maxNumber;
 }, {
     message: "Эхлэх дугаар нь тооны орноос хэтэрсэн байна.",
-    path: ["nextNumber"], // Path to the field that the error message applies to
+    path: ["nextNumber"], 
 });
 
 type EmployeeCodeFormValues = z.infer<typeof employeeCodeSchema>;
@@ -43,7 +40,7 @@ type EmployeeCodeConfig = {
     nextNumber: number;
 };
 
-function EmployeeCodeConfigForm({ initialData, onOpenLog }: { initialData: EmployeeCodeFormValues, onOpenLog: () => void }) {
+function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
@@ -58,9 +55,9 @@ function EmployeeCodeConfigForm({ initialData, onOpenLog }: { initialData: Emplo
     const onSubmit = (data: EmployeeCodeFormValues) => {
         if (!codeConfigRef) return;
 
-        if (initialData.prefix || initialData.nextNumber > 1) { // Check if there is any initial data to decide between update and set
+        if (initialData.prefix || initialData.nextNumber > 1) { 
             updateDocumentNonBlocking(codeConfigRef, data);
-        } else { // Otherwise create it
+        } else {
             setDocumentNonBlocking(codeConfigRef, data, { merge: true });
         }
         
@@ -119,9 +116,11 @@ function EmployeeCodeConfigForm({ initialData, onOpenLog }: { initialData: Emplo
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                     <Button type="button" variant="outline" onClick={onOpenLog} disabled={isSubmitting}>
-                        <History className="mr-2 h-4 w-4" />
-                        Түүх харах
+                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
+                        <Link href="/dashboard/settings/code-log">
+                           <History className="mr-2 h-4 w-4" />
+                           Түүх харах
+                        </Link>
                     </Button>
                 </div>
             </form>
@@ -131,19 +130,13 @@ function EmployeeCodeConfigForm({ initialData, onOpenLog }: { initialData: Emplo
 
 function EmployeeCodeConfigCard() {
     const { firestore } = useFirebase();
-    const [isLogOpen, setIsLogOpen] = React.useState(false);
 
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
     const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
 
-    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
-
     const initialData = codeConfig || { prefix: '', digitCount: 4, nextNumber: 1 };
     
     return (
-      <>
-        <CodeLogDialog open={isLogOpen} onOpenChange={setIsLogOpen} employees={employees || []} isLoading={isLoadingEmployees} />
         <Card>
             <CardHeader>
                 <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
@@ -163,11 +156,10 @@ function EmployeeCodeConfigCard() {
                         </div>
                     </div>
                 ) : (
-                  <EmployeeCodeConfigForm initialData={initialData} onOpenLog={() => setIsLogOpen(true)} />
+                  <EmployeeCodeConfigForm initialData={initialData} />
                 )}
             </CardContent>
         </Card>
-      </>
     )
 }
 
