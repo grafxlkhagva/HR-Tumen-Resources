@@ -23,6 +23,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog"
+import {
   Form,
   FormControl,
   FormField,
@@ -87,10 +98,8 @@ export function ReferenceTable({
 
   const handleDelete = (item: ReferenceItem) => {
     if (!firestore || !item.id) return;
-    if (confirm(`Та "${item[columns[0].key]}"-г устгахдаа итгэлтэй байна уу?`)) {
-      const docRef = doc(firestore, collectionName, item.id);
-      deleteDocumentNonBlocking(docRef);
-    }
+    const docRef = doc(firestore, collectionName, item.id);
+    deleteDocumentNonBlocking(docRef);
   };
 
   return (
@@ -132,9 +141,26 @@ export function ReferenceTable({
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{item[columns[0].key]}"-г лавлах сангаас бүрмөсөн устгах болно.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(item)}>Тийм</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
                 </TableCell>
               </TableRow>
             ))}
