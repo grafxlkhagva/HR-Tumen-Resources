@@ -706,7 +706,7 @@ function LanguageForm() {
                                          <FormField
                                             key={name}
                                             control={form.control}
-                                            name={`languages.${index}.${name}`}
+                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
                                             render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>{label}</FormLabel>
@@ -725,7 +725,7 @@ function LanguageForm() {
                                          <FormField
                                             key={name}
                                             control={form.control}
-                                            name={`languages.${index}.${name}`}
+                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
                                             render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>{label}</FormLabel>
@@ -744,7 +744,7 @@ function LanguageForm() {
                                          <FormField
                                             key={name}
                                             control={form.control}
-                                            name={`languages.${index}.${name}`}
+                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
                                             render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>{label}</FormLabel>
@@ -763,7 +763,7 @@ function LanguageForm() {
                                          <FormField
                                             key={name}
                                             control={form.control}
-                                            name={`languages.${index}.${name}`}
+                                            name={`languages.${index}.${name as 'listening' | 'reading' | 'speaking' | 'writing'}`}
                                             render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>{label}</FormLabel>
@@ -831,6 +831,186 @@ function LanguageForm() {
     );
 }
 
+const trainingSchema = z.object({
+  name: z.string().min(1, "Сургалтын нэр хоосон байж болохгүй."),
+  organization: z.string().min(1, "Байгууллагын нэр хоосон байж болохгүй."),
+  startDate: z.date().nullable(),
+  endDate: z.date().nullable(),
+  certificateNumber: z.string().optional(),
+});
+
+const professionalTrainingSchema = z.object({
+    trainings: z.array(trainingSchema)
+});
+
+type ProfessionalTrainingFormValues = z.infer<typeof professionalTrainingSchema>;
+
+function TrainingForm() {
+    const form = useForm<ProfessionalTrainingFormValues>({
+        resolver: zodResolver(professionalTrainingSchema),
+        defaultValues: {
+            trainings: [{
+                name: '',
+                organization: '',
+                startDate: null,
+                endDate: null,
+                certificateNumber: '',
+            }]
+        },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "trainings"
+    });
+
+    function onSubmit(data: ProfessionalTrainingFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+    
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Анхаар</AlertTitle>
+                    <AlertDescription>
+                        Мэргэжлээрээ болон бусад төрлөөр 1 сараас дээш хугацаагаар хамрагдаж байсан сургалт.
+                    </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-6">
+                    {fields.map((field, index) => (
+                        <Card key={field.id} className="p-4">
+                            <CardContent className="space-y-4 pt-4">
+                               <FormField
+                                    control={form.control}
+                                    name={`trainings.${index}.name`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Сургалтын нэр</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Сургалтын нэрийг оруулна уу" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name={`trainings.${index}.organization`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Сургалт явуулсан байгууллага</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Байгууллагын нэрийг оруулна уу" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <FormField
+                                        control={form.control}
+                                        name={`trainings.${index}.startDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Эхэлсэн огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`trainings.${index}.endDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Дууссан огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name={`trainings.${index}.certificateNumber`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Үнэмлэх, сертификатын дугаар</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Дугаарыг оруулна уу" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                {fields.length > 1 && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Устгах
+                                </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Мэргэшлийн бэлтгэл нэмэх
+                </Button>
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    );
+}
+
 export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -842,7 +1022,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="language" className="w-full">
+            <Tabs defaultValue="training" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -863,6 +1043,9 @@ export default function QuestionnairePage() {
                 </TabsContent>
                 <TabsContent value="language">
                     <LanguageForm />
+                </TabsContent>
+                <TabsContent value="training">
+                    <TrainingForm />
                 </TabsContent>
             </Tabs>
 
