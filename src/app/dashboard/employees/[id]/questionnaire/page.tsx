@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -35,6 +34,7 @@ const questionnaireSchema = z.object({
     disabilityPercentage: z.string().optional(),
     disabilityDate: z.date().optional().nullable(),
     hasDriversLicense: z.boolean().default(false).optional(),
+    driverLicenseCategories: z.array(z.string()).optional(),
 });
 
 type QuestionnaireFormValues = z.infer<typeof questionnaireSchema>;
@@ -51,6 +51,7 @@ function GeneralInfoForm() {
             idCardNumber: '',
             hasDisability: false,
             hasDriversLicense: false,
+            driverLicenseCategories: [],
         },
     });
 
@@ -60,6 +61,9 @@ function GeneralInfoForm() {
     
     const { isSubmitting } = form.formState;
     const hasDisability = form.watch("hasDisability");
+    const hasDriversLicense = form.watch("hasDriversLicense");
+    const driverLicenseCategoryItems = ["A", "B", "C", "D", "E", "M"];
+
 
     return (
         <Form {...form}>
@@ -291,6 +295,53 @@ function GeneralInfoForm() {
                                 </>
                             )}
                         </div>
+                        {hasDriversLicense && (
+                            <Card className="p-4">
+                                <FormLabel>Жолооны ангилал</FormLabel>
+                                <FormField
+                                    control={form.control}
+                                    name="driverLicenseCategories"
+                                    render={() => (
+                                        <FormItem className="grid grid-cols-3 md:grid-cols-6 gap-4 mt-4">
+                                            {driverLicenseCategoryItems.map((item) => (
+                                            <FormField
+                                                key={item}
+                                                control={form.control}
+                                                name="driverLicenseCategories"
+                                                render={({ field }) => {
+                                                return (
+                                                    <FormItem
+                                                    key={item}
+                                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                                    >
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value?.includes(item)}
+                                                            onCheckedChange={(checked) => {
+                                                                return checked
+                                                                ? field.onChange([...(field.value || []), item])
+                                                                : field.onChange(
+                                                                    field.value?.filter(
+                                                                        (value) => value !== item
+                                                                    )
+                                                                    )
+                                                            }}
+                                                        />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal">
+                                                        {item}
+                                                    </FormLabel>
+                                                    </FormItem>
+                                                )
+                                                }}
+                                            />
+                                            ))}
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </Card>
+                        )}
                     </CardContent>
                 </Card>
                 <div className="flex justify-end gap-2">
@@ -1451,4 +1502,3 @@ export default function QuestionnairePage() {
         </div>
     );
 }
-
