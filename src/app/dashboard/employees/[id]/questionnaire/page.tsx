@@ -482,7 +482,7 @@ export default function QuestionnairePage() {
             </div>
             
             <Tabs defaultValue="general" className="w-full">
-                <TabsList className="h-auto grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 mb-6">
+                <TabsList className="h-auto flex flex-wrap justify-start gap-2 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
                     <TabsTrigger value="education">Боловсрол</TabsTrigger>
