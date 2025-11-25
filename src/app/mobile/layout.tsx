@@ -4,8 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Settings, Calendar, LogOut } from 'lucide-react';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
@@ -24,33 +22,12 @@ export default function MobileLayout({
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
-  const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
-  const isLoading = isUserLoading || isProfileLoading;
     
-  React.useEffect(() => {
-    // Wait until loading is complete before making any decisions
-    if (isLoading) {
-      return;
-    }
-    // After loading, if user is not an employee, redirect to login.
-    if (!employeeProfile || employeeProfile.role !== 'employee') {
-      router.replace('/login');
-    }
-  }, [employeeProfile, isLoading, router]);
-
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
     router.push('/login');
   };
-
-  if (isLoading || !employeeProfile || employeeProfile.role !== 'employee') {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-dvh flex-col bg-muted/20">

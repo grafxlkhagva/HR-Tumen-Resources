@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
@@ -16,9 +15,8 @@ import { MainNav } from '@/components/main-nav';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   return (
@@ -59,33 +57,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
-  const router = useRouter();
-  const isLoading = isUserLoading || isProfileLoading;
-
-  React.useEffect(() => {
-    // Don't do anything while loading
-    if (isLoading) {
-      return;
-    }
-
-    // After loading, if there's no profile or the user is not an admin, redirect to login
-    if (!employeeProfile || employeeProfile.role !== 'admin') {
-      router.replace('/login');
-    }
-    
-  }, [employeeProfile, isLoading, router]);
-
-
-  // While loading, or if the user is not an admin yet (or will be redirected), show a spinner.
-  if (isLoading || !employeeProfile || employeeProfile.role !== 'admin') {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  // Only render the admin dashboard if loading is complete and the user is confirmed to be an admin.
+  // This layout is now only responsible for rendering the admin UI.
+  // The root page or a higher-level component handles the initial role-based redirection.
   return <AdminDashboard>{children}</AdminDashboard>;
 }
