@@ -650,6 +650,8 @@ const educationSchema = z.object({
   school: z.string().optional(),
   schoolCustom: z.string().optional(),
   degree: z.string().optional(),
+  diplomaNumber: z.string().optional(),
+  academicRank: z.string().optional(),
   entryDate: z.date().nullable(),
   gradDate: z.date().nullable(),
   isCurrent: z.boolean().default(false),
@@ -673,6 +675,8 @@ function EducationForm() {
                 school: '',
                 schoolCustom: '',
                 degree: '',
+                diplomaNumber: '',
+                academicRank: '',
                 entryDate: null,
                 gradDate: null,
                 isCurrent: false,
@@ -835,13 +839,59 @@ function EducationForm() {
                                     render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Эзэмшсэн мэргэжил</FormLabel>
+                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                <SelectValue placeholder="Мэргэжил сонгох" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {/* Мэргэжлийн жагсаалт энд орно */}
+                                                <SelectItem value="Нягтлан бодогч">Нягтлан бодогч</SelectItem>
+                                                <SelectItem value="Программист">Программист</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name={`education.${index}.diplomaNumber`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Диплом, үнэмлэхний дугаар</FormLabel>
                                         <FormControl>
-                                        <Input placeholder="Мэргэжлийн нэр" {...field} />
+                                        <Input placeholder="Дипломын дугаарыг оруулна уу" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                     )}
                                 />
+                                <FormField
+                                    control={form.control}
+                                    name={`education.${index}.academicRank`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Зэрэг, цол</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                <SelectValue placeholder="Зэрэг, цол сонгох" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {/* Зэрэг цолны жагсаалт энд орно */}
+                                                <SelectItem value="Бакалавр">Бакалавр</SelectItem>
+                                                <SelectItem value="Магистр">Магистр</SelectItem>
+                                                <SelectItem value="Доктор">Доктор (Ph.D)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+
                                 {fields.length > 1 && (
                                 <Button
                                     type="button"
@@ -860,7 +910,7 @@ function EducationForm() {
                  <Button
                     type="button"
                     variant="outline"
-                    onClick={() => append({ country: 'Монгол', school: '', schoolCustom: '', degree: '', entryDate: null, gradDate: null, isCurrent: false })}
+                    onClick={() => append({ country: 'Монгол', school: '', schoolCustom: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Боловсрол нэмэх
