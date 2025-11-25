@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -144,10 +144,18 @@ export default function EmployeeProfilePage() {
                                 <CardDescription>{employee.jobTitle}</CardDescription>
                                 <Badge variant="outline" className="mt-2">{departmentName}</Badge>
                             </div>
-                            <Button variant="outline">
-                                <Edit className="mr-2 h-4 w-4" />
-                                Мэдээлэл засах
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" asChild>
+                                    <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Анкет
+                                    </Link>
+                                </Button>
+                                <Button variant="outline">
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Мэдээлэл засах
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
