@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, initiateEmailSignIn } from '@/firebase';
@@ -12,8 +12,6 @@ import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,15 +27,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
-
-    initiateEmailSignIn(auth, email, password);
-
+  useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         toast({
@@ -45,34 +36,53 @@ export default function LoginPage() {
           description: 'Хяналтын самбар луу шилжиж байна.',
         });
         router.push('/dashboard');
-        unsubscribe();
-      } else {
-        // This timeout gives Firebase auth state a moment to propagate
-        setTimeout(() => {
-          if (!auth.currentUser) {
-             const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
-             setError(errorMessage);
-             toast({
-                variant: 'destructive',
-                title: 'Алдаа гарлаа',
-                description: errorMessage,
-              });
-            setIsLoading(false);
-          }
-        }, 2000);
       }
-    }, (error) => {
-        const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
-        setError(errorMessage);
-        toast({
-            variant: 'destructive',
-            title: 'Алдаа гарлаa',
-            description: error.message || errorMessage,
-        });
-        console.error(error);
-        setIsLoading(false);
-        unsubscribe();
+      // If no user, do nothing and stay on login page
     });
+
+    return () => unsubscribe();
+  }, [auth, router, toast]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
+
+    try {
+      // initiateEmailSignIn is non-blocking, but we can catch immediate client-side errors
+      // The actual result is handled by onAuthStateChanged
+      await initiateEmailSignIn(auth, email, password);
+
+      // The onAuthStateChanged listener will handle the redirect on success.
+      // We need a timeout here to handle the failure case, as onAuthStateChanged doesn't fire for failed sign-ins.
+      setTimeout(() => {
+        if (!auth.currentUser) {
+          setIsLoading(false);
+          const errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+          setError(errorMessage);
+          toast({
+            variant: 'destructive',
+            title: 'Нэвтрэхэд алдаа гарлаа',
+            description: errorMessage,
+          });
+        }
+      }, 2500); // 2.5 second timeout to wait for auth state change
+
+    } catch (err: any) {
+      // This will catch potential client-side validation errors from the SDK, though less common for signIn
+      setIsLoading(false);
+      const errorMessage = 'Нэвтрэх үед тооцоолоогүй алдаа гарлаа.';
+      setError(errorMessage);
+       toast({
+        variant: 'destructive',
+        title: 'Алдаа',
+        description: err.message || errorMessage,
+      });
+    }
   };
 
   return (
