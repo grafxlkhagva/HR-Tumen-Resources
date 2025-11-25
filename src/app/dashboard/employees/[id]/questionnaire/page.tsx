@@ -16,9 +16,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2, Phone, Mail } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const questionnaireSchema = z.object({
@@ -248,6 +249,138 @@ function GeneralInfoForm() {
     );
 }
 
+const contactInfoSchema = z.object({
+  workPhone: z.string().optional(),
+  personalPhone: z.string().optional(),
+  workEmail: z.string().email({ message: "Албан ёсны имэйл хаяг буруу байна." }).optional().or(z.literal('')),
+  personalEmail: z.string().email({ message: "Хувийн имэйл хаяг буруу байна." }).optional().or(z.literal('')),
+  homeAddress: z.string().optional(),
+});
+
+type ContactInfoFormValues = z.infer<typeof contactInfoSchema>;
+
+function ContactInfoForm() {
+    const form = useForm<ContactInfoFormValues>({
+        resolver: zodResolver(contactInfoSchema),
+        defaultValues: {
+            workPhone: '',
+            personalPhone: '',
+            workEmail: '',
+            personalEmail: '',
+            homeAddress: '',
+        },
+    });
+
+    function onSubmit(data: ContactInfoFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Үндсэн мэдээлэл</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField
+                                control={form.control}
+                                name="workPhone"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Гар утас (Албан)</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input placeholder="8811****" {...field} className="pl-10" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="personalPhone"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Гар утас (Хувийн)</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input placeholder="9911****" {...field} className="pl-10" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="workEmail"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Албан ёсны и-мэйл</FormLabel>
+                                    <FormControl>
+                                         <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input type="email" placeholder="name@example.com" {...field} className="pl-10" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="personalEmail"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Хувийн и-мэйл</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input type="email" placeholder="personal@example.com" {...field} className="pl-10" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="homeAddress"
+                                render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Сүхбаатар дүүрэг, 8-р хороо..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+                 <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    )
+}
+
 
 export default function QuestionnairePage() {
     const { id } = useParams();
@@ -274,8 +407,11 @@ export default function QuestionnairePage() {
                     <GeneralInfoForm />
                 </TabsContent>
                 <TabsContent value="contact">
+                    <ContactInfoForm />
+                </TabsContent>
+                 <TabsContent value="education">
                     <Card>
-                        <CardHeader><CardTitle>Холбоо барих</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Боловсрол</CardTitle></CardHeader>
                         <CardContent><p className="text-muted-foreground">Удахгүй...</p></CardContent>
                     </Card>
                 </TabsContent>
