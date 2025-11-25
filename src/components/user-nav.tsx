@@ -2,7 +2,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useAuth, useEmployeeProfile } from '@/firebase';
+import { useAuth } from '@/firebase';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';

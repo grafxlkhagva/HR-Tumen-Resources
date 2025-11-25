@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -70,6 +71,7 @@ export default function MobileSettingsPage() {
 
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/login');
   };
