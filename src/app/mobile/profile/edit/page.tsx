@@ -63,6 +63,15 @@ const GeneralInfoForm = () => {
     const form = useForm<QuestionnaireFormValues>({
         resolver: zodResolver(questionnaireSchema),
         defaultValues: {
+            lastName: '',
+            firstName: '',
+            registrationNumber: '',
+            gender: '',
+            idCardNumber: '',
+            hasDisability: false,
+            disabilityPercentage: '',
+            disabilityDate: null,
+            hasDriversLicense: false,
             driverLicenseCategories: [],
         },
     });
@@ -106,7 +115,17 @@ const GeneralInfoForm = () => {
 const ContactInfoForm = () => {
     const form = useForm<ContactInfoFormValues>({
         resolver: zodResolver(contactInfoSchema),
-        defaultValues: { emergencyContacts: [] },
+        defaultValues: {
+            workPhone: '',
+            personalPhone: '',
+            workEmail: '',
+            personalEmail: '',
+            homeAddress: '',
+            temporaryAddress: '',
+            facebook: '',
+            instagram: '',
+            emergencyContacts: [],
+        },
     });
      const { fields, append, remove } = useFieldArray({ control: form.control, name: "emergencyContacts" });
 
