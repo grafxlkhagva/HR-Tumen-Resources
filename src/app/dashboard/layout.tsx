@@ -61,7 +61,6 @@ export default function DashboardLayout({
 }) {
   const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
   const router = useRouter();
-
   const isLoading = isUserLoading || isProfileLoading;
 
   React.useEffect(() => {

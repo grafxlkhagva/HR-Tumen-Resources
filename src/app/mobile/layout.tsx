@@ -24,9 +24,7 @@ export default function MobileLayout({
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
-  const { employeeProfile, isUserLoading, isProfileLoading } =
-    useEmployeeProfile();
-
+  const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
   const isLoading = isUserLoading || isProfileLoading;
     
   React.useEffect(() => {
@@ -40,6 +38,7 @@ export default function MobileLayout({
   }, [employeeProfile, isLoading, router]);
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/login');
   };
