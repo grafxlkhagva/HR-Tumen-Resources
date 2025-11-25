@@ -198,7 +198,7 @@ function GeneralInfoForm() {
                                 <FormItem>
                                     <FormLabel>ТТД</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="ТТД дугаар" {...field} />
+                                    <Input placeholder="ТТД дугаар" {...field} value={field.value || ''} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -252,7 +252,7 @@ function GeneralInfoForm() {
                                         <FormItem>
                                             <FormLabel>Хөдөлмөрийн чадвар алдалтын хувь (%)</FormLabel>
                                             <FormControl>
-                                            <Input type="number" placeholder="Хувь..." {...field} />
+                                            <Input type="number" placeholder="Хувь..." {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
