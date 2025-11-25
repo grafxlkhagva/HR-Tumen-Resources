@@ -37,7 +37,7 @@ const links = [
   },
   {
     href: '/dashboard/employees',
-    label: 'Ажилчид',
+    label: 'Ажилтан',
     icon: Users,
   },
   {
