@@ -1150,6 +1150,197 @@ function FamilyInfoForm() {
     )
 }
 
+const workExperienceSchema = z.object({
+  company: z.string().min(1, "Компанийн нэр хоосон байж болохгүй."),
+  position: z.string().min(1, "Ажлын байрны нэр хоосон байж болохгүй."),
+  startDate: z.date().nullable(),
+  endDate: z.date().nullable(),
+  employmentType: z.string().min(1, "Хөдөлмөрийн нөхцөл сонгоно уу."),
+  description: z.string().optional(),
+});
+
+const workExperienceHistorySchema = z.object({
+    experiences: z.array(workExperienceSchema)
+});
+
+type WorkExperienceFormValues = z.infer<typeof workExperienceHistorySchema>;
+
+function WorkExperienceForm() {
+    const form = useForm<WorkExperienceFormValues>({
+        resolver: zodResolver(workExperienceHistorySchema),
+        defaultValues: {
+            experiences: [{
+                company: '',
+                position: '',
+                startDate: null,
+                endDate: null,
+                employmentType: '',
+                description: '',
+            }]
+        },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "experiences"
+    });
+
+    function onSubmit(data: WorkExperienceFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-6">
+                    {fields.map((field, index) => (
+                        <Card key={field.id} className="relative p-4">
+                             <CardContent className="space-y-4 pt-6">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-2 right-2 text-destructive"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name={`experiences.${index}.company`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Компани</FormLabel>
+                                            <FormControl><Input placeholder="Ажиллаж байсан компани" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`experiences.${index}.position`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Ажлын байр</FormLabel>
+                                            <FormControl><Input placeholder="Албан тушаал" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`experiences.${index}.startDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Эхэлсэн огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`experiences.${index}.endDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Дууссан огноо</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`experiences.${index}.employmentType`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Хөдөлмөрийн нөхцөл</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Нөхцөл сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="full-time">Бүтэн цаг</SelectItem>
+                                                    <SelectItem value="part-time">Цагаар</SelectItem>
+                                                    <SelectItem value="contract">Гэрээт</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name={`experiences.${index}.description`}
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Ажлын тодорхойлолт</FormLabel>
+                                        <FormControl>
+                                        <Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                             </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Ажлын туршлага нэмэх
+                </Button>
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    );
+}
+
 export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -1161,7 +1352,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="family" className="w-full">
+            <Tabs defaultValue="experience" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -1188,6 +1379,9 @@ export default function QuestionnairePage() {
                 </TabsContent>
                 <TabsContent value="family">
                     <FamilyInfoForm />
+                </TabsContent>
+                 <TabsContent value="experience">
+                    <WorkExperienceForm />
                 </TabsContent>
             </Tabs>
 
