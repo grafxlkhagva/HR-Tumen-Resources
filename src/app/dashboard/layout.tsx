@@ -18,34 +18,9 @@ import { Logo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useUser } from '@/firebase';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-
-  React.useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // Нэвтрэх хуудас руу шилжих хооронд юу ч харуулахгүй
-  }
-
+function AdminDashboard({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar>
@@ -58,9 +33,7 @@ export default function DashboardLayout({
         <SidebarContent>
           <MainNav />
         </SidebarContent>
-        <SidebarFooter>
-          {/* Footer content if any */}
-        </SidebarFooter>
+        <SidebarFooter>{/* Footer content if any */}</SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -79,4 +52,52 @@ export default function DashboardLayout({
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { employeeProfile, isProfileLoading, isUserLoading } = useEmployeeProfile();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (!isUserLoading && !employeeProfile) {
+      router.push('/login');
+    }
+  }, [employeeProfile, isUserLoading, router]);
+
+  React.useEffect(() => {
+    if (employeeProfile && employeeProfile.role === 'employee') {
+      router.replace('/mobile/home');
+    }
+  }, [employeeProfile, router]);
+
+
+  if (isUserLoading || isProfileLoading || !employeeProfile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If the user is an employee, they will be redirected.
+  // We can show a loader or null while redirection happens.
+  if (employeeProfile.role === 'employee') {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Only render the admin dashboard if the user is an admin
+  if (employeeProfile.role === 'admin') {
+    return <AdminDashboard>{children}</AdminDashboard>;
+  }
+  
+  // Fallback, though ideally should not be reached due to redirects.
+  return null;
 }
