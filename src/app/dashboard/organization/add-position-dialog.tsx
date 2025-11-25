@@ -145,7 +145,6 @@ export function AddPositionDialog({
 
     const finalData = isEditMode && editingPosition ? {
       ...data,
-      filled: editingPosition.filled || 0, // Keep existing filled count on edit
     } : {
       ...data,
       filled: 0, // Default to 0 for new positions
@@ -314,7 +313,7 @@ export function AddPositionDialog({
                 name="headcount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Нийт орон тоо</FormLabel>
+                    <FormLabel>Батлагдсан орон тоо</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
