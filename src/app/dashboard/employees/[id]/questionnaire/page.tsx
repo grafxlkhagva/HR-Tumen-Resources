@@ -1011,6 +1011,145 @@ function TrainingForm() {
     );
 }
 
+const familyMemberSchema = z.object({
+  relationship: z.string().min(1, "Таны хэн болохыг сонгоно уу."),
+  lastName: z.string().min(1, "Овог хоосон байж болохгүй."),
+  firstName: z.string().min(1, "Нэр хоосон байж болохгүй."),
+  phone: z.string().optional(),
+});
+
+const familyInfoSchema = z.object({
+    familyMembers: z.array(familyMemberSchema)
+});
+
+type FamilyInfoFormValues = z.infer<typeof familyInfoSchema>;
+
+function FamilyInfoForm() {
+    const form = useForm<FamilyInfoFormValues>({
+        resolver: zodResolver(familyInfoSchema),
+        defaultValues: {
+            familyMembers: [{
+                relationship: '',
+                lastName: '',
+                firstName: '',
+                phone: '',
+            }]
+        },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "familyMembers"
+    });
+
+    function onSubmit(data: FamilyInfoFormValues) {
+        console.log(data);
+    }
+    
+    const { isSubmitting } = form.formState;
+    
+    const relationshipOptions = ["Эхнэр", "Нөхөр", "Аав", "Ээж", "Ах", "Эгч", "Дүү", "Хүү", "Охин"];
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-6">
+                    {fields.map((field, index) => (
+                        <Card key={field.id} className="relative p-4">
+                             <CardContent className="space-y-4 pt-6">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-2 right-2 text-destructive"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Устгах</span>
+                                </Button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <FormField
+                                        control={form.control}
+                                        name={`familyMembers.${index}.relationship`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Таны хэн болох</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {relationshipOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`familyMembers.${index}.lastName`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Овог</FormLabel>
+                                            <FormControl><Input placeholder="Овог" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`familyMembers.${index}.firstName`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Нэр</FormLabel>
+                                            <FormControl><Input placeholder="Нэр" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`familyMembers.${index}.phone`}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Холбоо барих утас</FormLabel>
+                                            <FormControl><Input placeholder="Утасны дугаар" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
+                             </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Гэр бүлийн гишүүн нэмэх
+                </Button>
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" type="button">
+                        <X className="mr-2 h-4 w-4" />
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    )
+}
+
 export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -1022,7 +1161,7 @@ export default function QuestionnairePage() {
                  <p className="text-muted-foreground">Шинэ ажилтны анкетыг энд бөглөнө үү.</p>
             </div>
             
-            <Tabs defaultValue="training" className="w-full">
+            <Tabs defaultValue="family" className="w-full">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
                     <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
                     <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
@@ -1046,6 +1185,9 @@ export default function QuestionnairePage() {
                 </TabsContent>
                 <TabsContent value="training">
                     <TrainingForm />
+                </TabsContent>
+                <TabsContent value="family">
+                    <FamilyInfoForm />
                 </TabsContent>
             </Tabs>
 
