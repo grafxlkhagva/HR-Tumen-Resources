@@ -27,7 +27,6 @@ import {
   addDocumentNonBlocking,
   useCollection,
   useMemoFirebase,
-  initiateEmailSignUp,
   useAuth,
 } from '@/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -147,17 +146,10 @@ export default function AddEmployeePage() {
         const employeeCode = await generateEmployeeCode(values.firstName, values.lastName);
         const authEmail = `${employeeCode}@example.com`;
 
-        // Create user in Firebase Auth
-        // This is now handled in a non-blocking way, but for user creation, we might need to wait for the result
-        // For simplicity here, we'll assume a more direct approach might be needed in a real app,
-        // but for now, we follow the non-blocking pattern where possible.
-        // The challenge is getting the UID back to save in Firestore. Let's create a temporary user credential.
-        const tempAuth = { ...auth };
-        
         // We can't use initiateEmailSignUp because we need the user's UID immediately.
         // This part needs to be awaited.
         const { createUserWithEmailAndPassword } = await import('firebase/auth');
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, authEmail, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.password);
         const user = userCredential.user;
 
         if (!user) {
