@@ -11,9 +11,11 @@ import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CodeLogDialog } from './code-log-dialog';
+import type { Employee } from '../employees/data';
 
 
 type SimpleReferenceItem = ReferenceItem & { name: string };
@@ -41,7 +43,7 @@ type EmployeeCodeConfig = {
     nextNumber: number;
 };
 
-function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
+function EmployeeCodeConfigForm({ initialData, onOpenLog }: { initialData: EmployeeCodeFormValues, onOpenLog: () => void }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
@@ -112,10 +114,16 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                         )}
                     />
                 </div>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Хадгалах
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Хадгалах
+                    </Button>
+                     <Button type="button" variant="outline" onClick={onOpenLog} disabled={isSubmitting}>
+                        <History className="mr-2 h-4 w-4" />
+                        Түүх харах
+                    </Button>
+                </div>
             </form>
         </Form>
     );
@@ -123,32 +131,43 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
 
 function EmployeeCodeConfigCard() {
     const { firestore } = useFirebase();
+    const [isLogOpen, setIsLogOpen] = React.useState(false);
+
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
     const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
+
+    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
 
     const initialData = codeConfig || { prefix: '', digitCount: 4, nextNumber: 1 };
     
     return (
-      <Card>
-          <CardHeader>
-              <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
-              <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-              {isLoading ? (
-                  <div className="space-y-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                          <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                          <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                      </div>
-                      <Skeleton className="h-10 w-28" />
-                  </div>
-              ) : (
-                <EmployeeCodeConfigForm initialData={initialData} />
-              )}
-          </CardContent>
-      </Card>
+      <>
+        <CodeLogDialog open={isLogOpen} onOpenChange={setIsLogOpen} employees={employees || []} isLoading={isLoadingEmployees} />
+        <Card>
+            <CardHeader>
+                <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
+                <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <Skeleton className="h-10 w-28" />
+                           <Skeleton className="h-10 w-32" />
+                        </div>
+                    </div>
+                ) : (
+                  <EmployeeCodeConfigForm initialData={initialData} onOpenLog={() => setIsLogOpen(true)} />
+                )}
+            </CardContent>
+        </Card>
+      </>
     )
 }
 
