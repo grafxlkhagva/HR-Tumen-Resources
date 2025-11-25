@@ -7,7 +7,6 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Building, Briefcase, Mail, Phone, QrCode, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -65,13 +64,12 @@ function ProfileSkeleton() {
 
 export default function MobileHomePage() {
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
-  const userAvatar = PlaceHolderImages.find((p) => p.id === 'avatar-2'); // Example avatar
 
   if (isProfileLoading || !employeeProfile) {
     return <ProfileSkeleton />;
   }
 
-  const { firstName, lastName, jobTitle, email, employeeCode } = employeeProfile;
+  const { firstName, lastName, jobTitle, email, employeeCode, photoURL } = employeeProfile;
   const fullName = `${firstName} ${lastName}`;
   const qrValue = `MECARD:N:${lastName},${firstName};TEL:${''};EMAIL:${email};NOTE:ID-${employeeCode};;`;
 
@@ -79,7 +77,7 @@ export default function MobileHomePage() {
     <div className="p-4 space-y-6 animate-in fade-in-50">
       <div className="flex flex-col items-center gap-4 pt-4">
         <Avatar className="h-24 w-24 border-4 border-background">
-          <AvatarImage src={userAvatar?.imageUrl} alt={fullName} data-ai-hint={userAvatar?.imageHint} />
+          <AvatarImage src={photoURL} alt={fullName} />
           <AvatarFallback className="text-3xl">
             {firstName?.charAt(0)}
             {lastName?.charAt(0)}
