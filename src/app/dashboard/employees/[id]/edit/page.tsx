@@ -46,6 +46,9 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { type Employee } from '../../data';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 
 const editEmployeeSchema = z.object({
@@ -58,6 +61,7 @@ const editEmployeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
+  avatarId: z.string().optional(),
 });
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
@@ -80,6 +84,14 @@ function EditEmployeeFormSkeleton() {
                             <Skeleton className="h-10 w-full" />
                         </div>
                     ))}
+                </div>
+                 <div className="space-y-4">
+                    <Skeleton className="h-4 w-24" />
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
+                         {Array.from({ length: 8 }).map((_, i) => (
+                             <Skeleton key={i} className="h-16 w-16 rounded-full" />
+                         ))}
+                    </div>
                 </div>
                  <div className="flex items-center gap-2">
                     <Skeleton className="h-10 w-28" />
@@ -163,6 +175,42 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                         <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Албан тушаалыг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{positions?.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>)} />
                     </div>
+
+                     <FormField
+                        control={form.control}
+                        name="avatarId"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                            <FormLabel>Профайл зураг</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4"
+                                >
+                                {PlaceHolderImages.map((img) => (
+                                    <FormItem key={img.id} className="relative flex items-center justify-center">
+                                        <FormControl>
+                                            <RadioGroupItem value={img.id} className="sr-only" />
+                                        </FormControl>
+                                        <FormLabel className="cursor-pointer">
+                                            <Avatar className={cn(
+                                                "h-16 w-16 border-2 border-transparent transition-all",
+                                                field.value === img.id && "border-primary ring-2 ring-primary"
+                                            )}>
+                                                <AvatarImage src={img.imageUrl} alt={img.description} data-ai-hint={img.imageHint} />
+                                                <AvatarFallback>{img.id}</AvatarFallback>
+                                            </Avatar>
+                                        </FormLabel>
+                                    </FormItem>
+                                ))}
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+
                     <div className="flex items-center gap-2">
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

@@ -115,7 +115,7 @@ export default function EmployeeProfilePage() {
         )
     }
     
-    const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId) || PlaceHolderImages[1];
+    const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId) || PlaceHolderImages.find(p => p.id === 'avatar-2');
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
 
@@ -136,7 +136,7 @@ export default function EmployeeProfilePage() {
                     <CardHeader>
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
                             <Avatar className="h-24 w-24">
-                                <AvatarImage src={avatar.imageUrl} alt={fullName} data-ai-hint={avatar.imageHint} />
+                                <AvatarImage src={avatar?.imageUrl} alt={fullName} data-ai-hint={avatar?.imageHint} />
                                 <AvatarFallback className="text-3xl">{employee.firstName.charAt(0)}{employee.lastName.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-center sm:text-left">
@@ -163,7 +163,7 @@ export default function EmployeeProfilePage() {
                     <CardContent>
                         <dl className="space-y-4">
                             <InfoRow icon={Mail} label="Имэйл" value={<a href={`mailto:${employee.email}`} className="text-primary hover:underline">{employee.email}</a>} />
-                            <InfoRow icon={Phone} label="Утасны дугаар" value={employee.phone || '-'} />
+                            <InfoRow icon={Phone} label="Утасны дугаар" value={employee.phoneNumber || '-'} />
                             <InfoRow icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} />
                             <InfoRow icon={Calendar} label="Ажилд орсон огноо" value={employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'} />
                         </dl>

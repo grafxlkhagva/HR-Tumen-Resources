@@ -46,6 +46,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 const employeeSchema = z.object({
   firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
@@ -58,6 +62,7 @@ const employeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
+  avatarId: z.string().optional(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -119,7 +124,8 @@ export default function AddEmployeePage() {
       lastName: '',
       email: '',
       phoneNumber: '',
-      password: 'password123'
+      password: 'password123',
+      avatarId: 'avatar-2',
     }
   });
   
@@ -177,6 +183,7 @@ export default function AddEmployeePage() {
             positionId: values.positionId,
             hireDate: values.hireDate.toISOString(),
             jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
+            avatarId: values.avatarId,
         };
         
         const docRef = doc(firestore, 'employees', user.uid);
@@ -379,6 +386,42 @@ export default function AddEmployeePage() {
                      />
 
                 </div>
+
+                 <FormField
+                    control={form.control}
+                    name="avatarId"
+                    render={({ field }) => (
+                        <FormItem className="space-y-3">
+                        <FormLabel>Профайл зураг</FormLabel>
+                        <FormControl>
+                            <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4"
+                            >
+                            {PlaceHolderImages.map((img) => (
+                                <FormItem key={img.id} className="relative flex items-center justify-center">
+                                    <FormControl>
+                                        <RadioGroupItem value={img.id} className="sr-only" />
+                                    </FormControl>
+                                    <FormLabel className="cursor-pointer">
+                                        <Avatar className={cn(
+                                            "h-16 w-16 border-2 border-transparent transition-all",
+                                            field.value === img.id && "border-primary ring-2 ring-primary"
+                                        )}>
+                                            <AvatarImage src={img.imageUrl} alt={img.description} data-ai-hint={img.imageHint} />
+                                            <AvatarFallback>{img.id}</AvatarFallback>
+                                        </Avatar>
+                                    </FormLabel>
+                                </FormItem>
+                            ))}
+                            </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
