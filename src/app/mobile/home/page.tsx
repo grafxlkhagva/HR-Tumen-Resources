@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Building, Briefcase, Mail, Phone, QrCode } from 'lucide-react';
+import { Building, Briefcase, Mail, Phone, QrCode, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 function InfoRow({
@@ -90,8 +91,14 @@ export default function MobileHomePage() {
       </div>
       
       <Card>
-        <CardHeader>
+        <CardHeader className='flex-row items-center justify-between'>
             <CardTitle className="text-lg">Хувийн мэдээлэл</CardTitle>
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/mobile/profile/edit">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Анкет засах
+                </Link>
+            </Button>
         </CardHeader>
         <CardContent className="space-y-4">
             <InfoRow icon={Briefcase} label="Албан тушаал" value={jobTitle} />
