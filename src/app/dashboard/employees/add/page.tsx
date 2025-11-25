@@ -27,8 +27,10 @@ import {
   addDocumentNonBlocking,
   useCollection,
   useMemoFirebase,
+  initiateEmailSignUp,
+  useAuth,
 } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Loader2, Save, X, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -48,6 +50,7 @@ const employeeSchema = z.object({
   firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
   lastName: z.string().min(1, 'Овог хоосон байж болохгүй.'),
   email: z.string().email('Имэйл хаяг буруу байна.'),
+  password: z.string().min(6, 'Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой.'),
   phoneNumber: z.string().optional(),
   positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
@@ -70,34 +73,12 @@ function AddEmployeeFormSkeleton() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-20" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div className="space-y-2" key={i}>
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    ))}
                 </div>
                  <div className="flex items-center gap-2">
                     <Skeleton className="h-10 w-28" />
@@ -111,6 +92,7 @@ function AddEmployeeFormSkeleton() {
 export default function AddEmployeePage() {
   const router = useRouter();
   const { firestore } = useFirebase();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
@@ -121,6 +103,13 @@ export default function AddEmployeePage() {
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      password: 'password123'
+    }
   });
   
   const { isSubmitting } = form.formState;
@@ -129,24 +118,85 @@ export default function AddEmployeePage() {
     () => (firestore ? collection(firestore, 'employees') : null),
     [firestore]
   );
-
-  const handleSave = (values: EmployeeFormValues) => {
-    if (!employeesCollection) return;
-
-    const position = positions?.find(p => p.id === values.positionId);
+  
+  const generateEmployeeCode = async (firstName: string, lastName: string): Promise<string> => {
+    if (!firestore) throw new Error("Firestore is not initialized");
     
-    const employeeData = {
-        ...values,
-        hireDate: values.hireDate.toISOString(),
-        jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
-    };
+    const firstInitial = lastName.charAt(0).toLowerCase();
+    let baseCode = `${firstInitial}.${firstName.toLowerCase().replace(/\s/g, '')}`;
+    let finalCode = baseCode;
+    let counter = 1;
 
-    addDocumentNonBlocking(employeesCollection, employeeData);
-    toast({
-      title: 'Амжилттай хадгаллаа',
-      description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
-    });
-    router.push('/dashboard/employees');
+    // Check for uniqueness
+    while (true) {
+        const q = query(collection(firestore, 'employees'), where("employeeCode", "==", finalCode));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            return finalCode;
+        }
+        finalCode = `${baseCode}${counter}`;
+        counter++;
+    }
+  };
+
+
+  const handleSave = async (values: EmployeeFormValues) => {
+    if (!employeesCollection || !auth || !firestore) return;
+    
+    try {
+        const employeeCode = await generateEmployeeCode(values.firstName, values.lastName);
+        const authEmail = `${employeeCode}@example.com`;
+
+        // Create user in Firebase Auth
+        // This is now handled in a non-blocking way, but for user creation, we might need to wait for the result
+        // For simplicity here, we'll assume a more direct approach might be needed in a real app,
+        // but for now, we follow the non-blocking pattern where possible.
+        // The challenge is getting the UID back to save in Firestore. Let's create a temporary user credential.
+        const tempAuth = { ...auth };
+        
+        // We can't use initiateEmailSignUp because we need the user's UID immediately.
+        // This part needs to be awaited.
+        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, authEmail, values.password);
+        const user = userCredential.user;
+
+        if (!user) {
+          throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
+        }
+
+        const position = positions?.find(p => p.id === values.positionId);
+        
+        const employeeData = {
+            uid: user.uid,
+            employeeCode: employeeCode,
+            firstName: values.firstName,
+            lastName: values.lastName,
+            email: values.email,
+            phoneNumber: values.phoneNumber,
+            departmentId: values.departmentId,
+            positionId: values.positionId,
+            hireDate: values.hireDate.toISOString(),
+            jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
+        };
+
+        addDocumentNonBlocking(employeesCollection, employeeData);
+        
+        toast({
+          title: 'Амжилттай хадгаллаа',
+          description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Ажилтны код: ${employeeCode}`,
+        });
+        
+        router.push('/dashboard/employees');
+
+    } catch(error: any) {
+        console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
+        toast({
+            variant: "destructive",
+            title: "Алдаа гарлаа",
+            description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа. Имэйл бүртгэлтэй байж магадгүй."
+        });
+    }
+
   };
 
   const isLoading = isLoadingPositions || isLoadingDepartments;
@@ -206,6 +256,19 @@ export default function AddEmployeePage() {
                             <FormLabel>Имэйл</FormLabel>
                             <FormControl>
                             <Input type="email" placeholder="dorj.bat@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Нэвтрэх нууц үг</FormLabel>
+                            <FormControl>
+                            <Input type="password" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -320,7 +383,7 @@ export default function AddEmployeePage() {
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                    <Button variant="outline" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting}>
+                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting}>
                         <X className="mr-2 h-4 w-4" />
                         Цуцлах
                     </Button>
