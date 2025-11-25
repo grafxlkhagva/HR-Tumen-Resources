@@ -1,5 +1,6 @@
 export type Employee = {
   id: string;
+  employeeCode: string;
   firstName: string;
   lastName: string;
   avatarId?: string;

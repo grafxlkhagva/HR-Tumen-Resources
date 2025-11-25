@@ -24,12 +24,12 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   useFirebase,
-  addDocumentNonBlocking,
+  setDocumentNonBlocking,
   useCollection,
   useMemoFirebase,
   useAuth,
 } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc } from 'firebase/firestore';
 import { Loader2, Save, X, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -159,7 +159,7 @@ export default function AddEmployeePage() {
         const position = positions?.find(p => p.id === values.positionId);
         
         const employeeData = {
-            uid: user.uid,
+            id: user.uid,
             employeeCode: employeeCode,
             firstName: values.firstName,
             lastName: values.lastName,
@@ -170,8 +170,9 @@ export default function AddEmployeePage() {
             hireDate: values.hireDate.toISOString(),
             jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
         };
-
-        addDocumentNonBlocking(employeesCollection, employeeData);
+        
+        const docRef = doc(firestore, 'employees', user.uid);
+        setDocumentNonBlocking(docRef, employeeData, { merge: true });
         
         toast({
           title: 'Амжилттай хадгаллаа',

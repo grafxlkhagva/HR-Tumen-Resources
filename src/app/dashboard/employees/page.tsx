@@ -45,6 +45,7 @@ function EmployeeRow({ employee, departmentName }: { employee: Employee; departm
 
   return (
     <TableRow>
+       <TableCell className="font-mono text-sm">{employee.employeeCode}</TableCell>
       <TableCell className="font-medium">
         <div className="flex items-center gap-3">
           <Avatar className="hidden h-9 w-9 sm:flex">
@@ -139,6 +140,7 @@ export default function EmployeesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[120px]">Ажилтны код</TableHead>
                 <TableHead>Нэр</TableHead>
                 <TableHead>Албан тушаал</TableHead>
                 <TableHead className="hidden md:table-cell">
@@ -154,6 +156,7 @@ export default function EmployeesPage() {
               {isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Skeleton className="h-9 w-9 rounded-full" />
@@ -180,7 +183,7 @@ export default function EmployeesPage() {
               {error && (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="py-8 text-center text-destructive"
                   >
                     Алдаа гарлаа: {error.message}
