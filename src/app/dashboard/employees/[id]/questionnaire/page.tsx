@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2, Phone, Mail, AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Camera, Save, X, Loader2, Phone, Mail, AlertCircle, PlusCircle, Trash2, Facebook, Instagram } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -359,12 +359,22 @@ function GeneralInfoForm() {
     );
 }
 
+const emergencyContactSchema = z.object({
+  fullName: z.string().min(1, "Овог, нэр хоосон байж болохгүй."),
+  relationship: z.string().min(1, "Таны хэн болохыг сонгоно уу."),
+  phone: z.string().min(1, "Утасны дугаар хоосон байж болохгүй."),
+});
+
 const contactInfoSchema = z.object({
   workPhone: z.string().optional(),
   personalPhone: z.string().optional(),
   workEmail: z.string().email({ message: "Албан ёсны имэйл хаяг буруу байна." }).optional().or(z.literal('')),
   personalEmail: z.string().email({ message: "Хувийн имэйл хаяг буруу байна." }).optional().or(z.literal('')),
   homeAddress: z.string().optional(),
+  temporaryAddress: z.string().optional(),
+  facebook: z.string().url({ message: 'Facebook хаяг буруу байна.' }).optional().or(z.literal('')),
+  instagram: z.string().url({ message: 'Instagram хаяг буруу байна.' }).optional().or(z.literal('')),
+  emergencyContacts: z.array(emergencyContactSchema).optional(),
 });
 
 type ContactInfoFormValues = z.infer<typeof contactInfoSchema>;
@@ -378,7 +388,16 @@ function ContactInfoForm() {
             workEmail: '',
             personalEmail: '',
             homeAddress: '',
+            temporaryAddress: '',
+            facebook: '',
+            instagram: '',
+            emergencyContacts: [],
         },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+      control: form.control,
+      name: "emergencyContacts",
     });
 
     function onSubmit(data: ContactInfoFormValues) {
@@ -392,7 +411,7 @@ function ContactInfoForm() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Холбоо барих мэдээлэл</CardTitle>
+                        <CardTitle>Үндсэн мэдээлэл</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -473,9 +492,144 @@ function ContactInfoForm() {
                                 </FormItem>
                                 )}
                             />
+                            <FormField
+                                control={form.control}
+                                name="temporaryAddress"
+                                render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel>Гэрийн хаяг (Түр)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Түр оршин суугаа хаяг..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         </div>
                     </CardContent>
                 </Card>
+
+                <Card>
+                    <CardHeader><CardTitle>Сошиал медиа</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                            control={form.control}
+                            name="facebook"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Facebook</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input placeholder="https://facebook.com/username" {...field} className="pl-10" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="instagram"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Instagram</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input placeholder="https://instagram.com/username" {...field} className="pl-10" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader><CardTitle>Яаралтай үед холбоо барих</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                     {fields.map((field, index) => (
+                        <Card key={field.id} className="p-4 relative">
+                           <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 text-destructive"
+                              onClick={() => remove(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Устгах</span>
+                            </Button>
+                           <CardContent className="space-y-4 pt-6">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`emergencyContacts.${index}.fullName`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Овог, нэр</FormLabel>
+                                      <FormControl><Input placeholder="Яаралтай үед холбоо барих хүний нэр" {...field} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`emergencyContacts.${index}.relationship`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Таны хэн болох</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                          <FormControl>
+                                              <SelectTrigger>
+                                                  <SelectValue placeholder="Сонгох" />
+                                              </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                              <SelectItem value="parent">Эцэг/Эх</SelectItem>
+                                              <SelectItem value="spouse">Эхнэр/Нөхөр</SelectItem>
+                                              <SelectItem value="sibling">Ах/Эгч/Дүү</SelectItem>
+                                              <SelectItem value="child">Хүүхэд</SelectItem>
+                                              <SelectItem value="other">Бусад</SelectItem>
+                                          </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                             </div>
+                             <FormField
+                                control={form.control}
+                                name={`emergencyContacts.${index}.phone`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Утас</FormLabel>
+                                    <FormControl>
+                                      <div className="relative">
+                                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                          <Input placeholder="9911****" {...field} className="pl-10" />
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                           </CardContent>
+                        </Card>
+                     ))}
+                     <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => append({ fullName: '', relationship: '', phone: '' })}
+                      >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Яаралтай үед холбоо барих хүн нэмэх
+                      </Button>
+                  </CardContent>
+                </Card>
+
                  <div className="flex justify-end gap-2">
                     <Button variant="outline" type="button">
                         <X className="mr-2 h-4 w-4" />
