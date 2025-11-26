@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -14,6 +14,8 @@ import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText } from 'luc
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
+import { EmploymentHistoryTimeline } from './EmploymentHistoryTimeline';
+
 
 type Department = {
     id: string;
@@ -177,10 +179,19 @@ export default function EmployeeProfilePage() {
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
                         <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="overview">
+                    <TabsContent value="overview" className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Ерөнхий мэдээлэл</CardTitle>
+                                <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
+                                <CardDescription>Ажилтны хөдөлмөрийн гэрээтэй холбоотой бүх үйл явдлын түүх.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <EmploymentHistoryTimeline employeeId={employeeId} />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Ур чадвар</CardTitle>
                                 <CardDescription>Ажилтантай холбоотой дэлгэрэнгүй мэдээлэл.</CardDescription>
                             </CardHeader>
                             <CardContent>
