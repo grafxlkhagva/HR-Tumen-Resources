@@ -167,6 +167,7 @@ export default function SettingsPage() {
   const { firestore } = useFirebase();
 
   // Data hooks for each reference collection
+  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
   const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'employmentTypes') : null, [firestore]));
   const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
   const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
@@ -265,6 +266,22 @@ export default function SettingsPage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <Card>
+                <CardHeader>
+                    <CardTitle>Баримт бичгийн төрөл</CardTitle>
+                    <CardDescription>Хөдөлмөрийн гэрээ, дотоод журам гэх мэт төрлүүдийг удирдах.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ReferenceTable 
+                    collectionName="documentTypes"
+                    columns={[{ key: 'name', header: 'Нэр' }]}
+                    itemData={documentTypes}
+                    isLoading={loadingDocTypes}
+                    dialogTitle="Баримт бичгийн төрөл"
+                    />
+                </CardContent>
+            </Card>
+
+            <Card>
             <CardHeader>
                 <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
                 <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
@@ -332,5 +349,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

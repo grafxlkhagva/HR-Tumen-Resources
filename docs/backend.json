@@ -837,6 +837,13 @@
         }
       },
       {
+        "path": "/documentTypes/{documentTypeId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "description": "Баримт бичгийн төрлийн лавлах сан."
+        }
+      },
+      {
         "path": "/positions/{positionId}",
         "definition": {
           "entityName": "Position",

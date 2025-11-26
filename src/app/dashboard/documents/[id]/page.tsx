@@ -1,11 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import {
   Card,
   CardContent,
@@ -15,8 +18,20 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, Calendar, User, DollarSign, Briefcase, Download } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar, User, DollarSign, Briefcase, Download, Save, X, Loader2 } from 'lucide-react';
 import type { Document } from '../data';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+
+type ReferenceItem = { id: string; name: string };
+
+const documentSchema = z.object({
+    documentType: z.string().min(1, 'Төрөл сонгоно уу.'),
+});
+
+type DocumentFormValues = z.infer<typeof documentSchema>;
+
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value?: string | number | null }) {
     if (!value) return null;
@@ -131,6 +146,108 @@ function DocumentViewer({ document }: { document: Document }) {
     );
 }
 
+function DocumentDetailsCard({ documentData }: { documentData: Document }) {
+    const [isEditing, setIsEditing] = React.useState(false);
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const documentRef = useMemoFirebase(() => doc(firestore, 'documents', documentData.id), [firestore, documentData.id]);
+    const docTypesQuery = useMemoFirebase(() => collection(firestore, 'documentTypes'), [firestore]);
+    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<ReferenceItem>(docTypesQuery);
+
+    const form = useForm<DocumentFormValues>({
+        resolver: zodResolver(documentSchema),
+        defaultValues: {
+            documentType: documentData.documentType || '',
+        },
+    });
+    
+    React.useEffect(() => {
+        form.reset({ documentType: documentData.documentType || '' });
+    }, [documentData, form]);
+
+    const { isSubmitting } = form.formState;
+
+    const handleSave = (values: DocumentFormValues) => {
+        updateDocumentNonBlocking(documentRef, values);
+        toast({ title: 'Амжилттай хадгаллаа' });
+        setIsEditing(false);
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Дэлгэрэнгүй мэдээлэл</CardTitle>
+                        <CardDescription>Баримт бичигтэй холбоотой нэмэлт мэдээлэл.</CardDescription>
+                    </div>
+                    {!isEditing && (
+                        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Засах
+                        </Button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="documentType"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Баримтын төрөл</FormLabel>
+                                    {isEditing ? (
+                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingDocTypes}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Төрөл сонгох..." />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {documentTypes?.map((type) => (
+                                                    <SelectItem key={type.id} value={type.name}>
+                                                        {type.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <p className="font-medium">{field.value || 'Тодорхойгүй'}</p>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {documentData.documentType === 'Хөдөлмөрийн гэрээ' && documentData.metadata && (
+                            <ContractDetails metadata={documentData.metadata} />
+                        )}
+                        
+                        {!isEditing && !documentData.metadata && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт мэдээлэл бүртгэгдээгүй байна.</p>
+                        )}
+                        
+                        {isEditing && (
+                            <div className="flex gap-2">
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Хадгалах
+                                </Button>
+                                <Button variant="ghost" onClick={() => { setIsEditing(false); form.reset(); }}>
+                                    <X className="mr-2 h-4 w-4" />
+                                    Цуцлах
+                                </Button>
+                            </div>
+                        )}
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 export default function DocumentDetailPage() {
     const { id } = useParams();
@@ -182,10 +299,6 @@ export default function DocumentDetailPage() {
                         <p className="text-muted-foreground">{documentData.description}</p>
                     </div>
                 </div>
-                 <Button variant="outline">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Засварлах
-                </Button>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -200,26 +313,9 @@ export default function DocumentDetailPage() {
                     </Card>
                 </div>
                 <div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Дэлгэрэнгүй мэдээлэл</CardTitle>
-                            <CardDescription>Баримт бичигтэй холбоотой бүртгэгдсэн нэмэлт мэдээлэл.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <InfoRow icon={FileText} label="Баримтын төрөл" value={documentData.documentType} />
-                            
-                            {documentData.documentType === 'Хөдөлмөрийн гэрээ' && documentData.metadata && (
-                               <ContractDetails metadata={documentData.metadata} />
-                            )}
-                            
-                            {!documentData.metadata && (
-                                <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт мэдээлэл бүртгэгдээгүй байна.</p>
-                            )}
-                        </CardContent>
-                    </Card>
+                   <DocumentDetailsCard documentData={documentData} />
                 </div>
             </div>
-
         </div>
     )
 }
