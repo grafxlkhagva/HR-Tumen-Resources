@@ -16,7 +16,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from './ui/skeleton';
 import { LogOut, Settings, User } from 'lucide-react';
 import {
@@ -29,7 +28,6 @@ export function UserNav() {
     const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
     const auth = useAuth();
     const router = useRouter();
-    const userAvatar = PlaceHolderImages.find(p => p.id === "avatar-1");
 
     const handleLogout = async () => {
         if (!auth) return;
@@ -58,7 +56,7 @@ export function UserNav() {
             <DropdownMenuTrigger asChild>
                  <div className="flex items-center gap-3 cursor-pointer rounded-md p-2 hover:bg-muted">
                     <Avatar className="h-9 w-9">
-                        <AvatarImage src={employeeProfile?.photoURL || userAvatar?.imageUrl} alt={employeeProfile?.firstName || "User Avatar"} data-ai-hint={userAvatar?.imageHint} />
+                        <AvatarImage src={employeeProfile?.photoURL} alt={employeeProfile?.firstName || "User Avatar"} />
                         <AvatarFallback>{employeeProfile?.firstName?.charAt(0) || 'Б'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 overflow-hidden">

@@ -5,7 +5,6 @@ import * as React from 'react';
 import { ChevronRight, LogOut, User, Bell, Lock } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
@@ -65,7 +64,6 @@ function SettingsSkeleton() {
 
 export default function MobileSettingsPage() {
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
-  const userAvatar = PlaceHolderImages.find((p) => p.id === 'avatar-2');
   const auth = useAuth();
   const router = useRouter();
 
@@ -80,7 +78,7 @@ export default function MobileSettingsPage() {
     return <SettingsSkeleton />;
   }
 
-  const { firstName, lastName, jobTitle } = employeeProfile;
+  const { firstName, lastName, jobTitle, photoURL } = employeeProfile;
 
   return (
     <div className="p-4">
@@ -90,7 +88,7 @@ export default function MobileSettingsPage() {
         
       <div className="flex items-center gap-4 rounded-lg bg-background p-4 mb-6">
         <Avatar className="h-16 w-16">
-          <AvatarImage src={userAvatar?.imageUrl} alt={`${firstName} ${lastName}`} />
+          <AvatarImage src={photoURL} alt={`${firstName} ${lastName}`} />
           <AvatarFallback className="text-2xl">
             {firstName?.charAt(0)}
             {lastName?.charAt(0)}

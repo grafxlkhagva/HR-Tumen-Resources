@@ -27,7 +27,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
@@ -40,7 +39,6 @@ type Department = {
 }
 
 function EmployeeRow({ employee, departmentName }: { employee: Employee; departmentName: string; }) {
-  const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId);
   const employeeName = `${employee.firstName} ${employee.lastName}`;
 
   return (
@@ -50,9 +48,8 @@ function EmployeeRow({ employee, departmentName }: { employee: Employee; departm
         <div className="flex items-center gap-3">
           <Avatar className="hidden h-9 w-9 sm:flex">
             <AvatarImage
-              src={avatar?.imageUrl}
+              src={employee.photoURL}
               alt="Avatar"
-              data-ai-hint={avatar?.imageHint}
             />
             <AvatarFallback>{employeeName.charAt(0)}</AvatarFallback>
           </Avatar>

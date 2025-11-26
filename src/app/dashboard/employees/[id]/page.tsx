@@ -9,7 +9,6 @@ import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -116,7 +115,6 @@ export default function EmployeeProfilePage() {
         )
     }
     
-    const avatar = PlaceHolderImages.find((p) => p.id === employee.avatarId);
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
 
@@ -137,7 +135,7 @@ export default function EmployeeProfilePage() {
                     <CardHeader>
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
                             <Avatar className="h-24 w-24">
-                                <AvatarImage src={employee.photoURL || avatar?.imageUrl} alt={fullName} data-ai-hint={avatar?.imageHint} />
+                                <AvatarImage src={employee.photoURL} alt={fullName} />
                                 <AvatarFallback className="text-3xl">{employee.firstName.charAt(0)}{employee.lastName.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-center sm:text-left">

@@ -6,7 +6,6 @@ import { doc, collection } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { Printer, User, Phone, Mail, MapPin, Briefcase, GraduationCap, BookOpen, Languages, Award, Users } from 'lucide-react';
 
@@ -93,7 +92,6 @@ export function CVDisplay({ employeeId }: { employeeId: string }) {
         );
     }
     
-    const avatar = PlaceHolderImages.find((p) => p.id === employee?.avatarId) || PlaceHolderImages.find(p => p.id === 'avatar-2');
     const fullName = `${questionnaire.firstName || ''} ${questionnaire.lastName || ''}`;
 
     const formatDate = (date: any) => {
@@ -126,7 +124,7 @@ export function CVDisplay({ employeeId }: { employeeId: string }) {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
                     <Avatar className="h-24 w-24">
-                        <AvatarImage src={avatar?.imageUrl} alt={fullName} />
+                        <AvatarImage src={employee?.photoURL} alt={fullName} />
                         <AvatarFallback className="text-3xl">{questionnaire.firstName?.charAt(0)}{questionnaire.lastName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
