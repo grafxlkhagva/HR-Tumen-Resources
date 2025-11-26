@@ -4,22 +4,39 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
 import { EmploymentHistoryTimeline } from './EmploymentHistoryTimeline';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 
 type Department = {
     id: string;
     name: string;
+};
+
+type EmploymentHistoryEvent = {
+  id: string;
+  eventType: string;
+  eventDate: string;
+  notes?: string;
+  documentUrl?: string;
+  documentName?: string;
 };
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) {
@@ -67,6 +84,90 @@ function ProfileSkeleton() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
+    const { firestore } = useFirebase();
+    const historyQuery = useMemoFirebase(
+      () =>
+        firestore
+          ? query(
+              collection(firestore, `employees/${employeeId}/employmentHistory`),
+              orderBy('eventDate', 'desc')
+            )
+          : null,
+      [firestore, employeeId]
+    );
+  
+    const {
+      data: history,
+      isLoading,
+      error,
+    } = useCollection<EmploymentHistoryEvent>(historyQuery);
+
+    const documents = history?.filter(event => event.documentUrl && event.documentName);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-2">
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+        )
+    }
+
+    if (error) {
+        return <p className="text-destructive">Баримт бичиг ачаалахад алдаа гарлаа.</p>
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Хавсаргасан бичиг баримтууд</CardTitle>
+                <CardDescription>
+                    Ажилтны хөдөлмөрийн түүхтэй холбоотой хавсаргасан баримтууд.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {documents && documents.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Баримтын нэр</TableHead>
+                            <TableHead>Холбогдох үйл явдал</TableHead>
+                            <TableHead>Огноо</TableHead>
+                            <TableHead className="text-right">Үйлдэл</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {documents.map((doc) => (
+                            <TableRow key={doc.id}>
+                                <TableCell className="font-medium flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    {doc.documentName}
+                                </TableCell>
+                                <TableCell>{doc.eventType}</TableCell>
+                                <TableCell>{new Date(doc.eventDate).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button asChild variant="outline" size="sm">
+                                        <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Татах
+                                        </a>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                 ) : (
+                    <div className="py-10 text-center text-muted-foreground">
+                        <FileText className="mx-auto h-12 w-12" />
+                        <p className="mt-4">Хавсаргасан баримт бичиг одоогоор байхгүй байна.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 
@@ -138,7 +239,7 @@ export default function EmployeeProfilePage() {
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
                             <Avatar className="h-24 w-24">
                                 <AvatarImage src={employee.photoURL} alt={fullName} />
-                                <AvatarFallback className="text-3xl">{employee.firstName.charAt(0)}{employee.lastName.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-3xl">{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-center sm:text-left">
                                 <CardTitle className="text-2xl">{fullName}</CardTitle>
@@ -209,6 +310,9 @@ export default function EmployeeProfilePage() {
                                 <p className="text-muted-foreground">Энд чөлөөний хүсэлтийн жагсаалт харагдах болно.</p>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+                    <TabsContent value="documents">
+                        <DocumentsTabContent employeeId={employeeId} />
                     </TabsContent>
                     <TabsContent value="cv">
                         <CVDisplay employeeId={employeeId} />

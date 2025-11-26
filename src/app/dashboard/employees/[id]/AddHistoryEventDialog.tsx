@@ -36,11 +36,12 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Upload, File, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useFirebase, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
 const historyEventSchema = z.object({
@@ -49,7 +50,8 @@ const historyEventSchema = z.object({
     required_error: 'Үйл явдлын огноог сонгоно уу.',
   }),
   notes: z.string().optional(),
-  documentUrl: z.string().url().optional().or(z.literal('')),
+  documentUrl: z.string().optional(),
+  documentName: z.string().optional(),
 });
 
 type HistoryEventFormValues = z.infer<typeof historyEventSchema>;
@@ -80,6 +82,9 @@ export function AddHistoryEventDialog({
 }: AddHistoryEventDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const historyCollectionRef = useMemoFirebase(
     () =>
@@ -96,16 +101,67 @@ export function AddHistoryEventDialog({
       eventDate: new Date(),
       notes: '',
       documentUrl: '',
+      documentName: '',
     },
   });
 
   const { isSubmitting } = form.formState;
 
+  React.useEffect(() => {
+    if (!open) {
+      form.reset();
+      setSelectedFile(null);
+    }
+  }, [open, form]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      form.setValue('documentName', file.name);
+    }
+  };
+
+  const uploadDocument = async (): Promise<string | null> => {
+    if (!selectedFile) return null;
+    setIsUploading(true);
+
+    const storage = getStorage();
+    // Create a unique file name to avoid overwrites
+    const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
+    const storageRef = ref(storage, `employees/${employeeId}/history-documents/${uniqueFileName}`);
+
+    try {
+      await uploadBytes(storageRef, selectedFile);
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Файл хуулахад алдаа гарлаа",
+        description: (error as Error).message,
+      });
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onSubmit = async (values: HistoryEventFormValues) => {
     if (!historyCollectionRef) return;
 
+    let documentUrl = '';
+    if (selectedFile) {
+        const uploadedUrl = await uploadDocument();
+        if (!uploadedUrl) return; // Stop if upload fails
+        documentUrl = uploadedUrl;
+    }
+
     await addDocumentNonBlocking(historyCollectionRef, {
       ...values,
+      documentUrl: documentUrl,
+      documentName: selectedFile?.name || '',
       eventDate: values.eventDate.toISOString(),
       createdAt: new Date().toISOString(),
     });
@@ -115,6 +171,7 @@ export function AddHistoryEventDialog({
       description: 'Хөдөлмөрийн түүхэнд шинэ үйл явдал нэмэгдлээ.',
     });
     form.reset();
+    setSelectedFile(null);
     onOpenChange(false);
   };
 
@@ -217,31 +274,46 @@ export function AddHistoryEventDialog({
                   </FormItem>
                 )}
               />
-               <FormField
-                control={form.control}
-                name="documentUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Холбогдох баримт (URL)</FormLabel>
+               <FormItem>
+                  <FormLabel>Холбогдох баримт</FormLabel>
                     <FormControl>
-                      <Input placeholder="Тушаал, шийдвэрийн холбоос..." {...field} />
+                        <Input 
+                            type="file" 
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                        />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    {!selectedFile && (
+                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Файл сонгох
+                        </Button>
+                    )}
+                    {selectedFile && (
+                         <div className="flex items-center justify-between rounded-md border p-2">
+                             <div className="flex items-center gap-2">
+                                <File className="h-5 w-5 text-muted-foreground" />
+                                <span className="text-sm">{selectedFile.name}</span>
+                             </div>
+                             <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="h-6 w-6">
+                                <X className="h-4 w-4" />
+                             </Button>
+                         </div>
+                    )}
+               </FormItem>
             </div>
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploading}
               >
                 Цуцлах
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && (
+              <Button type="submit" disabled={isSubmitting || isUploading}>
+                {(isSubmitting || isUploading) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Хадгалах
