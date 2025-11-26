@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, Calendar, User, DollarSign, Briefcase } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar, User, DollarSign, Briefcase, Download } from 'lucide-react';
 import type { Document } from '../data';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value?: string | number | null }) {
@@ -85,6 +86,51 @@ function ContractDetails({ metadata }: { metadata: any }) {
     )
 }
 
+function DocumentViewer({ document }: { document: Document }) {
+    if (!document.url) {
+        return (
+             <div className="h-[75vh] flex flex-col items-center justify-center rounded-md border bg-muted">
+                <FileText className="h-16 w-16 text-muted-foreground" />
+                <p className="mt-4 text-muted-foreground">Баримт бичиг хавсаргаагүй байна.</p>
+            </div>
+        )
+    }
+
+    const fileExtension = document.url.split('.').pop()?.split('?')[0].toLowerCase();
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+    const officeExtensions = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+
+    if (fileExtension === 'pdf') {
+        return <iframe src={document.url} className="h-[75vh] w-full rounded-md border" title={document.title} />;
+    }
+
+    if (imageExtensions.includes(fileExtension || '')) {
+        return (
+            <div className="relative h-[75vh] w-full">
+                <Image src={document.url} alt={document.title} fill style={{ objectFit: 'contain' }} className="rounded-md border" />
+            </div>
+        );
+    }
+    
+    if (officeExtensions.includes(fileExtension || '')) {
+         const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(document.url)}&embedded=true`;
+         return <iframe src={viewerUrl} className="h-[75vh] w-full rounded-md border" title={document.title} />;
+    }
+
+    return (
+        <div className="h-[75vh] flex flex-col items-center justify-center rounded-md border bg-muted">
+            <FileText className="h-16 w-16 text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">Урьдчилан харах боломжгүй файл.</p>
+            <Button asChild className="mt-4">
+                <a href={document.url} target="_blank" rel="noopener noreferrer">
+                    <Download className="mr-2 h-4 w-4" />
+                    Баримт татах
+                </a>
+            </Button>
+        </div>
+    );
+}
+
 
 export default function DocumentDetailPage() {
     const { id } = useParams();
@@ -149,17 +195,7 @@ export default function DocumentDetailPage() {
                             <CardTitle>Баримт бичиг</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             {documentData.url && (documentData.url.endsWith('.pdf') || documentData.url.includes('firebasestorage')) ? (
-                                <iframe src={documentData.url} className="h-[75vh] w-full rounded-md border" title={documentData.title} />
-                            ) : (
-                                <div className="h-[75vh] flex flex-col items-center justify-center rounded-md border bg-muted">
-                                    <FileText className="h-16 w-16 text-muted-foreground" />
-                                    <p className="mt-4 text-muted-foreground">PDF биш баримт, эсвэл урьдчилан харах боломжгүй байна.</p>
-                                    <Button asChild className="mt-4">
-                                        <a href={documentData.url} target="_blank" rel="noopener noreferrer">Баримт татах</a>
-                                    </Button>
-                                </div>
-                            )}
+                             <DocumentViewer document={documentData} />
                         </CardContent>
                     </Card>
                 </div>
