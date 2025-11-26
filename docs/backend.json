@@ -649,7 +649,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Лавлах сангийн зүйл",
       "type": "object",
-      "description": "Нэр, код зэрэг энгийн лавлах сангийн өгөгдлийг хадгална.",
+      "description": "Энгийн лавлах сангийн өгөгдлийг хадгална. Нэмэлт талбаруудтай байж болно.",
       "properties": {
         "id": {
           "type": "string"
@@ -661,6 +661,29 @@
         "code": {
           "type": "string",
           "description": "Лавлах сангийн зүйлийн код (заавал биш)."
+        },
+        "fields": {
+            "type": "array",
+            "description": "Энэ төрлийн баримт бичигт зориулсан динамик талбаруудын тодорхойлолт.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "Талбарын системийн түлхүүр үг (жишээ нь: 'salaryAmount')."
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Хэрэглэгчид харагдах талбарын нэр (жишээ нь: 'Цалингийн дүн')."
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Талбарын төрөл.",
+                        "enum": ["text", "number", "date"]
+                    }
+                },
+                "required": ["key", "label", "type"]
+            }
         }
       },
       "required": ["id", "name"]

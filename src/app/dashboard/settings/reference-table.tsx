@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -42,6 +41,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pencil, PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import {
@@ -51,6 +51,8 @@ import {
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface ReferenceItem {
   id: string;
@@ -68,6 +70,7 @@ interface ReferenceTableProps {
   itemData: ReferenceItem[] | null;
   isLoading: boolean;
   dialogTitle: string;
+  enableFieldDefs?: boolean;
 }
 
 export function ReferenceTable({
@@ -76,6 +79,7 @@ export function ReferenceTable({
   itemData,
   isLoading,
   dialogTitle,
+  enableFieldDefs = false,
 }: ReferenceTableProps) {
   const [open, setOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReferenceItem | null>(null);
@@ -135,7 +139,17 @@ export function ReferenceTable({
             {!isLoading && itemData?.map((item) => (
               <TableRow key={item.id}>
                 {columns.map((col) => (
-                  <TableCell key={col.key}>{item[col.key]}</TableCell>
+                  <TableCell key={col.key}>
+                    {col.key === 'fields' && Array.isArray(item.fields) ? (
+                        <div className="flex flex-wrap gap-1">
+                            {item.fields.map((field: any, index: number) => (
+                                <Badge key={index} variant="secondary">{field.label}</Badge>
+                            ))}
+                        </div>
+                    ) : (
+                        item[col.key]
+                    )}
+                  </TableCell>
                 ))}
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
@@ -160,7 +174,6 @@ export function ReferenceTable({
                         </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-
                 </TableCell>
               </TableRow>
             ))}
@@ -181,6 +194,7 @@ export function ReferenceTable({
         columns={columns}
         collectionRef={collectionRef}
         dialogTitle={dialogTitle}
+        enableFieldDefs={enableFieldDefs}
       />
     </>
   );
@@ -194,6 +208,7 @@ interface ReferenceItemDialogProps {
   columns: ColumnDefinition[];
   collectionRef: any;
   dialogTitle: string;
+  enableFieldDefs?: boolean;
 }
 
 function ReferenceItemDialog({
@@ -203,36 +218,49 @@ function ReferenceItemDialog({
   columns,
   collectionRef,
   dialogTitle,
+  enableFieldDefs,
 }: ReferenceItemDialogProps) {
   const isEditMode = !!item;
 
   const formSchema = React.useMemo(() => {
-    const shape: { [key: string]: z.ZodString } = {};
+    const shape: { [key: string]: any } = {};
     columns.forEach(col => {
-      shape[col.key] = z.string().min(1, `${col.header} хоосон байж болохгүй.`);
+      if (col.key !== 'fields') {
+        shape[col.key] = z.string().min(1, `${col.header} хоосон байж болохгүй.`);
+      }
     });
+    if (enableFieldDefs) {
+      shape.fields = z.array(z.object({
+        key: z.string().min(1, 'Түлхүүр үг хоосон байж болохгүй.'),
+        label: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
+        type: z.enum(['text', 'number', 'date']),
+      })).optional();
+    }
     return z.object(shape);
-  }, [columns]);
+  }, [columns, enableFieldDefs]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "fields",
+  });
+
   React.useEffect(() => {
     if (open) {
+      const defaultValues: { [key: string]: any } = {};
       if (isEditMode && item) {
-        const defaultValues: { [key: string]: any } = {};
         columns.forEach(col => {
-          defaultValues[col.key] = item[col.key] || '';
+          defaultValues[col.key] = item[col.key] || (col.key === 'fields' ? [] : '');
         });
-        form.reset(defaultValues);
       } else {
-        const defaultValues: { [key: string]: any } = {};
         columns.forEach(col => {
-          defaultValues[col.key] = '';
+          defaultValues[col.key] = col.key === 'fields' ? [] : '';
         });
-        form.reset(defaultValues);
       }
+      form.reset(defaultValues);
     }
   }, [open, item, isEditMode, columns, form]);
 
@@ -253,7 +281,7 @@ function ReferenceItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-xl">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -262,24 +290,91 @@ function ReferenceItemDialog({
                 Мэдээллийг нэмэх эсвэл засах.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              {columns.map(col => (
-                <FormField
-                  key={col.key}
-                  control={form.control}
-                  name={col.key}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{col.header}</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
-            </div>
+            <ScrollArea className="h-auto max-h-[60vh] p-1">
+                <div className="grid gap-4 py-4 pr-4">
+                {columns.filter(c => c.key !== 'fields').map(col => (
+                    <FormField
+                    key={col.key}
+                    control={form.control}
+                    name={col.key}
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>{col.header}</FormLabel>
+                        <FormControl>
+                            <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                ))}
+
+                {enableFieldDefs && (
+                    <div>
+                        <FormLabel>Нэмэлт талбарууд</FormLabel>
+                        <div className="space-y-4 mt-2">
+                            {fields.map((field, index) => (
+                                <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 items-end gap-2 rounded-md border p-4">
+                                     <FormField
+                                        control={form.control}
+                                        name={`fields.${index}.key`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Түлхүүр үг (key)</FormLabel>
+                                                <FormControl><Input placeholder="salasy" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`fields.${index}.label`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Нэр (label)</FormLabel>
+                                                <FormControl><Input placeholder="Цалингийн дүн" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`fields.${index}.type`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Төрөл (type)</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Төрөл" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="text">Текст</SelectItem>
+                                                        <SelectItem value="number">Тоо</SelectItem>
+                                                        <SelectItem value="date">Огноо</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                             <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => append({ key: '', label: '', type: 'text' })}
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Талбар нэмэх
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Цуцлах

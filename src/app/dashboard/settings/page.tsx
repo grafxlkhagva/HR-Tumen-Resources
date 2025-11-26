@@ -16,6 +16,13 @@ import { Loader2, Save, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
+type FieldDefinition = {
+    key: string;
+    label: string;
+    type: 'text' | 'number' | 'date';
+};
+
+type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldDefinition[] };
 type SimpleReferenceItem = ReferenceItem & { name: string };
 type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
 
@@ -167,7 +174,7 @@ export default function SettingsPage() {
   const { firestore } = useFirebase();
 
   // Data hooks for each reference collection
-  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
+  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
   const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'employmentTypes') : null, [firestore]));
   const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
   const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
@@ -183,6 +190,10 @@ export default function SettingsPage() {
   const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
   const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
+  const docTypeColumns = [
+    { key: 'name', header: 'Нэр' },
+    { key: 'fields', header: 'Талбарууд' }
+  ];
 
   return (
     <div className="py-8">
@@ -272,11 +283,12 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <ReferenceTable 
-                    collectionName="documentTypes"
-                    columns={[{ key: 'name', header: 'Нэр' }]}
-                    itemData={documentTypes}
-                    isLoading={loadingDocTypes}
-                    dialogTitle="Баримт бичгийн төрөл"
+                        collectionName="documentTypes"
+                        columns={docTypeColumns}
+                        itemData={documentTypes}
+                        isLoading={loadingDocTypes}
+                        dialogTitle="Баримт бичгийн төрөл"
+                        enableFieldDefs={true}
                     />
                 </CardContent>
             </Card>

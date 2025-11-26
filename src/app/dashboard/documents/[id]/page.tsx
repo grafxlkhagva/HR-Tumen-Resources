@@ -9,43 +9,38 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, Calendar, User, DollarSign, Briefcase, Download, Save, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar as CalendarIcon, Save, X, Loader2, Download } from 'lucide-react';
 import type { Document } from '../data';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
-type ReferenceItem = { id: string; name: string };
+type FieldDefinition = {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date';
+};
+
+type DocumentType = {
+  id: string;
+  name: string;
+  fields?: FieldDefinition[];
+};
 
 const documentSchema = z.object({
-    documentType: z.string().min(1, 'Төрөл сонгоно уу.'),
+  documentType: z.string().min(1, 'Төрөл сонгоно уу.'),
+  metadata: z.any(),
 });
 
 type DocumentFormValues = z.infer<typeof documentSchema>;
-
-
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value?: string | number | null }) {
-    if (!value) return null;
-    return (
-        <div className="flex items-start gap-3">
-            <Icon className="h-5 w-5 flex-shrink-0 text-muted-foreground mt-0.5" />
-            <div>
-                <p className="text-sm text-muted-foreground">{label}</p>
-                <p className="font-medium">{value}</p>
-            </div>
-        </div>
-    );
-}
-
 
 function DocumentPageSkeleton() {
     return (
@@ -86,18 +81,6 @@ function DocumentPageSkeleton() {
                 </div>
             </div>
         </div>
-    )
-}
-
-function ContractDetails({ metadata }: { metadata: any }) {
-    return (
-        <>
-            <InfoRow icon={User} label="Ажилтан" value={metadata.employeeName} />
-            <InfoRow icon={Briefcase} label="Албан тушаал" value={metadata.jobTitle} />
-            <InfoRow icon={Calendar} label="Гэрээний эхлэх хугацаа" value={metadata.startDate ? new Date(metadata.startDate).toLocaleDateString() : ''} />
-            <InfoRow icon={Calendar} label="Гэрээний дуусах хугацаа" value={metadata.endDate ? new Date(metadata.endDate).toLocaleDateString() : ''} />
-            <InfoRow icon={DollarSign} label="Үндсэн цалин" value={metadata.salary ? `${Number(metadata.salary).toLocaleString()} ₮` : ''} />
-        </>
     )
 }
 
@@ -146,23 +129,95 @@ function DocumentViewer({ document }: { document: Document }) {
     );
 }
 
+const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition }) => {
+    const fieldName = `metadata.${fieldDef.key}`;
+    
+    if (fieldDef.type === 'date') {
+        return (
+             <FormField
+                control={form.control}
+                name={fieldName}
+                render={({ field }) => (
+                <FormItem className="flex flex-col">
+                    <FormLabel>{fieldDef.label}</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                                )}
+                            >
+                                {field.value ? (
+                                format(new Date(field.value), "yyyy-MM-dd")
+                                ) : (
+                                <span>Огноо сонгох</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={field.value ? new Date(field.value) : undefined}
+                                onSelect={(date) => field.onChange(date?.toISOString())}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+        );
+    }
+    
+    return (
+        <FormField
+            control={form.control}
+            name={fieldName}
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>{fieldDef.label}</FormLabel>
+                    <FormControl>
+                        <Input 
+                            type={fieldDef.type}
+                            placeholder={fieldDef.label} 
+                            {...field}
+                            value={field.value || ''}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+    )
+}
+
 function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const documentRef = useMemoFirebase(() => doc(firestore, 'documents', documentData.id), [firestore, documentData.id]);
     const docTypesQuery = useMemoFirebase(() => collection(firestore, 'documentTypes'), [firestore]);
-    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<ReferenceItem>(docTypesQuery);
+    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<DocumentType>(docTypesQuery);
 
     const form = useForm<DocumentFormValues>({
-        resolver: zodResolver(documentSchema),
+        // resolver stays simple, complex validation can be added later
         defaultValues: {
             documentType: documentData.documentType || '',
+            metadata: documentData.metadata || {},
         },
     });
-    
+
     React.useEffect(() => {
-        form.reset({ documentType: documentData.documentType || '' });
+        form.reset({
+            documentType: documentData.documentType || '',
+            metadata: documentData.metadata || {},
+        });
     }, [documentData, form]);
 
     const { isSubmitting } = form.formState;
@@ -172,6 +227,9 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
         toast({ title: 'Амжилттай хадгаллаа' });
         setIsEditing(false);
     };
+    
+    const selectedDocTypeName = form.watch('documentType');
+    const selectedDocType = documentTypes?.find(type => type.name === selectedDocTypeName);
 
     return (
         <Card>
@@ -199,7 +257,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                 <FormItem>
                                     <FormLabel>Баримтын төрөл</FormLabel>
                                     {isEditing ? (
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingDocTypes}>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingDocTypes}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Төрөл сонгох..." />
@@ -214,19 +272,35 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                             </SelectContent>
                                         </Select>
                                     ) : (
-                                        <p className="font-medium">{field.value || 'Тодорхойгүй'}</p>
+                                        <p className="font-medium pt-2">{field.value || 'Тодорхойгүй'}</p>
                                     )}
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+                        
+                        {isEditing && selectedDocType?.fields && selectedDocType.fields.map(fieldDef => (
+                            <DynamicField key={fieldDef.key} form={form} fieldDef={fieldDef} />
+                        ))}
 
-                        {documentData.documentType === 'Хөдөлмөрийн гэрээ' && documentData.metadata && (
-                            <ContractDetails metadata={documentData.metadata} />
+                        {!isEditing && selectedDocType?.fields && (
+                            <div className="space-y-4">
+                                {selectedDocType.fields.map(fieldDef => {
+                                    const value = documentData.metadata?.[fieldDef.key];
+                                    return (
+                                        <div key={fieldDef.key}>
+                                            <p className="text-sm text-muted-foreground">{fieldDef.label}</p>
+                                            <p className="font-medium">
+                                                {fieldDef.type === 'date' && value ? new Date(value).toLocaleDateString() : (value || 'Тодорхойгүй')}
+                                            </p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         )}
                         
-                        {!isEditing && !documentData.metadata && (
-                            <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт мэдээлэл бүртгэгдээгүй байна.</p>
+                        {!isEditing && !selectedDocType?.fields && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт талбар тохируулаагүй байна.</p>
                         )}
                         
                         {isEditing && (
@@ -235,7 +309,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Хадгалах
                                 </Button>
-                                <Button variant="ghost" onClick={() => { setIsEditing(false); form.reset(); }}>
+                                <Button variant="ghost" type="button" onClick={() => { setIsEditing(false); form.reset(); }}>
                                     <X className="mr-2 h-4 w-4" />
                                     Цуцлах
                                 </Button>
@@ -247,7 +321,6 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
         </Card>
     );
 }
-
 
 export default function DocumentDetailPage() {
     const { id } = useParams();
