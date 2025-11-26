@@ -181,6 +181,15 @@
           "type": "string",
           "description": "Баримт бичгийг байршуулсан огноо.",
           "format": "date-time"
+        },
+        "documentType": {
+          "type": "string",
+          "description": "Баримт бичгийн төрөл (жишээ нь: Хөдөлмөрийн гэрээ, Дотоод журам)."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Баримт бичгийн төрлөөс хамаарсан нэмэлт мэдээлэл хадгалах талбар.",
+          "properties": {}
         }
       },
       "required": [
@@ -188,7 +197,8 @@
         "title",
         "description",
         "url",
-        "uploadDate"
+        "uploadDate",
+        "documentType"
       ]
     },
     "OnboardingTask": {

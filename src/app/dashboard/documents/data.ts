@@ -1,9 +1,13 @@
 export type Document = {
   id: string;
-  name: string;
-  category: 'Policy' | 'Contract' | 'Handbook' | 'Form';
-  lastModified: string;
-  size: string;
+  title: string;
+  description: string;
+  url: string;
+  uploadDate: string;
+  documentType: 'Хөдөлмөрийн гэрээ' | 'Дотоод журам' | 'Ажилтны гарын авлага' | 'Маягт' | 'Бусад';
+  metadata?: {
+    [key: string]: any;
+  };
 };
 
 export const documents: Document[] = [];

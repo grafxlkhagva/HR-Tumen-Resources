@@ -28,6 +28,7 @@ import {
   File,
   Download,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -35,30 +36,38 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Document } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 const categoryIcons = {
   Policy: <File className="h-4 w-4 text-blue-500" />,
   Contract: <File className="h-4 w-4 text-green-500" />,
   Handbook: <File className="h-4 w-4 text-purple-500" />,
   Form: <File className="h-4 w-4 text-orange-500" />,
+  'Хөдөлмөрийн гэрээ': <File className="h-4 w-4 text-green-500" />,
+  'Дотоод журам': <File className="h-4 w-4 text-blue-500" />,
+  'Ажилтны гарын авлага': <File className="h-4 w-4 text-purple-500" />,
+  'Маягт': <File className="h-4 w-4 text-orange-500" />,
+  'Бусад': <File className="h-4 w-4 text-gray-500" />,
 };
 
 function DocumentRow({ doc }: { doc: Document }) {
+  const Icon = categoryIcons[doc.documentType] || categoryIcons['Бусад'];
+  
   return (
     <TableRow>
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
-          {categoryIcons[doc.category]}
-          <span>{doc.name}</span>
+          {Icon}
+          <span>{doc.title}</span>
         </div>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
-        <Badge variant="secondary">{doc.category}</Badge>
+        <Badge variant="secondary">{doc.documentType}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
-        {format(new Date(doc.lastModified), 'yyyy.MM.dd')}
+        {format(new Date(doc.uploadDate), 'yyyy.MM.dd')}
       </TableCell>
-      <TableCell className="text-right">{doc.size}</TableCell>
+      <TableCell className="text-right">... KB</TableCell>
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -69,6 +78,11 @@ function DocumentRow({ doc }: { doc: Document }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Үйлдлүүд</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+                <Link href={`/dashboard/documents/${doc.id}`} className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" /> Дэлгэрэнгүй
+                </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem className="gap-2">
               <Download className="h-4 w-4" /> Татах
             </DropdownMenuItem>
