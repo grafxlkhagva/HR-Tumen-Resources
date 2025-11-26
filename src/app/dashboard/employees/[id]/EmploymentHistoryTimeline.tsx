@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +29,7 @@ type EmploymentHistoryEvent = {
   eventDate: string;
   notes?: string;
   documentUrl?: string;
+  documentId?: string;
 };
 
 const eventTypeIcons: { [key: string]: React.ElementType } = {
@@ -68,7 +70,14 @@ function TimelineItem({
         </div>
         
         {event.notes && <p className="mt-1 text-sm text-muted-foreground">{event.notes}</p>}
-        {event.documentUrl && (
+        {event.documentId ? (
+             <Button asChild variant="link" className="mt-2 h-auto p-0 text-sm">
+                <Link href={`/dashboard/documents/${event.documentId}`}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Баримт бичиг харах
+                </Link>
+             </Button>
+        ) : event.documentUrl && (
           <a
             href={event.documentUrl}
             target="_blank"
@@ -76,7 +85,7 @@ function TimelineItem({
             className="mt-2 inline-flex items-center text-sm text-primary hover:underline"
           >
             <FileText className="mr-2 h-4 w-4" />
-            Баримт бичиг харах
+            Баримт бичиг татах
           </a>
         )}
       </div>

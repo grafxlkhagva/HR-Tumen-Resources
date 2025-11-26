@@ -4,13 +4,13 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -23,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 type Department = {
@@ -37,6 +43,7 @@ type EmploymentHistoryEvent = {
   notes?: string;
   documentUrl?: string;
   documentName?: string;
+  documentId?: string;
 };
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) {
@@ -106,7 +113,7 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
       error,
     } = useCollection<EmploymentHistoryEvent>(historyQuery);
 
-    const documents = history?.filter(event => event.documentUrl && event.documentName);
+    const documents = history?.filter(event => event.documentId);
 
     if (isLoading) {
         return (
@@ -149,12 +156,26 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
                                 <TableCell>{doc.eventType}</TableCell>
                                 <TableCell>{new Date(doc.eventDate).toLocaleDateString()}</TableCell>
                                 <TableCell className="text-right">
-                                    <Button asChild variant="outline" size="sm">
-                                        <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Татах
-                                        </a>
-                                    </Button>
+                                    <DropdownMenu>
+                                         <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Цэс</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/dashboard/documents/${doc.documentId}`}>
+                                                    Дэлгэрэнгүй
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
+                                                    Татах
+                                                </a>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </TableCell>
                             </TableRow>
                         ))}

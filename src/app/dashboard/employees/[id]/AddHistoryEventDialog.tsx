@@ -40,7 +40,7 @@ import { Calendar as CalendarIcon, Loader2, Upload, File, X } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useFirebase, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -50,8 +50,6 @@ const historyEventSchema = z.object({
     required_error: 'Үйл явдлын огноог сонгоно уу.',
   }),
   notes: z.string().optional(),
-  documentUrl: z.string().optional(),
-  documentName: z.string().optional(),
 });
 
 type HistoryEventFormValues = z.infer<typeof historyEventSchema>;
@@ -93,6 +91,11 @@ export function AddHistoryEventDialog({
         : null,
     [firestore, employeeId]
   );
+  
+  const documentsCollectionRef = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'documents') : null),
+    [firestore]
+  );
 
   const form = useForm<HistoryEventFormValues>({
     resolver: zodResolver(historyEventSchema),
@@ -100,8 +103,6 @@ export function AddHistoryEventDialog({
       eventType: '',
       eventDate: new Date(),
       notes: '',
-      documentUrl: '',
-      documentName: '',
     },
   });
 
@@ -118,23 +119,21 @@ export function AddHistoryEventDialog({
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      form.setValue('documentName', file.name);
     }
   };
 
-  const uploadDocument = async (): Promise<string | null> => {
+  const uploadDocument = async (): Promise<{ url: string, name: string } | null> => {
     if (!selectedFile) return null;
     setIsUploading(true);
 
     const storage = getStorage();
-    // Create a unique file name to avoid overwrites
     const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
     const storageRef = ref(storage, `employees/${employeeId}/history-documents/${uniqueFileName}`);
 
     try {
       await uploadBytes(storageRef, selectedFile);
       const downloadURL = await getDownloadURL(storageRef);
-      return downloadURL;
+      return { url: downloadURL, name: selectedFile.name };
     } catch (error) {
       console.error("File upload error:", error);
       toast({
@@ -149,19 +148,41 @@ export function AddHistoryEventDialog({
   };
 
   const onSubmit = async (values: HistoryEventFormValues) => {
-    if (!historyCollectionRef) return;
+    if (!historyCollectionRef || !documentsCollectionRef) return;
 
     let documentUrl = '';
+    let documentName = '';
+    let documentId: string | undefined = undefined;
+
     if (selectedFile) {
-        const uploadedUrl = await uploadDocument();
-        if (!uploadedUrl) return; // Stop if upload fails
-        documentUrl = uploadedUrl;
+        const uploadedFile = await uploadDocument();
+        if (!uploadedFile) return; // Stop if upload fails
+        
+        documentUrl = uploadedFile.url;
+        documentName = uploadedFile.name;
+
+        // Create a corresponding entry in the main 'documents' collection
+        const docResponse = await addDocumentNonBlocking(documentsCollectionRef, {
+            title: documentName,
+            description: `Ажилтны түүх: ${values.eventType}`,
+            url: documentUrl,
+            uploadDate: new Date().toISOString(),
+            documentType: "Бусад", // Or derive from eventType
+            metadata: {
+                employeeId: employeeId,
+                historyEventType: values.eventType,
+            }
+        });
+        if(docResponse) {
+          documentId = docResponse.id;
+        }
     }
 
     await addDocumentNonBlocking(historyCollectionRef, {
       ...values,
       documentUrl: documentUrl,
-      documentName: selectedFile?.name || '',
+      documentName: documentName,
+      documentId: documentId,
       eventDate: values.eventDate.toISOString(),
       createdAt: new Date().toISOString(),
     });
