@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -46,6 +46,15 @@ type EmploymentHistoryEvent = {
   documentId?: string;
 };
 
+const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
+    "Идэвхтэй": { variant: 'default', className: 'bg-green-500 hover:bg-green-600', label: 'Идэвхтэй' },
+    "Жирэмсний амралттай": { variant: 'secondary', className: 'bg-blue-500 hover:bg-blue-600 text-white', label: 'Жирэмсэний' },
+    "Хүүхэд асрах чөлөөтэй": { variant: 'secondary', className: 'bg-purple-500 hover:bg-purple-600 text-white', label: 'Хүүхэд асрах' },
+    "Урт хугацааны чөлөөтэй": { variant: 'outline', className: 'border-yellow-500 text-yellow-600', label: 'Чөлөөтэй' },
+    "Ажлаас гарсан": { variant: 'destructive', className: '', label: 'Гарсан' },
+};
+
+
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) {
     return (
         <div className="grid grid-cols-3 gap-4">
@@ -72,7 +81,10 @@ function ProfileSkeleton() {
                         <div className="space-y-2">
                             <Skeleton className="h-8 w-40" />
                             <Skeleton className="h-5 w-32" />
-                            <Skeleton className="h-6 w-24" />
+                            <div className="flex gap-2">
+                                <Skeleton className="h-6 w-24" />
+                                <Skeleton className="h-6 w-20" />
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -241,6 +253,7 @@ export default function EmployeeProfilePage() {
     
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
+    const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
 
     return (
         <div className="py-8">
@@ -265,7 +278,12 @@ export default function EmployeeProfilePage() {
                             <div className="flex-1 text-center sm:text-left">
                                 <CardTitle className="text-2xl">{fullName}</CardTitle>
                                 <CardDescription>{employee.jobTitle}</CardDescription>
-                                <Badge variant="outline" className="mt-2">{departmentName}</Badge>
+                                <div className="mt-2 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                                    <Badge variant="outline">{departmentName}</Badge>
+                                    <Badge variant={statusInfo.variant} className={statusInfo.className}>
+                                        {statusInfo.label}
+                                    </Badge>
+                                </div>
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
@@ -288,6 +306,8 @@ export default function EmployeeProfilePage() {
                             <InfoRow icon={Mail} label="Имэйл" value={<a href={`mailto:${employee.email}`} className="text-primary hover:underline">{employee.email}</a>} />
                             <InfoRow icon={Phone} label="Утасны дугаар" value={employee.phoneNumber || '-'} />
                             <InfoRow icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} />
+                             <InfoRow icon={User} label="Ажилтны код" value={employee.employeeCode || '-'} />
+                            <InfoRow icon={Shield} label="Ажилтны төлөв" value={employee.status || '-'} />
                             <InfoRow icon={Calendar} label="Ажилд орсон огноо" value={employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'} />
                         </dl>
                     </CardContent>
@@ -355,3 +375,4 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
+

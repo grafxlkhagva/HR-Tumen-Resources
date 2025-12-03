@@ -60,6 +60,7 @@ const editEmployeeSchema = z.object({
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
+  status: z.string().min(1, 'Төлөв сонгоно уу.'),
   photoURL: z.string().optional(),
 });
 
@@ -67,6 +68,7 @@ type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
 type Position = { id: string; title: string };
 type Department = { id: string; name: string };
+const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан"];
 
 function EditEmployeeFormSkeleton() {
     return (
@@ -81,7 +83,7 @@ function EditEmployeeFormSkeleton() {
                     <Skeleton className="h-10 w-32" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    {Array.from({ length: 8 }).map((_, i) => (
                         <div className="space-y-2" key={i}>
                             <Skeleton className="h-4 w-20" />
                             <Skeleton className="h-10 w-full" />
@@ -214,6 +216,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                         <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Хэлтэс</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{departments?.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Албан тушаалыг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{positions?.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -279,3 +282,4 @@ export default function EditEmployeePage() {
         </div>
     )
 }
+

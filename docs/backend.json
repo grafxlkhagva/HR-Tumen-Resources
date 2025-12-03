@@ -15,8 +15,19 @@
           "description": "Ажилтны давтагдашгүй код, системд нэвтрэх нэр болно."
         },
         "role": {
-            "type": "string",
-            "description": "Ажилтны системийн эрх (жишээ нь: admin, employee)."
+          "type": "string",
+          "description": "Ажилтны системийн эрх (жишээ нь: admin, employee)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Ажилтны одоогийн төлөв.",
+          "enum": [
+            "Идэвхтэй",
+            "Жирэмсний амралттай",
+            "Хүүхэд асрах чөлөөтэй",
+            "Урт хугацааны чөлөөтэй",
+            "Ажлаас гарсан"
+          ]
         },
         "firstName": {
           "type": "string",
@@ -58,6 +69,7 @@
         "id",
         "employeeCode",
         "role",
+        "status",
         "firstName",
         "lastName",
         "email",
@@ -99,9 +111,9 @@
           "format": "uri"
         },
         "createdAt": {
-            "type": "string",
-            "description": "Бүртгэл үүсгэсэн огноо.",
-            "format": "date-time"
+          "type": "string",
+          "description": "Бүртгэл үүсгэсэн огноо.",
+          "format": "date-time"
         }
       },
       "required": [
@@ -663,30 +675,41 @@
           "description": "Лавлах сангийн зүйлийн код (заавал биш)."
         },
         "fields": {
-            "type": "array",
-            "description": "Энэ төрлийн баримт бичигт зориулсан динамик талбаруудын тодорхойлолт.",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "key": {
-                        "type": "string",
-                        "description": "Талбарын системийн түлхүүр үг (жишээ нь: 'salaryAmount')."
-                    },
-                    "label": {
-                        "type": "string",
-                        "description": "Хэрэглэгчид харагдах талбарын нэр (жишээ нь: 'Цалингийн дүн')."
-                    },
-                    "type": {
-                        "type": "string",
-                        "description": "Талбарын төрөл.",
-                        "enum": ["text", "number", "date"]
-                    }
-                },
-                "required": ["key", "label", "type"]
-            }
+          "type": "array",
+          "description": "Энэ төрлийн баримт бичигт зориулсан динамик талбаруудын тодорхойлолт.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Талбарын системийн түлхүүр үг (жишээ нь: 'salaryAmount')."
+              },
+              "label": {
+                "type": "string",
+                "description": "Хэрэглэгчид харагдах талбарын нэр (жишээ нь: 'Цалингийн дүн')."
+              },
+              "type": {
+                "type": "string",
+                "description": "Талбарын төрөл.",
+                "enum": [
+                  "text",
+                  "number",
+                  "date"
+                ]
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "type"
+            ]
+          }
         }
       },
-      "required": ["id", "name"]
+      "required": [
+        "id",
+        "name"
+      ]
     }
   },
   "auth": {
@@ -862,7 +885,9 @@
       {
         "path": "/documentTypes/{documentTypeId}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Баримт бичгийн төрлийн лавлах сан."
         }
       },
@@ -949,56 +974,72 @@
       {
         "path": "/questionnaireCountries/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Улс' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireSchools/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Сургууль' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireDegrees/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Мэргэжил' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireAcademicRanks/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Зэрэг, цол' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireLanguages/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Гадаад хэл' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireFamilyRelationships/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Гэр бүлийн хамаарал' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireEmergencyRelationships/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Яаралтай үеийн хамаарал' талбарын лавлах сан."
         }
       },
       {
         "path": "/questionnaireEmploymentTypes/{id}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/ReferenceData" },
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
           "description": "Анкетын 'Хөдөлмөрийн нөхцөл' талбарын лавлах сан."
         }
       }

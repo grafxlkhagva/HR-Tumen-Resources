@@ -9,9 +9,11 @@ export type Employee = {
   departmentId: string;
   email: string;
   phone?: string;
+  status: 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан';
   hireDate: string;
   skills?: string[];
   jobHistory?: { title: string; company: string; duration: string }[];
 };
 
 export const employees: Employee[] = [];
+

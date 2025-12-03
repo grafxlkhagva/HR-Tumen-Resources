@@ -58,6 +58,7 @@ const employeeSchema = z.object({
   phoneNumber: z.string().optional(),
   positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
+  status: z.string().min(1, 'Төлөв сонгоно уу.'),
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
@@ -73,6 +74,8 @@ type EmployeeCodeConfig = {
     digitCount: number;
     nextNumber: number;
 }
+const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан"];
+
 
 function AddEmployeeFormSkeleton() {
     return (
@@ -128,6 +131,7 @@ export default function AddEmployeePage() {
       email: '',
       phoneNumber: '',
       password: 'password123',
+      status: 'Идэвхтэй',
     }
   });
   
@@ -197,6 +201,7 @@ export default function AddEmployeePage() {
             firstName: values.firstName,
             lastName: values.lastName,
             email: values.email,
+            status: values.status,
             phoneNumber: values.phoneNumber,
             departmentId: values.departmentId,
             positionId: values.positionId,
@@ -424,6 +429,7 @@ export default function AddEmployeePage() {
                             </FormItem>
                         )}
                      />
+                    <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
 
                 </div>
 
@@ -444,3 +450,4 @@ export default function AddEmployeePage() {
     </div>
   );
 }
+
