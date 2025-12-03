@@ -1,0 +1,289 @@
+'use client';
+
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+
+const programSchema = z.object({
+  title: z.string().min(1, 'Хөтөлбөрийн нэр хоосон байж болохгүй.'),
+  description: z.string().optional(),
+  type: z.enum(['ONBOARDING', 'OFFBOARDING'], {
+    required_error: 'Хөтөлбөрийн төрлийг сонгоно уу.',
+  }),
+  appliesToType: z.enum(['ALL', 'DEPARTMENT', 'POSITION']).default('ALL'),
+  departmentId: z.string().optional(),
+  positionId: z.string().optional(),
+});
+
+type ProgramFormValues = z.infer<typeof programSchema>;
+
+type Reference = {
+    id: string;
+    name: string;
+    title?: string;
+}
+
+interface AddProgramDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingProgram?: { id: string } & Partial<ProgramFormValues> | null;
+  departments: Reference[];
+  positions: Reference[];
+}
+
+export function AddProgramDialog({
+  open,
+  onOpenChange,
+  editingProgram,
+  departments,
+  positions,
+}: AddProgramDialogProps) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const isEditMode = !!editingProgram;
+
+  const programsCollectionRef = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
+    [firestore]
+  );
+  
+  const form = useForm<ProgramFormValues>({
+    resolver: zodResolver(programSchema),
+    defaultValues: {
+        title: '',
+        description: '',
+        type: 'ONBOARDING',
+        appliesToType: 'ALL',
+        departmentId: '',
+        positionId: '',
+    },
+  });
+
+  React.useEffect(() => {
+    if (open) {
+      if (isEditMode && editingProgram) {
+        let appliesToType: 'ALL' | 'DEPARTMENT' | 'POSITION' = 'ALL';
+        if ((editingProgram as any).appliesTo?.departmentId) appliesToType = 'DEPARTMENT';
+        if ((editingProgram as any).appliesTo?.positionId) appliesToType = 'POSITION';
+        
+        form.reset({
+          title: editingProgram.title || '',
+          description: editingProgram.description || '',
+          type: editingProgram.type || 'ONBOARDING',
+          appliesToType: appliesToType,
+          departmentId: (editingProgram as any).appliesTo?.departmentId || '',
+          positionId: (editingProgram as any).appliesTo?.positionId || '',
+        });
+      } else {
+        form.reset({
+            title: '',
+            description: '',
+            type: 'ONBOARDING',
+            appliesToType: 'ALL',
+            departmentId: '',
+            positionId: '',
+        });
+      }
+    }
+  }, [open, editingProgram, isEditMode, form]);
+
+  const { isSubmitting } = form.formState;
+
+  const onSubmit = (data: ProgramFormValues) => {
+    if (!programsCollectionRef || !firestore) return;
+
+    let appliesTo = {};
+    if (data.appliesToType === 'DEPARTMENT' && data.departmentId) {
+        appliesTo = { departmentId: data.departmentId };
+    } else if (data.appliesToType === 'POSITION' && data.positionId) {
+        appliesTo = { positionId: data.positionId };
+    }
+
+    const finalData = {
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        appliesTo: appliesTo,
+    };
+
+    if (isEditMode && editingProgram) {
+      const docRef = doc(firestore, 'onboardingPrograms', editingProgram.id);
+      updateDocumentNonBlocking(docRef, finalData);
+      toast({ title: 'Амжилттай шинэчлэгдлээ' });
+    } else {
+      addDocumentNonBlocking(programsCollectionRef, { ...finalData, stageCount: 0, taskCount: 0 });
+      toast({ title: 'Хөтөлбөр амжилттай нэмэгдлээ' });
+    }
+
+    onOpenChange(false);
+  };
+  
+  const appliesToType = form.watch('appliesToType');
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Хөтөлбөр засах' : 'Шинэ хөтөлбөр нэмэх'}</DialogTitle>
+              <DialogDescription>
+                Дасан зохицох эсвэл ажлаас чөлөөлөх хөтөлбөрийн загварыг үүсгэнэ үү.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Хөтөлбөрийн нэр</FormLabel>
+                    <FormControl><Input placeholder="Жишээ нь: Программистын дасан зохицох хөтөлбөр" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Тайлбар</FormLabel>
+                    <FormControl><Textarea placeholder="Хөтөлбөрийн зорилгын талаар товч бичнэ үү..." {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Төрөл</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="ONBOARDING">Дасан зохицох</SelectItem>
+                        <SelectItem value="OFFBOARDING">Ажлаас чөлөөлөх</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="appliesToType"
+                render={({ field }) => (
+                    <FormItem className="space-y-3">
+                        <FormLabel>Хэрэглэгдэх хүрээ</FormLabel>
+                        <FormControl>
+                            <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-1"
+                            >
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="ALL" /></FormControl>
+                                <FormLabel className="font-normal">Бүх ажилтан</FormLabel>
+                            </FormItem>
+                             <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
+                                <FormLabel className="font-normal">Тодорхой хэлтэс</FormLabel>
+                            </FormItem>
+                             <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="POSITION" /></FormControl>
+                                <FormLabel className="font-normal">Тодорхой албан тушаал</FormLabel>
+                            </FormItem>
+                            </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+                />
+                {appliesToType === 'DEPARTMENT' && (
+                    <FormField
+                        control={form.control}
+                        name="departmentId"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Хэлтэс сонгох</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
+                            </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                )}
+                {appliesToType === 'POSITION' && (
+                     <FormField
+                        control={form.control}
+                        name="positionId"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Албан тушаал сонгох</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
+                            </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                )}
+
+
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Хадгалах
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
