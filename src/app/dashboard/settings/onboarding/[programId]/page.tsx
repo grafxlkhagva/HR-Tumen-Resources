@@ -49,7 +49,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2 } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate } from '../page';
@@ -246,9 +246,6 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
         if (!firestore || !programRef) return;
         const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`, taskId);
         await deleteDoc(docRef);
-        // This is where the logic needs to be more robust. Instead of just decrementing,
-        // we should recount. For simplicity in this fix, we will still decrement but
-        // the core issue is that this can lead to negative numbers if state is inconsistent.
         updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
     }
 
