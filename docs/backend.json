@@ -710,6 +710,47 @@
         "id",
         "name"
       ]
+    },
+    "Post": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Нийтлэл",
+      "type": "object",
+      "description": "Байгууллагын дотоод нийтлэлийн самбарт орох мэдээ, мэдээлэл.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Нийтлэлийн давтагдашгүй танигч."
+        },
+        "title": {
+          "type": "string",
+          "description": "Нийтлэлийн гарчиг."
+        },
+        "content": {
+          "type": "string",
+          "description": "Нийтлэлийн дэлгэрэнгүй агуулга."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Нийтлэлийн зурагны URL.",
+          "format": "uri"
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Нийтлэлийг оруулсан хүний нэр."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Нийтлэл үүсгэсэн огноо.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "authorName",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -1041,6 +1082,22 @@
             "$ref": "#/backend/entities/ReferenceData"
           },
           "description": "Анкетын 'Хөдөлмөрийн нөхцөл' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/posts/{postId}",
+        "definition": {
+          "entityName": "Post",
+          "schema": {
+            "$ref": "#/backend/entities/Post"
+          },
+          "description": "Байгууллагын дотоод нийтлэлийн самбарт орох мэдээллийг хадгална.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "Нийтлэлийн давтагдашгүй танигч."
+            }
+          ]
         }
       }
     ],

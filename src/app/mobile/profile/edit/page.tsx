@@ -526,7 +526,7 @@ export default function MobileProfileEditPage() {
         <div className="p-4">
             <header className="py-4 relative flex items-center justify-center">
                 <Button asChild variant="ghost" size="icon" className="absolute left-0">
-                    <Link href="/mobile/home">
+                    <Link href="/mobile/user">
                         <ArrowLeft className="h-5 w-5" />
                         <span className="sr-only">Буцах</span>
                     </Link>

@@ -2,16 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Home, Settings, Calendar, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { usePathname } from 'next/navigation';
+import { Home, Calendar, User } from 'lucide-react';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
   { href: '/mobile/time-off', label: 'Чөлөө', icon: Calendar },
-  { href: '/mobile/settings', label: 'Тохиргоо', icon: Settings },
+  { href: '/mobile/user', label: 'Хэрэглэгч', icon: User },
 ];
 
 export default function MobileLayout({
@@ -20,14 +17,6 @@ export default function MobileLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const auth = useAuth();
-    
-  const handleLogout = async () => {
-    if (!auth) return;
-    await signOut(auth);
-    router.push('/login');
-  };
 
   return (
     <div className="flex h-dvh flex-col bg-muted/20">
@@ -54,13 +43,6 @@ export default function MobileLayout({
               </Link>
             );
           })}
-           <button
-              onClick={handleLogout}
-              className="flex flex-col items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
-            >
-              <LogOut className="h-6 w-6" />
-              <span>Гарах</span>
-          </button>
         </div>
       </nav>
     </div>

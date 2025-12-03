@@ -3,123 +3,128 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Image from 'next/image';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building, Briefcase, Mail, Phone, QrCode, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MessageSquare, ThumbsUp, ArrowRight } from 'lucide-react';
+import { format } from 'date-fns';
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value?: string | null;
-}) {
-  return (
-    <div className="flex items-center gap-4">
-      <Icon className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-      <div>
-        <p className="text-sm font-medium">{value || 'Тодорхойгүй'}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
-}
+type Post = {
+    id: string;
+    title: string;
+    content: string;
+    imageUrl: string;
+    authorName: string;
+    createdAt: string;
+};
 
-function ProfileSkeleton() {
+function PostSkeleton() {
     return (
-        <div className="p-4 space-y-6">
-            <div className="flex flex-col items-center gap-4">
-                <Skeleton className="w-24 h-24 rounded-full" />
-                <div className="space-y-1 text-center">
-                    <Skeleton className="h-7 w-40" />
-                    <Skeleton className="h-5 w-32" />
+        <Card className="overflow-hidden">
+            <Skeleton className="h-48 w-full" />
+            <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/4" />
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
                 </div>
-            </div>
-            <Card>
-                <CardHeader>
-                   <Skeleton className="h-6 w-28" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-32" />
-                </CardHeader>
-                <CardContent className="flex items-center justify-center p-6">
-                     <Skeleton className="w-40 h-40" />
-                </CardContent>
-            </Card>
-        </div>
+            </CardContent>
+            <CardFooter>
+                 <Skeleton className="h-9 w-28" />
+            </CardFooter>
+        </Card>
     )
 }
 
+function PostCard({ post }: { post: Post }) {
+    const postDate = new Date(post.createdAt);
+
+    return (
+        <Card className="overflow-hidden">
+            {post.imageUrl && (
+                <div className="relative aspect-video w-full">
+                    <Image src={post.imageUrl} alt={post.title} fill className="object-cover" />
+                </div>
+            )}
+            <CardHeader>
+                <CardTitle className="text-lg">{post.title}</CardTitle>
+                <CardDescription>
+                    {post.authorName} - {format(postDate, 'yyyy.MM.dd')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="line-clamp-3 text-sm text-muted-foreground">{post.content}</p>
+            </CardContent>
+            <CardFooter className="flex justify-between items-center">
+                 <Button variant="link" className="p-0 h-auto text-primary">
+                    Дэлгэрэнгүй унших
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-4 text-muted-foreground">
+                    <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
+                        <ThumbsUp className="h-4 w-4" />
+                        <span>0</span>
+                    </button>
+                    <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
+                        <MessageSquare className="h-4 w-4" />
+                        <span>0</span>
+                    </button>
+                </div>
+            </CardFooter>
+        </Card>
+    );
+}
+
 export default function MobileHomePage() {
-  const { employeeProfile, isProfileLoading } = useEmployeeProfile();
+  const { firestore } = useFirebase();
 
-  if (isProfileLoading || !employeeProfile) {
-    return <ProfileSkeleton />;
-  }
-
-  const { firstName, lastName, jobTitle, email, employeeCode, photoURL } = employeeProfile;
-  const fullName = `${firstName} ${lastName}`;
-  const qrValue = `MECARD:N:${lastName},${firstName};TEL:${''};EMAIL:${email};NOTE:ID-${employeeCode};;`;
+  const postsQuery = useMemoFirebase(
+      () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc')) : null,
+      [firestore]
+  );
+  
+  const { data: posts, isLoading, error } = useCollection<Post>(postsQuery);
 
   return (
     <div className="p-4 space-y-6 animate-in fade-in-50">
-      <div className="flex flex-col items-center gap-4 pt-4">
-        <Avatar className="h-24 w-24 border-4 border-background">
-          <AvatarImage src={photoURL} alt={fullName} />
-          <AvatarFallback className="text-3xl">
-            {firstName?.charAt(0)}
-            {lastName?.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">{fullName}</h1>
-          <p className="text-muted-foreground">{jobTitle}</p>
-        </div>
-      </div>
-      
-      <Card>
-        <CardHeader className='flex-row items-center justify-between'>
-            <CardTitle className="text-lg">Хувийн мэдээлэл</CardTitle>
-            <Button variant="outline" size="sm" asChild>
-                <Link href="/mobile/profile/edit">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Анкет засах
-                </Link>
-            </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <InfoRow icon={Briefcase} label="Албан тушаал" value={jobTitle} />
-            <InfoRow icon={Mail} label="Имэйл" value={email} />
-            <InfoRow icon={Building} label="Ажилтны код" value={employeeCode} />
-        </CardContent>
-      </Card>
+       <header className="py-4">
+            <h1 className="text-2xl font-bold">Нийтлэлийн самбар</h1>
+        </header>
 
-      <Card>
-        <CardHeader>
-            <CardTitle className="text-lg">QR Код</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4 p-6">
-            <div className="bg-white p-2 rounded-lg border">
-                 <QrCode className="h-32 w-32" />
+        {isLoading && (
+            <div className="space-y-6">
+                <PostSkeleton />
+                <PostSkeleton />
             </div>
-            <p className="text-center text-sm text-muted-foreground">
-                Та өөрийн QR кодыг уншуулан бүртгэл хийлгэх боломжтой.
-            </p>
-        </CardContent>
-      </Card>
+        )}
 
+        {error && (
+            <Card>
+                <CardContent className="p-6 text-center text-destructive">
+                    Нийтлэлүүдийг ачаалахад алдаа гарлаа.
+                </CardContent>
+            </Card>
+        )}
+
+        {!isLoading && !error && posts && posts.length > 0 && (
+            <div className="space-y-6">
+                {posts.map(post => <PostCard key={post.id} post={post} />)}
+            </div>
+        )}
+
+        {!isLoading && !error && (!posts || posts.length === 0) && (
+             <Card>
+                <CardContent className="p-10 text-center text-muted-foreground">
+                   Одоогоор нийтлэл байхгүй байна.
+                </CardContent>
+            </Card>
+        )}
     </div>
   );
 }
