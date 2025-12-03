@@ -296,9 +296,9 @@ export default function EmployeeProfilePage() {
                 <Tabs defaultValue="overview">
                     <TabsList>
                         <TabsTrigger value="overview">Ерөнхий</TabsTrigger>
+                        <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
                         <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
                         <TabsTrigger value="performance">Гүйцэтгэл</TabsTrigger>
-                        <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
                         <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
@@ -322,17 +322,6 @@ export default function EmployeeProfilePage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-                     <TabsContent value="time-off">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Чөлөөний түүх</CardTitle>
-                                <CardDescription>Тухайн ажилтны авсан бүх чөлөөний түүх.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground">Энд чөлөөний хүсэлтийн жагсаалт харагдах болно.</p>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
                     <TabsContent value="onboarding">
                          <Card>
                             <CardHeader>
@@ -341,6 +330,17 @@ export default function EmployeeProfilePage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-muted-foreground">Энд шинэ ажилтны дадлагын үеийн даалгаврууд болон гүйцэтгэл харагдана.</p>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                     <TabsContent value="time-off">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Чөлөөний түүх</CardTitle>
+                                <CardDescription>Тухайн ажилтны авсан бүх чөлөөний түүх.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground">Энд чөлөөний хүсэлтийн жагсаалт харагдах болно.</p>
                             </CardContent>
                         </Card>
                     </TabsContent>
