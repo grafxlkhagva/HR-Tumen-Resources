@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,11 +30,22 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { AssignProgramDialog } from './AssignProgramDialog';
+import { type OnboardingProgram } from '../../settings/onboarding/page';
 
 
 type Department = {
     id: string;
     name: string;
+};
+
+type AssignedTask = {
+    templateTaskId: string;
+    title: string;
+    status: 'TODO' | 'COMPLETED';
+    dueDate: string;
+    completedAt?: string;
+    assigneeId: string;
 };
 
 type AssignedProgram = {
@@ -44,12 +55,7 @@ type AssignedProgram = {
     status: 'IN_PROGRESS' | 'COMPLETED';
     startDate: string;
     progress: number;
-    tasks: {
-        taskId: string;
-        title: string;
-        status: 'TODO' | 'COMPLETED';
-        dueDate: string;
-    }[];
+    tasks: AssignedTask[];
 }
 
 type EmploymentHistoryEvent = {
@@ -220,19 +226,25 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
-const OnboardingTabContent = ({ employeeId }: { employeeId: string}) => {
+const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     const { firestore } = useFirebase();
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
 
     const assignedProgramsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, `employees/${employeeId}/assignedPrograms`), where('status', '==', 'IN_PROGRESS')) : null,
-        [firestore, employeeId]
+        () => firestore ? query(collection(firestore, `employees/${employee.id}/assignedPrograms`), where('status', '==', 'IN_PROGRESS')) : null,
+        [firestore, employee.id]
+    );
+     const programTemplatesQuery = useMemoFirebase(
+        () => firestore ? collection(firestore, 'onboardingPrograms') : null,
+        [firestore]
     );
 
     const { data: programs, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
     const program = programs && programs.length > 0 ? programs[0] : null;
     
-    if (isLoading) {
+    if (isLoading || isLoadingTemplates) {
         return (
              <Card>
                 <CardHeader>
@@ -260,7 +272,13 @@ const OnboardingTabContent = ({ employeeId }: { employeeId: string}) => {
                 </CardHeader>
                 <CardContent className="text-center py-12 text-muted-foreground">
                     <p>Энэ ажилтанд оноогдсон идэвхтэй хөтөлбөр байхгүй байна.</p>
-                    <Button variant="outline" className="mt-4">Хөтөлбөр оноох</Button>
+                    <Button variant="outline" className="mt-4" onClick={() => setIsAssignDialogOpen(true)}>Хөтөлбөр оноох</Button>
+                    <AssignProgramDialog 
+                        open={isAssignDialogOpen}
+                        onOpenChange={setIsAssignDialogOpen}
+                        employee={employee}
+                        programTemplates={programTemplates || []}
+                    />
                 </CardContent>
             </Card>
         )
@@ -279,7 +297,7 @@ const OnboardingTabContent = ({ employeeId }: { employeeId: string}) => {
                 <h4 className="font-semibold mb-4">Даалгаврууд</h4>
                 <div className="space-y-3">
                     {program.tasks.map(task => (
-                        <div key={task.taskId} className="flex items-center justify-between rounded-md border p-3">
+                        <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border p-3">
                             <div className="flex items-center gap-3">
                                 {task.status === 'COMPLETED' ? (
                                     <CheckCircle className="h-5 w-5 text-green-500" />
@@ -441,7 +459,7 @@ export default function EmployeeProfilePage() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="onboarding">
-                         <OnboardingTabContent employeeId={employeeId} />
+                         <OnboardingTabContent employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>

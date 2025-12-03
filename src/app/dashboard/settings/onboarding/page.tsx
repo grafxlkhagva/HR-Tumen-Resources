@@ -31,10 +31,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-type OnboardingProgram = {
+export type OnboardingProgram = {
     id: string;
     title: string;
-    description: string;
+    description?: string;
     type: 'ONBOARDING' | 'OFFBOARDING';
     taskCount?: number;
     stageCount?: number;
@@ -47,6 +47,7 @@ type OnboardingProgram = {
 type Reference = {
     id: string;
     name: string;
+    title?: string;
 }
 
 export default function OnboardingSettingsPage() {
@@ -69,7 +70,7 @@ export default function OnboardingSettingsPage() {
 
     const lookups = React.useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
-        const positionMap = positions?.reduce((acc, pos) => { acc[pos.id] = (pos as any).title; return acc; }, {} as Record<string, string>) || {};
+        const positionMap = positions?.reduce((acc, pos) => { acc[pos.id] = pos.title || pos.name; return acc; }, {} as Record<string, string>) || {};
         return { departmentMap, positionMap };
     }, [departments, positions]);
 
@@ -85,8 +86,9 @@ export default function OnboardingSettingsPage() {
 
     const handleDelete = (programId: string) => {
         if (!firestore) return;
+        // Add confirmation dialog
         const docRef = doc(firestore, 'onboardingPrograms', programId);
-        // Add logic to delete subcollections (stages, tasks) if necessary
+        // TODO: Add logic to delete subcollections (stages, tasks) if necessary
         deleteDocumentNonBlocking(docRef);
     }
 
@@ -162,7 +164,11 @@ export default function OnboardingSettingsPage() {
                             ))}
                             {!isLoading && programs?.map((program) => (
                                 <TableRow key={program.id}>
-                                    <TableCell className="font-medium">{program.title}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <Link href={`/dashboard/settings/onboarding/${program.id}`} className="hover:underline text-primary">
+                                            {program.title}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>
                                         <Badge variant={program.type === 'ONBOARDING' ? 'default' : 'secondary'}>
                                             {program.type === 'ONBOARDING' ? 'Дасан зохицох' : 'Ажлаас чөлөөлөх'}
