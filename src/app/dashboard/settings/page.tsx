@@ -12,7 +12,7 @@ import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, History } from 'lucide-react';
+import { Loader2, Save, History, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -209,6 +209,21 @@ export default function SettingsPage() {
       </div>
       <div className="space-y-8">
         <EmployeeCodeConfigCard />
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Дасан зохицох хөтөлбөрийн тохиргоо</CardTitle>
+                <CardDescription>Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button asChild>
+                    <Link href="/dashboard/settings/onboarding">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Тохиргоо руу очих
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
 
         <Card>
             <CardHeader>
