@@ -51,7 +51,7 @@ import {
 } from '@/firebase';
 import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Calendar, Clock } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate } from '../page';
 
 // --- Stage Dialog ---
@@ -249,6 +249,12 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
         updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
     }
 
+    const assigneeLabels = {
+        NEW_HIRE: 'Шинэ ажилтан',
+        MANAGER: 'Шууд удирдлага',
+        SPECIFIC_PERSON: 'Бусад'
+    };
+
     return (
         <Card>
              <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={programId} editingStage={editingStage} stageCount={0} />
@@ -269,7 +275,10 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
                     <div key={task.id} className="flex items-center justify-between rounded-md border bg-background p-3">
                         <div>
                             <p className="font-medium">{task.title}</p>
-                            <p className="text-xs text-muted-foreground">Гүйцэтгэгч: {task.assigneeType}, Хугацаа: {task.dueDays} хоног</p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{assigneeLabels[task.assigneeType] || 'Тодорхойгүй'}</span>
+                                <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{task.dueDays} хоногийн дотор</span>
+                            </div>
                         </div>
                         <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => handleEditTask(task)}>Засах</Button>

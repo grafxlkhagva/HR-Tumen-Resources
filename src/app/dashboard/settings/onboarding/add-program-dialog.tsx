@@ -58,7 +58,7 @@ type Reference = {
 interface AddProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingProgram?: { id: string } & Partial<ProgramFormValues> | null;
+  editingProgram?: { id: string } & Partial<ProgramFormValues> & { appliesTo?: { departmentId?: string, positionId?: string } } | null;
   departments: Reference[];
   positions: Reference[];
 }
@@ -95,16 +95,16 @@ export function AddProgramDialog({
     if (open) {
       if (isEditMode && editingProgram) {
         let appliesToType: 'ALL' | 'DEPARTMENT' | 'POSITION' = 'ALL';
-        if ((editingProgram as any).appliesTo?.departmentId) appliesToType = 'DEPARTMENT';
-        if ((editingProgram as any).appliesTo?.positionId) appliesToType = 'POSITION';
+        if (editingProgram.appliesTo?.departmentId) appliesToType = 'DEPARTMENT';
+        if (editingProgram.appliesTo?.positionId) appliesToType = 'POSITION';
         
         form.reset({
           title: editingProgram.title || '',
           description: editingProgram.description || '',
           type: editingProgram.type || 'ONBOARDING',
           appliesToType: appliesToType,
-          departmentId: (editingProgram as any).appliesTo?.departmentId || '',
-          positionId: (editingProgram as any).appliesTo?.positionId || '',
+          departmentId: editingProgram.appliesTo?.departmentId || '',
+          positionId: editingProgram.appliesTo?.positionId || '',
         });
       } else {
         form.reset({
