@@ -49,7 +49,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, increment, writeBatch, getDocs, WriteBatch } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2 } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate } from '../page';
@@ -192,7 +192,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 }
 
 
-function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, programId: string, programRef: any }) {
+function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, programId: string, programRef: DocumentReference | null }) {
     const { firestore } = useFirebase();
     const [editingStage, setEditingStage] = React.useState<OnboardingStage | null>(null);
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
@@ -208,7 +208,7 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
     };
 
     const handleDeleteStage = async () => {
-        if (!firestore) return;
+        if (!firestore || !programRef) return;
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
         
         try {
@@ -243,6 +243,7 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
     }
     
     const handleDeleteTask = (taskId: string) => {
+        if (!programRef) return;
         const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`, taskId);
         deleteDocumentNonBlocking(docRef);
         updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
@@ -292,8 +293,8 @@ export default function OnboardingProgramBuilderPage() {
 
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
 
-    const programDocRef = useMemoFirebase(() => doc(firestore, 'onboardingPrograms', id), [firestore, id]);
-    const stagesQuery = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${id}/stages`), [firestore, id]);
+    const programDocRef = useMemoFirebase(() => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [firestore, id]);
+    const stagesQuery = useMemoFirebase(() => (firestore ? collection(firestore, `onboardingPrograms/${id}/stages`) : null), [firestore, id]);
     
     const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
     const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
