@@ -49,7 +49,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, WriteBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2 } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate } from '../page';
@@ -66,6 +66,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
     const { toast } = useToast();
     const isEditMode = !!editingStage;
     
+    const programDocRef = useMemoFirebase(() => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const stagesCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
 
     const form = useForm<StageFormValues>({
@@ -90,6 +91,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
             toast({ title: 'Үе шат шинэчлэгдлээ' });
         } else {
             addDocumentNonBlocking(stagesCollectionRef, data);
+            updateDocumentNonBlocking(programDocRef, { stageCount: increment(1) });
             toast({ title: 'Шинэ үе шат нэмэгдлээ' });
         }
         onOpenChange(false);
@@ -132,6 +134,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const { toast } = useToast();
     const isEditMode = !!editingTask;
 
+    const programDocRef = useMemoFirebase(() => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const tasksCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
 
     const form = useForm<TaskFormValues>({
@@ -157,6 +160,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
             toast({ title: 'Даалгавар шинэчлэгдлээ' });
         } else {
             addDocumentNonBlocking(tasksCollectionRef, data);
+            updateDocumentNonBlocking(programDocRef, { taskCount: increment(1) });
             toast({ title: 'Шинэ даалгавар нэмэгдлээ' });
         }
         onOpenChange(false);
@@ -188,25 +192,44 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 }
 
 
-function StageCard({ stage, programId }: { stage: OnboardingStage, programId: string }) {
+function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, programId: string, programRef: any }) {
     const { firestore } = useFirebase();
     const [editingStage, setEditingStage] = React.useState<OnboardingStage | null>(null);
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
     const [editingTask, setEditingTask] = React.useState<OnboardingTaskTemplate | null>(null);
     const [isTaskDialogOpen, setIsTaskDialogOpen] = React.useState(false);
 
-    const tasksQuery = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`), [firestore, programId, stage.id]);
-    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
+    const tasksCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`), [firestore, programId, stage.id]);
+    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksCollectionRef);
 
     const handleEditStage = () => {
         setEditingStage(stage);
         setIsStageDialogOpen(true);
     };
 
-    const handleDeleteStage = () => {
-        const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
-        deleteDocumentNonBlocking(docRef);
-        // Add toast
+    const handleDeleteStage = async () => {
+        if (!firestore) return;
+        const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
+        
+        try {
+            const tasksSnapshot = await getDocs(tasksCollectionRef);
+            const tasksToDeleteCount = tasksSnapshot.size;
+
+            const batch = writeBatch(firestore);
+            tasksSnapshot.forEach(taskDoc => {
+                batch.delete(taskDoc.ref);
+            });
+            batch.delete(stageDocRef);
+            batch.update(programRef, { 
+                stageCount: increment(-1),
+                taskCount: increment(-tasksToDeleteCount)
+            });
+            
+            await batch.commit();
+
+        } catch (error) {
+            console.error("Error deleting stage and its tasks: ", error);
+        }
     }
 
     const handleAddTask = () => {
@@ -222,6 +245,7 @@ function StageCard({ stage, programId }: { stage: OnboardingStage, programId: st
     const handleDeleteTask = (taskId: string) => {
         const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`, taskId);
         deleteDocumentNonBlocking(docRef);
+        updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
     }
 
     return (
@@ -309,7 +333,7 @@ export default function OnboardingProgramBuilderPage() {
             <div className="space-y-6">
                 {isLoadingStages && <Skeleton className="h-40 w-full" />}
                 {stages?.sort((a,b) => a.order - b.order).map(stage => (
-                    <StageCard key={stage.id} stage={stage} programId={id} />
+                    <StageCard key={stage.id} stage={stage} programId={id} programRef={programDocRef} />
                 ))}
                  {!isLoadingStages && (!stages || stages.length === 0) && (
                     <Card className="text-center py-12">

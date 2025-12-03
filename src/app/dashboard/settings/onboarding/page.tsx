@@ -36,13 +36,28 @@ export type OnboardingProgram = {
     title: string;
     description?: string;
     type: 'ONBOARDING' | 'OFFBOARDING';
-    taskCount?: number;
-    stageCount?: number;
+    taskCount: number;
+    stageCount: number;
     appliesTo?: {
         departmentId?: string;
         positionId?: string;
     }
 }
+
+// These are used for the dialog
+export type OnboardingStage = {
+    id: string;
+    title: string;
+    order: number;
+}
+export type OnboardingTaskTemplate = {
+    id: string;
+    title: string;
+    description?: string;
+    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'SPECIFIC_PERSON';
+    dueDays: number;
+}
+
 
 type Reference = {
     id: string;

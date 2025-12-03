@@ -768,6 +768,14 @@
             "departmentId": { "type": "string" },
             "positionId": { "type": "string" }
           }
+        },
+        "stageCount": {
+            "type": "number",
+            "description": "Энэ хөтөлбөрт хамаарах нийт үе шатын тоо."
+        },
+        "taskCount": {
+            "type": "number",
+            "description": "Энэ хөтөлбөрт хамаарах нийт даалгаврын тоо."
         }
       },
       "required": ["id", "title", "type"]
