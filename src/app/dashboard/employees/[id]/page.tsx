@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield, CheckCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -29,12 +29,28 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Progress } from '@/components/ui/progress';
 
 
 type Department = {
     id: string;
     name: string;
 };
+
+type AssignedProgram = {
+    id: string;
+    programId: string;
+    programName: string;
+    status: 'IN_PROGRESS' | 'COMPLETED';
+    startDate: string;
+    progress: number;
+    tasks: {
+        taskId: string;
+        title: string;
+        status: 'TODO' | 'COMPLETED';
+        dueDate: string;
+    }[];
+}
 
 type EmploymentHistoryEvent = {
   id: string;
@@ -204,6 +220,88 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
+const OnboardingTabContent = ({ employeeId }: { employeeId: string}) => {
+    const { firestore } = useFirebase();
+
+    const assignedProgramsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, `employees/${employeeId}/assignedPrograms`), where('status', '==', 'IN_PROGRESS')) : null,
+        [firestore, employeeId]
+    );
+
+    const { data: programs, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
+
+    const program = programs && programs.length > 0 ? programs[0] : null;
+    
+    if (isLoading) {
+        return (
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-7 w-56" />
+                    <Skeleton className="h-4 w-72" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <Skeleton className="h-3 w-24" />
+                     <Skeleton className="h-2 w-full" />
+                     <div className="pt-4 space-y-3">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                     </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    if (!program) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Дасан зохицох үйл явц</CardTitle>
+                    <CardDescription>Шинэ ажилтны дадлагажих үйл явцын хяналт.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-center py-12 text-muted-foreground">
+                    <p>Энэ ажилтанд оноогдсон идэвхтэй хөтөлбөр байхгүй байна.</p>
+                    <Button variant="outline" className="mt-4">Хөтөлбөр оноох</Button>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{program.programName}</CardTitle>
+                <CardDescription>
+                    Хөтөлбөрийн явц: {Math.round(program.progress || 0)}%
+                </CardDescription>
+                 <Progress value={program.progress || 0} className="mt-2" />
+            </CardHeader>
+            <CardContent>
+                <h4 className="font-semibold mb-4">Даалгаврууд</h4>
+                <div className="space-y-3">
+                    {program.tasks.map(task => (
+                        <div key={task.taskId} className="flex items-center justify-between rounded-md border p-3">
+                            <div className="flex items-center gap-3">
+                                {task.status === 'COMPLETED' ? (
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                ) : (
+                                    <Clock className="h-5 w-5 text-yellow-500" />
+                                )}
+                                <div>
+                                    <p className="font-medium">{task.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Дуусах хугацаа: {new Date(task.dueDate).toLocaleDateString()}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="sm">Дэлгэрэнгүй</Button>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function EmployeeProfilePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -343,15 +441,7 @@ export default function EmployeeProfilePage() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="onboarding">
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>Дасан зохицох үйл явц</CardTitle>
-                                <CardDescription>Шинэ ажилтны дадлагажих үйл явцын хяналт.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground">Энд шинэ ажилтны дадлагын үеийн даалгаврууд болон гүйцэтгэл харагдана.</p>
-                            </CardContent>
-                        </Card>
+                         <OnboardingTabContent employeeId={employeeId} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
@@ -375,4 +465,3 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
-
