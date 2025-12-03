@@ -124,7 +124,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
 const taskSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
     description: z.string().optional(),
-    assigneeType: z.enum(['NEW_HIRE', 'MANAGER', 'SPECIFIC_PERSON']),
+    assigneeType: z.enum(['NEW_HIRE', 'MANAGER', 'HR', 'BUDDY', 'SPECIFIC_PERSON']),
     dueDays: z.coerce.number().min(0, 'Хугацаа 0-ээс бага байж болохгүй.'),
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -177,7 +177,13 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Компанийн дотоод журамтай танилцах" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Тайлбар</FormLabel><FormControl><Textarea placeholder="Даалгаврын дэлгэрэнгүй тайлбар..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="assigneeType" render={({ field }) => ( <FormItem><FormLabel>Гүйцэтгэгч</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="NEW_HIRE">Шинэ ажилтан</SelectItem><SelectItem value="MANAGER">Шууд удирдлага</SelectItem><SelectItem value="SPECIFIC_PERSON">Бусад</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="assigneeType" render={({ field }) => ( <FormItem><FormLabel>Гүйцэтгэгч</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
+                            <SelectItem value="NEW_HIRE">Шинэ ажилтан</SelectItem>
+                            <SelectItem value="MANAGER">Шууд удирдлага</SelectItem>
+                            <SelectItem value="HR">Хүний нөөц</SelectItem>
+                            <SelectItem value="BUDDY">Дэмжигч ажилтан (Buddy)</SelectItem>
+                            <SelectItem value="SPECIFIC_PERSON">Бусад</SelectItem>
+                            </SelectContent></Select><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="dueDays" render={({ field }) => ( <FormItem><FormLabel>Хийх хугацаа (хоногоор)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
@@ -249,9 +255,11 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
         updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
     }
 
-    const assigneeLabels = {
+    const assigneeLabels: { [key: string]: string } = {
         NEW_HIRE: 'Шинэ ажилтан',
         MANAGER: 'Шууд удирдлага',
+        HR: 'Хүний нөөц',
+        BUDDY: 'Дэмжигч ажилтан',
         SPECIFIC_PERSON: 'Бусад'
     };
 
@@ -356,3 +364,5 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
+
+  
