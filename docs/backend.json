@@ -813,7 +813,8 @@
             "$ref": "#/backend/entities/AssignedTask"
           }
         }
-      }
+      },
+      "required": ["id", "programId", "programName", "status", "startDate"]
     },
     "AssignedTask": {
       "title": "Оноогдсон даалгавар",
@@ -826,7 +827,8 @@
         "dueDate": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" },
         "assigneeId": { "type": "string", "description": "Даалгаврыг гүйцэтгэх ажилтны ID." }
-      }
+      },
+      "required": ["templateTaskId", "title", "status", "dueDate", "assigneeId"]
     }
   },
   "auth": {
