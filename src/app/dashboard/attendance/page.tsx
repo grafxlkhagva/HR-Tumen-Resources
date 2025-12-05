@@ -213,6 +213,11 @@ export default function CombinedPage() {
     [firestore]
   );
   const { data: requests, isLoading: isLoadingRequests, error: errorRequests } = useCollection<TimeOffRequest>(requestsQuery);
+
+  const filteredRequests = React.useMemo(() => {
+    if (!requests) return [];
+    return requests.filter(request => request.status === 'Хүлээгдэж буй');
+  }, [requests]);
   
   const handleStatusChange = (request: TimeOffRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
     if (!firestore) return;
@@ -230,7 +235,7 @@ export default function CombinedPage() {
 
   return (
     <div className="py-8">
-      <Tabs defaultValue="attendance">
+      <Tabs defaultValue="requests">
         <div className="flex justify-between items-center mb-4">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Цаг ба Хүсэлт</h1>
@@ -292,7 +297,7 @@ export default function CombinedPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                   {error && (
+                   {error && !errorRequests && (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center text-destructive">
                         Мэдээлэл ачаалахад алдаа гарлаа.
@@ -310,7 +315,7 @@ export default function CombinedPage() {
             <CardHeader>
               <CardTitle>Чөлөөний хүсэлтүүд</CardTitle>
               <CardDescription>
-                Ажилтнуудаас ирсэн бүх чөлөөний хүсэлтийг хянах, удирдах.
+                Ажилтнуудаас ирсэн батлагдаагүй бүх чөлөөний хүсэлтийг хянах, удирдах.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -327,7 +332,7 @@ export default function CombinedPage() {
                 </TableHeader>
                 <TableBody>
                   {isLoading && <RequestsTableSkeleton />}
-                  {!isLoading && requests?.map((request) => (
+                  {!isLoading && filteredRequests?.map((request) => (
                     <RequestRow 
                         key={request.id} 
                         request={request} 
@@ -335,17 +340,17 @@ export default function CombinedPage() {
                         onStatusChange={(newStatus) => handleStatusChange(request, newStatus)}
                     />
                   ))}
-                  {!isLoading && (!requests || requests.length === 0) && (
+                  {!isLoading && (!filteredRequests || filteredRequests.length === 0) && (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        Илгээсэн хүсэлт байхгүй.
+                        Батлагдаагүй хүсэлт байхгүй.
                       </TableCell>
                     </TableRow>
                   )}
-                   {error && (
+                   {errorRequests && (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center text-destructive">
-                        Мэдээлэл ачаалахад алдаа гарлаа.
+                        Хүсэлт ачаалахад алдаа гарлаа.
                       </TableCell>
                     </TableRow>
                   )}
