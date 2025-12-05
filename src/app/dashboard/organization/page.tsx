@@ -23,7 +23,8 @@ import {
   useCollection,
   useFirebase,
   useMemoFirebase,
-  deleteDocumentNonBlocking
+  deleteDocumentNonBlocking,
+  useDoc,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -87,6 +88,10 @@ type JobCategory = {
   id: string;
   name: string;
   code: string;
+}
+
+type CompanyProfile = {
+  name: string;
 }
 
 
@@ -162,6 +167,7 @@ const StructureTab = () => {
 
   const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
   const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
+  const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
   
   // Note: We are fetching all positions here to calculate headcount. This might be inefficient for very large datasets.
   const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
@@ -169,6 +175,7 @@ const StructureTab = () => {
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery);
 
   const { orgTree, totalHeadcount, deptsWithData } = useMemo(() => {
     if (!departments || !departmentTypes || !positions) {
@@ -219,7 +226,7 @@ const StructureTab = () => {
       return new Map(departments.map(d => [d.id, d.name]));
   }, [departments]);
 
-  const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos;
+  const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos || isLoadingProfile;
 
   const handleOpenAddDialog = () => {
     setEditingDepartment(null);
@@ -258,7 +265,7 @@ const StructureTab = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Байгууллагын бүтэц ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
+              <CardTitle>{companyProfile?.name || 'Байгууллагын бүтэц'} ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
