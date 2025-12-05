@@ -95,7 +95,7 @@ export default function AttendancePage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
-    const todayString = format(new Date(), 'yyyy-MM-dd');
+    const todayString = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
     const attendanceQuery = useMemoFirebase(
       () =>
@@ -179,7 +179,7 @@ export default function AttendancePage() {
 
             <Card className="text-center">
                 <CardHeader>
-                    <p className="text-sm text-muted-foreground">{todayFormatted}</p>
+                    <div className="text-sm text-muted-foreground">{todayFormatted}</div>
                     <CardTitle className="text-5xl font-bold tracking-tighter">{timeFormatted}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
