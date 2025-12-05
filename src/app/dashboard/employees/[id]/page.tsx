@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
-import type { OnboardingProgram } from '../../settings/onboarding/page';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { useToast } from '@/hooks/use-toast';
 
@@ -303,7 +302,6 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
         );
     }
     
-    // Default case: No active program
     return (
       <Card>
         <CardHeader>
@@ -455,16 +453,7 @@ export default function EmployeeProfilePage() {
                                 <EmploymentHistoryTimeline employeeId={employeeId} />
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Ур чадвар</CardTitle>
-                                <CardDescription>Ажилтантай холбоотой дэлгэрэнгүй мэдээлэл.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground">Энд ажилтны ур чадвар, ажлын түүх зэрэг мэдээлэл харагдах болно.</p>
-                            </CardContent>
-                        </Card>
-                         <OnboardingProgramCard employee={employee} />
+                        <OnboardingProgramCard employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
