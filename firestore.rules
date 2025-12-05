@@ -31,12 +31,16 @@ service cloud.firestore {
     
     match /feedback/{feedbackId} {
       allow create: if request.auth != null;
-      // Admins can read, list, and update feedback.
-      // This now works because isAdmin() can read the user's role.
+      // Admins can read and update any single feedback document.
       allow read, update: if request.auth != null && isAdmin();
       
       // Users can only read their own non-anonymous feedback.
       allow read: if request.auth != null && resource.data.isAnonymous == false && request.auth.uid == resource.data.employeeId;
+    }
+    
+    // This rule is crucial for allowing admins to list the entire collection.
+    match /feedback {
+       allow list: if request.auth != null && isAdmin();
     }
 
     match /{path=**} {
