@@ -265,10 +265,9 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
         )
     }
 
-    return (
-      <Card>
-        {activeProgram ? (
-          <>
+    if (activeProgram) {
+        return (
+          <Card>
             <CardHeader>
                 <div className="flex justify-between items-start">
                     <div>
@@ -300,28 +299,29 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
                     </div>
                 ))}
             </CardContent>
-          </>
-        ) : (
-          <>
-            <CardHeader>
-              <CardTitle>Дасан зохицох хөтөлбөр</CardTitle>
-              <CardDescription>
-                Энэ ажилтанд одоогоор идэвхтэй дасан зохицох хөтөлбөр оноогоогүй байна.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setIsAssignDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Хөтөлбөр оноох
-              </Button>
-               <AssignProgramDialog 
-                 open={isAssignDialogOpen} 
-                 onOpenChange={setIsAssignDialogOpen}
-                 employee={employee}
-               />
-            </CardContent>
-          </>
-        )}
+          </Card>
+        );
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Дасан зохицох хөтөлбөр</CardTitle>
+          <CardDescription>
+            Энэ ажилтанд одоогоор идэвхтэй дасан зохицох хөтөлбөр оноогоогүй байна.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => setIsAssignDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Хөтөлбөр оноох
+          </Button>
+           <AssignProgramDialog 
+             open={isAssignDialogOpen} 
+             onOpenChange={setIsAssignDialogOpen}
+             employee={employee}
+           />
+        </CardContent>
       </Card>
     );
 };
