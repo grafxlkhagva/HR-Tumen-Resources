@@ -33,7 +33,7 @@ service cloud.firestore {
       allow create: if request.auth != null;
       // Admins can read, list, and update feedback.
       // This now works because isAdmin() can read the user's role.
-      allow read, update, list: if request.auth != null && isAdmin();
+      allow read, update: if request.auth != null && isAdmin();
       
       // Users can only read their own non-anonymous feedback.
       allow read: if request.auth != null && resource.data.isAnonymous == false && request.auth.uid == resource.data.employeeId;
