@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,7 +27,7 @@ import { MoreHorizontal, Check, X as XIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collectionGroup, query, where, orderBy, doc } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy, doc, collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -163,7 +162,7 @@ export default function RequestsPage() {
     <div className="py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Чөлөөний хүсэлтүүд</CardTitle>
+          <CardTitle>Хүсэлтүүд</CardTitle>
           <CardDescription>
             Ажилтнуудаас ирсэн бүх чөлөөний хүсэлтийг хянах, удирдах.
           </CardDescription>
