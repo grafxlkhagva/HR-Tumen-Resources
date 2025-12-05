@@ -168,18 +168,17 @@ export function AddProgramDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? 'Хөтөлбөр засах' : 'Шинэ хөтөлбөр нэмэх'}</DialogTitle>
+          <DialogDescription>
+            Дасан зохицох хөтөлбөрийн загварыг үүсгэнэ үү.
+          </DialogDescription>
+        </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Хөтөлбөр засах' : 'Шинэ хөтөлбөр нэмэх'}</DialogTitle>
-              <DialogDescription>
-                Дасан зохицох хөтөлбөрийн загварыг үүсгэнэ үү.
-              </DialogDescription>
-            </DialogHeader>
-
-            <ScrollArea className="max-h-[60vh] p-1">
-              <div className="space-y-4 py-4 pr-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+            <ScrollArea className="flex-1 pr-6">
+              <div className="space-y-4 py-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -275,8 +274,7 @@ export function AddProgramDialog({
                 />
               </div>
             </ScrollArea>
-
-            <DialogFooter className="pt-4">
+            <DialogFooter className="pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
