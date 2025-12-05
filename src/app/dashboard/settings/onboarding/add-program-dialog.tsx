@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const programSchema = z.object({
   title: z.string().min(1, 'Хөтөлбөрийн нэр хоосон байж болохгүй.'),
@@ -156,7 +157,7 @@ export function AddProgramDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
               <DialogTitle>{isEditMode ? 'Хөтөлбөр засах' : 'Шинэ хөтөлбөр нэмэх'}</DialogTitle>
               <DialogDescription>
@@ -164,117 +165,117 @@ export function AddProgramDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Хөтөлбөрийн нэр</FormLabel>
-                    <FormControl><Input placeholder="Жишээ нь: Программистын дасан зохицох хөтөлбөр" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Тайлбар</FormLabel>
-                    <FormControl><Textarea placeholder="Хөтөлбөрийн зорилгын талаар товч бичнэ үү..." {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Төрөл</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="ONBOARDING">Дасан зохицох</SelectItem>
-                        <SelectItem value="OFFBOARDING">Ажлаас чөлөөлөх</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="appliesToType"
-                render={({ field }) => (
-                    <FormItem className="space-y-3">
-                        <FormLabel>Хэрэглэгдэх хүрээ</FormLabel>
-                        <FormControl>
-                            <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex flex-col space-y-1"
-                            >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl><RadioGroupItem value="ALL" /></FormControl>
-                                <FormLabel className="font-normal">Бүх ажилтан</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
-                                <FormLabel className="font-normal">Тодорхой хэлтэс</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl><RadioGroupItem value="POSITION" /></FormControl>
-                                <FormLabel className="font-normal">Тодорхой албан тушаал</FormLabel>
-                            </FormItem>
-                            </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
+            <ScrollArea className="max-h-[70vh] p-1">
+              <div className="space-y-4 py-4 pr-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Хөтөлбөрийн нэр</FormLabel>
+                      <FormControl><Input placeholder="Жишээ нь: Программистын дасан зохицох хөтөлбөр" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
-                {appliesToType === 'DEPARTMENT' && (
-                    <FormField
-                        control={form.control}
-                        name="departmentId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Хэлтэс сонгох</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                )}
-                {appliesToType === 'POSITION' && (
-                     <FormField
-                        control={form.control}
-                        name="positionId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Албан тушаал сонгох</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                )}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Тайлбар</FormLabel>
+                      <FormControl><Textarea placeholder="Хөтөлбөрийн зорилгын талаар товч бичнэ үү..." {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Төрөл</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="ONBOARDING">Дасан зохицох</SelectItem>
+                          <SelectItem value="OFFBOARDING">Ажлаас чөлөөлөх</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="appliesToType"
+                  render={({ field }) => (
+                      <FormItem className="space-y-3">
+                          <FormLabel>Хэрэглэгдэх хүрээ</FormLabel>
+                          <FormControl>
+                              <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                              >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                  <FormControl><RadioGroupItem value="ALL" /></FormControl>
+                                  <FormLabel className="font-normal">Бүх ажилтан</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                  <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
+                                  <FormLabel className="font-normal">Тодорхой хэлтэс</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                  <FormControl><RadioGroupItem value="POSITION" /></FormControl>
+                                  <FormLabel className="font-normal">Тодорхой албан тушаал</FormLabel>
+                              </FormItem>
+                              </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                  />
+                  {appliesToType === 'DEPARTMENT' && (
+                      <FormField
+                          control={form.control}
+                          name="departmentId"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Хэлтэс сонгох</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                  {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                  )}
+                  {appliesToType === 'POSITION' && (
+                      <FormField
+                          control={form.control}
+                          name="positionId"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Албан тушаал сонгох</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                  {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                  )}
+              </div>
+            </ScrollArea>
 
-
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
