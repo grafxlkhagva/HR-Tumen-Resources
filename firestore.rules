@@ -34,7 +34,6 @@ service cloud.firestore {
       allow create: if request.auth != null;
       // Admins can read and update any single feedback document.
       allow read, update: if request.auth != null && isAdmin();
-
       // Users can only read their own non-anonymous feedback.
       allow read: if request.auth != null && resource.data.isAnonymous == false && request.auth.uid == resource.data.employeeId;
     }
@@ -44,7 +43,6 @@ service cloud.firestore {
     match /feedback {
        allow list: if request.auth != null && isAdmin();
     }
-
 
     match /{path=**} {
         // Fallback for other collections.
