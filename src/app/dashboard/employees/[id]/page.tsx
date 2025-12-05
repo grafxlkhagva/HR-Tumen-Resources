@@ -332,7 +332,8 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
 const OverviewTabContent = ({ employee }: { employee: Employee }) => {
     return (
         <div className="space-y-6">
-             <Card>
+            <OnboardingProgramCard employee={employee} />
+            <Card>
                 <CardHeader>
                     <CardTitle>Ур чадвар</CardTitle>
                     <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
@@ -341,8 +342,6 @@ const OverviewTabContent = ({ employee }: { employee: Employee }) => {
                      <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
                 </CardContent>
             </Card>
-
-            <OnboardingProgramCard employee={employee} />
 
             <Card>
                 <CardHeader>
