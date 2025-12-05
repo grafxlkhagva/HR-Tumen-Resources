@@ -279,7 +279,7 @@ const StructureTab = () => {
               </Button>
               <Button variant="default" size="sm" onClick={handleOpenAddDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Бүтэц нэмэх
+                Нэгж нэмэх
               </Button>
             </div>
           </div>
@@ -620,12 +620,10 @@ const HeadcountTab = () => {
 export default function OrganizationPage() {
   return (
     <div className="py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Бүтэц, орон тоо
-          </h1>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Бүтэц, орон тоо
+        </h1>
       </div>
 
       <Tabs defaultValue="structure" className="space-y-4">
