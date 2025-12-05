@@ -150,9 +150,9 @@ export function AddDepartmentDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Бүтцийн нэгж нэмэх'}</DialogTitle>
+              <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Нэгж нэмэх'}</DialogTitle>
               <DialogDescription>
-                {isEditMode ? 'Нэгжийн мэдээллийг шинэчилнэ үү.' : 'Шинэ хэлтэс, алба, баг зэрэг бүтцийн нэгжийг нэмнэ үү.'}
+                {isEditMode ? 'Нэгжийн мэдээллийг шинэчилнэ үү.' : ''}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
