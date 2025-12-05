@@ -332,7 +332,6 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
 const OverviewTabContent = ({ employee }: { employee: Employee }) => {
     return (
         <div className="space-y-6">
-            <OnboardingProgramCard employee={employee} />
             <Card>
                 <CardHeader>
                     <CardTitle>Ур чадвар</CardTitle>
@@ -468,6 +467,7 @@ export default function EmployeeProfilePage() {
                 <Tabs defaultValue="overview">
                     <TabsList>
                         <TabsTrigger value="overview">Ерөнхий</TabsTrigger>
+                        <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
                         <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
                         <TabsTrigger value="performance">Гүйцэтгэл</TabsTrigger>
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
@@ -475,6 +475,9 @@ export default function EmployeeProfilePage() {
                     </TabsList>
                     <TabsContent value="overview">
                         <OverviewTabContent employee={employee} />
+                    </TabsContent>
+                    <TabsContent value="onboarding">
+                        <OnboardingProgramCard employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
