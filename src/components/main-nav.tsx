@@ -43,11 +43,6 @@ const links = [
     icon: Users,
   },
   {
-    href: '/dashboard/requests',
-    label: 'Хүсэлтүүд',
-    icon: Send,
-  },
-  {
     href: '/dashboard/attendance',
     label: 'Цагийн бүртгэл',
     icon: Clock,
