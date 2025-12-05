@@ -264,7 +264,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
             </Card>
         )
     }
-
+    
     if (activeProgram) {
         return (
           <Card>
@@ -302,7 +302,8 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
           </Card>
         );
     }
-
+    
+    // Default case: No active program
     return (
       <Card>
         <CardHeader>
