@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog } from './AssignProgramDialog';
-import { type OnboardingProgram } from '../../settings/onboarding/page';
 import { useOnboardingData } from '@/hooks/useOnboardingData';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 
@@ -210,7 +209,6 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
 }
 
 const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
-    const { firestore } = useFirebase();
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     
     const {

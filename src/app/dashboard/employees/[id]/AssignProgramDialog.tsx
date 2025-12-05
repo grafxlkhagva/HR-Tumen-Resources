@@ -24,7 +24,7 @@ import {
   useMemoFirebase,
   addDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, getDocs } from 'firebase/firestore';
+import { collection, getDocs, WriteBatch, writeBatch } from 'firebase/firestore';
 import type { Employee } from '../data';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 import { add } from 'date-fns';
@@ -71,20 +71,44 @@ export function AssignProgramDialog({
       const stagesSnapshot = await getDocs(stagesCollectionRef);
 
       const allTasks: any[] = [];
+      const batch: WriteBatch = writeBatch(firestore);
+
       for (const stageDoc of stagesSnapshot.docs) {
           const tasksCollectionRef = collection(firestore, stageDoc.ref.path, 'tasks');
           const tasksSnapshot = await getDocs(tasksCollectionRef);
+          
           tasksSnapshot.forEach(taskDoc => {
               const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
               const hireDate = new Date(employee.hireDate);
               const dueDate = add(hireDate, { days: taskTemplate.dueDays });
+
+              let assigneeId = employee.id; // Default to the new hire
+              let assigneeName = `${employee.firstName} ${employee.lastName}`;
+              
+              switch(taskTemplate.assigneeType) {
+                case 'NEW_HIRE':
+                  assigneeId = employee.id;
+                  assigneeName = `${employee.firstName} ${employee.lastName}`;
+                  break;
+                // TODO: Implement logic to find manager, HR, buddy
+                case 'MANAGER':
+                    assigneeName = "Шууд удирдлага"; // Placeholder
+                    break;
+                case 'HR':
+                    assigneeName = "Хүний нөөц"; // Placeholder
+                    break;
+                case 'BUDDY':
+                    assigneeName = "Дэмжигч ажилтан"; // Placeholder
+                    break;
+              }
 
               allTasks.push({
                   templateTaskId: taskDoc.id,
                   title: taskTemplate.title,
                   status: 'TODO',
                   dueDate: dueDate.toISOString(),
-                  assigneeId: employee.id, // Placeholder, needs logic for manager, etc.
+                  assigneeId: assigneeId, 
+                  assigneeName: assigneeName
               });
           });
       }
