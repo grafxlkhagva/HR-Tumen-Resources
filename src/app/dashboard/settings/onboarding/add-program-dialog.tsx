@@ -138,7 +138,6 @@ export function AddProgramDialog({
     const finalData = {
         title: data.title,
         description: data.description,
-        type: 'ONBOARDING',
         appliesTo: appliesTo,
     };
 
@@ -147,7 +146,7 @@ export function AddProgramDialog({
       updateDocumentNonBlocking(docRef, finalData);
       toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {
-      addDocumentNonBlocking(programsCollectionRef, { ...finalData, stageCount: 0, taskCount: 0 });
+      addDocumentNonBlocking(programsCollectionRef, { ...finalData, type: 'ONBOARDING', stageCount: 0, taskCount: 0 });
       toast({ title: 'Хөтөлбөр амжилттай нэмэгдлээ' });
     }
 
