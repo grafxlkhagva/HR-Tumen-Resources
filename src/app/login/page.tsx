@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser, useFirebase } from '@/firebase';
+import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import {
   Card,
   CardContent,
@@ -14,10 +14,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/icons';
-import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDoc, doc } from 'firebase/firestore';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,6 +35,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const companyProfileRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'company', 'profile') : null),
+    [firestore]
+  );
+  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,10 +104,24 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-            <Logo className="h-10 w-10 text-primary" />
+            <div className="mb-4 flex flex-col items-center gap-3">
+            {isLoadingProfile ? (
+              <>
+                <Skeleton className="h-16 w-16 rounded-full" />
+                <Skeleton className="h-7 w-40" />
+              </>
+            ) : (
+              <>
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={companyProfile?.logoUrl} alt={companyProfile?.name} />
+                  <AvatarFallback className="rounded-lg bg-muted">
+                      <Building className="h-8 w-8 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+                 <CardTitle className="text-2xl">{companyProfile?.name || 'Teal HR'}-т нэвтрэх</CardTitle>
+              </>
+            )}
           </div>
-          <CardTitle className="text-2xl">Teal HR-т нэвтрэх</CardTitle>
           <CardDescription>
             Өөрийн нэвтрэх нэр эсвэл имэйл хаягаар нэвтэрнэ үү.
           </CardDescription>
