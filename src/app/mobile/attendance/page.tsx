@@ -89,7 +89,7 @@ function AttendanceSkeleton() {
 }
 
 export default function AttendancePage() {
-    const [currentTime, setCurrentTime] = React.useState(new Date());
+    const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const { firestore } = useFirebase();
@@ -113,6 +113,8 @@ export default function AttendancePage() {
     const todaysRecord = attendanceRecords?.[0];
 
     React.useEffect(() => {
+        // Run only on the client
+        setCurrentTime(new Date());
         const timer = setInterval(() => {
             setCurrentTime(new Date());
         }, 1000);
@@ -163,8 +165,8 @@ export default function AttendancePage() {
         return <AttendanceSkeleton />;
     }
 
-    const todayFormatted = format(currentTime, 'yyyy оны MM-р сарын dd, EEEE', { locale: mn });
-    const timeFormatted = format(currentTime, 'HH:mm:ss');
+    const todayFormatted = currentTime ? format(currentTime, 'yyyy оны MM-р сарын dd, EEEE', { locale: mn }) : <Skeleton className="h-4 w-40 mx-auto" />;
+    const timeFormatted = currentTime ? format(currentTime, 'HH:mm:ss') : <Skeleton className="h-12 w-48 mx-auto" />;
     
     const hasCheckedIn = !!todaysRecord;
     const hasCheckedOut = !!todaysRecord?.checkOutTime;
@@ -214,5 +216,3 @@ export default function AttendancePage() {
         </div>
     );
 }
-
-    
