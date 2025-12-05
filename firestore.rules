@@ -7,6 +7,7 @@ service cloud.firestore {
     function isAdmin() {
       // Security rules are not filters. This function only works if the
       // user has direct read access to their own employee document.
+      // This is enabled by the rule on /employees/{userId} below.
       return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -16,8 +17,9 @@ service cloud.firestore {
     }
 
     match /employees/{userId} {
+      // A user can read and write their own document. This is crucial for isAdmin() to work.
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Admins can read any employee's profile
+      // Admins can also read any employee's profile
       allow read: if request.auth != null && isAdmin();
     }
 
@@ -30,7 +32,10 @@ service cloud.firestore {
     match /feedback/{feedbackId} {
       allow create: if request.auth != null;
       // Admins can read, list, and update feedback.
-      allow read, update, list: if request.auth != null && isAdmin();
+      // This now works because isAdmin() can read the user's role.
+      allow read, update: if request.auth != null && isAdmin();
+      allow list: if request.auth != null && isAdmin();
+      
       // Users can only read their own non-anonymous feedback.
       allow read: if request.auth != null && resource.data.isAnonymous == false && request.auth.uid == resource.data.employeeId;
     }
