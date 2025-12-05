@@ -151,10 +151,7 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
     }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Бүтцийн төрөл удирдах</DialogTitle>
-          <DialogDescription>
-            Байгууллагын бүтцийн төрлийг үүсгэх, засах, устгах.
-          </DialogDescription>
+          <DialogTitle>Бүтцийн төрлийн жагсаалт</DialogTitle>
         </DialogHeader>
         
         {!showAddForm && (
