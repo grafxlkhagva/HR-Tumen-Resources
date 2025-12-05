@@ -33,6 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { useToast } from '@/hooks/use-toast';
+import type { OnboardingProgram } from '../../settings/onboarding/page';
 
 type Department = {
     id: string;
@@ -225,6 +226,12 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
 
     const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
     const activeProgram = assignedPrograms?.[0];
+
+    const programTemplatesQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
+        [firestore]
+    );
+    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
     
     const handleStatusChange = (program: AssignedProgram, taskIndex: number, newStatus: AssignedTask['status']) => {
         if (!firestore) return;
