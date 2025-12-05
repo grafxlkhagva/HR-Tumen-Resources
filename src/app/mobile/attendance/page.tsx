@@ -2,16 +2,26 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, PlusCircle, Calendar as CalendarIcon, FileText } from 'lucide-react';
+import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 type AttendanceRecord = {
     id: string;
@@ -20,6 +30,127 @@ type AttendanceRecord = {
     checkInTime: string;
     checkOutTime?: string;
     status: 'PRESENT' | 'LEFT';
+}
+
+type TimeOffRequest = {
+    id: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
+};
+
+const timeOffRequestSchema = z.object({
+  dateRange: z.object({
+    from: z.date({ required_error: 'Эхлэх огноог сонгоно уу.' }),
+    to: z.date({ required_error: 'Дуусах огноог сонгоно уу.' }),
+  }),
+  reason: z.string().min(1, 'Шалтгаан хоосон байж болохгүй.'),
+});
+type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
+
+
+function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean; onOpenChange: (open: boolean) => void; employeeId: string | undefined }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    
+    const timeOffCollectionRef = useMemoFirebase(() => (firestore && employeeId ? collection(firestore, `employees/${employeeId}/timeOffRequests`) : null), [firestore, employeeId]);
+
+    const form = useForm<TimeOffRequestFormValues>({
+        resolver: zodResolver(timeOffRequestSchema),
+    });
+
+    const onSubmit = async (values: TimeOffRequestFormValues) => {
+        if (!timeOffCollectionRef || !employeeId) return;
+
+        await addDocumentNonBlocking(timeOffCollectionRef, {
+            employeeId,
+            startDate: values.dateRange.from.toISOString(),
+            endDate: values.dateRange.to.toISOString(),
+            reason: values.reason,
+            status: 'Хүлээгдэж буй',
+            createdAt: new Date().toISOString(),
+        });
+        
+        toast({ title: 'Хүсэлт амжилттай илгээгдлээ' });
+        onOpenChange(false);
+        form.reset();
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Чөлөөний хүсэлт гаргах</DialogTitle>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="dateRange"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Чөлөө авах хугацаа</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant="outline"
+                                                className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}
+                                            >
+                                                {field.value?.from ? (
+                                                field.value.to ? (
+                                                    <>
+                                                    {format(field.value.from, "LLL dd, y")} -{" "}
+                                                    {format(field.value.to, "LLL dd, y")}
+                                                    </>
+                                                ) : (
+                                                    format(field.value.from, "LLL dd, y")
+                                                )
+                                                ) : (
+                                                <span>Огноо сонгох</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={field.value?.from}
+                                            selected={{ from: field.value?.from, to: field.value?.to }}
+                                            onSelect={field.onChange}
+                                            numberOfMonths={1}
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="reason"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Шалтгаан</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Чөлөө авах шалтгаанаа энд бичнэ үү..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
+                            <Button type="submit">Илгээх</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function AttendanceHistory({ record }: { record: AttendanceRecord | null }) {
@@ -88,14 +219,61 @@ function AttendanceSkeleton() {
     )
 }
 
+const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string } } = {
+  "Хүлээгдэж буй": { variant: 'secondary', label: 'Хүлээгдэж буй' },
+  "Зөвшөөрсөн": { variant: 'default', label: 'Зөвшөөрсөн' },
+  "Татгалзсан": { variant: 'destructive', label: 'Татгалзсан' },
+};
+
+function TimeOffHistory({ requests, isLoading }: { requests: TimeOffRequest[] | null, isLoading: boolean }) {
+    if (isLoading) {
+        return <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+        </div>
+    }
+
+    if (!requests || requests.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground py-8">
+                <FileText className="mx-auto h-12 w-12" />
+                <p className="mt-4">Чөлөөний хүсэлт байхгүй байна.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            {requests.map(req => {
+                const status = statusConfig[req.status] || { variant: 'outline', label: req.status };
+                return (
+                    <div key={req.id} className="flex items-start justify-between rounded-lg border p-4">
+                        <div>
+                            <p className="font-semibold">{req.reason}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {format(new Date(req.startDate), 'yyyy/MM/dd')} - {format(new Date(req.endDate), 'yyyy/MM/dd')}
+                            </p>
+                        </div>
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
 export default function AttendancePage() {
     const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isLeaveDialogOpen, setIsLeaveDialogOpen] = React.useState(false);
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
-    const todayString = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+    const todayString = React.useMemo(() => {
+        const now = new Date();
+        return format(now, 'yyyy-MM-dd');
+    }, []);
 
     const attendanceQuery = useMemoFirebase(
       () =>
@@ -108,16 +286,25 @@ export default function AttendancePage() {
           : null,
       [firestore, employeeProfile, todayString]
     );
+    
+    const timeOffQuery = useMemoFirebase(
+      () =>
+        firestore && employeeProfile
+          ? query(
+              collection(firestore, `employees/${employeeProfile.id}/timeOffRequests`),
+              orderBy('createdAt', 'desc')
+            )
+          : null,
+      [firestore, employeeProfile]
+    );
 
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: timeOffRequests, isLoading: isTimeOffLoading } = useCollection<TimeOffRequest>(timeOffQuery);
     const todaysRecord = attendanceRecords?.[0];
 
     React.useEffect(() => {
-        // Run only on the client
         setCurrentTime(new Date());
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -173,6 +360,8 @@ export default function AttendancePage() {
 
     return (
         <div className="p-4 space-y-6 animate-in fade-in-50">
+            <LeaveRequestDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen} employeeId={employeeProfile?.id} />
+
             <header className="py-4">
                 <h1 className="text-2xl font-bold">Цагийн бүртгэл</h1>
             </header>
@@ -180,7 +369,11 @@ export default function AttendancePage() {
             <Card className="text-center">
                 <CardHeader>
                     <div className="text-sm text-muted-foreground">{todayFormatted}</div>
-                    <CardTitle className="text-5xl font-bold tracking-tighter">{timeFormatted}</CardTitle>
+                    {currentTime ? (
+                        <CardTitle className="text-5xl font-bold tracking-tighter">{timeFormatted}</CardTitle>
+                    ) : (
+                        <Skeleton className="h-12 w-48 mx-auto mt-1" />
+                    )}
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
                     <Button 
@@ -213,6 +406,21 @@ export default function AttendancePage() {
                     <AttendanceHistory record={todaysRecord || null} />
                 </CardContent>
             </Card>
+
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Чөлөөний хүсэлт</CardTitle>
+                    <Button size="sm" onClick={() => setIsLeaveDialogOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Хүсэлт гаргах
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <TimeOffHistory requests={timeOffRequests} isLoading={isTimeOffLoading} />
+                </CardContent>
+            </Card>
         </div>
     );
 }
+
+    
