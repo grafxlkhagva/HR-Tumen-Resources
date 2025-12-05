@@ -151,9 +151,7 @@ export function AddDepartmentDialog({
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
               <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Нэгж нэмэх'}</DialogTitle>
-              <DialogDescription>
-                {isEditMode ? 'Нэгжийн мэдээллийг шинэчилнэ үү.' : ''}
-              </DialogDescription>
+              
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -178,7 +176,7 @@ export function AddDepartmentDialog({
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Бүтцийн төрөл сонгох" />
+                          <SelectValue placeholder="Төрөл сонгох" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
