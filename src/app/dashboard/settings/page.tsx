@@ -238,7 +238,7 @@ function TimeOffRequestConfigCard() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
+                <CardTitle>Хүсэлтийн тохиргоо</CardTitle>
                 <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн өмнө гаргах ёстойг тохируулах.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -481,4 +481,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
