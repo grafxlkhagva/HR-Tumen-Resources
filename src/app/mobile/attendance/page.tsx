@@ -8,10 +8,10 @@ import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, PlusCircle, Calendar as CalendarIcon, FileText } from 'lucide-react';
-import { format, formatDistanceToNow, isToday } from 'date-fns';
+import { format, formatDistanceToNow, isToday, addDays, isWeekend } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +48,10 @@ type ReferenceItem = {
     name: string;
 }
 
+type TimeOffRequestConfig = {
+    requestDeadlineDays: number;
+}
+
 const timeOffRequestSchema = z.object({
   type: z.string().min(1, "Хүсэлтийн төрлийг сонгоно уу."),
   dateRange: z.object({
@@ -59,7 +63,7 @@ const timeOffRequestSchema = z.object({
 type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
 
 
-function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean; onOpenChange: (open: boolean) => void; employeeId: string | undefined }) {
+function LeaveRequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open: boolean; onOpenChange: (open: boolean) => void; employeeId: string | undefined, disabledDates: Date[] }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
@@ -157,6 +161,7 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean;
                                             selected={{ from: field.value?.from, to: field.value?.to }}
                                             onSelect={field.onChange}
                                             numberOfMonths={1}
+                                            disabled={disabledDates}
                                         />
                                         </PopoverContent>
                                     </Popover>
@@ -333,9 +338,37 @@ export default function AttendancePage() {
       [firestore, employeeProfile]
     );
 
+    const timeOffConfigQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), [firestore]);
+
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
     const { data: timeOffRequests, isLoading: isTimeOffLoading } = useCollection<TimeOffRequest>(timeOffQuery);
+    const { data: timeOffConfig, isLoading: isConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
+    
     const todaysRecord = attendanceRecords?.[0];
+
+    const disabledDates = React.useMemo(() => {
+        const dates: Date[] = [];
+        const deadlineDays = timeOffConfig?.requestDeadlineDays ?? 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Disable past dates
+        dates.push({ before: today });
+
+        // Disable dates within the deadline
+        let i = 0;
+        let daysToAdd = 0;
+        while (i < deadlineDays) {
+            const nextDay = addDays(today, daysToAdd);
+            if (!isWeekend(nextDay)) {
+                dates.push(nextDay);
+                i++;
+            }
+            daysToAdd++;
+        }
+        
+        return dates;
+    }, [timeOffConfig]);
 
     React.useEffect(() => {
         setCurrentTime(new Date());
@@ -381,7 +414,7 @@ export default function AttendancePage() {
         }
     };
     
-    const isLoading = isProfileLoading || isAttendanceLoading;
+    const isLoading = isProfileLoading || isAttendanceLoading || isConfigLoading;
 
     if(isLoading) {
         return <AttendanceSkeleton />;
@@ -395,7 +428,7 @@ export default function AttendancePage() {
 
     return (
         <div className="p-4 space-y-6 animate-in fade-in-50">
-            <LeaveRequestDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen} employeeId={employeeProfile?.id} />
+            <LeaveRequestDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen} employeeId={employeeProfile?.id} disabledDates={disabledDates} />
 
             <header className="py-4">
                 <h1 className="text-2xl font-bold">Цагийн бүртгэл</h1>
@@ -458,4 +491,3 @@ export default function AttendancePage() {
     );
 }
 
-    

@@ -47,6 +47,17 @@ type EmployeeCodeConfig = {
     nextNumber: number;
 };
 
+const timeOffRequestSchema = z.object({
+    requestDeadlineDays: z.coerce.number().min(0, 'Хязгаар 0-ээс бага байж болохгүй.'),
+});
+
+type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
+
+type TimeOffRequestConfig = {
+    requestDeadlineDays: number;
+}
+
+
 function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -135,6 +146,54 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
     );
 }
 
+function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequestFormValues }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
+
+    const form = useForm<TimeOffRequestFormValues>({
+        resolver: zodResolver(timeOffRequestSchema),
+        defaultValues: initialData,
+    });
+
+    const { isSubmitting } = form.formState;
+
+    const onSubmit = (data: TimeOffRequestFormValues) => {
+        if (!configRef) return;
+        
+        setDocumentNonBlocking(configRef, data, { merge: true });
+        
+        toast({
+            title: 'Амжилттай хадгаллаа',
+            description: 'Чөлөөний хүсэлтийн тохиргоо шинэчлэгдлээ.',
+        });
+    };
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormField
+                    control={form.control}
+                    name="requestDeadlineDays"
+                    render={({ field }) => (
+                        <FormItem className="max-w-sm">
+                            <FormLabel>Хүсэлт гаргах доод хязгаар (ажлын өдөр)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="Жишээ нь: 3" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Хадгалах
+                </Button>
+            </form>
+        </Form>
+    );
+}
+
 function EmployeeCodeConfigCard() {
     const { firestore } = useFirebase();
 
@@ -168,6 +227,32 @@ function EmployeeCodeConfigCard() {
             </CardContent>
         </Card>
     )
+}
+
+function TimeOffRequestConfigCard() {
+    const { firestore } = useFirebase();
+    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
+    const { data: config, isLoading } = useDoc<TimeOffRequestConfig>(configRef);
+    const initialData = config || { requestDeadlineDays: 3 };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
+                <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн өмнө гаргах ёстойг тохируулах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 {isLoading ? (
+                    <div className="space-y-4">
+                        <div className="space-y-2 max-w-sm"><Skeleton className="h-4 w-48" /><Skeleton className="h-10 w-full" /></div>
+                        <Skeleton className="h-10 w-28" />
+                    </div>
+                 ) : (
+                    <TimeOffRequestConfigForm initialData={initialData} />
+                 )}
+            </CardContent>
+        </Card>
+    );
 }
 
 export default function SettingsPage() {
@@ -211,6 +296,8 @@ export default function SettingsPage() {
       </div>
       <div className="space-y-8">
         <EmployeeCodeConfigCard />
+
+        <TimeOffRequestConfigCard />
 
         <Card>
             <CardHeader>
@@ -394,3 +481,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
