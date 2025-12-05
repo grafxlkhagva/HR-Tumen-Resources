@@ -85,19 +85,23 @@ export function AssignProgramDialog({
               let assigneeId = employee.id; // Default to the new hire
               let assigneeName = `${employee.firstName} ${employee.lastName}`;
               
+              // This logic can be expanded later to find the actual manager, HR person, etc.
+              // For now, we use placeholders.
               switch(taskTemplate.assigneeType) {
                 case 'NEW_HIRE':
                   assigneeId = employee.id;
                   assigneeName = `${employee.firstName} ${employee.lastName}`;
                   break;
-                // TODO: Implement logic to find manager, HR, buddy
                 case 'MANAGER':
+                    assigneeId = 'manager_placeholder_id'; // Replace with actual logic
                     assigneeName = "Шууд удирдлага"; // Placeholder
                     break;
                 case 'HR':
+                    assigneeId = 'hr_placeholder_id'; // Replace with actual logic
                     assigneeName = "Хүний нөөц"; // Placeholder
                     break;
                 case 'BUDDY':
+                    assigneeId = 'buddy_placeholder_id'; // Replace with actual logic
                     assigneeName = "Дэмжигч ажилтан"; // Placeholder
                     break;
               }
