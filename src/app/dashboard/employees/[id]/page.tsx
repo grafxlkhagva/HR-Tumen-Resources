@@ -213,21 +213,20 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     const { firestore } = useFirebase();
     
-    // Fetch assigned program for the employee
     const {
         assignedProgram,
         isLoading: isLoadingAssignedProgram,
         updateTaskStatus,
     } = useOnboardingData(employee.id);
 
-    // Fetch all program templates for the assignment dialog
+    // Fetch all program templates only when the dialog is about to open.
     const programTemplatesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'onboardingPrograms') : null,
-        [firestore]
+        () => isAssignDialogOpen ? collection(firestore, 'onboardingPrograms') : null,
+        [firestore, isAssignDialogOpen]
     );
     const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
-    const isLoading = isLoadingAssignedProgram || isLoadingTemplates;
+    const isLoading = isLoadingAssignedProgram;
 
     if (isLoading) {
         return (
