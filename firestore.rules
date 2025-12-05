@@ -13,26 +13,25 @@ service cloud.firestore {
       return request.auth != null && exists(/databases/$(database)/documents/employees/$(request.auth.uid)) && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Admins have broad read/write access.
-    // More granular rules below will still apply and can be more restrictive.
+    // Admins have broad read access across the database.
     match /{path=**} {
       allow read, write: if isAdmin();
     }
 
-    // Employees can read/write their own data.
+    // Employees can read/write their own specific data.
     match /employees/{userId}/{document=**} {
       allow read, write: if isOwner(userId);
+    }
+    
+    // Allow collectionGroup query for timeOffRequests by admin.
+    // This rule must be separate and correctly scoped for collectionGroup queries.
+    match /{path=**}/timeOffRequests/{requestId} {
+      allow read, write: if isAdmin();
     }
     
     // Any authenticated user can read general documents.
     match /documents/{documentId} {
       allow read: if request.auth != null;
-    }
-    
-    // Collection group query for time-off requests.
-    // Admins can list all requests. Employees can only list their own.
-    match /employees/{userId}/timeOffRequests/{requestId} {
-      allow read, write: if isOwner(userId) || isAdmin();
     }
     
     // All authenticated users can read from top-level collections needed for UI elements (e.g., dropdowns)
