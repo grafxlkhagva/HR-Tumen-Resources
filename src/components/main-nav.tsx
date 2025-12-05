@@ -13,6 +13,7 @@ import {
   Network,
   Settings,
   Clock,
+  Send,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -40,6 +41,11 @@ const links = [
     href: '/dashboard/employees',
     label: 'Ажилтан',
     icon: Users,
+  },
+  {
+    href: '/dashboard/requests',
+    label: 'Хүсэлтүүд',
+    icon: Send,
   },
   {
     href: '/dashboard/attendance',
