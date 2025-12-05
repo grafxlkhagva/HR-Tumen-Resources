@@ -250,7 +250,7 @@ export default function AddEmployeePage() {
             <CardHeader>
               <CardTitle>Шинэ ажилтан нэмэх</CardTitle>
               <CardDescription>
-                Ажилтны дэлгэрэнгүй мэдээллийг энд оруулна уу.
+                Та ажилтны ерөнхий мэдээллийг бүртгэж, системд нэвтрэх эрхийг олгоно.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -450,4 +450,3 @@ export default function AddEmployeePage() {
     </div>
   );
 }
-
