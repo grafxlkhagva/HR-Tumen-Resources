@@ -3,14 +3,14 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, orderBy, where, addDoc, updateDoc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, orderBy, where } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield, Clock } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -33,7 +33,6 @@ import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import type { OnboardingProgram } from '../../settings/onboarding/page';
-import { updateDocumentNonBlocking } from '@/firebase';
 
 
 type Department = {
@@ -213,109 +212,80 @@ function OnboardingTabContent({ employee }: { employee: Employee }) {
     const { firestore } = useFirebase();
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
 
-    const assignedProgramsQuery = useMemoFirebase(
-      () =>
-        firestore
-          ? query(
-              collection(firestore, `employees/${employee.id}/assignedPrograms`),
-              where('status', '==', 'IN_PROGRESS')
-            )
-          : null,
-      [firestore, employee.id]
-    );
-
-    const {
-      data: assignedPrograms,
-      isLoading: isLoadingAssigned,
-      error,
-    } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const assignedProgramsQuery = useMemoFirebase(() => {
+        if (!firestore || !employee) return null;
+        return query(
+            collection(firestore, `employees/${employee.id}/assignedPrograms`),
+            where('status', '==', 'IN_PROGRESS')
+        );
+    }, [firestore, employee]);
     
-    const assignedProgram = assignedPrograms?.[0];
+    const { data: assignedPrograms, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const activeProgram = assignedPrograms?.[0];
 
-    const calculateProgress = React.useCallback((tasks: AssignedProgram['tasks']): number => {
+    const calculateProgress = React.useCallback((tasks: AssignedTask[]): number => {
         if (!tasks || tasks.length === 0) return 0;
-        const totalValue = tasks.length;
-        const completedValue = tasks.filter(task => task.status === 'DONE' || task.status === 'VERIFIED').length;
-        const inProgressValue = tasks.filter(task => task.status === 'IN_PROGRESS').length;
-        const currentValue = completedValue + (inProgressValue * 0.5);
-        return Math.round((currentValue / totalValue) * 100);
+        const completedValue = tasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
+        const inProgressValue = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+        return Math.round(((completedValue + inProgressValue * 0.5) / tasks.length) * 100);
     }, []);
 
     const updateTaskStatus = React.useCallback(async (taskId: string, newStatus: AssignedTask['status']) => {
-        if (!firestore || !assignedProgram) return;
-
-        const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, assignedProgram.id);
-
-        const newTasks = assignedProgram.tasks.map(task => 
-            task.templateTaskId === taskId ? { ...task, status: newStatus } : task
-        );
+        if (!firestore || !activeProgram) return;
+        const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, activeProgram.id);
         
+        const newTasks = activeProgram.tasks.map(task => 
+            task.templateTaskId === taskId 
+                ? { ...task, status: newStatus, completedAt: (newStatus === 'DONE' || newStatus === 'VERIFIED') ? new Date().toISOString() : undefined } 
+                : task
+        );
         const newProgress = calculateProgress(newTasks);
-
-        const finalTasks = newTasks.map(task => {
-            if (task.templateTaskId === taskId) {
-                const updatedTask = { ...task, status: newStatus };
-                if (newStatus === 'DONE' && !task.completedAt) {
-                    updatedTask.completedAt = new Date().toISOString();
-                }
-                return updatedTask;
-            }
-            return task;
-        });
-
-        await updateDoc(programDocRef, {
-            tasks: finalTasks,
+        
+        await updateDocumentNonBlocking(programDocRef, {
+            tasks: newTasks,
             progress: newProgress,
+            status: newProgress === 100 ? 'COMPLETED' : 'IN_PROGRESS',
         });
+    }, [firestore, employee.id, activeProgram, calculateProgress]);
 
-    }, [firestore, employee.id, assignedProgram, calculateProgress]);
 
-
-    if (isLoadingAssigned) {
+    if (isLoading) {
         return (
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-7 w-56" />
-                    <Skeleton className="h-4 w-72" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                     <Skeleton className="h-3 w-24" />
-                     <Skeleton className="h-2 w-full" />
-                     <div className="pt-4 space-y-3">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                     </div>
-                </CardContent>
+            <Card>
+                <CardHeader><Skeleton className="h-7 w-56" /></CardHeader>
+                <CardContent><Skeleton className="h-40 w-full" /></CardContent>
             </Card>
-        )
+        );
     }
-
-    if (!assignedProgram) {
+    
+    if (!activeProgram) {
         return (
-             <Card>
+            <Card>
                 <CardHeader>
                     <CardTitle>Дасан зохицох үйл явц</CardTitle>
-                    <CardDescription>Шинэ ажилтны дадлагажих үйл явцын хяналт.</CardDescription>
                 </CardHeader>
                 <CardContent className="text-center py-12 text-muted-foreground">
                     <p>Энэ ажилтанд оноогдсон идэвхтэй хөтөлбөр байхгүй байна.</p>
-                    <Button variant="outline" className="mt-4" onClick={() => setIsAssignDialogOpen(true)}>Хөтөлбөр оноох</Button>
-                    <AssignProgramDialog 
+                    <Button variant="outline" className="mt-4" onClick={() => setIsAssignDialogOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Хөтөлбөр оноох
+                    </Button>
+                    <AssignProgramDialog
                         open={isAssignDialogOpen}
                         onOpenChange={setIsAssignDialogOpen}
                         employee={employee}
                     />
                 </CardContent>
             </Card>
-        )
+        );
     }
-    
-    const progress = calculateProgress(assignedProgram.tasks);
+
+    const progress = calculateProgress(activeProgram.tasks);
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{assignedProgram.programName}</CardTitle>
+                <CardTitle>{activeProgram.programName}</CardTitle>
                 <div className="flex items-center gap-4">
                     <Progress value={progress} className="w-full" />
                     <span className="text-lg font-bold text-primary">{progress}%</span>
@@ -324,7 +294,7 @@ function OnboardingTabContent({ employee }: { employee: Employee }) {
             <CardContent>
                 <h4 className="font-semibold mb-4">Даалгаврууд</h4>
                 <div className="space-y-3">
-                    {assignedProgram.tasks.map(task => (
+                    {activeProgram.tasks.map(task => (
                         <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
                             <div className="flex items-center gap-3">
                                 <div>
@@ -335,10 +305,10 @@ function OnboardingTabContent({ employee }: { employee: Employee }) {
                                     </div>
                                 </div>
                             </div>
-                           <TaskStatusDropdown
-                             currentStatus={task.status}
-                             onStatusChange={(newStatus) => updateTaskStatus(task.templateTaskId, newStatus)}
-                           />
+                            <TaskStatusDropdown
+                                currentStatus={task.status}
+                                onStatusChange={(newStatus) => updateTaskStatus(task.templateTaskId, newStatus)}
+                            />
                         </div>
                     ))}
                 </div>

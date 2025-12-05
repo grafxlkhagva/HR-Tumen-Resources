@@ -29,6 +29,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import type { Employee } from '../data';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 import { add } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export type AssignedTask = {
     templateTaskId: string;
@@ -66,7 +67,7 @@ export function AssignProgramDialog({
   const { toast } = useToast();
   const [selectedProgramId, setSelectedProgramId] = React.useState('');
   const [isAssigning, setIsAssigning] = React.useState(false);
-  
+
   const programTemplatesQuery = useMemoFirebase(
     () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
     [firestore]
@@ -74,7 +75,7 @@ export function AssignProgramDialog({
   const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
   const assignedProgramsCollectionRef = useMemoFirebase(
-    () => collection(firestore, `employees/${employee.id}/assignedPrograms`),
+    () => firestore ? collection(firestore, `employees/${employee.id}/assignedPrograms`) : null,
     [firestore, employee.id]
   );
 
@@ -97,6 +98,7 @@ export function AssignProgramDialog({
       const stagesSnapshot = await getDocs(stagesCollectionRef);
 
       const allTasks: any[] = [];
+      const hireDate = new Date(employee.hireDate);
       
       for (const stageDoc of stagesSnapshot.docs) {
           const tasksCollectionRef = collection(firestore, stageDoc.ref.path, 'tasks');
@@ -104,10 +106,9 @@ export function AssignProgramDialog({
           
           tasksSnapshot.forEach(taskDoc => {
               const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
-              const hireDate = new Date(employee.hireDate);
               const dueDate = add(hireDate, { days: taskTemplate.dueDays });
 
-              let assigneeId = employee.id; // Default to the new hire
+              let assigneeId = employee.id;
               let assigneeName = `${employee.firstName} ${employee.lastName}`;
               
               switch(taskTemplate.assigneeType) {
@@ -116,16 +117,19 @@ export function AssignProgramDialog({
                   assigneeName = `${employee.firstName} ${employee.lastName}`;
                   break;
                 case 'MANAGER':
-                    assigneeId = employee.id; // Placeholder - should be replaced with actual manager logic
-                    assigneeName = "Шууд удирдлага"; // Placeholder
+                    // TODO: Replace with actual manager lookup logic
+                    assigneeId = employee.id; 
+                    assigneeName = "Шууд удирдлага";
                     break;
                 case 'HR':
-                    assigneeId = employee.id; // Placeholder
-                    assigneeName = "Хүний нөөц"; // Placeholder
+                    // TODO: Replace with actual HR lookup logic
+                    assigneeId = employee.id;
+                    assigneeName = "Хүний нөөц";
                     break;
                 case 'BUDDY':
-                    assigneeId = employee.id; // Placeholder
-                    assigneeName = "Дэмжигч ажилтан"; // Placeholder
+                     // TODO: Replace with actual buddy lookup logic
+                    assigneeId = employee.id;
+                    assigneeName = "Дэмжигч ажилтан";
                     break;
               }
 
@@ -176,22 +180,30 @@ export function AssignProgramDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <Select
-            value={selectedProgramId}
-            onValueChange={setSelectedProgramId}
-            disabled={isLoadingTemplates}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
-            </SelectTrigger>
-            <SelectContent>
-              {programTemplates?.map((program) => (
-                <SelectItem key={program.id} value={program.id}>
-                  {program.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isLoadingTemplates ? (
+            <Skeleton className="h-10 w-full" />
+          ) : (
+            <Select
+              value={selectedProgramId}
+              onValueChange={setSelectedProgramId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
+              </SelectTrigger>
+              <SelectContent>
+                {programTemplates?.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.title}
+                  </SelectItem>
+                ))}
+                {programTemplates?.length === 0 && (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                        Тохиргоо хэсэгт хөтөлбөрийн загвар үүсгэнэ үү.
+                    </div>
+                )}
+              </SelectContent>
+            </Select>
+          )}
         </div>
         <DialogFooter>
           <Button
@@ -201,7 +213,7 @@ export function AssignProgramDialog({
           >
             Цуцлах
           </Button>
-          <Button onClick={handleAssign} disabled={isAssigning || !selectedProgramId || isLoadingTemplates}>
+          <Button onClick={handleAssign} disabled={isAssigning || !selectedProgramId}>
             {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Оноох
           </Button>
