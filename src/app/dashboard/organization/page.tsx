@@ -623,7 +623,7 @@ export default function OrganizationPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Бүтэц орон тоо
+            Бүтэц, орон тоо
           </h1>
         </div>
       </div>
