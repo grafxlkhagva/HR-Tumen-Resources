@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -280,6 +280,10 @@ const StructureTab = () => {
               <Button variant="default" size="sm" onClick={handleOpenAddDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Нэгж нэмэх
+              </Button>
+               <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Хэвлэх
               </Button>
             </div>
           </div>
