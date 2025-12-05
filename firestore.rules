@@ -3,7 +3,20 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    
+    // Allow unauthenticated reads for company profile for login page styling
+    match /company/profile {
+      allow get: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /employees/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny all other top-level collections for unauthenticated users
+    // This rule will not apply to paths matched by more specific rules above.
+    match /{path=**} {
       allow read, write: if request.auth != null;
     }
   }
