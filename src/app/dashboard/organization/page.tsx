@@ -92,6 +92,7 @@ type JobCategory = {
 
 type CompanyProfile = {
   name: string;
+  legalName?: string;
 }
 
 
@@ -265,7 +266,7 @@ const StructureTab = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{companyProfile?.name || 'Байгууллагын бүтэц'} ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
+              <CardTitle>{companyProfile?.legalName || 'Байгууллагын бүтэц'} ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
