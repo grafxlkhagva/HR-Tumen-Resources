@@ -30,10 +30,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
-import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
-import { TaskStatusDropdown } from './TaskStatusDropdown';
-import type { OnboardingProgram } from '../../settings/onboarding/page';
-
 
 type Department = {
     id: string;
@@ -208,115 +204,6 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
-function OnboardingTabContent({ employee }: { employee: Employee }) {
-    const { firestore } = useFirebase();
-    const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
-
-    const assignedProgramsQuery = useMemoFirebase(() => {
-        if (!firestore || !employee) return null;
-        return query(
-            collection(firestore, `employees/${employee.id}/assignedPrograms`),
-            where('status', '==', 'IN_PROGRESS')
-        );
-    }, [firestore, employee]);
-    
-    const { data: assignedPrograms, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
-    const activeProgram = assignedPrograms?.[0];
-
-    const calculateProgress = React.useCallback((tasks: AssignedTask[]): number => {
-        if (!tasks || tasks.length === 0) return 0;
-        const completedValue = tasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
-        const inProgressValue = tasks.filter(t => t.status === 'IN_PROGRESS').length;
-        return Math.round(((completedValue + inProgressValue * 0.5) / tasks.length) * 100);
-    }, []);
-
-    const updateTaskStatus = React.useCallback(async (taskId: string, newStatus: AssignedTask['status']) => {
-        if (!firestore || !activeProgram) return;
-        const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, activeProgram.id);
-        
-        const newTasks = activeProgram.tasks.map(task => 
-            task.templateTaskId === taskId 
-                ? { ...task, status: newStatus, completedAt: (newStatus === 'DONE' || newStatus === 'VERIFIED') ? new Date().toISOString() : undefined } 
-                : task
-        );
-        const newProgress = calculateProgress(newTasks);
-        
-        await updateDocumentNonBlocking(programDocRef, {
-            tasks: newTasks,
-            progress: newProgress,
-            status: newProgress === 100 ? 'COMPLETED' : 'IN_PROGRESS',
-        });
-    }, [firestore, employee.id, activeProgram, calculateProgress]);
-
-
-    if (isLoading) {
-        return (
-            <Card>
-                <CardHeader><Skeleton className="h-7 w-56" /></CardHeader>
-                <CardContent><Skeleton className="h-40 w-full" /></CardContent>
-            </Card>
-        );
-    }
-    
-    if (!activeProgram) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Дасан зохицох үйл явц</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center py-12 text-muted-foreground">
-                    <p>Энэ ажилтанд оноогдсон идэвхтэй хөтөлбөр байхгүй байна.</p>
-                    <Button variant="outline" className="mt-4" onClick={() => setIsAssignDialogOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Хөтөлбөр оноох
-                    </Button>
-                    <AssignProgramDialog
-                        open={isAssignDialogOpen}
-                        onOpenChange={setIsAssignDialogOpen}
-                        employee={employee}
-                    />
-                </CardContent>
-            </Card>
-        );
-    }
-
-    const progress = calculateProgress(activeProgram.tasks);
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{activeProgram.programName}</CardTitle>
-                <div className="flex items-center gap-4">
-                    <Progress value={progress} className="w-full" />
-                    <span className="text-lg font-bold text-primary">{progress}%</span>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <h4 className="font-semibold mb-4">Даалгаврууд</h4>
-                <div className="space-y-3">
-                    {activeProgram.tasks.map(task => (
-                        <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
-                            <div className="flex items-center gap-3">
-                                <div>
-                                    <p className="font-medium">{task.title}</p>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                                        <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
-                                        <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <TaskStatusDropdown
-                                currentStatus={task.status}
-                                onStatusChange={(newStatus) => updateTaskStatus(task.templateTaskId, newStatus)}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
 export default function EmployeeProfilePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -429,7 +316,6 @@ export default function EmployeeProfilePage() {
                 <Tabs defaultValue="overview">
                     <TabsList>
                         <TabsTrigger value="overview">Ерөнхий</TabsTrigger>
-                        <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
                         <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
                         <TabsTrigger value="performance">Гүйцэтгэл</TabsTrigger>
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
@@ -454,9 +340,6 @@ export default function EmployeeProfilePage() {
                                 <p className="text-muted-foreground">Энд ажилтны ур чадвар, ажлын түүх зэрэг мэдээлэл харагдах болно.</p>
                             </CardContent>
                         </Card>
-                    </TabsContent>
-                    <TabsContent value="onboarding">
-                         <OnboardingTabContent employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>

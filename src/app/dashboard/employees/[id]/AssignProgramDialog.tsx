@@ -27,9 +27,9 @@ import {
 } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import type { Employee } from '../data';
-import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 import { add } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 
 export type AssignedTask = {
     templateTaskId: string;
@@ -68,10 +68,11 @@ export function AssignProgramDialog({
   const [selectedProgramId, setSelectedProgramId] = React.useState('');
   const [isAssigning, setIsAssigning] = React.useState(false);
 
-  const programTemplatesQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
-    [firestore]
-  );
+  const programTemplatesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'onboardingPrograms');
+  }, [firestore]);
+
   const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
   const assignedProgramsCollectionRef = useMemoFirebase(
@@ -180,30 +181,30 @@ export function AssignProgramDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          {isLoadingTemplates ? (
-            <Skeleton className="h-10 w-full" />
-          ) : (
-            <Select
-              value={selectedProgramId}
-              onValueChange={setSelectedProgramId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
-              </SelectTrigger>
-              <SelectContent>
-                {programTemplates?.map((program) => (
-                  <SelectItem key={program.id} value={program.id}>
-                    {program.title}
-                  </SelectItem>
-                ))}
-                {programTemplates?.length === 0 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                        Тохиргоо хэсэгт хөтөлбөрийн загвар үүсгэнэ үү.
-                    </div>
-                )}
-              </SelectContent>
-            </Select>
-          )}
+            {isLoadingTemplates ? (
+                <Skeleton className="h-10 w-full" />
+            ) : (
+                <Select
+                value={selectedProgramId}
+                onValueChange={setSelectedProgramId}
+                >
+                <SelectTrigger>
+                    <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {programTemplates?.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                        {program.title}
+                    </SelectItem>
+                    ))}
+                    {programTemplates?.length === 0 && (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                            Тохиргоо хэсэгт хөтөлбөрийн загвар үүсгэнэ үү.
+                        </div>
+                    )}
+                </SelectContent>
+                </Select>
+            )}
         </div>
         <DialogFooter>
           <Button

@@ -506,7 +506,7 @@ export default function MobileProfileEditPage() {
         };
 
         if (questionnaireData) {
-            return transformDates({ ...initialData, ...questionnaireData });
+            return transformDates({ ...initialData, ...questionнаireData });
         }
         return initialData;
     }, [questionnaireData]);
