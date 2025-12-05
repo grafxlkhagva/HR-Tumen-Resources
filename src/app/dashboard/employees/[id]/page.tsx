@@ -30,6 +30,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
+import type { OnboardingProgram } from '../../settings/onboarding/page';
+import { TaskStatusDropdown } from './TaskStatusDropdown';
+import { useToast } from '@/hooks/use-toast';
 
 type Department = {
     id: string;
@@ -204,6 +208,134 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
+const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
+
+    const assignedProgramsQuery = useMemoFirebase(
+      () =>
+        firestore
+          ? query(
+              collection(firestore, `employees/${employee.id}/assignedPrograms`),
+              where('status', '==', 'IN_PROGRESS')
+            )
+          : null,
+      [firestore, employee.id]
+    );
+
+    const programTemplatesQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
+        [firestore]
+    );
+
+    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
+    
+    const activeProgram = assignedPrograms?.[0];
+    
+    const handleStatusChange = (program: AssignedProgram, taskIndex: number, newStatus: AssignedTask['status']) => {
+        if (!firestore) return;
+        
+        const updatedTasks = [...program.tasks];
+        const taskToUpdate = updatedTasks[taskIndex];
+        
+        if (taskToUpdate) {
+            updatedTasks[taskIndex] = { 
+                ...taskToUpdate, 
+                status: newStatus,
+                completedAt: newStatus === 'DONE' || newStatus === 'VERIFIED' ? new Date().toISOString() : undefined
+            };
+
+            const doneTasks = updatedTasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
+            const inProgressTasks = updatedTasks.filter(t => t.status === 'IN_PROGRESS').length;
+            const progress = ((doneTasks * 100) + (inProgressTasks * 50)) / updatedTasks.length;
+
+            const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
+            updateDocumentNonBlocking(programDocRef, { tasks: updatedTasks, progress });
+
+            toast({ title: "Даалгаврын төлөв шинэчлэгдлээ." });
+        }
+    };
+
+
+    if (isLoadingAssigned) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-7 w-48" />
+                    <Skeleton className="h-4 w-64" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-20 w-full" />
+                </CardContent>
+            </Card>
+        )
+    }
+
+    return (
+      <Card>
+        {activeProgram ? (
+          <>
+            <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>Дасан зохицох хөтөлбөр: {activeProgram.programName}</CardTitle>
+                        <CardDescription>
+                            Эхэлсэн огноо: {new Date(activeProgram.startDate).toLocaleDateString()}
+                        </CardDescription>
+                    </div>
+                    {/* Placeholder for a "Complete Program" button or similar */}
+                </div>
+                 <div className="flex items-center gap-4 pt-2">
+                    <Progress value={activeProgram.progress} className="h-2" />
+                    <span className="text-sm font-bold text-muted-foreground">{Math.round(activeProgram.progress || 0)}%</span>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                {activeProgram.tasks.map((task, index) => (
+                    <div key={task.templateTaskId + index} className="flex items-center justify-between rounded-md border p-3">
+                        <div>
+                             <p className="font-medium">{task.title}</p>
+                             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
+                                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <TaskStatusDropdown 
+                            currentStatus={task.status} 
+                            onStatusChange={(newStatus) => handleStatusChange(activeProgram, index, newStatus)} 
+                        />
+                    </div>
+                ))}
+            </CardContent>
+          </>
+        ) : (
+          <>
+            <CardHeader>
+              <CardTitle>Дасан зохицох хөтөлбөр</CardTitle>
+              <CardDescription>
+                Энэ ажилтанд одоогоор идэвхтэй дасан зохицох хөтөлбөр оноогоогүй байна.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => setIsAssignDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Хөтөлбөр оноох
+              </Button>
+               <AssignProgramDialog 
+                 open={isAssignDialogOpen} 
+                 onOpenChange={setIsAssignDialogOpen}
+                 employee={employee}
+               />
+            </CardContent>
+          </>
+        )}
+      </Card>
+    );
+};
+
+
 export default function EmployeeProfilePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
@@ -340,6 +472,7 @@ export default function EmployeeProfilePage() {
                                 <p className="text-muted-foreground">Энд ажилтны ур чадвар, ажлын түүх зэрэг мэдээлэл харагдах болно.</p>
                             </CardContent>
                         </Card>
+                         <OnboardingProgramCard employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
