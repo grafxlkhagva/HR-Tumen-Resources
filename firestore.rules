@@ -3,46 +3,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      // Check for the existence of the document and the role field.
-      return request.auth != null && exists(/databases/$(database)/documents/employees/$(request.auth.uid)) && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Admins have broad read access across some collections.
-    match /employees/{employeeId} {
-      allow read: if isAdmin();
-      allow write: if isOwner(employeeId);
-    }
-    
-    // Any authenticated user can read general documents, departments, positions and attendance.
-    // Admins have broader access via the isAdmin() function at the root.
-    match /documents/{documentId} {
-      allow read: if request.auth != null;
-    }
-    match /departments/{deptId} {
-      allow read: if request.auth != null;
-    }
-    match /positions/{posId} {
-      allow read: if request.auth != null;
-    }
-    match /attendance/{attId} {
-      allow read: if request.auth != null;
-    }
-
-    // Employees can read/write their own nested data.
-    match /employees/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    // Admins can perform collectionGroup queries on timeOffRequests.
-    // This rule MUST be separate and correctly scoped for collectionGroup queries.
-    match /{path=**}/timeOffRequests/{requestId} {
-      allow read, write: if isAdmin();
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
