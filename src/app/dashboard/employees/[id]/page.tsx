@@ -263,7 +263,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
             </Card>
         )
     }
-    
+
     if (activeProgram) {
         return (
           <Card>
@@ -325,6 +325,23 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
     );
 };
 
+
+const OverviewTabContent = ({ employee }: { employee: Employee }) => {
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
+                    <CardDescription>Ажилтны хөдөлмөрийн гэрээтэй холбоотой бүх үйл явдлын түүх.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <EmploymentHistoryTimeline employeeId={employee.id} />
+                </CardContent>
+            </Card>
+            <OnboardingProgramCard employee={employee} />
+        </div>
+    )
+}
 
 export default function EmployeeProfilePage() {
     const { id } = useParams();
@@ -443,17 +460,8 @@ export default function EmployeeProfilePage() {
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
                         <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="overview" className="space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
-                                <CardDescription>Ажилтны хөдөлмөрийн гэрээтэй холбоотой бүх үйл явдлын түүх.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <EmploymentHistoryTimeline employeeId={employeeId} />
-                            </CardContent>
-                        </Card>
-                        <OnboardingProgramCard employee={employee} />
+                    <TabsContent value="overview">
+                        <OverviewTabContent employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
