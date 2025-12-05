@@ -22,14 +22,17 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Loader2, Save, X, PlusCircle, Trash2 } from 'lucide-react';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Loader2, Save, X, PlusCircle, Trash2, Upload, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 const valueSchema = z.object({
   title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
@@ -39,6 +42,7 @@ const valueSchema = z.object({
 
 const companyProfileSchema = z.object({
   name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
+  logoUrl: z.string().optional(),
   legalName: z.string().optional(),
   registrationNumber: z.string().optional(),
   taxId: z.string().optional(),
@@ -65,6 +69,11 @@ function FormSkeleton() {
                     <Skeleton className="h-4 w-64" />
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                     <div className="flex flex-col items-start gap-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-24 w-24 rounded-lg" />
+                        <Skeleton className="h-10 w-32" />
+                    </div>
                     {Array.from({ length: 8 }).map((_, i) => (
                         <div className="space-y-2" key={i}>
                             <Skeleton className="h-4 w-24" />
@@ -120,11 +129,15 @@ function FormSkeleton() {
     );
 }
 
-function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValues }) {
+function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfileFormValues, docExists: boolean }) {
   const router = useRouter();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   
+  const [logoPreview, setLogoPreview] = React.useState<string | null>(initialData.logoUrl || null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const companyProfileRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'company', 'profile') : null),
     [firestore]
@@ -142,10 +155,37 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
 
   const { isSubmitting } = form.formState;
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const storage = getStorage();
+    const storageRef = ref(storage, `company-logos/logo-${Date.now()}`);
+
+    try {
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        form.setValue('logoUrl', downloadURL);
+        setLogoPreview(downloadURL);
+        toast({ title: 'Лого амжилттай байршлаа.' });
+    } catch (error) {
+        console.error("Лого байршуулахад алдаа гарлаа: ", error);
+        toast({ variant: 'destructive', title: 'Алдаа', description: 'Лого байршуулахад алдаа гарлаа.' });
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+
   const handleSave = (values: CompanyProfileFormValues) => {
     if (!companyProfileRef) return;
     
-    setDocumentNonBlocking(companyProfileRef, values, { merge: true });
+    if (docExists) {
+        updateDocumentNonBlocking(companyProfileRef, values);
+    } else {
+        setDocumentNonBlocking(companyProfileRef, values, { merge: true });
+    }
 
     toast({
       title: 'Амжилттай хадгаллаа',
@@ -163,6 +203,26 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
                 <CardDescription>Компанийнхаа үндсэн мэдээллийг эндээс шинэчилнэ үү.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="md:col-span-2 flex flex-col items-start gap-4">
+                    <FormLabel>Компанийн лого</FormLabel>
+                    <Avatar className="h-24 w-24 rounded-lg border">
+                        <AvatarImage src={logoPreview || undefined} className="object-contain" />
+                        <AvatarFallback className="rounded-lg bg-muted">
+                            <Building className="h-10 w-10 text-muted-foreground" />
+                        </AvatarFallback>
+                    </Avatar>
+                     <input 
+                        type="file" 
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                    />
+                    <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        Лого солих
+                    </Button>
+                </div>
                 <FormField
                     control={form.control}
                     name="name"
@@ -433,15 +493,15 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
         </Card>
         
         <div className="flex items-center gap-2">
-            <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+            <Button type="submit" disabled={isSubmitting || isUploading}>
+            {isSubmitting || isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
                 <Save className="mr-2 h-4 w-4" />
             )}
             Хадгалах
             </Button>
-            <Button variant="outline" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting}>
+            <Button variant="outline" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || isUploading}>
                 <X className="mr-2 h-4 w-4" />
                 Цуцлах
             </Button>
@@ -453,6 +513,7 @@ function EditCompanyForm({ initialData }: { initialData: CompanyProfileFormValue
 
 const defaultFormValues: CompanyProfileFormValues = {
   name: '',
+  logoUrl: '',
   legalName: '',
   registrationNumber: '',
   taxId: '',
@@ -487,10 +548,11 @@ export default function EditCompanyPage() {
   }
 
   const initialData = companyProfile || defaultFormValues;
+  const docExists = !!companyProfile;
 
   return (
     <div className="py-8">
-      <EditCompanyForm initialData={initialData} />
+      <EditCompanyForm initialData={initialData} docExists={docExists} />
     </div>
   );
 }

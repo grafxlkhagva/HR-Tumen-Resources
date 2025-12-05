@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -14,9 +15,12 @@ import { doc } from 'firebase/firestore';
 import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 const companyProfileSchema = z.object({
   name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
+  logoUrl: z.string().optional(),
   legalName: z.string().optional(),
   registrationNumber: z.string().optional(),
   taxId: z.string().optional(),
@@ -64,7 +68,10 @@ function PageSkeleton() {
         <div className='space-y-8'>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <Skeleton className="h-8 w-48" />
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-16 w-16 rounded-lg" />
+                        <Skeleton className="h-8 w-48" />
+                    </div>
                     <Skeleton className="h-9 w-28" />
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
@@ -296,12 +303,20 @@ export default function CompanyPage() {
     <div className="py-8 space-y-8">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Ерөнхий мэдээлэл</CardTitle>
+                <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16 rounded-lg">
+                        <AvatarImage src={companyProfile.logoUrl} className="object-contain"/>
+                        <AvatarFallback className="rounded-lg bg-muted">
+                            <Building className="h-8 w-8 text-muted-foreground" />
+                        </AvatarFallback>
+                    </Avatar>
+                    <CardTitle>{companyProfile.name || 'Компанийн нэр'}</CardTitle>
+                </div>
                 <Button asChild variant="outline" size="sm">
-                <Link href="/dashboard/company/edit">
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Засварлах
-                </Link>
+                    <Link href="/dashboard/company/edit">
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Засварлах
+                    </Link>
                 </Button>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
