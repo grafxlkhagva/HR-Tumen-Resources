@@ -6,14 +6,13 @@ import Link from 'next/link';
 import {
   FileText,
   LayoutDashboard,
-  ShieldCheck,
   Users,
-  CalendarClock,
   Building2,
   Network,
   Settings,
   Clock,
-  Send,
+  Award,
+  MessageSquare,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -53,9 +52,14 @@ const links = [
     icon: FileText,
   },
   {
-    href: '/dashboard/compliance',
-    label: 'Хууль тогтоомж',
-    icon: ShieldCheck,
+    href: '/dashboard/scoring',
+    label: 'Онооны систем',
+    icon: Award,
+  },
+  {
+    href: '/dashboard/feedback',
+    label: 'Санал хүсэлт',
+    icon: MessageSquare,
   },
   {
     href: '/dashboard/settings',
