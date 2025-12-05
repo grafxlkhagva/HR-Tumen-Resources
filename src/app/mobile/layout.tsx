@@ -3,11 +3,11 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, User } from 'lucide-react';
+import { Home, Clock, User } from 'lucide-react';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
-  { href: '/mobile/time-off', label: 'Чөлөө', icon: Calendar },
+  { href: '/mobile/attendance', label: 'Цагийн бүртгэл', icon: Clock },
   { href: '/mobile/user', label: 'Хэрэглэгч', icon: User },
 ];
 
@@ -24,7 +24,7 @@ export default function MobileLayout({
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-background shadow-t-lg">
         <div className="mx-auto flex h-16 max-w-md items-center justify-around">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
