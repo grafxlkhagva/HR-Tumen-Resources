@@ -3,6 +3,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Rule for collection group queries on 'timeOffRequests'
+    // This allows any authenticated user to list requests from all employees.
+    match /{path=**}/timeOffRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // General rule for all other documents
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
