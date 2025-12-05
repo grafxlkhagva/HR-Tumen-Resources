@@ -3,8 +3,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+
 
 export default function Home() {
   const { employeeProfile, isUserLoading, isProfileLoading } = useEmployeeProfile();
