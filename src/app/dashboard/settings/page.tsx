@@ -239,7 +239,7 @@ function TimeOffRequestConfigCard() {
         <Card>
             <CardHeader>
                 <CardTitle>Хүсэлтийн тохиргоо</CardTitle>
-                <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн өмнө гаргах ёстойг тохируулах.</CardDescription>
+                <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн дотор гаргахыг тохируулах.</CardDescription>
             </CardHeader>
             <CardContent>
                  {isLoading ? (
