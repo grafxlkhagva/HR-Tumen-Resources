@@ -223,8 +223,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
           : null,
       [firestore, employee.id]
     );
-
-    const programTemplatesQuery = useMemoFirebase(
+     const programTemplatesQuery = useMemoFirebase(
         () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
         [firestore]
     );
@@ -285,7 +284,6 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
                             Эхэлсэн огноо: {new Date(activeProgram.startDate).toLocaleDateString()}
                         </CardDescription>
                     </div>
-                    {/* Placeholder for a "Complete Program" button or similar */}
                 </div>
                  <div className="flex items-center gap-4 pt-2">
                     <Progress value={activeProgram.progress} className="h-2" />
@@ -319,7 +317,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setIsAssignDialogOpen(true)}>
+              <Button onClick={() => setIsAssignDialogOpen(true)} disabled={isLoadingTemplates}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Хөтөлбөр оноох
               </Button>
@@ -327,6 +325,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
                  open={isAssignDialogOpen} 
                  onOpenChange={setIsAssignDialogOpen}
                  employee={employee}
+                 programTemplates={programTemplates || []}
                />
             </CardContent>
           </>
