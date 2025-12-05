@@ -12,6 +12,7 @@ import {
   Building2,
   Network,
   Settings,
+  Clock,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -41,9 +42,9 @@ const links = [
     icon: Users,
   },
   {
-    href: '/dashboard/time-off',
-    label: 'Чөлөө',
-    icon: CalendarClock,
+    href: '/dashboard/attendance',
+    label: 'Цагийн бүртгэл',
+    icon: Clock,
   },
   {
     href: '/dashboard/documents',
