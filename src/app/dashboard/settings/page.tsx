@@ -375,24 +375,22 @@ export default function SettingsPage() {
             </Card>
 
             <Card>
-            <CardHeader>
-                <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
-                <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
-            </-cardheader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="jobCategories"
-                columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
-                itemData={jobCategories}
-                isLoading={loadingJobCategories}
-                dialogTitle="Ажил мэргэжлийн ангилал"
-                />
-            </CardContent>
+                <CardHeader>
+                    <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
+                    <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ReferenceTable 
+                    collectionName="jobCategories"
+                    columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
+                    itemData={jobCategories}
+                    isLoading={loadingJobCategories}
+                    dialogTitle="Ажил мэргэжлийн ангилал"
+                    />
+                </CardContent>
             </Card>
         </div>
       </div>
     </div>
   );
 }
-
-    
