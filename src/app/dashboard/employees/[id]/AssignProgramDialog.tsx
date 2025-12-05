@@ -23,6 +23,7 @@ import {
   useFirebase,
   useMemoFirebase,
   addDocumentNonBlocking,
+  useCollection,
 } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import type { Employee } from '../data';
@@ -55,19 +56,24 @@ interface AssignProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employee: Employee;
-  programTemplates: OnboardingProgram[];
 }
 
 export function AssignProgramDialog({
   open,
   onOpenChange,
   employee,
-  programTemplates
 }: AssignProgramDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [selectedProgramId, setSelectedProgramId] = React.useState('');
   const [isAssigning, setIsAssigning] = React.useState(false);
+
+  const programTemplatesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
+    [firestore]
+  );
+  const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
+
 
   const assignedProgramsCollectionRef = useMemoFirebase(
     () => firestore ? collection(firestore, `employees/${employee.id}/assignedPrograms`) : null,
@@ -175,7 +181,9 @@ export function AssignProgramDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-            {programTemplates.length === 0 ? (
+            {isLoadingTemplates ? (
+                <Skeleton className="h-10 w-full" />
+            ) : !programTemplates || programTemplates.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                     Тохиргоо хэсэгт хөтөлбөрийн загвар үүсгэнэ үү.
                 </div>

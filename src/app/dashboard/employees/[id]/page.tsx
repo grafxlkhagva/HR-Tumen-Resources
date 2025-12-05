@@ -223,14 +223,8 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
           : null,
       [firestore, employee.id]
     );
-     const programTemplatesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
-        [firestore]
-    );
 
     const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
-    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
-    
     const activeProgram = assignedPrograms?.[0];
     
     const handleStatusChange = (program: AssignedProgram, taskIndex: number, newStatus: AssignedTask['status']) => {
@@ -248,7 +242,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
 
             const doneTasks = updatedTasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
             const inProgressTasks = updatedTasks.filter(t => t.status === 'IN_PROGRESS').length;
-            const progress = ((doneTasks * 100) + (inProgressTasks * 50)) / updatedTasks.length;
+            const progress = updatedTasks.length > 0 ? ((doneTasks * 100) + (inProgressTasks * 50)) / updatedTasks.length : 0;
 
             const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
             updateDocumentNonBlocking(programDocRef, { tasks: updatedTasks, progress });
@@ -256,7 +250,6 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
             toast({ title: "Даалгаврын төлөв шинэчлэгдлээ." });
         }
     };
-
 
     if (isLoadingAssigned) {
         return (
@@ -317,7 +310,7 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setIsAssignDialogOpen(true)} disabled={isLoadingTemplates}>
+              <Button onClick={() => setIsAssignDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Хөтөлбөр оноох
               </Button>
@@ -325,7 +318,6 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
                  open={isAssignDialogOpen} 
                  onOpenChange={setIsAssignDialogOpen}
                  employee={employee}
-                 programTemplates={programTemplates || []}
                />
             </CardContent>
           </>
