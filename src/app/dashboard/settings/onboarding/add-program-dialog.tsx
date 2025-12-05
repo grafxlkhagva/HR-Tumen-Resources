@@ -36,14 +36,11 @@ import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemo
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 
 const programSchema = z.object({
   title: z.string().min(1, 'Хөтөлбөрийн нэр хоосон байж болохгүй.'),
   description: z.string().optional(),
-  type: z.enum(['ONBOARDING', 'OFFBOARDING'], {
-    required_error: 'Хөтөлбөрийн төрлийг сонгоно уу.',
-  }),
   appliesToType: z.enum(['ALL', 'DEPARTMENT', 'POSITION']).default('ALL'),
   departmentId: z.string().optional(),
   positionId: z.string().optional(),
@@ -55,6 +52,7 @@ type Reference = {
     id: string;
     name: string;
     title?: string;
+    statusId?: string;
 }
 
 interface AddProgramDialogProps {
@@ -63,6 +61,7 @@ interface AddProgramDialogProps {
   editingProgram?: { id: string } & Partial<ProgramFormValues> & { appliesTo?: { departmentId?: string, positionId?: string } } | null;
   departments: Reference[];
   positions: Reference[];
+  positionStatuses: Reference[];
 }
 
 export function AddProgramDialog({
@@ -71,6 +70,7 @@ export function AddProgramDialog({
   editingProgram,
   departments,
   positions,
+  positionStatuses,
 }: AddProgramDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -86,7 +86,6 @@ export function AddProgramDialog({
     defaultValues: {
         title: '',
         description: '',
-        type: 'ONBOARDING',
         appliesToType: 'ALL',
         departmentId: '',
         positionId: '',
@@ -103,7 +102,6 @@ export function AddProgramDialog({
         form.reset({
           title: editingProgram.title || '',
           description: editingProgram.description || '',
-          type: editingProgram.type || 'ONBOARDING',
           appliesToType: appliesToType,
           departmentId: editingProgram.appliesTo?.departmentId || '',
           positionId: editingProgram.appliesTo?.positionId || '',
@@ -112,7 +110,6 @@ export function AddProgramDialog({
         form.reset({
             title: '',
             description: '',
-            type: 'ONBOARDING',
             appliesToType: 'ALL',
             departmentId: '',
             positionId: '',
@@ -136,7 +133,7 @@ export function AddProgramDialog({
     const finalData = {
         title: data.title,
         description: data.description,
-        type: data.type,
+        type: 'ONBOARDING', // Defaulting to ONBOARDING as per request
         appliesTo: appliesTo,
     };
 
@@ -154,6 +151,16 @@ export function AddProgramDialog({
   
   const appliesToType = form.watch('appliesToType');
 
+  const activePositionStatusId = React.useMemo(() => {
+    return positionStatuses.find(status => status.name === 'Нээлттэй')?.id;
+  }, [positionStatuses]);
+
+  const activePositions = React.useMemo(() => {
+    if (!activePositionStatusId) return positions;
+    return positions.filter(pos => pos.statusId === activePositionStatusId);
+  }, [positions, activePositionStatusId]);
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -162,7 +169,7 @@ export function AddProgramDialog({
             <DialogHeader>
               <DialogTitle>{isEditMode ? 'Хөтөлбөр засах' : 'Шинэ хөтөлбөр нэмэх'}</DialogTitle>
               <DialogDescription>
-                Дасан зохицох эсвэл ажлаас чөлөөлөх хөтөлбөрийн загварыг үүсгэнэ үү.
+                Дасан зохицох хөтөлбөрийн загварыг үүсгэнэ үү.
               </DialogDescription>
             </DialogHeader>
 
@@ -190,23 +197,7 @@ export function AddProgramDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Төрөл</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="ONBOARDING">Дасан зохицох</SelectItem>
-                          <SelectItem value="OFFBOARDING">Ажлаас чөлөөлөх</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
                 <FormField
                   control={form.control}
                   name="appliesToType"
@@ -228,7 +219,7 @@ export function AddProgramDialog({
                                   <Card className='p-4 space-y-2'>
                                     <FormItem className="flex items-center space-x-3 space-y-0">
                                         <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
-                                        <FormLabel className="font-normal w-full cursor-pointer">Тодорхой хэлтэс</FormLabel>
+                                        <FormLabel className="font-normal w-full cursor-pointer">Хэлтэс, Алба</FormLabel>
                                     </FormItem>
                                     {appliesToType === 'DEPARTMENT' && (
                                         <FormField
@@ -248,10 +239,10 @@ export function AddProgramDialog({
                                         />
                                     )}
                                   </Card>
-                                  <Card className='p-4 space-y-2'>
+                                   <Card className='p-4 space-y-2'>
                                     <FormItem className="flex items-center space-x-3 space-y-0">
                                         <FormControl><RadioGroupItem value="POSITION" /></FormControl>
-                                        <FormLabel className="font-normal w-full cursor-pointer">Тодорхой албан тушаал</FormLabel>
+                                        <FormLabel className="font-normal w-full cursor-pointer">Ажлын байр</FormLabel>
                                     </FormItem>
                                     {appliesToType === 'POSITION' && (
                                         <FormField
@@ -260,9 +251,9 @@ export function AddProgramDialog({
                                             render={({ field }) => (
                                             <FormItem>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Ажлын байр сонгоно уу..." /></SelectTrigger></FormControl>
                                                 <SelectContent>
-                                                    {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
+                                                    {activePositions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
                                                 </SelectContent>
                                                 </Select>
                                                 <FormMessage />

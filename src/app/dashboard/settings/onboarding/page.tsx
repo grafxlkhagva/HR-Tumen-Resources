@@ -54,7 +54,7 @@ export type OnboardingTaskTemplate = {
     id: string;
     title: string;
     description?: string;
-    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'SPECIFIC_PERSON';
+    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY' | 'SPECIFIC_PERSON';
     dueDays: number;
 }
 
@@ -63,6 +63,12 @@ type Reference = {
     id: string;
     name: string;
     title?: string;
+    statusId?: string;
+}
+
+type PositionStatus = {
+    id: string;
+    name: string;
 }
 
 export default function OnboardingSettingsPage() {
@@ -74,14 +80,18 @@ export default function OnboardingSettingsPage() {
         () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
         [firestore]
     );
-     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const positionStatusesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionStatuses') : null), [firestore]);
+
 
     const { data: programs, isLoading: isLoadingPrograms } = useCollection<OnboardingProgram>(programsQuery);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Reference>(departmentsQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection<Reference>(positionsQuery);
+    const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(positionStatusesQuery);
 
-    const isLoading = isLoadingPrograms || isLoadingDepts || isLoadingPos;
+
+    const isLoading = isLoadingPrograms || isLoadingDepts || isLoadingPos || isLoadingStatuses;
 
     const lookups = React.useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
@@ -112,7 +122,7 @@ export default function OnboardingSettingsPage() {
             return `Хэлтэс: ${lookups.departmentMap[program.appliesTo.departmentId] || 'Тодорхойгүй'}`;
         }
         if (program.appliesTo?.positionId) {
-            return `Албан тушаал: ${lookups.positionMap[program.appliesTo.positionId] || 'Тодорхойгүй'}`;
+            return `Ажлын байр: ${lookups.positionMap[program.appliesTo.positionId] || 'Тодорхойгүй'}`;
         }
         return 'Бүх ажилтан';
     }
@@ -126,6 +136,7 @@ export default function OnboardingSettingsPage() {
                 editingProgram={editingProgram}
                 departments={departments || []}
                 positions={positions || []}
+                positionStatuses={positionStatuses || []}
             />
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -159,7 +170,6 @@ export default function OnboardingSettingsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Хөтөлбөрийн нэр</TableHead>
-                                <TableHead>Төрөл</TableHead>
                                 <TableHead>Үе шат</TableHead>
                                 <TableHead>Даалгавар</TableHead>
                                 <TableHead>Хэрэглэгдэх хүрээ</TableHead>
@@ -170,7 +180,6 @@ export default function OnboardingSettingsPage() {
                             {isLoading && Array.from({length: 2}).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell><Skeleton className="h-5 w-48"/></TableCell>
-                                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                                     <TableCell><Skeleton className="h-5 w-12"/></TableCell>
                                     <TableCell><Skeleton className="h-5 w-12"/></TableCell>
                                     <TableCell><Skeleton className="h-5 w-32"/></TableCell>
@@ -183,11 +192,6 @@ export default function OnboardingSettingsPage() {
                                         <Link href={`/dashboard/settings/onboarding/${program.id}`} className="hover:underline text-primary">
                                             {program.title}
                                         </Link>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={program.type === 'ONBOARDING' ? 'default' : 'secondary'}>
-                                            {program.type === 'ONBOARDING' ? 'Дасан зохицох' : 'Ажлаас чөлөөлөх'}
-                                        </Badge>
                                     </TableCell>
                                     <TableCell>{program.stageCount || 0}</TableCell>
                                     <TableCell>{program.taskCount || 0}</TableCell>
@@ -215,7 +219,7 @@ export default function OnboardingSettingsPage() {
                             ))}
                             {!isLoading && (!programs || programs.length === 0) && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         Хөтөлбөрийн загвар үүсээгүй байна.
                                     </TableCell>
                                 </TableRow>
