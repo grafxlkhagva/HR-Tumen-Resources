@@ -21,7 +21,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -77,7 +76,6 @@ function EmployeeRow({ employee, departmentName }: { employee: Employee; departm
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Үйлдлүүд</DropdownMenuLabel>
             <DropdownMenuItem asChild>
                 <Link href={`/dashboard/employees/${employee.id}`}>Хувийн хэрэг</Link>
             </DropdownMenuItem>
@@ -121,7 +119,7 @@ export default function EmployeesPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Ажилтан</CardTitle>
+            <CardTitle>Ажилтны жагсаалт</CardTitle>
             <CardDescription>
               Ажилтнаа удирдаж, тэдний мэдээллийг харна уу.
             </CardDescription>
