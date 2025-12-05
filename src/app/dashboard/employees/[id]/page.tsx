@@ -477,7 +477,7 @@ export default function EmployeeProfilePage() {
                         <OverviewTabContent employee={employee} />
                     </TabsContent>
                     <TabsContent value="onboarding">
-                        
+                        <OnboardingProgramCard employee={employee} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
