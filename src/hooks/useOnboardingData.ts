@@ -30,9 +30,9 @@ export type AssignedProgram = {
 export function useOnboardingData(employeeId: string) {
     const { firestore } = useFirebase();
 
-    // Query for the active assigned program
+    // Query for the active assigned program for the specific employee
     const assignedProgramsQuery = useMemoFirebase(
-        () => firestore ? query(
+        () => firestore && employeeId ? query(
             collection(firestore, `employees/${employeeId}/assignedPrograms`),
             where('status', '==', 'IN_PROGRESS')
         ) : null,
@@ -45,37 +45,31 @@ export function useOnboardingData(employeeId: string) {
         [firestore]
     );
 
-    const { data: programs, isLoading: isLoadingPrograms } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
     const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
-    const program = programs && programs.length > 0 ? programs[0] : null;
+    const assignedProgram = assignedPrograms && assignedPrograms.length > 0 ? assignedPrograms[0] : null;
 
     const calculateProgress = React.useCallback((tasks: AssignedTask[]): number => {
         if (!tasks || tasks.length === 0) return 0;
         
-        const totalValue = tasks.length * 100;
-        const currentValue = tasks.reduce((sum, task) => {
-            switch(task.status) {
-                case 'DONE':
-                case 'VERIFIED':
-                    return sum + 100;
-                case 'IN_PROGRESS':
-                    return sum + 50;
-                default:
-                    return sum;
-            }
-        }, 0);
+        const totalValue = tasks.length;
+        const completedValue = tasks.filter(task => task.status === 'DONE' || task.status === 'VERIFIED').length;
+        const inProgressValue = tasks.filter(task => task.status === 'IN_PROGRESS').length;
+        
+        // Each completed task is 1 point, each in-progress is 0.5
+        const currentValue = completedValue + (inProgressValue * 0.5);
 
-        return Math.round(currentValue / totalValue * 100);
+        return Math.round((currentValue / totalValue) * 100);
     }, []);
 
     // Function to update a task's status
     const updateTaskStatus = React.useCallback(async (programId: string, taskId: string, newStatus: TaskStatus) => {
-        if (!firestore || !employeeId || !program) return;
+        if (!firestore || !employeeId || !assignedProgram) return;
         
         const programDocRef = doc(firestore, `employees/${employeeId}/assignedPrograms`, programId);
 
-        const newTasks = program.tasks.map(task => 
+        const newTasks = assignedProgram.tasks.map(task => 
             task.templateTaskId === taskId ? { ...task, status: newStatus } : task
         );
         
@@ -97,13 +91,13 @@ export function useOnboardingData(employeeId: string) {
             progress: newProgress,
         });
 
-    }, [firestore, employeeId, program, calculateProgress]);
+    }, [firestore, employeeId, assignedProgram, calculateProgress]);
 
 
     return {
-        program,
+        assignedProgram,
         programTemplates,
-        isLoading: isLoadingPrograms || isLoadingTemplates,
+        isLoading: isLoadingAssigned || isLoadingTemplates,
         updateTaskStatus,
     };
 }

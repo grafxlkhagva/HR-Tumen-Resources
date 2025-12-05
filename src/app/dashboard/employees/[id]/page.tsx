@@ -212,7 +212,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     
     const {
-        program,
+        assignedProgram,
         programTemplates,
         isLoading,
         updateTaskStatus,
@@ -237,7 +237,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
         )
     }
 
-    if (!program) {
+    if (!assignedProgram) {
         return (
              <Card>
                 <CardHeader>
@@ -261,16 +261,16 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{program.programName}</CardTitle>
+                <CardTitle>{assignedProgram.programName}</CardTitle>
                 <div className="flex items-center gap-4">
-                    <Progress value={program.progress || 0} className="w-full" />
-                    <span className="text-lg font-bold text-primary">{Math.round(program.progress || 0)}%</span>
+                    <Progress value={assignedProgram.progress || 0} className="w-full" />
+                    <span className="text-lg font-bold text-primary">{Math.round(assignedProgram.progress || 0)}%</span>
                 </div>
             </CardHeader>
             <CardContent>
                 <h4 className="font-semibold mb-4">Даалгаврууд</h4>
                 <div className="space-y-3">
-                    {program.tasks.map(task => (
+                    {assignedProgram.tasks.map(task => (
                         <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
                             <div className="flex items-center gap-3">
                                 <div>
@@ -283,7 +283,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
                             </div>
                            <TaskStatusDropdown
                              currentStatus={task.status}
-                             onStatusChange={(newStatus) => updateTaskStatus(program.id, task.templateTaskId, newStatus)}
+                             onStatusChange={(newStatus) => updateTaskStatus(assignedProgram.id, task.templateTaskId, newStatus)}
                            />
                         </div>
                     ))}
