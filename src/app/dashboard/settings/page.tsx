@@ -179,6 +179,8 @@ export default function SettingsPage() {
   const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
   const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
+  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
+
 
   // Questionnaire references
   const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
@@ -358,9 +360,25 @@ export default function SettingsPage() {
 
             <Card>
             <CardHeader>
+                <CardTitle>Чөлөөний хүсэлтийн төрөл</CardTitle>
+                <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                collectionName="timeOffRequestTypes"
+                columns={[{ key: 'name', header: 'Нэр' }]}
+                itemData={timeOffRequestTypes}
+                isLoading={loadingTimeOffRequestTypes}
+                dialogTitle="Хүсэлтийн төрөл"
+                />
+            </CardContent>
+            </Card>
+
+            <Card>
+            <CardHeader>
                 <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
                 <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
-            </CardHeader>
+            </-cardheader>
             <CardContent>
                 <ReferenceTable 
                 collectionName="jobCategories"
@@ -376,3 +394,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

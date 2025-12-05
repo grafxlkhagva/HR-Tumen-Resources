@@ -22,6 +22,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type AttendanceRecord = {
     id: string;
@@ -37,10 +39,17 @@ type TimeOffRequest = {
     startDate: string;
     endDate: string;
     reason: string;
+    type: string;
     status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
 };
 
+type ReferenceItem = {
+    id: string;
+    name: string;
+}
+
 const timeOffRequestSchema = z.object({
+  type: z.string().min(1, "Хүсэлтийн төрлийг сонгоно уу."),
   dateRange: z.object({
     from: z.date({ required_error: 'Эхлэх огноог сонгоно уу.' }),
     to: z.date({ required_error: 'Дуусах огноог сонгоно уу.' }),
@@ -55,6 +64,9 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean;
     const { toast } = useToast();
     
     const timeOffCollectionRef = useMemoFirebase(() => (firestore && employeeId ? collection(firestore, `employees/${employeeId}/timeOffRequests`) : null), [firestore, employeeId]);
+    const requestTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'timeOffRequestTypes') : null), [firestore]);
+    const { data: requestTypes, isLoading: isLoadingTypes } = useCollection<ReferenceItem>(requestTypesQuery);
+
 
     const form = useForm<TimeOffRequestFormValues>({
         resolver: zodResolver(timeOffRequestSchema),
@@ -65,6 +77,7 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean;
 
         await addDocumentNonBlocking(timeOffCollectionRef, {
             employeeId,
+            type: values.type,
             startDate: values.dateRange.from.toISOString(),
             endDate: values.dateRange.to.toISOString(),
             reason: values.reason,
@@ -81,16 +94,38 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean;
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Чөлөөний хүсэлт гаргах</DialogTitle>
+                    <DialogTitle>Хүсэлт гаргах</DialogTitle>
                 </DialogHeader>
                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
+                            name="type"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Хүсэлтийн төрөл</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger disabled={isLoadingTypes}>
+                                                <SelectValue placeholder={isLoadingTypes ? "Ачааллаж байна..." : "Төрөл сонгоно уу..."} />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {requestTypes?.map(type => (
+                                                <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
                             name="dateRange"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Чөлөө авах хугацаа</FormLabel>
+                                    <FormLabel>Хүсэлт гаргах хугацаа</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                         <FormControl>
@@ -136,7 +171,7 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId }: { open: boolean;
                                 <FormItem>
                                     <FormLabel>Шалтгаан</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Чөлөө авах шалтгаанаа энд бичнэ үү..." {...field} />
+                                        <Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -237,7 +272,7 @@ function TimeOffHistory({ requests, isLoading }: { requests: TimeOffRequest[] | 
         return (
             <div className="text-center text-muted-foreground py-8">
                 <FileText className="mx-auto h-12 w-12" />
-                <p className="mt-4">Чөлөөний хүсэлт байхгүй байна.</p>
+                <p className="mt-4">Хүсэлтийн түүх байхгүй байна.</p>
             </div>
         )
     }
@@ -249,7 +284,7 @@ function TimeOffHistory({ requests, isLoading }: { requests: TimeOffRequest[] | 
                 return (
                     <div key={req.id} className="flex items-start justify-between rounded-lg border p-4">
                         <div>
-                            <p className="font-semibold">{req.reason}</p>
+                            <p className="font-semibold">{req.type}</p>
                             <p className="text-sm text-muted-foreground">
                                 {format(new Date(req.startDate), 'yyyy/MM/dd')} - {format(new Date(req.endDate), 'yyyy/MM/dd')}
                             </p>
@@ -409,7 +444,7 @@ export default function AttendancePage() {
 
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Чөлөөний хүсэлт</CardTitle>
+                    <CardTitle>Хүсэлтүүд</CardTitle>
                     <Button size="sm" onClick={() => setIsLeaveDialogOpen(true)}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Хүсэлт гаргах
