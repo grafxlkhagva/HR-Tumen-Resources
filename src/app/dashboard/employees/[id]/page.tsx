@@ -157,7 +157,6 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
             <Card>
                 <CardHeader>
                     <Skeleton className="h-7 w-48" />
-                    <Skeleton className="h-4 w-64" />
                 </CardHeader>
                 <CardContent>
                     <Skeleton className="h-20 w-full" />
@@ -199,6 +198,11 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
                         />
                     </div>
                 ))}
+                 {activeProgram.tasks.length === 0 && (
+                    <div className="text-center py-4 text-muted-foreground">
+                        <p>Энэ хөтөлбөрт оноогдсон даалгавар байхгүй байна.</p>
+                    </div>
+                )}
             </CardContent>
           </Card>
         );
