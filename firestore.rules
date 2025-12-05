@@ -28,20 +28,23 @@ service cloud.firestore {
       // Admins can read any employee's subcollections
       allow read: if request.auth != null && isAdmin();
     }
-    
+
+    // Rules for the 'feedback' collection
     match /feedback/{feedbackId} {
       allow create: if request.auth != null;
       // Admins can read and update any single feedback document.
       allow read, update: if request.auth != null && isAdmin();
-      
+
       // Users can only read their own non-anonymous feedback.
       allow read: if request.auth != null && resource.data.isAnonymous == false && request.auth.uid == resource.data.employeeId;
     }
-    
+
     // This rule is crucial for allowing admins to list the entire collection.
+    // It must come AFTER the more specific /feedback/{feedbackId} rule.
     match /feedback {
        allow list: if request.auth != null && isAdmin();
     }
+
 
     match /{path=**} {
         // Fallback for other collections.
