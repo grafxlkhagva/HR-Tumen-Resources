@@ -109,104 +109,6 @@ function ProfileSkeleton() {
     )
 }
 
-const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
-    const { firestore } = useFirebase();
-    const historyQuery = useMemoFirebase(
-      () =>
-        firestore
-          ? query(
-              collection(firestore, `employees/${employeeId}/employmentHistory`),
-              orderBy('eventDate', 'desc')
-            )
-          : null,
-      [firestore, employeeId]
-    );
-  
-    const {
-      data: history,
-      isLoading,
-      error,
-    } = useCollection<EmploymentHistoryEvent>(historyQuery);
-
-    const documents = history?.filter(event => event.documentId);
-
-    if (isLoading) {
-        return (
-            <div className="space-y-2">
-                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-        )
-    }
-
-    if (error) {
-        return <p className="text-destructive">Баримт бичиг ачаалахад алдаа гарлаа.</p>
-    }
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Хавсаргасан бичиг баримтууд</CardTitle>
-                <CardDescription>
-                    Ажилтны хөдөлмөрийн түүхтэй холбоотой хавсаргасан баримтууд.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {documents && documents.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Баримтын нэр</TableHead>
-                            <TableHead>Холбогдох үйл явдал</TableHead>
-                            <TableHead>Огноо</TableHead>
-                            <TableHead className="text-right">Үйлдэл</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {documents.map((doc) => (
-                            <TableRow key={doc.id}>
-                                <TableCell className="font-medium flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                    {doc.documentName}
-                                </TableCell>
-                                <TableCell>{doc.eventType}</TableCell>
-                                <TableCell>{new Date(doc.eventDate).toLocaleDateString()}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                         <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">Цэс</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem asChild>
-                                                <Link href={`/dashboard/documents/${doc.documentId}`}>
-                                                    Дэлгэрэнгүй
-                                                </Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem asChild>
-                                                <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
-                                                    Татах
-                                                </a>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                 ) : (
-                    <div className="py-10 text-center text-muted-foreground">
-                        <FileText className="mx-auto h-12 w-12" />
-                        <p className="mt-4">Хавсаргасан баримт бичиг одоогоор байхгүй байна.</p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
-}
-
 const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -325,10 +227,119 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
     );
 };
 
+const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
+    const { firestore } = useFirebase();
+    const historyQuery = useMemoFirebase(
+      () =>
+        firestore
+          ? query(
+              collection(firestore, `employees/${employeeId}/employmentHistory`),
+              orderBy('eventDate', 'desc')
+            )
+          : null,
+      [firestore, employeeId]
+    );
+  
+    const {
+      data: history,
+      isLoading,
+      error,
+    } = useCollection<EmploymentHistoryEvent>(historyQuery);
+
+    const documents = history?.filter(event => event.documentId);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-2">
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+        )
+    }
+
+    if (error) {
+        return <p className="text-destructive">Баримт бичиг ачаалахад алдаа гарлаа.</p>
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Хавсаргасан бичиг баримтууд</CardTitle>
+                <CardDescription>
+                    Ажилтны хөдөлмөрийн түүхтэй холбоотой хавсаргасан баримтууд.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {documents && documents.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Баримтын нэр</TableHead>
+                            <TableHead>Холбогдох үйл явдал</TableHead>
+                            <TableHead>Огноо</TableHead>
+                            <TableHead className="text-right">Үйлдэл</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {documents.map((doc) => (
+                            <TableRow key={doc.id}>
+                                <TableCell className="font-medium flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    {doc.documentName}
+                                </TableCell>
+                                <TableCell>{doc.eventType}</TableCell>
+                                <TableCell>{new Date(doc.eventDate).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                         <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Цэс</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/dashboard/documents/${doc.documentId}`}>
+                                                    Дэлгэрэнгүй
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
+                                                    Татах
+                                                </a>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                 ) : (
+                    <div className="py-10 text-center text-muted-foreground">
+                        <FileText className="mx-auto h-12 w-12" />
+                        <p className="mt-4">Хавсаргасан баримт бичиг одоогоор байхгүй байна.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
 
 const OverviewTabContent = ({ employee }: { employee: Employee }) => {
     return (
         <div className="space-y-6">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Ур чадвар</CardTitle>
+                    <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
+                </CardContent>
+            </Card>
+
+            <OnboardingProgramCard employee={employee} />
+
             <Card>
                 <CardHeader>
                     <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
@@ -338,7 +349,6 @@ const OverviewTabContent = ({ employee }: { employee: Employee }) => {
                     <EmploymentHistoryTimeline employeeId={employee.id} />
                 </CardContent>
             </Card>
-            <OnboardingProgramCard employee={employee} />
         </div>
     )
 }
