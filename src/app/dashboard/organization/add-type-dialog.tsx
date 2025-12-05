@@ -157,7 +157,7 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
         {!showAddForm && (
             <Button onClick={() => setShowAddForm(true)} className="w-full" variant="outline">
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Шинэ төрөл нэмэх
+                Нэмэх
             </Button>
         )}
 
