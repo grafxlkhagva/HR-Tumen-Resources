@@ -23,11 +23,33 @@ import {
   useFirebase,
   useMemoFirebase,
   addDocumentNonBlocking,
+  useCollection,
 } from '@/firebase';
 import { collection, getDocs, WriteBatch, writeBatch } from 'firebase/firestore';
 import type { Employee } from '../data';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 import { add } from 'date-fns';
+
+export type AssignedTask = {
+    templateTaskId: string;
+    title: string;
+    status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'VERIFIED';
+    dueDate: string;
+    completedAt?: string;
+    assigneeId: string;
+    assigneeName?: string;
+};
+
+export type AssignedProgram = {
+    id: string;
+    programId: string;
+    programName: string;
+    status: 'IN_PROGRESS' | 'COMPLETED';
+    startDate: string;
+    progress: number;
+    tasks: AssignedTask[];
+}
+
 
 interface AssignProgramDialogProps {
   open: boolean;
@@ -71,8 +93,7 @@ export function AssignProgramDialog({
       const stagesSnapshot = await getDocs(stagesCollectionRef);
 
       const allTasks: any[] = [];
-      const batch: WriteBatch = writeBatch(firestore);
-
+      
       for (const stageDoc of stagesSnapshot.docs) {
           const tasksCollectionRef = collection(firestore, stageDoc.ref.path, 'tasks');
           const tasksSnapshot = await getDocs(tasksCollectionRef);
@@ -93,15 +114,15 @@ export function AssignProgramDialog({
                   assigneeName = `${employee.firstName} ${employee.lastName}`;
                   break;
                 case 'MANAGER':
-                    assigneeId = 'manager_placeholder_id'; // Replace with actual logic
+                    assigneeId = employee.id; // Placeholder
                     assigneeName = "Шууд удирдлага"; // Placeholder
                     break;
                 case 'HR':
-                    assigneeId = 'hr_placeholder_id'; // Replace with actual logic
+                    assigneeId = employee.id; // Placeholder
                     assigneeName = "Хүний нөөц"; // Placeholder
                     break;
                 case 'BUDDY':
-                    assigneeId = 'buddy_placeholder_id'; // Replace with actual logic
+                    assigneeId = employee.id; // Placeholder
                     assigneeName = "Дэмжигч ажилтан"; // Placeholder
                     break;
               }

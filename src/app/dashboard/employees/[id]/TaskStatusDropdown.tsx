@@ -11,7 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Check, Clock, Play, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { TaskStatus } from '@/hooks/useOnboardingData';
+import type { AssignedTask } from './AssignProgramDialog';
+
+type TaskStatus = AssignedTask['status'];
 
 const statusConfig: Record<TaskStatus, { label: string; icon: React.ElementType; className: string }> = {
   TODO: { label: 'Хийх', icon: Circle, className: 'text-muted-foreground' },
