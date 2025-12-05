@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import type { OnboardingProgram } from '@/app/dashboard/settings/onboarding/page';
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'VERIFIED';
 
@@ -39,14 +38,7 @@ export function useOnboardingData(employeeId: string) {
         [firestore, employeeId]
     );
 
-    // Query for all program templates (for the 'Assign Program' dialog)
-    const programTemplatesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'onboardingPrograms') : null,
-        [firestore]
-    );
-
-    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
-    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
+    const { data: assignedPrograms, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
 
     const assignedProgram = assignedPrograms && assignedPrograms.length > 0 ? assignedPrograms[0] : null;
 
@@ -96,8 +88,7 @@ export function useOnboardingData(employeeId: string) {
 
     return {
         assignedProgram,
-        programTemplates,
-        isLoading: isLoadingAssigned || isLoadingTemplates,
+        isLoading,
         updateTaskStatus,
     };
 }

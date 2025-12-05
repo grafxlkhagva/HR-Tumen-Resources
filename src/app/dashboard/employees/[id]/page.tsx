@@ -33,6 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog } from './AssignProgramDialog';
 import { useOnboardingData } from '@/hooks/useOnboardingData';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
+import type { OnboardingProgram } from '../../settings/onboarding/page';
 
 
 type Department = {
@@ -210,13 +211,23 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
 
 const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
+    const { firestore } = useFirebase();
     
+    // Fetch assigned program for the employee
     const {
         assignedProgram,
-        programTemplates,
-        isLoading,
+        isLoading: isLoadingAssignedProgram,
         updateTaskStatus,
     } = useOnboardingData(employee.id);
+
+    // Fetch all program templates for the assignment dialog
+    const programTemplatesQuery = useMemoFirebase(
+        () => firestore ? collection(firestore, 'onboardingPrograms') : null,
+        [firestore]
+    );
+    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
+
+    const isLoading = isLoadingAssignedProgram || isLoadingTemplates;
 
     if (isLoading) {
         return (
