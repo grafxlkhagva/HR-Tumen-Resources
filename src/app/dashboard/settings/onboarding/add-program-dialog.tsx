@@ -139,6 +139,7 @@ export function AddProgramDialog({
         title: data.title,
         description: data.description,
         appliesTo: appliesTo,
+        type: 'ONBOARDING',
     };
 
     if (isEditMode && editingProgram) {
@@ -146,7 +147,7 @@ export function AddProgramDialog({
       updateDocumentNonBlocking(docRef, finalData);
       toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {
-      addDocumentNonBlocking(programsCollectionRef, { ...finalData, type: 'ONBOARDING', stageCount: 0, taskCount: 0 });
+      addDocumentNonBlocking(programsCollectionRef, { ...finalData, stageCount: 0, taskCount: 0 });
       toast({ title: 'Хөтөлбөр амжилттай нэмэгдлээ' });
     }
 
@@ -177,7 +178,7 @@ export function AddProgramDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="max-h-[70vh] p-1">
+            <ScrollArea className="max-h-[60vh] p-1">
               <div className="space-y-4 py-4 pr-4">
                 <FormField
                   control={form.control}
