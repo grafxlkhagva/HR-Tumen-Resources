@@ -36,6 +36,7 @@ import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemo
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent } from '@/components/ui/card';
 
 const programSchema = z.object({
   title: z.string().min(1, 'Хөтөлбөрийн нэр хоосон байж болохгүй.'),
@@ -214,64 +215,68 @@ export function AddProgramDialog({
                           <FormLabel>Хэрэглэгдэх хүрээ</FormLabel>
                           <FormControl>
                               <RadioGroup
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              className="flex flex-col space-y-1"
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                  className="flex flex-col space-y-1"
                               >
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl><RadioGroupItem value="ALL" /></FormControl>
-                                  <FormLabel className="font-normal">Бүх ажилтан</FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
-                                  <FormLabel className="font-normal">Тодорхой хэлтэс</FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl><RadioGroupItem value="POSITION" /></FormControl>
-                                  <FormLabel className="font-normal">Тодорхой албан тушаал</FormLabel>
-                              </FormItem>
+                                  <Card className='p-4'>
+                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                        <FormControl><RadioGroupItem value="ALL" /></FormControl>
+                                        <FormLabel className="font-normal w-full cursor-pointer">Бүх ажилтан</FormLabel>
+                                    </FormItem>
+                                  </Card>
+                                  <Card className='p-4 space-y-2'>
+                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                        <FormControl><RadioGroupItem value="DEPARTMENT" /></FormControl>
+                                        <FormLabel className="font-normal w-full cursor-pointer">Тодорхой хэлтэс</FormLabel>
+                                    </FormItem>
+                                    {appliesToType === 'DEPARTMENT' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="departmentId"
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
+                                                </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    )}
+                                  </Card>
+                                  <Card className='p-4 space-y-2'>
+                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                        <FormControl><RadioGroupItem value="POSITION" /></FormControl>
+                                        <FormLabel className="font-normal w-full cursor-pointer">Тодорхой албан тушаал</FormLabel>
+                                    </FormItem>
+                                    {appliesToType === 'POSITION' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="positionId"
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
+                                                </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    )}
+                                  </Card>
                               </RadioGroup>
                           </FormControl>
                           <FormMessage />
                       </FormItem>
                   )}
-                  />
-                  {appliesToType === 'DEPARTMENT' && (
-                      <FormField
-                          control={form.control}
-                          name="departmentId"
-                          render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Хэлтэс сонгох</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
-                              <SelectContent>
-                                  {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
-                              </SelectContent>
-                              </Select>
-                              <FormMessage />
-                          </FormItem>
-                          )}
-                      />
-                  )}
-                  {appliesToType === 'POSITION' && (
-                      <FormField
-                          control={form.control}
-                          name="positionId"
-                          render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Албан тушаал сонгох</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl><SelectTrigger><SelectValue placeholder="Албан тушаал сонгоно уу..." /></SelectTrigger></FormControl>
-                              <SelectContent>
-                                  {positions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
-                              </SelectContent>
-                              </Select>
-                              <FormMessage />
-                          </FormItem>
-                          )}
-                      />
-                  )}
+                />
               </div>
             </ScrollArea>
 
