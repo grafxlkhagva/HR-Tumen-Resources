@@ -55,13 +55,18 @@ type Reference = {
     statusId?: string;
 }
 
+interface PositionStatus {
+    id: string;
+    name: string;
+}
+
 interface AddProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingProgram?: { id: string } & Partial<ProgramFormValues> & { appliesTo?: { departmentId?: string, positionId?: string } } | null;
   departments: Reference[];
   positions: Reference[];
-  positionStatuses: Reference[];
+  positionStatuses: PositionStatus[];
 }
 
 export function AddProgramDialog({
@@ -133,7 +138,7 @@ export function AddProgramDialog({
     const finalData = {
         title: data.title,
         description: data.description,
-        type: 'ONBOARDING', // Defaulting to ONBOARDING as per request
+        type: 'ONBOARDING',
         appliesTo: appliesTo,
     };
 
