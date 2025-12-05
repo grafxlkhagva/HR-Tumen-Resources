@@ -35,7 +35,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 
 const programSchema = z.object({
@@ -176,9 +175,8 @@ export function AddProgramDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
-            <ScrollArea className="flex-1 pr-6">
-              <div className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
+            <div className="flex-1 overflow-y-auto pr-6 -mr-6 space-y-4 py-1">
                 <FormField
                   control={form.control}
                   name="title"
@@ -243,7 +241,7 @@ export function AddProgramDialog({
                                         />
                                     )}
                                   </Card>
-                                   <Card className='p-4 space-y-2'>
+                                  <Card className='p-4 space-y-2'>
                                     <FormItem className="flex items-center space-x-3 space-y-0">
                                         <FormControl><RadioGroupItem value="POSITION" /></FormControl>
                                         <FormLabel className="font-normal w-full cursor-pointer">Ажлын байр</FormLabel>
@@ -272,9 +270,8 @@ export function AddProgramDialog({
                       </FormItem>
                   )}
                 />
-              </div>
-            </ScrollArea>
-            <DialogFooter className="pt-4 border-t">
+            </div>
+            <DialogFooter className="pt-4 border-t -mx-6 px-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
