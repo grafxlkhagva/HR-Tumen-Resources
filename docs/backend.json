@@ -834,7 +834,8 @@
         "status": { "type": "string", "enum": ["TODO", "IN_PROGRESS", "DONE", "VERIFIED"] },
         "dueDate": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" },
-        "assigneeId": { "type": "string", "description": "Даалгаврыг гүйцэтгэх ажилтны ID." }
+        "assigneeId": { "type": "string", "description": "Даалгаврыг гүйцэтгэх ажилтны ID." },
+        "assigneeName": { "type": "string", "description": "Даалгаврыг гүйцэтгэгчийн нэр." }
       },
       "required": ["templateTaskId", "title", "status", "dueDate", "assigneeId"]
     }

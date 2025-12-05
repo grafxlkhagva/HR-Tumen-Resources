@@ -32,31 +32,14 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog } from './AssignProgramDialog';
 import { type OnboardingProgram } from '../../settings/onboarding/page';
+import { useOnboardingData } from '@/hooks/useOnboardingData';
+import { TaskStatusDropdown } from './TaskStatusDropdown';
 
 
 type Department = {
     id: string;
     name: string;
 };
-
-type AssignedTask = {
-    templateTaskId: string;
-    title: string;
-    status: 'TODO' | 'COMPLETED';
-    dueDate: string;
-    completedAt?: string;
-    assigneeId: string;
-};
-
-type AssignedProgram = {
-    id: string;
-    programId: string;
-    programName: string;
-    status: 'IN_PROGRESS' | 'COMPLETED';
-    startDate: string;
-    progress: number;
-    tasks: AssignedTask[];
-}
 
 type EmploymentHistoryEvent = {
   id: string;
@@ -229,22 +212,15 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
 const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
     const { firestore } = useFirebase();
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
-
-    const assignedProgramsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, `employees/${employee.id}/assignedPrograms`), where('status', '==', 'IN_PROGRESS')) : null,
-        [firestore, employee.id]
-    );
-     const programTemplatesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'onboardingPrograms') : null,
-        [firestore]
-    );
-
-    const { data: programs, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
-    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
-
-    const program = programs && programs.length > 0 ? programs[0] : null;
     
-    if (isLoading || isLoadingTemplates) {
+    const {
+        program,
+        programTemplates,
+        isLoading,
+        updateTaskStatus,
+    } = useOnboardingData(employee.id);
+
+    if (isLoading) {
         return (
              <Card>
                 <CardHeader>
@@ -288,30 +264,29 @@ const OnboardingTabContent = ({ employee }: { employee: Employee}) => {
         <Card>
             <CardHeader>
                 <CardTitle>{program.programName}</CardTitle>
-                <CardDescription>
-                    Хөтөлбөрийн явц: {Math.round(program.progress || 0)}%
-                </CardDescription>
-                 <Progress value={program.progress || 0} className="mt-2" />
+                <div className="flex items-center gap-4">
+                    <Progress value={program.progress || 0} className="w-full" />
+                    <span className="text-lg font-bold text-primary">{Math.round(program.progress || 0)}%</span>
+                </div>
             </CardHeader>
             <CardContent>
                 <h4 className="font-semibold mb-4">Даалгаврууд</h4>
                 <div className="space-y-3">
                     {program.tasks.map(task => (
-                        <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border p-3">
+                        <div key={task.templateTaskId} className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
                             <div className="flex items-center gap-3">
-                                {task.status === 'COMPLETED' ? (
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                ) : (
-                                    <Clock className="h-5 w-5 text-yellow-500" />
-                                )}
                                 <div>
                                     <p className="font-medium">{task.title}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Дуусах хугацаа: {new Date(task.dueDate).toLocaleDateString()}
-                                    </p>
+                                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                        <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
+                                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="sm">Дэлгэрэнгүй</Button>
+                           <TaskStatusDropdown
+                             currentStatus={task.status}
+                             onStatusChange={(newStatus) => updateTaskStatus(program.id, task.templateTaskId, newStatus)}
+                           />
                         </div>
                     ))}
                 </div>
