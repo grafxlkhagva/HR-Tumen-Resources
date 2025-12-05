@@ -9,28 +9,30 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
+      // Check for the existence of the document and the role field.
+      return request.auth != null && exists(/databases/$(database)/documents/employees/$(request.auth.uid)) && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
     }
 
-    match /employees/{userId}/{document=**} {
-      allow read, write: if isOwner(userId) || isAdmin();
-    }
-
-    match /documents/{documentId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /company/{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    match /{path=**}/timeOffRequests/{requestId} {
-      allow read: if isAdmin() || isOwner(path.split('/')[1]);
-    }
-    
-    // Catch-all for other collections - adjust as needed
+    // Admins can read/write any document.
     match /{document=**} {
       allow read, write: if isAdmin();
+    }
+
+    // Specific rules for employees accessing their own data.
+    match /employees/{userId}/{path=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Allow any authenticated user to read documents in the 'documents' collection.
+    // This allows employees to view general documents. Write is still restricted to admins by the rule above.
+    match /documents/{documentId} {
+      allow read: if request.auth != null;
+    }
+
+    // Rules for the collectionGroup query on 'timeOffRequests'.
+    // Admins can list all requests. Employees can only list their own.
+    match /employees/{userId}/timeOffRequests/{requestId} {
+        allow read, write: if isOwner(userId) || isAdmin();
     }
   }
 }
