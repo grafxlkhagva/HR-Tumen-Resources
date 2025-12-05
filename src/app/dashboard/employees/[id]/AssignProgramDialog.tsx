@@ -25,7 +25,7 @@ import {
   addDocumentNonBlocking,
   useCollection,
 } from '@/firebase';
-import { collection, getDocs, WriteBatch, writeBatch } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import type { Employee } from '../data';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
 import { add } from 'date-fns';
@@ -55,19 +55,23 @@ interface AssignProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employee: Employee;
-  programTemplates: OnboardingProgram[];
 }
 
 export function AssignProgramDialog({
   open,
   onOpenChange,
   employee,
-  programTemplates,
 }: AssignProgramDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [selectedProgramId, setSelectedProgramId] = React.useState('');
   const [isAssigning, setIsAssigning] = React.useState(false);
+  
+  const programTemplatesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
+    [firestore]
+  );
+  const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
 
   const assignedProgramsCollectionRef = useMemoFirebase(
     () => collection(firestore, `employees/${employee.id}/assignedPrograms`),
@@ -86,7 +90,7 @@ export function AssignProgramDialog({
     setIsAssigning(true);
 
     try {
-      const programTemplate = programTemplates.find(p => p.id === selectedProgramId);
+      const programTemplate = programTemplates?.find(p => p.id === selectedProgramId);
       if (!programTemplate) throw new Error('Хөтөлбөрийн загвар олдсонгүй.');
 
       const stagesCollectionRef = collection(firestore, `onboardingPrograms/${selectedProgramId}/stages`);
@@ -106,15 +110,13 @@ export function AssignProgramDialog({
               let assigneeId = employee.id; // Default to the new hire
               let assigneeName = `${employee.firstName} ${employee.lastName}`;
               
-              // This logic can be expanded later to find the actual manager, HR person, etc.
-              // For now, we use placeholders.
               switch(taskTemplate.assigneeType) {
                 case 'NEW_HIRE':
                   assigneeId = employee.id;
                   assigneeName = `${employee.firstName} ${employee.lastName}`;
                   break;
                 case 'MANAGER':
-                    assigneeId = employee.id; // Placeholder
+                    assigneeId = employee.id; // Placeholder - should be replaced with actual manager logic
                     assigneeName = "Шууд удирдлага"; // Placeholder
                     break;
                 case 'HR':
@@ -177,12 +179,13 @@ export function AssignProgramDialog({
           <Select
             value={selectedProgramId}
             onValueChange={setSelectedProgramId}
+            disabled={isLoadingTemplates}
           >
             <SelectTrigger>
               <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
             </SelectTrigger>
             <SelectContent>
-              {programTemplates.map((program) => (
+              {programTemplates?.map((program) => (
                 <SelectItem key={program.id} value={program.id}>
                   {program.title}
                 </SelectItem>
@@ -198,7 +201,7 @@ export function AssignProgramDialog({
           >
             Цуцлах
           </Button>
-          <Button onClick={handleAssign} disabled={isAssigning || !selectedProgramId}>
+          <Button onClick={handleAssign} disabled={isAssigning || !selectedProgramId || isLoadingTemplates}>
             {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Оноох
           </Button>

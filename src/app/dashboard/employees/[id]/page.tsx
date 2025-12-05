@@ -4,13 +4,13 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, orderBy, where, addDoc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where, addDoc, updateDoc } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, Download, MoreHorizontal, User, Shield, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -30,7 +30,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
-import { AssignProgramDialog, type AssignedProgram } from './AssignProgramDialog';
+import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import type { OnboardingProgram } from '../../settings/onboarding/page';
 import { updateDocumentNonBlocking } from '@/firebase';
@@ -209,27 +209,28 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
-const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
+function OnboardingTabContent({ employee }: { employee: Employee }) {
     const { firestore } = useFirebase();
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
 
-    // 1. Fetch the currently assigned program for this employee
-    const assignedProgramQuery = useMemoFirebase(() => (
-        firestore ? query(
-            collection(firestore, `employees/${employee.id}/assignedPrograms`),
-            where('status', '==', 'IN_PROGRESS')
-        ) : null
-    ), [firestore, employee.id]);
+    const assignedProgramsQuery = useMemoFirebase(
+      () =>
+        firestore
+          ? query(
+              collection(firestore, `employees/${employee.id}/assignedPrograms`),
+              where('status', '==', 'IN_PROGRESS')
+            )
+          : null,
+      [firestore, employee.id]
+    );
 
-    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramQuery);
+    const {
+      data: assignedPrograms,
+      isLoading: isLoadingAssigned,
+      error,
+    } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    
     const assignedProgram = assignedPrograms?.[0];
-    
-    // 2. Fetch all available program templates (only when the dialog is opened)
-    const templatesQuery = useMemoFirebase(() => (
-        firestore && isAssignDialogOpen ? collection(firestore, 'onboardingPrograms') : null
-    ), [firestore, isAssignDialogOpen]);
-    
-    const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(templatesQuery);
 
     const calculateProgress = React.useCallback((tasks: AssignedProgram['tasks']): number => {
         if (!tasks || tasks.length === 0) return 0;
@@ -240,7 +241,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
         return Math.round((currentValue / totalValue) * 100);
     }, []);
 
-    const updateTaskStatus = React.useCallback(async (taskId: string, newStatus: AssignedProgram['tasks'][0]['status']) => {
+    const updateTaskStatus = React.useCallback(async (taskId: string, newStatus: AssignedTask['status']) => {
         if (!firestore || !assignedProgram) return;
 
         const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, assignedProgram.id);
@@ -262,7 +263,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
             return task;
         });
 
-        await updateDocumentNonBlocking(programDocRef, {
+        await updateDoc(programDocRef, {
             tasks: finalTasks,
             progress: newProgress,
         });
@@ -303,7 +304,6 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                         open={isAssignDialogOpen}
                         onOpenChange={setIsAssignDialogOpen}
                         employee={employee}
-                        programTemplates={programTemplates || []}
                     />
                 </CardContent>
             </Card>
@@ -331,7 +331,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                                     <p className="font-medium">{task.title}</p>
                                     <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
                                         <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
-                                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
+                                        <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             </div>
