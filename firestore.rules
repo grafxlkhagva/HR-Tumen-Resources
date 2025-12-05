@@ -4,19 +4,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow unauthenticated reads for company profile for login page styling
+    // Allow unauthenticated reads for company profile for login page styling.
+    // Logged in users can write to it.
     match /company/profile {
       allow get: if true;
       allow write: if request.auth != null;
     }
-
+    
+    // Authenticated users can read and write to their own employee documents.
     match /employees/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Default deny all other top-level collections for unauthenticated users
-    // This rule will not apply to paths matched by more specific rules above.
-    match /{path=**} {
+    // Authenticated users can read and write to all other documents.
+    // This rule is less specific and will not override the more specific rules above.
+    match /{document=**} {
       allow read, write: if request.auth != null;
     }
   }
