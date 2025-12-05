@@ -318,7 +318,6 @@ const StructureTab = () => {
       <Card>
         <CardHeader>
             <CardTitle>Бүх нэгжийн жагсаалт</CardTitle>
-            <CardDescription>Байгууллагын бүх бүртгэлтэй нэгжүүд.</CardDescription>
         </CardHeader>
         <CardContent>
             <Table>
