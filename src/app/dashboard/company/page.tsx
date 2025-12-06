@@ -331,11 +331,9 @@ export default function CompanyPage() {
             </CardContent>
         </Card>
 
-        <MissionVisionCard profile={companyProfile} />
+        {hasMissionInfo && <MissionVisionCard profile={companyProfile} />}
         
-        <ContactInfoCard profile={companyProfile} />
+        {hasContactInfo && <ContactInfoCard profile={companyProfile} />}
     </div>
   );
 }
-
-    
