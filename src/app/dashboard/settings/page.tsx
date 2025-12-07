@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Save, History, Settings, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 type FieldDefinition = {
     key: string;
