@@ -13,6 +13,8 @@ import {
   Clock,
   Award,
   MessageSquare,
+  Sparkles,
+  Gift,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -41,6 +43,11 @@ const links = [
     label: 'Ажилтан',
     icon: Users,
   },
+   {
+    href: '/dashboard/points',
+    label: 'Оноо шилжүүлэх',
+    icon: Gift,
+  },
   {
     href: '/dashboard/attendance',
     label: 'Цагийн бүртгэл',
@@ -50,6 +57,11 @@ const links = [
     href: '/dashboard/documents',
     label: 'Баримт бичиг',
     icon: FileText,
+  },
+   {
+    href: '/dashboard/compliance',
+    label: 'Хуулийн зөвлөгөө',
+    icon: Sparkles,
   },
   {
     href: '/dashboard/scoring',
