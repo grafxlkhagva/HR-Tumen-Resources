@@ -79,7 +79,9 @@ function EmployeeRow({ employee, departmentName }: { employee: Employee; departm
             <DropdownMenuItem asChild>
                 <Link href={`/dashboard/employees/${employee.id}`}>Хувийн хэрэг</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>Засварлах</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+               <Link href={`/dashboard/employees/${employee.id}/edit`}>Засварлах</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem>Устгах</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
