@@ -43,6 +43,14 @@ service cloud.firestore {
     match /feedback {
        allow list: if request.auth != null && isAdmin();
     }
+    
+    match /posts/{postId} {
+        allow read: if request.auth != null;
+    }
+
+    match /posts {
+        allow list: if request.auth != null;
+    }
 
     match /{path=**} {
         // Fallback for other collections.
