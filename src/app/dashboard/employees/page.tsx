@@ -50,7 +50,7 @@ function EmployeeRow({ employee, departmentName }: { employee: Employee; departm
               src={employee.photoURL}
               alt="Avatar"
             />
-            <AvatarFallback>{employeeName.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{employeeName ? employeeName.charAt(0) : 'A'}</AvatarFallback>
           </Avatar>
           <div className="grid gap-0.5">
             <span className="font-medium">{employeeName}</span>
