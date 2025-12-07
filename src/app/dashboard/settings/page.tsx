@@ -211,6 +211,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
 function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const router = useRouter();
     const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'pointsConfig') : null), [firestore]);
 
     const form = useForm<PointsConfigFormValues>({
@@ -239,14 +240,12 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
-                       <Link href="/dashboard/settings/points-rules">
-                           <Star className="mr-2 h-4 w-4" />
-                           Онооны дүрэм
-                        </Link>
+                     <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => router.push('/dashboard/settings/points-rules')}>
+                       <Star className="mr-2 h-4 w-4" />
+                       Онооны дүрэм
                     </Button>
                 </div>
             </form>
