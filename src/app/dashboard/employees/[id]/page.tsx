@@ -437,13 +437,13 @@ export default function EmployeeProfilePage() {
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="outline" asChild>
+                                <Button asChild variant="outline">
                                     <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
                                         <FileText className="mr-2 h-4 w-4" />
                                         Анкет
                                     </Link>
                                 </Button>
-                                <Button variant="outline" asChild>
+                                <Button asChild variant="outline">
                                     <Link href={`/dashboard/employees/${employeeId}/edit`}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         Мэдээлэл засах
