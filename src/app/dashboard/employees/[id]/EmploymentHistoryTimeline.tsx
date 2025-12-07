@@ -78,15 +78,17 @@ function TimelineItem({
                 </Link>
              </Button>
         ) : event.documentUrl && (
-          <a
-            href={event.documentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center text-sm text-primary hover:underline"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Баримт бичиг татах
-          </a>
+          <Button asChild variant="link" className="mt-2 h-auto p-0 text-sm">
+            <a
+              href={event.documentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-primary hover:underline"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Баримт бичиг татах
+            </a>
+          </Button>
         )}
       </div>
     </li>
