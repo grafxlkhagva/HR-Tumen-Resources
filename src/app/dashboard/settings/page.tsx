@@ -149,7 +149,7 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
+                     <Button type="button" variant="outline" disabled={isSubmitting} asChild>
                         <Link href="/dashboard/settings/code-log">
                            <History className="mr-2 h-4 w-4" />
                            Түүх харах
