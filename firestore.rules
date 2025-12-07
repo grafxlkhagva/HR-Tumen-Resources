@@ -51,6 +51,11 @@ service cloud.firestore {
     match /posts {
         allow list: if request.auth != null;
     }
+    
+    // Any authenticated user can read reference data for questionnaires
+    match /questionnaire{collection}/{docId} {
+        allow read: if request.auth != null;
+    }
 
     match /{path=**} {
         // Fallback for other collections.
