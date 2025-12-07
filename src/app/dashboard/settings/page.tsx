@@ -243,7 +243,7 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                         Хадгалах
                     </Button>
                      <Button asChild type="button" variant="outline" disabled={isSubmitting}>
-                        <Link href="/dashboard/settings/points-rules">
+                       <Link href="/dashboard/settings/points-rules">
                            <Star className="mr-2 h-4 w-4" />
                            Онооны дүрэм
                         </Link>
