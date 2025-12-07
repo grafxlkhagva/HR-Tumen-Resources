@@ -39,12 +39,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, History, Eye } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useCollection, useFirebase, useMemoFirebase, useEmployeeProfile, addDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { Employee } from '../employees/data';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 
 const pointsTransferSchema = z.object({
   recipientId: z.string().min(1, 'Хүлээн авах ажилтныг сонгоно уу.'),
