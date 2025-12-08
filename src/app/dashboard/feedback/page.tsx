@@ -126,7 +126,7 @@ function FeedbackRow({ feedback }: { feedback: Feedback }) {
 
 export default function FeedbackPage() {
   const { firestore } = useFirebase();
-  const { employeeProfile } = useEmployeeProfile();
+  const { employeeProfile, isProfileLoading } = useEmployeeProfile();
 
   // IMPORTANT: Only query for all feedbacks if the user is an admin.
   // This prevents permission errors for regular employees who might prefetch this page.
@@ -137,26 +137,7 @@ export default function FeedbackPage() {
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  // If the user is not an admin, don't attempt to render the table.
-  if (employeeProfile?.role !== 'admin') {
-      // You can return a message, a skeleton, or null.
-      // Returning null is fine if this page shouldn't be accessed by non-admins anyway.
-      return (
-        <div className="py-8">
-            <Card>
-                <CardHeader>
-                <CardTitle>Санал хүсэлт</CardTitle>
-                <CardDescription>
-                    Ажилтнуудаас ирсэн санал хүсэлтийг удирдах хэсэг.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
-                </CardContent>
-            </Card>
-        </div>
-      );
-  }
+  const shouldRenderTable = employeeProfile?.role === 'admin';
 
   return (
     <div className="py-8">
@@ -168,55 +149,59 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Илгээгч</TableHead>
-                <TableHead className="hidden md:table-cell">Агуулга</TableHead>
-                <TableHead className="hidden sm:table-cell">Ангилал</TableHead>
-                <TableHead className="hidden lg:table-cell">Огноо</TableHead>
-                <TableHead className="text-right">Төлөв</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-9 w-9 rounded-full" />
-                        <div className="space-y-1">
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-full" /></TableCell>
-                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-9 w-36 ml-auto" /></TableCell>
-                  </TableRow>
-                ))}
-              {error && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-destructive">
-                    Алдаа гарлаа: {error.message}
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && !error && feedbacks?.map((feedback) => (
-                <FeedbackRow key={feedback.id} feedback={feedback} />
-              ))}
-              {!isLoading && !error && feedbacks?.length === 0 && (
-                <TableRow>
-                    <TableCell colSpan={5} className="h-48 text-center">
-                        <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
-                    </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+            {!shouldRenderTable ? (
+                 <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
+            ) : (
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Илгээгч</TableHead>
+                        <TableHead className="hidden md:table-cell">Агуулга</TableHead>
+                        <TableHead className="hidden sm:table-cell">Ангилал</TableHead>
+                        <TableHead className="hidden lg:table-cell">Огноо</TableHead>
+                        <TableHead className="text-right">Төлөв</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {(isLoading || isProfileLoading) &&
+                        Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-9 w-9 rounded-full" />
+                                <div className="space-y-1">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-3 w-32" />
+                                </div>
+                            </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-full" /></TableCell>
+                            <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
+                            <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-9 w-36 ml-auto" /></TableCell>
+                        </TableRow>
+                        ))}
+                    {error && (
+                        <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                            Алдаа гарлаа: {error.message}
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    {!(isLoading || isProfileLoading) && !error && feedbacks?.map((feedback) => (
+                        <FeedbackRow key={feedback.id} feedback={feedback} />
+                    ))}
+                    {!(isLoading || isProfileLoading) && !error && feedbacks?.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="h-48 text-center">
+                                <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
+                                <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
+                            </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+            )}
         </CardContent>
       </Card>
     </div>
