@@ -128,23 +128,20 @@ export default function FeedbackPage() {
   const { firestore } = useFirebase();
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
   
-  const isAdmin = !isProfileLoading && employeeProfile?.role === 'admin';
-
   const feedbackQuery = useMemoFirebase(
     () => {
-      // Only create the query if the user profile is loaded and the user is an admin.
-      if (isAdmin && firestore) {
+      if (!isProfileLoading && employeeProfile?.role === 'admin' && firestore) {
         return query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc'));
       }
-      // Return null otherwise to prevent unauthorized queries.
       return null;
     },
-    [firestore, isAdmin]
+    [firestore, employeeProfile, isProfileLoading]
   );
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  const shouldShowLoading = isProfileLoading || (isAdmin && isLoading);
+  const shouldShowLoading = isProfileLoading || isLoading;
+  const canViewPage = !isProfileLoading && employeeProfile?.role === 'admin';
 
   return (
     <div className="py-8">
@@ -156,12 +153,12 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            {isProfileLoading ? (
+            {shouldShowLoading ? (
                  <div className="space-y-2">
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-12 w-full" />
                  </div>
-            ) : !isAdmin ? (
+            ) : !canViewPage ? (
                  <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
             ) : (
                 <Table>
@@ -175,24 +172,6 @@ export default function FeedbackPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {shouldShowLoading &&
-                        Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i}>
-                            <TableCell>
-                            <div className="flex items-center gap-3">
-                                <Skeleton className="h-9 w-9 rounded-full" />
-                                <div className="space-y-1">
-                                <Skeleton className="h-4 w-24" />
-                                <Skeleton className="h-3 w-32" />
-                                </div>
-                            </div>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-full" /></TableCell>
-                            <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
-                            <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
-                            <TableCell className="text-right"><Skeleton className="h-9 w-36 ml-auto" /></TableCell>
-                        </TableRow>
-                        ))}
                     {error && (
                         <TableRow>
                         <TableCell colSpan={5} className="py-8 text-center text-destructive">
@@ -200,10 +179,10 @@ export default function FeedbackPage() {
                         </TableCell>
                         </TableRow>
                     )}
-                    {!shouldShowLoading && !error && feedbacks?.map((feedback) => (
+                    {!error && feedbacks?.map((feedback) => (
                         <FeedbackRow key={feedback.id} feedback={feedback} />
                     ))}
-                    {!shouldShowLoading && !error && feedbacks?.length === 0 && (
+                    {!error && feedbacks?.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={5} className="h-48 text-center">
                                 <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
