@@ -108,15 +108,15 @@ export default function FeedbackPage() {
   });
 
   const feedbackQuery = useMemoFirebase(() => {
-    if (!firestore || !employeeProfile?.id) {
-      return null;
-    }
-    return query(
+    if (firestore && employeeProfile?.id) {
+      return query(
         collection(firestore, 'feedback'),
         where('employeeId', '==', employeeProfile.id),
         orderBy('createdAt', 'desc')
-    );
-  }, [firestore, employeeProfile]);
+      );
+    }
+    return null;
+  }, [firestore, employeeProfile?.id]);
   
   const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
 

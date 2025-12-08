@@ -2,10 +2,34 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ДАТАБАЗТ ХЭН Ч, ЯМАР Ч ХЯЗГААРЛАЛТГҮЙ ХАНДАХЫГ ЗӨВШӨӨРНӨ
-    // Энэ нь зөвхөн хөгжүүлэлтийн үед түр ашиглахад зориулагдсан, аюулгүй бус дүрэм юм.
-    match /{document=**} {
-      allow read, write: if true;
+    
+    function isAdmin() {
+      return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Allow public read for company profile information
+    match /company/{doc=**} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    match /feedback/{feedbackId} {
+        allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.employeeId);
+        allow list: if request.auth != null && (isAdmin() || request.query.where.employeeId == request.auth.uid);
+        allow create: if request.auth != null;
+    }
+
+    match /employees/{userId}/{document=**} {
+      allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    }
+    
+    match /employees/{userId} {
+      allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    }
+
+    // Default deny all other paths
+    match /{path=**}/(document} {
+      allow read, write: if request.auth != null && isAdmin();
     }
   }
 }
