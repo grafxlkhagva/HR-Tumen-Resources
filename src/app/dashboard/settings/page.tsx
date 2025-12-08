@@ -242,7 +242,7 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                          <Save className="mr-2 size-4 shrink-0" />
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Хадгалах' }
                     </Button>
-                     <Button type="button" variant="outline" disabled={isSubmitting} asChild>
+                    <Button asChild type="button" variant="outline" disabled={isSubmitting}>
                        <Link href="/dashboard/scoring">
                          <Star className="mr-2 size-4 shrink-0" />
                          Онооны дүрэм
