@@ -79,7 +79,7 @@ function DocumentRow({ doc }: { doc: Document }) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Үйлдлүүд</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-                <Link href={`/dashboard/documents/${doc.id}`} className="flex items-center cursor-pointer">
+                <Link href={`/dashboard/documents/${doc.id}`}>
                     <Eye className="mr-2 h-4 w-4" /> Дэлгэрэнгүй
                 </Link>
             </DropdownMenuItem>
