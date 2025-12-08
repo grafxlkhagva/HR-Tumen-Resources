@@ -2,19 +2,71 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Компанийн мэдээллийг (нэр, лого гэх мэт) нэвтрээгүй байсан ч уншихыг зөвшөөрнө.
-    // Энэ нь нэвтрэх хуудсанд компанийн логог харуулахад шаардлагатай.
-    match /company/{doc=**} {
-      allow read: if true;
-      allow write: if request.auth != null; // Зөвхөн нэвтэрсэн хэрэглэгч бичих эрхтэй
+
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Дээрхээс бусад бүх замд (жишээ нь /employees, /feedback, гэх мэт)
-    // зөвхөн нэвтэрсэн хэрэглэгчдэд бүх төрлийн хандалтыг зөвшөөрнө.
-    // "read" нь list үйлдлийг багтаадаггүй тул "list"-г нэмж өгсөн.
-    match /{path=**}/{document} {
-      allow read, write, list: if request.auth != null;
+    // Allow public read for company profile information for login screen
+    match /company/{doc=**} {
+      allow read: if true;
+      allow write: if request.auth != null; // Only authenticated users can write
+    }
+
+    // Feedback Collection Rules
+    match /feedback/{feedbackId} {
+        // Admin can read/update any feedback.
+        // User can read their own non-anonymous feedback.
+        allow read, update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
+        // User can create feedback
+        allow create: if request.auth != null;
+        // Only admin can delete
+        allow delete: if request.auth != null && isAdmin();
+    }
+    
+    // This rule is needed for the mobile feedback page query to work.
+    // It allows a user to LIST feedbacks if they are an admin OR if they are querying for their OWN employeeId.
+    match /feedback {
+       allow list: if request.auth != null && (isAdmin() || request.query.where.employeeId == request.auth.uid);
+    }
+
+    // Employee collection rules
+    match /employees/{userId}/{document=**} {
+      allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    }
+     match /employees/{userId} {
+      allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    }
+
+    // General-purpose collections readable by any authenticated user
+    match /posts/{docId=**} { allow read: if request.auth != null; }
+    match /documents/{docId=**} { allow read, write: if request.auth != null; }
+    match /departments/{docId=**} { allow read, write: if request.auth != null; }
+    match /departmentTypes/{docId=**} { allow read, write: if request.auth != null; }
+    match /positions/{docId=**} { allow read, write: if request.auth != null; }
+    match /employmentTypes/{docId=**} { allow read, write: if request.auth != null; }
+    match /positionStatuses/{docId=**} { allow read, write: if request.auth != null; }
+    match /jobCategories/{docId=**} { allow read, write: if request.auth != null; }
+    match /positionLevels/{docId=**} { allow read, write: if request.auth != null; }
+    match /timeOffRequestTypes/{docId=**} { allow read, write: if request.auth != null; }
+    match /onboardingPrograms/{docId=**} { allow read, write: if request.auth != null; }
+    match /attendance/{docId=**} { allow read, write: if request.auth != null; }
+
+    // Questionnaire reference data
+    match /questionnaireCountries/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireSchools/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireDegrees/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireAcademicRanks/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireLanguages/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireFamilyRelationships/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireEmergencyRelationships/{docId=**} { allow read, write: if request.auth != null; }
+    match /questionnaireEmploymentTypes/{docId=**} { allow read, write: if request.auth != null; }
+
+    // Catch-all for any other path not explicitly defined above
+    // This can be useful for development but should be reviewed for production
+    match /{path=**}/document {
+        allow read, write, list: if request.auth != null && isAdmin();
     }
   }
 }
