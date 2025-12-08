@@ -135,12 +135,12 @@ export default function FeedbackPage() {
       }
       return null;
     },
-    [firestore, employeeProfile, isProfileLoading]
+    [firestore, employeeProfile?.role, isProfileLoading]
   );
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  const shouldShowLoading = isProfileLoading || isLoading;
+  const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
   const canViewPage = !isProfileLoading && employeeProfile?.role === 'admin';
 
   return (
@@ -155,11 +155,26 @@ export default function FeedbackPage() {
         <CardContent>
             {shouldShowLoading ? (
                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-9 w-9 rounded-full" />
+                            <div className="space-y-1">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-3 w-32" />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
+                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))}
                  </div>
             ) : !canViewPage ? (
-                 <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
+                 <p className="text-muted-foreground p-8 text-center">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
             ) : (
                 <Table>
                     <TableHeader>
