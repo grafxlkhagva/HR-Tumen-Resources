@@ -34,6 +34,7 @@ import { ChevronDown, MessageSquare, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 
 
 type Feedback = {
@@ -125,11 +126,37 @@ function FeedbackRow({ feedback }: { feedback: Feedback }) {
 
 export default function FeedbackPage() {
   const { firestore } = useFirebase();
+  const { employeeProfile } = useEmployeeProfile();
+
+  // IMPORTANT: Only query for all feedbacks if the user is an admin.
+  // This prevents permission errors for regular employees who might prefetch this page.
   const feedbackQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')) : null),
-    [firestore]
+    () => (firestore && employeeProfile?.role === 'admin' ? query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')) : null),
+    [firestore, employeeProfile]
   );
+  
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
+
+  // If the user is not an admin, don't attempt to render the table.
+  if (employeeProfile?.role !== 'admin') {
+      // You can return a message, a skeleton, or null.
+      // Returning null is fine if this page shouldn't be accessed by non-admins anyway.
+      return (
+        <div className="py-8">
+            <Card>
+                <CardHeader>
+                <CardTitle>Санал хүсэлт</CardTitle>
+                <CardDescription>
+                    Ажилтнуудаас ирсэн санал хүсэлтийг удирдах хэсэг.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
+                </CardContent>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <div className="py-8">
