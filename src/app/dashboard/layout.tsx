@@ -11,7 +11,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from '@/components/ui/sidebar';
-import { MainNav } from '@/components/main-nav';
+import { MainNav } from '@/app/main-nav';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
