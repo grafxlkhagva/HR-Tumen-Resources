@@ -3,15 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow public read for company profile information
+    // Компанийн мэдээллийг (нэр, лого гэх мэт) нэвтрээгүй байсан ч уншихыг зөвшөөрнө.
+    // Энэ нь нэвтрэх хуудсанд компанийн логог харуулахад шаардлагатай.
     match /company/{doc=**} {
       allow read: if true;
-      allow write: if request.auth != null; // Only authenticated users can write
+      allow write: if request.auth != null; // Зөвхөн нэвтэрсэн хэрэглэгч бичих эрхтэй
     }
 
-    // Secure all other paths
+    // Дээрхээс бусад бүх замд (жишээ нь /employees, /feedback, гэх мэт)
+    // зөвхөн нэвтэрсэн хэрэглэгчдэд бүх төрлийн хандалтыг зөвшөөрнө.
+    // "read" нь list үйлдлийг багтаадаггүй тул "list"-г нэмж өгсөн.
     match /{path=**}/{document} {
-      allow read, write: if request.auth != null;
+      allow read, write, list: if request.auth != null;
     }
   }
 }
