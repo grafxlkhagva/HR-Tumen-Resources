@@ -14,6 +14,7 @@ import {
   Award,
   MessageSquare,
   Sparkles,
+  Gift,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -41,6 +42,11 @@ const links = [
     href: '/dashboard/employees',
     label: 'Ажилтан',
     icon: Users,
+  },
+  {
+    href: '/dashboard/points',
+    label: 'Оноо шилжүүлэх',
+    icon: Gift,
   },
   {
     href: '/dashboard/attendance',
