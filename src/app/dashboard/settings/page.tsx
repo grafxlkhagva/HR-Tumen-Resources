@@ -87,11 +87,7 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
     const onSubmit = (data: EmployeeCodeFormValues) => {
         if (!codeConfigRef) return;
 
-        if (initialData.prefix || initialData.nextNumber > 1) { 
-            updateDocumentNonBlocking(codeConfigRef, data);
-        } else {
-            setDocumentNonBlocking(codeConfigRef, data, { merge: true });
-        }
+        setDocumentNonBlocking(codeConfigRef, data, { merge: true });
         
         toast({
             title: 'Амжилттай хадгаллаа',
@@ -109,14 +105,16 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        <>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                            Хадгалах
-                        </>
+                        {isSubmitting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 size-4 shrink-0" />
+                        )}
+                        Хадгалах
                     </Button>
                     <Button type="button" variant="outline" asChild>
                         <Link href="/dashboard/settings/code-log">
-                           <>
+                           <> 
                              <History className="mr-2 size-4 shrink-0" />
                              Түүх харах
                            </>
@@ -168,10 +166,12 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                     )}
                 />
                 <Button type="submit" disabled={isSubmitting}>
-                    <>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" /> }
-                        Хадгалах
-                    </>
+                     {isSubmitting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Save className="mr-2 size-4 shrink-0" />
+                    )}
+                    Хадгалах
                 </Button>
             </form>
         </Form>
@@ -209,14 +209,16 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                 </div>
                  <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                         <>
-                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 size-4 shrink-0" /> }
-                         Хадгалах
-                        </>
+                        {isSubmitting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                        ) : (
+                            <Save className="mr-2 size-4 shrink-0" />
+                        )}
+                        Хадгалах
                     </Button>
                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
                        <Link href="/dashboard/scoring">
-                        <>
+                        <> 
                          <Star className="mr-2 size-4 shrink-0" />
                          Онооны дүрэм
                         </>
@@ -331,222 +333,108 @@ export default function SettingsPage() {
   const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
   const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
-
-
-  // Questionnaire references
+  const { data: timeOffRequestTypes, isLoading: loadingTimeOffTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
   const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
   const { data: questionnaireSchools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
   const { data: questionnaireDegrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
-  const { data: questionnaireAcademicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
+  const { data: questionnaireRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
   const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
-  const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
-  const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
-  const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
+  const { data: questionnaireFamily, isLoading: loadingFamily } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
+  const { data: questionnaireEmergency, isLoading: loadingEmergency } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+  const { data: questionnaireEmpTypes, isLoading: loadingQEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
-  const docTypeColumns = [
-    { key: 'name', header: 'Нэр' },
-    { key: 'fields', header: 'Талбарууд' }
+
+  const isLoading = loadingDocTypes || loadingEmpTypes || loadingStatuses || loadingJobCategories || loadingLevels || loadingTimeOffTypes || loadingCountries || loadingSchools || loadingDegrees || loadingRanks || loadingLanguages || loadingFamily || loadingEmergency || loadingQEmpTypes;
+
+  const referenceTables = [
+    { name: 'documentTypes', title: 'Баримт бичгийн төрөл', data: documentTypes, isLoading: loadingDocTypes, columns: [{key: 'name', header: 'Нэр'}, {key: 'fields', header: 'Нэмэлт талбарууд'}], enableFieldDefs: true },
+    { name: 'employmentTypes', title: 'Ажил эрхлэлтийн төрөл', data: employmentTypes, isLoading: loadingEmpTypes, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'positionStatuses', title: 'Ажлын байрны төлөв', data: positionStatuses, isLoading: loadingStatuses, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'jobCategories', title: 'Ажил мэргэжлийн ангилал (ҮАМАТ)', data: jobCategories, isLoading: loadingJobCategories, columns: [{key: 'code', header: 'Код'}, {key: 'name', header: 'Нэр'}] },
+    { name: 'positionLevels', title: 'Албан тушаалын зэрэглэл', data: positionLevels, isLoading: loadingLevels, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'timeOffRequestTypes', title: 'Чөлөөний хүсэлтийн төрөл', data: timeOffRequestTypes, isLoading: loadingTimeOffTypes, columns: [{key: 'name', header: 'Нэр'}] },
   ];
 
+  const questionnaireReferenceTables = [
+    { name: 'questionnaireCountries', title: 'Анкет: Улс', data: questionnaireCountries, isLoading: loadingCountries, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireSchools', title: 'Анкет: Сургууль', data: questionnaireSchools, isLoading: loadingSchools, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireDegrees', title: 'Анкет: Мэргэжил', data: questionnaireDegrees, isLoading: loadingDegrees, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireAcademicRanks', title: 'Анкет: Эрдмийн зэрэг, цол', data: questionnaireRanks, isLoading: loadingRanks, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireLanguages', title: 'Анкет: Гадаад хэл', data: questionnaireLanguages, isLoading: loadingLanguages, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireFamilyRelationships', title: 'Анкет: Гэр бүлийн хамаарал', data: questionnaireFamily, isLoading: loadingFamily, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireEmergencyRelationships', title: 'Анкет: Яаралтай үеийн хамаарал', data: questionnaireEmergency, isLoading: loadingEmergency, columns: [{key: 'name', header: 'Нэр'}] },
+    { name: 'questionnaireEmploymentTypes', title: 'Анкет: Хөдөлмөрийн нөхцөл', data: questionnaireEmpTypes, isLoading: loadingQEmpTypes, columns: [{key: 'name', header: 'Нэр'}] },
+  ]
+
   return (
-    <div className="py-8">
-       <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Тохиргоо
-          </h1>
-          <p className="text-muted-foreground">
-            Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах.
-          </p>
-        </div>
+    <div className="py-8 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Тохиргоо</h1>
+        <p className="text-muted-foreground">
+          Системийн ерөнхий тохиргоо, лавлах сангийн утгуудыг эндээс удирдна.
+        </p>
       </div>
-      <div className="space-y-8">
+
         <EmployeeCodeConfigCard />
 
-        <TimeOffRequestConfigCard />
-        
-        <PointsConfigCard />
-
         <Card>
             <CardHeader>
-                <CardTitle>Дасан зохицох хөтөлбөрийн тохиргоо</CardTitle>
-                <CardDescription>Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.</CardDescription>
+                <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
             </CardHeader>
             <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/onboarding">
-                        <Settings className="mr-2 size-4 shrink-0" />
-                        Тохиргоо руу очих
-                    </Link>
-                </Button>
+                <TimeOffRequestConfigCard />
             </CardContent>
         </Card>
 
+        <PointsConfigCard />
+        
         <Card>
             <CardHeader>
-                <CardTitle>Анкетын лавлах сан</CardTitle>
-                <CardDescription>Ажилтны анкетын сонголтуудыг эндээс удирдна.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Settings className="size-5" />Үндсэн лавлах сан</CardTitle>
+                <CardDescription>
+                Системийн үндсэн үйл ажиллагаанд хэрэглэгдэх лавлах сангийн утгууд.
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-                 <ReferenceTable 
-                    collectionName="questionnaireCountries"
-                    columns={[{ key: 'name', header: 'Улс' }]}
-                    itemData={questionnaireCountries}
-                    isLoading={loadingCountries}
-                    dialogTitle="Улсын нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireSchools"
-                    columns={[{ key: 'name', header: 'Сургууль' }]}
-                    itemData={questionnaireSchools}
-                    isLoading={loadingSchools}
-                    dialogTitle="Сургуулийн нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireDegrees"
-                    columns={[{ key: 'name', header: 'Мэргэжил' }]}
-                    itemData={questionnaireDegrees}
-                    isLoading={loadingDegrees}
-                    dialogTitle="Мэргэжлийн нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireAcademicRanks"
-                    columns={[{ key: 'name', header: 'Зэрэг, цол' }]}
-                    itemData={questionnaireAcademicRanks}
-                    isLoading={loadingRanks}
-                    dialogTitle="Эрдмийн зэрэг, цол"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireLanguages"
-                    columns={[{ key: 'name', header: 'Гадаад хэл' }]}
-                    itemData={questionnaireLanguages}
-                    isLoading={loadingLanguages}
-                    dialogTitle="Гадаад хэлний нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireFamilyRelationships"
-                    columns={[{ key: 'name', header: 'Гэр бүлийн хамаарал' }]}
-                    itemData={questionnaireFamilyRelationships}
-                    isLoading={loadingFamilyR}
-                    dialogTitle="Гэр бүлийн гишүүний хамаарал"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireEmergencyRelationships"
-                    columns={[{ key: 'name', header: 'Яаралтай үеийн хамаарал' }]}
-                    itemData={questionnaireEmergencyRelationships}
-                    isLoading={loadingEmergencyR}
-                    dialogTitle="Яаралтай үед холбоо барих хүний хамаарал"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireEmploymentTypes"
-                    columns={[{ key: 'name', header: 'Хөдөлмөрийн нөхцөл' }]}
-                    itemData={questionnaireEmploymentTypes}
-                    isLoading={loadingQuestionnaireEmpTypes}
-                    dialogTitle="Ажлын туршлагын хөдөлмөрийн нөхцөл"
-                    />
+                {referenceTables.map(table => (
+                    <div key={table.name}>
+                        <h3 className="font-semibold mb-2">{table.title}</h3>
+                        <ReferenceTable 
+                            collectionName={table.name}
+                            itemData={table.data}
+                            isLoading={table.isLoading}
+                            columns={table.columns}
+                            dialogTitle={table.title}
+                            enableFieldDefs={table.enableFieldDefs}
+                        />
+                    </div>
+                ))}
             </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Баримт бичгийн төрөл</CardTitle>
-                    <CardDescription>Хөдөлмөрийн гэрээ, дотоод журам гэх мэт төрлүүдийг удирдах.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ReferenceTable 
-                        collectionName="documentTypes"
-                        columns={docTypeColumns}
-                        itemData={documentTypes}
-                        isLoading={loadingDocTypes}
-                        dialogTitle="Баримт бичгийн төрөл"
-                        enableFieldDefs={true}
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
-                <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
+        <Card>
+             <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Settings className="size-5" />Анкетын лавлах сан</CardTitle>
+                <CardDescription>
+                    Ажилтны анкетын сонголтот талбаруудад ашиглагдах лавлах сангийн утгууд.
+                </CardDescription>
             </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="employmentTypes"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={employmentTypes}
-                isLoading={loadingEmpTypes}
-                dialogTitle="Ажил эрхлэлтийн төрөл"
-                />
+             <CardContent className="space-y-8">
+                {questionnaireReferenceTables.map(table => (
+                        <div key={table.name}>
+                            <h3 className="font-semibold mb-2">{table.title}</h3>
+                            <ReferenceTable 
+                                collectionName={table.name}
+                                itemData={table.data}
+                                isLoading={table.isLoading}
+                                columns={table.columns}
+                                dialogTitle={table.title}
+                            />
+                        </div>
+                    ))}
             </CardContent>
-            </Card>
+        </Card>
 
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажлын байрны зэрэглэл</CardTitle>
-                <CardDescription>Удирдах, ахлах, мэргэжилтэн гэх мэт зэрэглэлүүдийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="positionLevels"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={positionLevels}
-                isLoading={loadingLevels}
-                dialogTitle="Албан тушаалын зэрэглэл"
-                />
-            </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажлын байрны төлөв</CardTitle>
-                <CardDescription>Нээлттэй, хаалттай гэх мэт төлвүүдийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="positionStatuses"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={positionStatuses}
-                isLoading={loadingStatuses}
-                dialogTitle="Ажлын байрны төлөв"
-                />
-            </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн төрөл</CardTitle>
-                <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="timeOffRequestTypes"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={timeOffRequestTypes}
-                isLoading={loadingTimeOffRequestTypes}
-                dialogTitle="Хүсэлтийн төрөл"
-                />
-            </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
-                    <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ReferenceTable 
-                    collectionName="jobCategories"
-                    columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
-                    itemData={jobCategories}
-                    isLoading={loadingJobCategories}
-                    dialogTitle="Ажил мэргэжлийн ангилал"
-                    />
-                </CardContent>
-            </Card>
-        </div>
-      </div>
     </div>
   );
 }
