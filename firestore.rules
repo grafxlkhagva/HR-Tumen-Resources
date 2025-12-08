@@ -8,7 +8,7 @@ service cloud.firestore {
              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Allow public read for company profile information for login screen
+    // Allow public read for company profile information
     match /company/{doc=**} {
       allow read: if true;
       allow write: if request.auth != null; // Only authenticated users can write
@@ -16,9 +16,9 @@ service cloud.firestore {
 
     // Feedback Collection Rules
     match /feedback/{feedbackId} {
-        // Admin can read/update any feedback.
+        // Admin can read/update/delete any feedback.
         // User can read their own non-anonymous feedback.
-        allow read, update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
+        allow read, update: if request.auth != null && (isAdmin() || (resource.data.isAnonymous == false && resource.data.employeeId == request.auth.uid));
         // User can create feedback
         allow create: if request.auth != null;
         // Only admin can delete
@@ -32,6 +32,8 @@ service cloud.firestore {
     }
 
     // Employee collection rules
+    // Admin can read/write any employee data.
+    // Regular employees can read/write their own data.
     match /employees/{userId}/{document=**} {
       allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
     }
@@ -39,8 +41,9 @@ service cloud.firestore {
       allow read, write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
     }
 
-    // General-purpose collections readable by any authenticated user
-    match /posts/{docId=**} { allow read: if request.auth != null; }
+    // General-purpose collections readable/writable by any authenticated user
+    // These should be reviewed and tightened for production
+    match /posts/{docId=**} { allow read, write: if request.auth != null; }
     match /documents/{docId=**} { allow read, write: if request.auth != null; }
     match /departments/{docId=**} { allow read, write: if request.auth != null; }
     match /departmentTypes/{docId=**} { allow read, write: if request.auth != null; }
@@ -52,8 +55,9 @@ service cloud.firestore {
     match /timeOffRequestTypes/{docId=**} { allow read, write: if request.auth != null; }
     match /onboardingPrograms/{docId=**} { allow read, write: if request.auth != null; }
     match /attendance/{docId=**} { allow read, write: if request.auth != null; }
+    match /pointsLedger/{docId=**} { allow read, write: if request.auth != null; }
 
-    // Questionnaire reference data
+    // Questionnaire reference data - readable/writable by any authenticated user
     match /questionnaireCountries/{docId=**} { allow read, write: if request.auth != null; }
     match /questionnaireSchools/{docId=**} { allow read, write: if request.auth != null; }
     match /questionnaireDegrees/{docId=**} { allow read, write: if request.auth != null; }
@@ -63,10 +67,5 @@ service cloud.firestore {
     match /questionnaireEmergencyRelationships/{docId=**} { allow read, write: if request.auth != null; }
     match /questionnaireEmploymentTypes/{docId=**} { allow read, write: if request.auth != null; }
 
-    // Catch-all for any other path not explicitly defined above
-    // This can be useful for development but should be reviewed for production
-    match /{path=**}/document {
-        allow read, write, list: if request.auth != null && isAdmin();
-    }
   }
 }
