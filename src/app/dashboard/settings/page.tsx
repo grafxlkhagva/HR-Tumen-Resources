@@ -244,9 +244,11 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                     <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => router.push('/dashboard/settings/points-rules')}>
-                       <Star className="mr-2 h-4 w-4" />
-                       Онооны дүрэм
+                     <Button type="button" variant="outline" disabled={isSubmitting} asChild>
+                       <Link href="/dashboard/settings/points-rules">
+                         <Star className="mr-2 h-4 w-4" />
+                         Онооны дүрэм
+                       </Link>
                     </Button>
                 </div>
             </form>
