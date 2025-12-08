@@ -145,12 +145,12 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
                         Хадгалах
                     </Button>
                      <Button type="button" variant="outline" disabled={isSubmitting} asChild>
                         <Link href="/dashboard/settings/code-log">
-                           <History className="mr-2 h-4 w-4" />
+                           <History className="mr-2 size-4 shrink-0" />
                            Түүх харах
                         </Link>
                     </Button>
@@ -200,7 +200,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                     )}
                 />
                 <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
                     Хадгалах
                 </Button>
             </form>
@@ -239,12 +239,12 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 size-4 shrink-0" />}
                         Хадгалах
                     </Button>
                      <Button type="button" variant="outline" disabled={isSubmitting} asChild>
                        <Link href="/dashboard/scoring">
-                         <Star className="mr-2 h-4 w-4" />
+                         <Star className="mr-2 size-4 shrink-0" />
                          Онооны дүрэм
                        </Link>
                     </Button>
@@ -402,7 +402,7 @@ export default function SettingsPage() {
             <CardContent>
                 <Button asChild>
                     <Link href="/dashboard/settings/onboarding">
-                        <Settings className="mr-2 h-4 w-4" />
+                        <Settings className="mr-2 size-4 shrink-0" />
                         Тохиргоо руу очих
                     </Link>
                 </Button>
