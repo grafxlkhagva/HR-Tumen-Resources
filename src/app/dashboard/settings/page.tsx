@@ -100,58 +100,24 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
     };
 
     return (
-        <Form {...form}>
+         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="prefix"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Угтвар үсэг</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="EMP" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="digitCount"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Тооны орон</FormLabel>
-                                <FormControl>
-                                    <Input type="number" placeholder="4" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="nextNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Эхлэх дугаар</FormLabel>
-                                <FormControl>
-                                    <Input type="number" placeholder="1" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <FormField control={form.control} name="prefix" render={({ field }) => ( <FormItem> <FormLabel>Угтвар үсэг</FormLabel> <FormControl> <Input placeholder="EMP" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="digitCount" render={({ field }) => ( <FormItem> <FormLabel>Тооны орон</FormLabel> <FormControl> <Input type="number" placeholder="4" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="nextNumber" render={({ field }) => ( <FormItem> <FormLabel>Эхлэх дугаар</FormLabel> <FormControl> <Input type="number" placeholder="1" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                 </div>
-                 <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         <Save className="mr-2 size-4 shrink-0" />
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах'}
                     </Button>
                     <Button type="button" variant="outline" asChild>
                         <Link href="/dashboard/settings/code-log">
-                           <History className="mr-2 size-4 shrink-0" />
-                           Түүх харах
+                           <>
+                             <History className="mr-2 size-4 shrink-0" />
+                             Түүх харах
+                           </>
                         </Link>
                     </Button>
                 </div>
@@ -200,8 +166,10 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                     )}
                 />
                 <Button type="submit" disabled={isSubmitting}>
-                     <Save className="mr-2 size-4 shrink-0" />
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах' }
+                    <>
+                        <Save className="mr-2 size-4 shrink-0" />
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах' }
+                    </>
                 </Button>
             </form>
         </Form>
@@ -242,10 +210,12 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                          <Save className="mr-2 size-4 shrink-0" />
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Хадгалах' }
                     </Button>
-                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
+                    <Button asChild type="button" variant="outline" disabled={isSubmitting}>
                        <Link href="/dashboard/scoring">
+                        <>
                          <Star className="mr-2 size-4 shrink-0" />
                          Онооны дүрэм
+                        </>
                        </Link>
                     </Button>
                 </div>
