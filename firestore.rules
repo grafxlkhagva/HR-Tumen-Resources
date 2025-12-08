@@ -25,10 +25,9 @@ service cloud.firestore {
         allow delete: if request.auth != null && isAdmin();
     }
     
-    // This rule is needed for the mobile feedback page query to work.
     // It allows a user to LIST feedbacks if they are an admin OR if they are querying for their OWN employeeId.
     match /feedback {
-       allow list: if request.auth != null && (isAdmin() || request.query.where.employeeId == request.auth.uid);
+       allow list: if request.auth != null && (isAdmin() || request.query.where[0][2] == request.auth.uid);
     }
 
     // Employee collection rules

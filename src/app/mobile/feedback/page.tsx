@@ -107,15 +107,16 @@ export default function FeedbackPage() {
     },
   });
 
-  const feedbackQuery = useMemoFirebase(() => (
-    firestore && employeeProfile
-      ? query(
-          collection(firestore, 'feedback'),
-          where('employeeId', '==', employeeProfile.id),
-          orderBy('createdAt', 'desc')
-        )
-      : null
-  ), [firestore, employeeProfile]);
+  const feedbackQuery = useMemoFirebase(() => {
+    if (!isProfileLoading && firestore && employeeProfile) {
+      return query(
+        collection(firestore, 'feedback'),
+        where('employeeId', '==', employeeProfile.id),
+        orderBy('createdAt', 'desc')
+      );
+    }
+    return null;
+  }, [firestore, employeeProfile, isProfileLoading]);
   
   const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
 

@@ -128,16 +128,21 @@ export default function FeedbackPage() {
   const { firestore } = useFirebase();
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
 
-  const isAdmin = employeeProfile?.role === 'admin';
-
   const feedbackQuery = useMemoFirebase(
-    () => (firestore && isAdmin ? query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')) : null),
-    [firestore, isAdmin]
+    () => {
+      // Only create the query if the user profile is loaded and the user is an admin.
+      if (!isProfileLoading && firestore && employeeProfile?.role === 'admin') {
+        return query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc'));
+      }
+      // Return null otherwise to prevent unauthorized queries.
+      return null;
+    },
+    [firestore, employeeProfile, isProfileLoading]
   );
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  const shouldShowLoading = isProfileLoading || (isAdmin && isLoading);
+  const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
 
   return (
     <div className="py-8">
@@ -149,7 +154,12 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            {!isAdmin && !isProfileLoading ? (
+            {isProfileLoading ? (
+                 <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                 </div>
+            ) : employeeProfile?.role !== 'admin' ? (
                  <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
             ) : (
                 <Table>
@@ -163,7 +173,7 @@ export default function FeedbackPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {shouldShowLoading &&
+                    {isLoading &&
                         Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
                             <TableCell>
@@ -188,10 +198,10 @@ export default function FeedbackPage() {
                         </TableCell>
                         </TableRow>
                     )}
-                    {!shouldShowLoading && !error && feedbacks?.map((feedback) => (
+                    {!isLoading && !error && feedbacks?.map((feedback) => (
                         <FeedbackRow key={feedback.id} feedback={feedback} />
                     ))}
-                    {!shouldShowLoading && !error && feedbacks?.length === 0 && (
+                    {!isLoading && !error && feedbacks?.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={5} className="h-48 text-center">
                                 <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
