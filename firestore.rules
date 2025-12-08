@@ -2,112 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow any authenticated user to read and write to any document.
-    // This is insecure and should only be used for initial development.
-
-    match /employees/{employeeId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /documents/{documentId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /company/{profile=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /departments/{departmentId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /departmentTypes/{typeId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /documentTypes/{typeId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /positions/{positionId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /employmentTypes/{typeId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /positionStatuses/{statusId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /jobCategories/{categoryId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /positionLevels/{levelId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /timeOffRequestTypes/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireCountries/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireSchools/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireDegrees/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireAcademicRanks/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireLanguages/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireFamilyRelationships/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireEmergencyRelationships/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /questionnaireEmploymentTypes/{id=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /posts/{postId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /onboardingPrograms/{programId=**} {
-      allow list, read, write: if request.auth != null;
-    }
     
-    match /attendance/{attendanceId=**} {
-      allow list, read, write: if request.auth != null;
+    // Allow public read for company profile information
+    match /company/{doc=**} {
+      allow read: if true;
+      allow write: if request.auth != null; // Only authenticated users can write
     }
 
-    match /feedback/{feedbackId=**} {
-      allow list, read, write: if request.auth != null;
-    }
-
-    match /pointsLedger/{ledgerId=**} {
-        allow list, read, write: if request.auth != null;
-    }
-    
-    match /newHires/{hireId=**} {
-        allow list, read, write: if request.auth != null;
+    // Secure all other paths
+    match /{path=**}/{document} {
+      allow read, write: if request.auth != null;
     }
   }
 }
