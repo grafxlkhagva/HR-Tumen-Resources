@@ -143,12 +143,12 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                         )}
                     />
                 </div>
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         <Save className="mr-2 size-4 shrink-0" />
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах'}
                     </Button>
-                     <Button type="button" variant="outline" disabled={isSubmitting} asChild>
+                    <Button type="button" variant="outline" asChild>
                         <Link href="/dashboard/settings/code-log">
                            <History className="mr-2 size-4 shrink-0" />
                            Түүх харах
@@ -237,12 +237,12 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                     <FormField control={form.control} name="dailyAllocation" render={({ field }) => ( <FormItem> <FormLabel>Ажилтанд өдөрт өгөх оноо</FormLabel> <FormControl> <Input type="number" placeholder="20" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="maxPerTransaction" render={({ field }) => ( <FormItem> <FormLabel>Нэг хүнд өгөх дээд оноо</FormLabel> <FormControl> <Input type="number" placeholder="20" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                 </div>
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                          <Save className="mr-2 size-4 shrink-0" />
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Хадгалах' }
                     </Button>
-                    <Button asChild type="button" variant="outline" disabled={isSubmitting}>
+                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
                        <Link href="/dashboard/scoring">
                          <Star className="mr-2 size-4 shrink-0" />
                          Онооны дүрэм
