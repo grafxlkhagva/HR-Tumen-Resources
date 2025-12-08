@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Save, History, Settings, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
 
 type FieldDefinition = {
     key: string;
@@ -212,7 +211,6 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
 function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const router = useRouter();
     const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'pointsConfig') : null), [firestore]);
 
     const form = useForm<PointsConfigFormValues>({
