@@ -7,107 +7,107 @@ service cloud.firestore {
     // This is insecure and should only be used for initial development.
 
     match /employees/{employeeId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /documents/{documentId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /company/{profile=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /departments/{departmentId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /departmentTypes/{typeId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /documentTypes/{typeId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /positions/{positionId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /employmentTypes/{typeId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /positionStatuses/{statusId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /jobCategories/{categoryId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /positionLevels/{levelId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /timeOffRequestTypes/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireCountries/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireSchools/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireDegrees/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireAcademicRanks/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireLanguages/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireFamilyRelationships/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireEmergencyRelationships/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /questionnaireEmploymentTypes/{id=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /posts/{postId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /onboardingPrograms/{programId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
     
     match /attendance/{attendanceId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /feedback/{feedbackId=**} {
-      allow read, write: if request.auth != null;
+      allow list, read, write: if request.auth != null;
     }
 
     match /pointsLedger/{ledgerId=**} {
-        allow read, write: if request.auth != null;
+        allow list, read, write: if request.auth != null;
     }
     
     match /newHires/{hireId=**} {
-        allow read, write: if request.auth != null;
+        allow list, read, write: if request.auth != null;
     }
   }
 }
