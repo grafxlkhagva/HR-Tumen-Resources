@@ -109,8 +109,8 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        <Save className="mr-2 size-4 shrink-0" />
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах'}
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                        Хадгалах
                     </Button>
                     <Button type="button" variant="outline" asChild>
                         <Link href="/dashboard/settings/code-log">
@@ -167,8 +167,8 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                 />
                 <Button type="submit" disabled={isSubmitting}>
                     <>
-                        <Save className="mr-2 size-4 shrink-0" />
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Хадгалах' }
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" /> }
+                        Хадгалах
                     </>
                 </Button>
             </form>
@@ -207,8 +207,10 @@ function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues
                 </div>
                  <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                         <Save className="mr-2 size-4 shrink-0" />
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Хадгалах' }
+                        <>
+                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 size-4 shrink-0" /> }
+                         Хадгалах
+                        </>
                     </Button>
                     <Button asChild type="button" variant="outline" disabled={isSubmitting}>
                        <Link href="/dashboard/scoring">
