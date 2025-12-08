@@ -18,6 +18,7 @@ service cloud.firestore {
     }
 
     match /feedback/{feedbackId} {
+       // Admins can list all feedback. Regular users can only list their own.
        allow list: if request.auth != null && (isAdmin() || request.query.where.employeeId == request.auth.uid);
     }
 

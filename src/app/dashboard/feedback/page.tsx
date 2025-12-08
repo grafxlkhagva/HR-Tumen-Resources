@@ -130,18 +130,52 @@ export default function FeedbackPage() {
   
   const feedbackQuery = useMemoFirebase(
     () => {
+      // Ensure profile is loaded AND the user is an admin before creating the query.
       if (!isProfileLoading && employeeProfile?.role === 'admin' && firestore) {
         return query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc'));
       }
+      // Return null in all other cases (loading, not admin, or firestore not ready)
       return null;
     },
+    // The dependency array is crucial. It now only depends on the role and loading state.
     [firestore, employeeProfile?.role, isProfileLoading]
   );
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
+  // Loading state is true if we are still verifying the profile OR if we are an admin and the feedbacks are loading.
   const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
-  const canViewPage = !isProfileLoading && employeeProfile?.role === 'admin';
+
+  if (isProfileLoading) {
+    return (
+        <div className="py-8">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-7 w-48" />
+                    <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
+
+  if (employeeProfile?.role !== 'admin') {
+      return (
+          <div className="py-8">
+              <Card>
+                  <CardContent className="p-8 text-center">
+                      <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
+                  </CardContent>
+              </Card>
+          </div>
+      )
+  }
 
   return (
     <div className="py-8">
@@ -153,29 +187,6 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            {shouldShowLoading ? (
-                 <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Skeleton className="h-9 w-9 rounded-full" />
-                            <div className="space-y-1">
-                              <Skeleton className="h-4 w-24" />
-                              <Skeleton className="h-3 w-32" />
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
-                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))}
-                 </div>
-            ) : !canViewPage ? (
-                 <p className="text-muted-foreground p-8 text-center">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
-            ) : (
                 <Table>
                     <TableHeader>
                     <TableRow>
@@ -187,27 +198,44 @@ export default function FeedbackPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {error && (
+                    {shouldShowLoading ? (
+                         Array.from({ length: 3 }).map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell>
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="h-9 w-9 rounded-full" />
+                                    <div className="space-y-1">
+                                    <Skeleton className="h-4 w-24" />
+                                    <Skeleton className="h-3 w-32" />
+                                    </div>
+                                </div>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
+                                <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
+                                <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
+                            </TableRow>
+                         ))
+                    ) : error ? (
                         <TableRow>
                         <TableCell colSpan={5} className="py-8 text-center text-destructive">
                             Алдаа гарлаа: {error.message}
                         </TableCell>
                         </TableRow>
-                    )}
-                    {!error && feedbacks?.map((feedback) => (
-                        <FeedbackRow key={feedback.id} feedback={feedback} />
-                    ))}
-                    {!error && feedbacks?.length === 0 && (
+                    ) : feedbacks?.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-48 text-center">
                                 <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
                             </TableCell>
                         </TableRow>
+                    ) : (
+                       feedbacks?.map((feedback) => (
+                         <FeedbackRow key={feedback.id} feedback={feedback} />
+                       ))
                     )}
                     </TableBody>
                 </Table>
-            )}
         </CardContent>
       </Card>
     </div>
