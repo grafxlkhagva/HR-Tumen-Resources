@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Settings, MapPin, ClipboardList, Code, Network, FileText, CalendarClock } from 'lucide-react';
+import { Settings, MapPin, ClipboardList, Code, Network, FileText, CalendarClock, Activity } from 'lucide-react';
 
 function TimeOffRequestConfigCard() {
     return (
@@ -20,20 +20,6 @@ function TimeOffRequestConfigCard() {
                         Тохиргоо руу очих
                     </Link>
                 </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
-function AttendanceConfigCard() {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5"/>Цагийн бүртгэлийн байршил</CardTitle>
-                <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршлыг тохируулах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <p>Тохиргоо хийгдэх боломжтой.</p>
             </CardContent>
         </Card>
     );
@@ -55,7 +41,21 @@ export default function GeneralSettingsPage() {
       <div className="space-y-8">
         
         <TimeOffRequestConfigCard />
-        <AttendanceConfigCard />
+        
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5"/>Цагийн бүртгэлийн тохиргоо</CardTitle>
+                <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршил, төхөөрөмж зэргийг тохируулах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Button asChild>
+                    <Link href="/dashboard/settings/attendance">
+                        <Activity className="mr-2 size-4 shrink-0" />
+                        Цагийн бүртгэлийн тохиргоо
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
 
          <Card>
             <CardHeader>
