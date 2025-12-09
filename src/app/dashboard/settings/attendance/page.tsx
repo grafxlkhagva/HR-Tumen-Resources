@@ -21,6 +21,7 @@ import {
   setDocumentNonBlocking,
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { GoogleMap, useJsApiLoader, Marker, Circle } from '@react-google-maps/api';
 
 import {
   Form,
@@ -51,6 +52,12 @@ type AttendanceConfig = {
   radius: number;
 };
 
+const mapContainerStyle = {
+  height: '400px',
+  width: '100%',
+  borderRadius: '0.5rem',
+};
+
 function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -66,11 +73,24 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
   });
 
   const { isSubmitting } = form.formState;
+  const watchedFields = form.watch();
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  });
 
   React.useEffect(() => {
     form.reset(initialData);
   }, [initialData, form]);
-  
+
+  const handleMapClick = React.useCallback((event: google.maps.MapMouseEvent) => {
+    if (event.latLng) {
+      form.setValue('latitude', event.latLng.lat());
+      form.setValue('longitude', event.latLng.lng());
+    }
+  }, [form]);
+
   const handleGetLocation = () => {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((position) => {
@@ -102,61 +122,60 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
       });
     }
   };
+  
+  const mapCenter = {
+    lat: watchedFields.latitude,
+    lng: watchedFields.longitude,
+  };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="latitude"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Өргөрөг (Latitude)</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="47.918" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="longitude"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Уртраг (Longitude)</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="106.917" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="radius"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Хүрээ (метр)</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="50" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-            <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />}
-                <Save className="mr-2 size-4 shrink-0" />
-                Хадгалах
-            </Button>
-            <Button type="button" variant="outline" onClick={handleGetLocation}>
-                <MapPin className="mr-2 size-4 shrink-0" />
-                Одоогийн байршил авах
-            </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="latitude" render={({ field }) => ( <FormItem><FormLabel>Өргөрөг (Latitude)</FormLabel><FormControl><Input type="number" placeholder="47.918" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                <FormField control={form.control} name="longitude" render={({ field }) => ( <FormItem><FormLabel>Уртраг (Longitude)</FormLabel><FormControl><Input type="number" placeholder="106.917" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                </div>
+                <FormField control={form.control} name="radius" render={({ field }) => ( <FormItem><FormLabel>Хүрээ (метр)</FormLabel><FormControl><Input type="number" placeholder="50" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                 <div className="flex items-center gap-2">
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />}
+                        <Save className="mr-2 size-4 shrink-0" />
+                        Хадгалах
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleGetLocation}>
+                        <MapPin className="mr-2 size-4 shrink-0" />
+                        Одоогийн байршил авах
+                    </Button>
+                </div>
+            </div>
+            <div>
+                 {loadError && <Alert variant="destructive"><AlertTitle>Газрын зураг ачаалахад алдаа гарлаа</AlertTitle><AlertDescription>API түлхүүрээ шалгана уу.</AlertDescription></Alert>}
+                 {isLoaded && !loadError && (
+                    <GoogleMap
+                        mapContainerStyle={mapContainerStyle}
+                        center={mapCenter}
+                        zoom={15}
+                        onClick={handleMapClick}
+                        options={{ streetViewControl: false, mapTypeControl: false }}
+                    >
+                        <Marker position={mapCenter} draggable onDragEnd={handleMapClick}/>
+                        <Circle
+                            center={mapCenter}
+                            radius={watchedFields.radius}
+                            options={{
+                                strokeColor: '#FF0000',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 2,
+                                fillColor: '#FF0000',
+                                fillOpacity: 0.35,
+                            }}
+                        />
+                    </GoogleMap>
+                 )}
+                  {!isLoaded && !loadError && <Skeleton className="h-[400px] w-full" />}
+            </div>
         </div>
       </form>
     </Form>
@@ -166,14 +185,21 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
 function ConfigCardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-10 w-28" />
-        <Skeleton className="h-10 w-48" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-6">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+                <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+            </div>
+             <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+            <div className="flex items-center gap-2">
+                <Skeleton className="h-10 w-28" />
+                <Skeleton className="h-10 w-48" />
+            </div>
+        </div>
+        <div>
+            <Skeleton className="h-[400px] w-full" />
+        </div>
       </div>
     </div>
   );
@@ -189,8 +215,8 @@ export default function AttendanceSettingsPage() {
   const { data: config, isLoading } = useDoc<AttendanceConfig>(configRef);
 
   const initialData: AttendanceConfigFormValues = config || {
-    latitude: 0,
-    longitude: 0,
+    latitude: 47.9179, // Ulaanbaatar's default latitude
+    longitude: 106.9175, // Ulaanbaatar's default longitude
     radius: 50,
   };
 
