@@ -138,15 +138,7 @@ export function MainNav() {
                 asChild
                 isActive={pathname.startsWith('/dashboard/settings/time-off')}
                 >
-                <Link href="/dashboard/settings/time-off">Чөлөөний хүсэлт</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-             <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/attendance')}
-                >
-                <Link href="/dashboard/settings/attendance">Цагийн бүртгэл</Link>
+                <Link href="/dashboard/settings/time-off">Цаг ба Ирц</Link>
                 </SidebarMenuSubButton>
             </SidebarMenuSubItem>
             <SidebarMenuSubItem>

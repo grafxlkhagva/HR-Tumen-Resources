@@ -7,13 +7,49 @@ import { ReferenceTable, type ReferenceItem } from "../reference-table";
 import { useCollection, useFirebase, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MapPin, Smartphone } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Save } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { GoogleMap, useJsApiLoader, Marker, Circle, Autocomplete } from '@react-google-maps/api';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 type SimpleReferenceItem = ReferenceItem & { name: string };
 type TimeOffRequestConfig = {
     requestDeadlineDays: number;
 }
+
+const attendanceConfigSchema = z.object({
+    latitude: z.coerce.number().min(-90, 'Өргөрөг -90-аас бага байж болохгүй.').max(90, 'Өргөрөг 90-ээс их байж болохгүй.'),
+    longitude: z.coerce.number().min(-180, 'Уртраг -180-аас бага байж болохгүй.').max(180, 'Уртраг 180-аас их байж болохгүй.'),
+    radius: z.coerce.number().min(1, 'Хүрээ 1-ээс бага байж болохгүй.'),
+});
+
+type AttendanceConfigFormValues = z.infer<typeof attendanceConfigSchema>;
+
+const mapContainerStyle = {
+  height: '400px',
+  width: '100%',
+  borderRadius: '0.5rem',
+  position: 'relative' as 'relative',
+};
+
+const libraries: ('places')[] = ['places'];
+
 
 function TimeOffRequestConfigCard() {
     const { firestore } = useFirebase();
@@ -41,7 +77,243 @@ function TimeOffRequestConfigCard() {
     );
 }
 
-export default function TimeOffSettingsPage() {
+function AttendanceConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [autocomplete, setAutocomplete] = React.useState<google.maps.places.Autocomplete | null>(null);
+  const mapRef = React.useRef<google.maps.Map | null>(null);
+
+  const configRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
+    [firestore]
+  );
+
+  const form = useForm<AttendanceConfigFormValues>({
+    resolver: zodResolver(attendanceConfigSchema),
+    defaultValues: initialData,
+  });
+
+  const { isSubmitting } = form.formState;
+  const watchedFields = form.watch();
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries: libraries,
+  });
+
+  React.useEffect(() => {
+    form.reset(initialData);
+  }, [initialData, form]);
+
+  const onAutocompleteLoad = (ac: google.maps.places.Autocomplete) => {
+    setAutocomplete(ac);
+  };
+  
+  const onPlaceChanged = () => {
+      if (autocomplete !== null) {
+          const place = autocomplete.getPlace();
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
+
+          if(lat && lng) {
+              form.setValue('latitude', lat);
+              form.setValue('longitude', lng);
+              mapRef.current?.panTo({ lat, lng });
+          }
+      } else {
+          console.log('Autocomplete is not loaded yet!');
+      }
+  }
+
+
+  const handleMapClick = React.useCallback((event: google.maps.MapMouseEvent) => {
+    if (event.latLng) {
+      form.setValue('latitude', event.latLng.lat());
+      form.setValue('longitude', event.latLng.lng());
+    }
+  }, [form]);
+
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            form.setValue('latitude', lat);
+            form.setValue('longitude', lng);
+            mapRef.current?.panTo({ lat, lng });
+            toast({ title: "Байршил амжилттай авлаа."})
+        }, (error) => {
+            toast({ variant: 'destructive', title: "Байршил авахад алдаа гарлаа", description: error.message });
+        });
+    } else {
+        toast({ variant: 'destructive', title: "Geolocation is not supported by this browser."});
+    }
+  }
+
+
+  const onSubmit = async (data: AttendanceConfigFormValues) => {
+    if (!configRef) return;
+    try {
+      setDocumentNonBlocking(configRef, data, { merge: true });
+      toast({
+        title: 'Амжилттай хадгаллаа',
+        description: 'Цагийн бүртгэлийн тохиргоо шинэчлэгдлээ.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Алдаа гарлаа',
+        description: 'Тохиргоо хадгалах үед алдаа гарлаа.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const mapCenter = {
+    lat: watchedFields.latitude,
+    lng: watchedFields.longitude,
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="latitude" render={({ field }) => ( <FormItem><FormLabel>Өргөрөг (Latitude)</FormLabel><FormControl><Input type="number" placeholder="47.918" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                <FormField control={form.control} name="longitude" render={({ field }) => ( <FormItem><FormLabel>Уртраг (Longitude)</FormLabel><FormControl><Input type="number" placeholder="106.917" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                </div>
+                <FormField control={form.control} name="radius" render={({ field }) => ( <FormItem><FormLabel>Хүрээ (метр)</FormLabel><FormControl><Input type="number" placeholder="50" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                 <div className="flex items-center gap-2">
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />}
+                        <Save className="mr-2 size-4 shrink-0" />
+                        Хадгалах
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleGetLocation}>
+                        <MapPin className="mr-2 size-4 shrink-0" />
+                        Одоогийн байршил авах
+                    </Button>
+                </div>
+            </div>
+            <div className="relative">
+                 {loadError && <Alert variant="destructive"><AlertTitle>Газрын зураг ачаалахад алдаа гарлаа</AlertTitle><AlertDescription>API түлхүүрээ шалгана уу.</AlertDescription></Alert>}
+                 {isLoaded && !loadError && (
+                    <>
+                    <Autocomplete
+                        onLoad={onAutocompleteLoad}
+                        onPlaceChanged={onPlaceChanged}
+                    >
+                        <Input
+                            type="text"
+                            placeholder="Хаягаар хайх..."
+                            className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-72"
+                        />
+                    </Autocomplete>
+                    <GoogleMap
+                        mapContainerStyle={mapContainerStyle}
+                        center={mapCenter}
+                        zoom={15}
+                        onClick={handleMapClick}
+                        options={{ streetViewControl: false, mapTypeControl: false }}
+                        onLoad={map => mapRef.current = map}
+                    >
+                        <Marker position={mapCenter} draggable onDragEnd={handleMapClick}/>
+                        <Circle
+                            center={mapCenter}
+                            radius={Number(watchedFields.radius) || 0}
+                            options={{
+                                strokeColor: '#FF0000',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 2,
+                                fillColor: '#FF0000',
+                                fillOpacity: 0.35,
+                            }}
+                        />
+                    </GoogleMap>
+                    </>
+                 )}
+                  {!isLoaded && !loadError && <Skeleton className="h-[400px] w-full" />}
+            </div>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+function AttendanceConfigCardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-6">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+                <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+            </div>
+             <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
+            <div className="flex items-center gap-2">
+                <Skeleton className="h-10 w-28" />
+                <Skeleton className="h-10 w-48" />
+            </div>
+        </div>
+        <div>
+            <Skeleton className="h-[400px] w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttendanceSettings() {
+    const { firestore } = useFirebase();
+    const configRef = useMemoFirebase(
+      () => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
+      [firestore]
+    );
+  
+    const { data: config, isLoading } = useDoc<AttendanceConfigFormValues>(configRef);
+  
+    const initialData: AttendanceConfigFormValues = config || {
+      latitude: 47.9179, // Ulaanbaatar's default latitude
+      longitude: 106.9175, // Ulaanbaatar's default longitude
+      radius: 50,
+    };
+
+    return (
+        <div className="space-y-8">
+            <Card>
+                <CardHeader>
+                <CardTitle>Байршлын хяналт</CardTitle>
+                <CardDescription>Ажилтнууд зөвхөн энэ байршлын хүрээнд цагаа бүртгүүлэх боломжтой.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? (
+                    <AttendanceConfigCardSkeleton />
+                ) : (
+                    <AttendanceConfigForm initialData={initialData} />
+                )}
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Төхөөрөмжийн баталгаажуулалт</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Alert>
+                        <Smartphone className="h-4 w-4" />
+                        <AlertTitle>Анхаар!</AlertTitle>
+                        <AlertDescription>
+                            Төхөөрөмжийн баталгаажуулалт автоматаар идэвхтэй байдаг. Ажилтан анх удаа "Ирсэн" товчийг дарахад тухайн төхөөрөмж автоматаар системд бүртгэгдэнэ. Үүний дараа ажилтан зөвхөн бүртгүүлсэн төхөөрөмжөөсөө цагаа бүртгүүлэх боломжтой болно.
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+
+export default function TimeAndAttendanceSettingsPage() {
   const { firestore } = useFirebase();
 
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
@@ -57,8 +329,8 @@ export default function TimeOffSettingsPage() {
                 </Link>
             </Button>
             <div>
-                 <h1 className="text-3xl font-bold tracking-tight">Чөлөөний хүсэлтийн тохиргоо</h1>
-                <p className="text-muted-foreground">Чөлөөний хүсэлтийн төрөл болон холбогдох тохиргоог удирдах.</p>
+                 <h1 className="text-3xl font-bold tracking-tight">Цаг ба Ирцийн Тохиргоо</h1>
+                <p className="text-muted-foreground">Чөлөө, цаг бүртгэлтэй холбоотой тохиргоог удирдах.</p>
             </div>
         </div>
       </div>
@@ -79,6 +351,7 @@ export default function TimeOffSettingsPage() {
                 />
             </CardContent>
         </Card>
+        <AttendanceSettings />
       </div>
     </div>
   );

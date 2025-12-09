@@ -4,26 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Settings, MapPin, ClipboardList, Code, Network, FileText, CalendarClock, Activity } from 'lucide-react';
-
-function TimeOffRequestConfigCard() {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
-                <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн дотор гаргахыг тохируулах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/time-off">
-                        <CalendarClock className="mr-2 size-4 shrink-0" />
-                        Тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
+import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity } from 'lucide-react';
 
 export default function GeneralSettingsPage() {
   return (
@@ -40,18 +21,16 @@ export default function GeneralSettingsPage() {
       </div>
       <div className="space-y-8">
         
-        <TimeOffRequestConfigCard />
-        
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5"/>Цагийн бүртгэлийн тохиргоо</CardTitle>
-                <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршил, төхөөрөмж зэргийг тохируулах.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5"/>Цаг ба Ирцийн Тохиргоо</CardTitle>
+                <CardDescription>Ажилтан чөлөөний хүсэлт, цаг бүртгэлийн тохиргоог удирдах.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button asChild>
-                    <Link href="/dashboard/settings/attendance">
-                        <Activity className="mr-2 size-4 shrink-0" />
-                        Цагийн бүртгэлийн тохиргоо
+                <Button asChild>
+                    <Link href="/dashboard/settings/time-off">
+                        <CalendarClock className="mr-2 size-4 shrink-0" />
+                        Тохиргоо руу очих
                     </Link>
                 </Button>
             </CardContent>
