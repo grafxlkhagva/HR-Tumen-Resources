@@ -21,7 +21,7 @@ import {
   setDocumentNonBlocking,
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { GoogleMap, useJsApiLoader, Marker, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Circle, Autocomplete } from '@react-google-maps/api';
 
 import {
   Form,
@@ -56,11 +56,17 @@ const mapContainerStyle = {
   height: '400px',
   width: '100%',
   borderRadius: '0.5rem',
+  position: 'relative' as 'relative',
 };
+
+const libraries: ('places')[] = ['places'];
+
 
 function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [autocomplete, setAutocomplete] = React.useState<google.maps.places.Autocomplete | null>(null);
+  const mapRef = React.useRef<google.maps.Map | null>(null);
 
   const configRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
@@ -78,11 +84,33 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries: libraries,
   });
 
   React.useEffect(() => {
     form.reset(initialData);
   }, [initialData, form]);
+
+  const onAutocompleteLoad = (ac: google.maps.places.Autocomplete) => {
+    setAutocomplete(ac);
+  };
+  
+  const onPlaceChanged = () => {
+      if (autocomplete !== null) {
+          const place = autocomplete.getPlace();
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
+
+          if(lat && lng) {
+              form.setValue('latitude', lat);
+              form.setValue('longitude', lng);
+              mapRef.current?.panTo({ lat, lng });
+          }
+      } else {
+          console.log('Autocomplete is not loaded yet!');
+      }
+  }
+
 
   const handleMapClick = React.useCallback((event: google.maps.MapMouseEvent) => {
     if (event.latLng) {
@@ -94,8 +122,11 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
   const handleGetLocation = () => {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((position) => {
-            form.setValue('latitude', position.coords.latitude);
-            form.setValue('longitude', position.coords.longitude);
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            form.setValue('latitude', lat);
+            form.setValue('longitude', lng);
+            mapRef.current?.panTo({ lat, lng });
             toast({ title: "Байршил амжилттай авлаа."})
         }, (error) => {
             toast({ variant: 'destructive', title: "Байршил авахад алдаа гарлаа", description: error.message });
@@ -150,15 +181,27 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
                     </Button>
                 </div>
             </div>
-            <div>
+            <div className="relative">
                  {loadError && <Alert variant="destructive"><AlertTitle>Газрын зураг ачаалахад алдаа гарлаа</AlertTitle><AlertDescription>API түлхүүрээ шалгана уу.</AlertDescription></Alert>}
                  {isLoaded && !loadError && (
+                    <>
+                    <Autocomplete
+                        onLoad={onAutocompleteLoad}
+                        onPlaceChanged={onPlaceChanged}
+                    >
+                        <Input
+                            type="text"
+                            placeholder="Хаягаар хайх..."
+                            className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-72"
+                        />
+                    </Autocomplete>
                     <GoogleMap
                         mapContainerStyle={mapContainerStyle}
                         center={mapCenter}
                         zoom={15}
                         onClick={handleMapClick}
                         options={{ streetViewControl: false, mapTypeControl: false }}
+                        onLoad={map => mapRef.current = map}
                     >
                         <Marker position={mapCenter} draggable onDragEnd={handleMapClick}/>
                         <Circle
@@ -173,6 +216,7 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
                             }}
                         />
                     </GoogleMap>
+                    </>
                  )}
                   {!isLoaded && !loadError && <Skeleton className="h-[400px] w-full" />}
             </div>
