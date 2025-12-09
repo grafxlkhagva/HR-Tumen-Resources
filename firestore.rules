@@ -18,7 +18,7 @@ service cloud.firestore {
     }
 
     match /feedback/{feedbackId} {
-       allow list: if request.auth != null && (isAdmin() || request.query.where.employeeId == request.auth.uid);
+       allow list: if request.auth != null && isAdmin();
     }
 
     match /employees/{userId}/{document=**} {
