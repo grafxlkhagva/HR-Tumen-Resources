@@ -1,5 +1,41 @@
 {
   "entities": {
+    "WorkSchedule": {
+      "title": "Ажлын цагийн хуваарь",
+      "description": "Ажлын цагийн төрөл бүрийн тохиргоог хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Ажлын цагийн төрлийн нэр." },
+        "code": { "type": "string", "description": "Богино таних код." },
+        "category": { "type": "string", "enum": ["fixed", "shift", "flex", "split", "remote"], "description": "Ажлын цагийн ангилал." },
+        "workingDays": { "type": "array", "items": { "type": "string", "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] }, "description": "Ажиллах өдрүүд." },
+        "isActive": { "type": "boolean", "description": "Идэвхтэй эсэх төлөв." },
+        "startTime": { "type": "string", "format": "time", "description": "'fixed' эсвэл 'shift' төрлийн эхлэх цаг." },
+        "endTime": { "type": "string", "format": "time", "description": "'fixed' эсвэл 'shift' төрлийн дуусах цаг." },
+        "flexStartEarliest": { "type": "string", "format": "time", "description": "'flex' төрлийн эрт эхлэх цаг." },
+        "flexStartLatest": { "type": "string", "format": "time", "description": "'flex' төрлийн оройтож эхлэх цаг." },
+        "flexTotalHours": { "type": "number", "description": "'flex' төрлийн нийт ажиллах цаг." },
+        "splitIntervals": {
+          "type": "array",
+          "description": "'split' төрлийн цагийн хэсгүүд.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "startTime": { "type": "string", "format": "time" },
+              "endTime": { "type": "string", "format": "time" }
+            },
+            "required": ["startTime", "endTime"]
+          }
+        },
+        "remoteTotalHoursDay": { "type": "number", "description": "'remote' төрлийн өдөрт ажиллах цаг." },
+        "remoteTotalHoursWeek": { "type": "number", "description": "'remote' төрлийн 7 хоногт ажиллах цаг." },
+        "hasBreak": { "type": "boolean", "description": "Завсарлагатай эсэх." },
+        "breakStartTime": { "type": "string", "format": "time", "description": "Завсарлагын эхлэх цаг." },
+        "breakEndTime": { "type": "string", "format": "time", "description": "Завсарлагын дуусах цаг." }
+      },
+      "required": ["name", "category", "workingDays", "isActive"]
+    },
     "Employee": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Ажилтан",
@@ -911,6 +947,13 @@
   "firestore": {
     "structure": [
       {
+        "path": "/workSchedules/{workScheduleId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/WorkSchedule" },
+          "description": "Ажлын цагийн хуваарийн төрлүүдийг хадгална."
+        }
+      },
+      {
         "path": "/employees/{employeeId}",
         "definition": {
           "entityName": "Employee",
@@ -1305,3 +1348,4 @@
     "reasoning": "Firestore өгөгдлийн бүтцийг Teal HR програмын онцлогт тохируулан, ажилтны удирдлага, чөлөөний хүсэлт, баримт бичгийн удирдлага, шинэ ажилтны дадлага зэрэгт төвлөрүүлэн боловсруулсан. Энэхүү бүтэц нь өгөгдлийг салгах замаар зөвшөөрлийн бие даасан байдлыг хангах, аюулгүй, өргөтгөх боломжтой үйл ажиллагааг идэвхжүүлэхэд чиглэгдсэн. Ажилтны профайлыг `/employees/{employeeId}` замд хадгалах ба чөлөөний хүсэлт, дадлагын даалгавар зэрэг холбогдох өгөгдлийг `/employees/{employeeId}/timeOffRequests/{timeOffRequestId}` болон `/employees/{employeeId}/assignedPrograms/{assignedProgramId}` гэсэн дэд цуглуулгад хадгална. Энэхүү шаталсан бүтэц нь тодорхой ажилтантай холбоотой өгөгдлийг хялбархан асуух боломжийг олгож, өмчлөлд суурилсан аюулгүй байдлын дүрмийг хэрэгжүүлдэг. Баримт бичгүүдийг `/documents/{documentId}` гэсэн дээд түвшний цуглуулгад хадгална. Ингэж тусгаарласнаар баrimт бичгийн хандалтыг бие даан удирдах боломжтой болно. Компанийн мэдээллийг `/company/profile` гэсэн замд хадгалснаар системд нэг л компанийн мэдээлэл байх боломжийг бүрдүүлнэ. Байгууллагын бүтцийн хувьд хэлтсүүдийг `/departments/{departmentId}` гэсэн дээд түвшний цуглуулгад хадгалж, албан тушаалуудыг `/positions/{positionId}` гэсэн тусдаа цуглуулгад хадгалах нь өгөгдлийн зохион байгуулалтыг сайжруулж, удирдан асуухад хялбар болгоно. Энэ нь хэлтсийн мэдээллээс хамааралгүйгээр албан тушаалыг удирдах боломжийг олгоно. Ажилтантай холбоотой өгөгдлийг замд суурилсан өмчлөл (`/employees/{employeeId}/...`) ашиглах нь өгөгдлийг ажилтны ID-тай шууд холбож, аюулгүй байдлын дүрмийг хялбаршуулдаг. Энэ бүтэц нь маш аюулгүй бөгөөд өгөгдлийн нууцлалыг хангана. Зөвшөөрлийн бие даасан байдлыг хангахын тулд `get()` дуудлага шаардлагагүй, учир нь бүх шаардлагатай зөвшөөрлийн шалгалтыг замд үндэслэн гүйцэтгэнэ.\n\nЭнэхүү бүтэц нь өгөгдлийг өмчлөлөөр нь ангилснаар QAPs (Дүрэм бол шүүлтүүр биш) -ийг дэмждэг. Жагсаалтын үйлдэл нь зөвхөн хэрэглэгчийн хандах эрхтэй зүйлсийг буцаана, учир нь тэдгээр нь зам нь өмчлөлийг заадаг цуглуулгад ангилагдсан байдаг. Энэ тохиолдолд гишүүнчлэлийн загварыг хатуу мөрддөггүй, учир нь бүх ажилчид өөрсдийн зам дахь өөрсдийн өгөгдөлд хандах эрхтэй гэж үздэг. Нөгөө талаас, баримт бичгүүдийг хэрэглэгч унших зөвшөөрөлтэй бол хандах боломжтой. Энэ бүтцэд ямар ч глобал үүрэг хэрэглэгдээгүй."
   }
 }
+
