@@ -221,7 +221,7 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            {employeeProfile?.role === 'admin' ? (
+            {!isProfileLoading && employeeProfile?.role === 'admin' ? (
                 <FeedbackTable />
             ) : (
                 <div className="h-48 flex items-center justify-center text-center text-muted-foreground">
