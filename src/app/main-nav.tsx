@@ -15,6 +15,7 @@ import {
   Sparkles,
   ClipboardList,
   Code,
+  CalendarClock,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -121,6 +122,22 @@ export function MainNav() {
                 isActive={pathname.startsWith('/dashboard/settings/employee-code')}
                 >
                 <Link href="/dashboard/settings/employee-code">Кодчлол</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname.startsWith('/dashboard/settings/documents')}
+                >
+                <Link href="/dashboard/settings/documents">Бичиг баримт</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+             <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname.startsWith('/dashboard/settings/time-off')}
+                >
+                <Link href="/dashboard/settings/time-off">Чөлөөний хүсэлт</Link>
                 </SidebarMenuSubButton>
             </SidebarMenuSubItem>
             <SidebarMenuSubItem>

@@ -3,42 +3,10 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReferenceTable, type ReferenceItem } from "../reference-table";
-import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Settings, MapPin, ClipboardList, Code, Network } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-
-type FieldDefinition = {
-    key: string;
-    label: string;
-    type: 'text' | 'number' | 'date';
-};
-
-type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldDefinition[] };
-type SimpleReferenceItem = ReferenceItem & { name: string };
-type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
-
-type TimeOffRequestConfig = {
-    requestDeadlineDays: number;
-}
-
-
-type AttendanceConfig = {
-    latitude: number;
-    longitude: number;
-    radius: number;
-}
+import { Settings, MapPin, ClipboardList, Code, Network, FileText, CalendarClock } from 'lucide-react';
 
 function TimeOffRequestConfigCard() {
-    const { firestore } = useFirebase();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
-    const { data: config, isLoading } = useDoc<TimeOffRequestConfig>(configRef);
-    const initialData = config || { requestDeadlineDays: 3 };
-
     return (
         <Card>
             <CardHeader>
@@ -46,50 +14,32 @@ function TimeOffRequestConfigCard() {
                 <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн дотор гаргахыг тохируулах.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {isLoading ? (
-                    <div className="space-y-4">
-                        <div className="space-y-2 max-w-sm"><Skeleton className="h-4 w-48" /><Skeleton className="h-10 w-full" /></div>
-                        <Skeleton className="h-10 w-28" />
-                    </div>
-                 ) : (
-                    <p>{initialData.requestDeadlineDays} хоногийн өмнө</p>
-                 )}
+                <Button asChild>
+                    <Link href="/dashboard/settings/time-off">
+                        <CalendarClock className="mr-2 size-4 shrink-0" />
+                        Тохиргоо руу очих
+                    </Link>
+                </Button>
             </CardContent>
         </Card>
     );
 }
 
 function AttendanceConfigCard() {
-    const { firestore } = useFirebase();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null), [firestore]);
-    const { data: config, isLoading } = useDoc<AttendanceConfig>(configRef);
-    const initialData = config || { latitude: 47.9181, longitude: 106.9172, radius: 50 };
-
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5"/>Цагийн бүртгэлийн байршил</CardTitle>
-                <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршлыг тохируулах. Та Google Maps-аас өргөрөг, уртрагийг авч болно.</CardDescription>
+                <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршлыг тохируулах.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {isLoading ? <p>Ачааллаж байна...</p> : <p>Радиус: {initialData.radius} метр</p> }
+                 <p>Тохиргоо хийгдэх боломжтой.</p>
             </CardContent>
         </Card>
     );
 }
 
 export default function GeneralSettingsPage() {
-  const { firestore } = useFirebase();
-
-  // Data hooks for each reference collection
-  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
-
-  const docTypeColumns = [
-    { key: 'name', header: 'Нэр' },
-    { key: 'fields', header: 'Талбарууд' }
-  ];
-
   return (
     <div className="py-8">
        <div className="mb-8 flex items-center justify-between">
@@ -136,17 +86,17 @@ export default function GeneralSettingsPage() {
                 </Button>
             </CardContent>
         </Card>
-
+        
         <Card>
             <CardHeader>
-                <CardTitle>Дасан зохицох хөтөлбөрийн тохиргоо</CardTitle>
-                <CardDescription>Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.</CardDescription>
+                <CardTitle>Баримт бичгийн тохиргоо</CardTitle>
+                <CardDescription>Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/onboarding">
-                        <Settings className="mr-2 size-4 shrink-0" />
-                        Дасан зохицох тохиргоо руу очих
+                 <Button asChild>
+                    <Link href="/dashboard/settings/documents">
+                        <FileText className="mr-2 size-4 shrink-0" />
+                        Бичиг баримтын тохиргоо
                     </Link>
                 </Button>
             </CardContent>
@@ -167,40 +117,20 @@ export default function GeneralSettingsPage() {
             </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Баримт бичгийн төрөл</CardTitle>
-                    <CardDescription>Хөдөлмөрийн гэрээ, дотоод журам гэх мэт төрлүүдийг удирдах.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ReferenceTable 
-                        collectionName="documentTypes"
-                        columns={docTypeColumns}
-                        itemData={documentTypes}
-                        isLoading={loadingDocTypes}
-                        dialogTitle="Баримт бичгийн төрөл"
-                        enableFieldDefs={true}
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
+        <Card>
             <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн төрөл</CardTitle>
-                <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
+                <CardTitle>Дасан зохицох хөтөлбөрийн тохиргоо</CardTitle>
+                <CardDescription>Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.</CardDescription>
             </CardHeader>
             <CardContent>
-                <ReferenceTable 
-                collectionName="timeOffRequestTypes"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={timeOffRequestTypes}
-                isLoading={loadingTimeOffRequestTypes}
-                dialogTitle="Хүсэлтийн төрөл"
-                />
+                <Button asChild>
+                    <Link href="/dashboard/settings/onboarding">
+                        <Settings className="mr-2 size-4 shrink-0" />
+                        Дасан зохицох тохиргоо руу очих
+                    </Link>
+                </Button>
             </CardContent>
-            </Card>
-        </div>
+        </Card>
       </div>
     </div>
   );
