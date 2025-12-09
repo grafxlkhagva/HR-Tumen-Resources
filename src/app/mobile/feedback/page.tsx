@@ -69,20 +69,17 @@ function FeedbackHistoryItem({ item }: { item: Feedback }) {
     )
 }
 
-function FeedbackHistory() {
-    const { employeeProfile } = useEmployeeProfile();
+function FeedbackHistory({ employeeId }: { employeeId: string }) {
     const { firestore } = useFirebase();
 
     const feedbackQuery = useMemoFirebase(() => {
-        if (!firestore || !employeeProfile?.id) {
-          return null;
-        }
+        if (!firestore) return null;
         return query(
           collection(firestore, 'feedback'),
-          where('employeeId', '==', employeeProfile.id),
+          where('employeeId', '==', employeeId),
           orderBy('createdAt', 'desc')
         );
-      }, [firestore, employeeProfile?.id]);
+      }, [firestore, employeeId]);
       
     const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
 
@@ -264,7 +261,7 @@ export default function FeedbackPage() {
         </CardContent>
       </Card>
       
-      {!isProfileLoading && <FeedbackHistory />}
+      {!isProfileLoading && employeeProfile && <FeedbackHistory employeeId={employeeProfile.id} />}
       
     </div>
   );
