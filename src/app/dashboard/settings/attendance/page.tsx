@@ -206,7 +206,7 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
                         <Marker position={mapCenter} draggable onDragEnd={handleMapClick}/>
                         <Circle
                             center={mapCenter}
-                            radius={watchedFields.radius}
+                            radius={Number(watchedFields.radius) || 0}
                             options={{
                                 strokeColor: '#FF0000',
                                 strokeOpacity: 0.8,
