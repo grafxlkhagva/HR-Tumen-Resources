@@ -234,7 +234,7 @@ export default function FeedbackPage() {
                         <TableHead className="text-right">Төлөв</TableHead>
                     </TableRow>
                     </TableHeader>
-                    {employeeProfile?.role === 'admin' ? (
+                    {!isProfileLoading && employeeProfile?.role === 'admin' ? (
                        <FeedbackTable />
                     ) : (
                         <TableBody>
