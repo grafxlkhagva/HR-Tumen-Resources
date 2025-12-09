@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReferenceTable, type ReferenceItem } from "../reference-table";
+import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
 import { useCollection, useFirebase, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Button } from '@/components/ui/button';

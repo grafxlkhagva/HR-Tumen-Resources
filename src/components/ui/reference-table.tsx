@@ -224,7 +224,7 @@ function ReferenceItemDialog({
   const formSchema = React.useMemo(() => {
     const shape: { [key: string]: any } = {};
     columns.forEach(col => {
-      if (col.key !== 'fields') {
+      if (col.key !== 'fields' && !col.render) {
         shape[col.key] = z.string().min(1, `${col.header} хоосон байж болохгүй.`);
       }
     });
@@ -252,11 +252,15 @@ function ReferenceItemDialog({
       const defaultValues: { [key: string]: any } = {};
       if (isEditMode && item) {
         columns.forEach(col => {
-          defaultValues[col.key] = item[col.key] || (col.key === 'fields' ? [] : '');
+           if(!col.render) {
+             defaultValues[col.key] = item[col.key] || (col.key === 'fields' ? [] : '');
+           }
         });
       } else {
         columns.forEach(col => {
-          defaultValues[col.key] = col.key === 'fields' ? [] : '';
+          if (!col.render) {
+            defaultValues[col.key] = col.key === 'fields' ? [] : '';
+          }
         });
       }
       form.reset(defaultValues);
