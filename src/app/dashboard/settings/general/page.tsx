@@ -2,18 +2,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReferenceTable, type ReferenceItem } from "./reference-table";
+import { ReferenceTable, type ReferenceItem } from "../reference-table";
 import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, Settings, MapPin, ClipboardList, Code } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Settings, MapPin, ClipboardList, Code } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type FieldDefinition = {
@@ -26,141 +22,15 @@ type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldD
 type SimpleReferenceItem = ReferenceItem & { name: string };
 type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
 
-const timeOffRequestSchema = z.object({
-    requestDeadlineDays: z.coerce.number().min(0, 'Хязгаар 0-ээс бага байж болохгүй.'),
-});
-
-type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
-
 type TimeOffRequestConfig = {
     requestDeadlineDays: number;
 }
 
-const attendanceSchema = z.object({
-    latitude: z.coerce.number({invalid_type_error: "Өргөрөг тоо байх ёстой."}),
-    longitude: z.coerce.number({invalid_type_error: "Уртраг тоо байх ёстой."}),
-    radius: z.coerce.number().min(1, 'Радиус 1-ээс бага байж болохгүй.'),
-});
-
-type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
 type AttendanceConfig = {
     latitude: number;
     longitude: number;
     radius: number;
-}
-
-function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequestFormValues }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
-
-    const form = useForm<TimeOffRequestFormValues>({
-        resolver: zodResolver(timeOffRequestSchema),
-        defaultValues: initialData,
-    });
-
-    const { isSubmitting } = form.formState;
-
-    const onSubmit = (data: TimeOffRequestFormValues) => {
-        if (!configRef) return;
-        
-        setDocumentNonBlocking(configRef, data, { merge: true });
-        
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Чөлөөний хүсэлтийн тохиргоо шинэчлэгдлээ.',
-        });
-    };
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                 <FormField
-                    control={form.control}
-                    name="requestDeadlineDays"
-                    render={({ field }) => (
-                        <FormItem className="max-w-sm">
-                            <FormLabel>Хүсэлт гаргах доод хязгаар (ажлын өдөр)</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="Жишээ нь: 3" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                    Хадгалах
-                </Button>
-            </form>
-        </Form>
-    );
-}
-
-function AttendanceConfigForm({ initialData }: { initialData: AttendanceFormValues }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null), [firestore]);
-
-    const form = useForm<AttendanceFormValues>({
-        resolver: zodResolver(attendanceSchema),
-        defaultValues: initialData,
-    });
-
-    const { isSubmitting } = form.formState;
-
-    const onSubmit = (data: AttendanceFormValues) => {
-        if (!configRef) return;
-        
-        setDocumentNonBlocking(configRef, data, { merge: true });
-        
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Цагийн бүртгэлийн тохиргоо шинэчлэгдлээ.',
-        });
-    };
-
-    return (
-         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="latitude" render={({ field }) => ( <FormItem> <FormLabel>Өргөрөг (Latitude)</FormLabel> <FormControl> <Input type="number" step="any" placeholder="47.9181" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="longitude" render={({ field }) => ( <FormItem> <FormLabel>Уртраг (Longitude)</FormLabel> <FormControl> <Input type="number" step="any" placeholder="106.9172" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="radius" render={({ field }) => ( <FormItem> <FormLabel>Радиус (метр)</FormLabel> <FormControl> <Input type="number" placeholder="50" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                         {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    );
-}
-
-function ConfigCardSkeleton() {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-full max-w-md mt-2" />
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Skeleton className="h-10 w-28" />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    )
 }
 
 function TimeOffRequestConfigCard() {
@@ -182,7 +52,7 @@ function TimeOffRequestConfigCard() {
                         <Skeleton className="h-10 w-28" />
                     </div>
                  ) : (
-                    <TimeOffRequestConfigForm initialData={initialData} />
+                    <p>{initialData.requestDeadlineDays} хоногийн өмнө</p>
                  )}
             </CardContent>
         </Card>
@@ -202,12 +72,11 @@ function AttendanceConfigCard() {
                 <CardDescription>Ажилтнуудын цаг бүртгүүлэх зөвшөөрөгдсөн байршлыг тохируулах. Та Google Maps-аас өргөрөг, уртрагийг авч болно.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {isLoading ? <ConfigCardSkeleton/> : <AttendanceConfigForm initialData={initialData} /> }
+                 {isLoading ? <p>Ачааллаж байна...</p> : <p>Радиус: {initialData.radius} метр</p> }
             </CardContent>
         </Card>
     );
 }
-
 
 export default function SettingsPage() {
   const { firestore } = useFirebase();

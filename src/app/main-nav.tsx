@@ -101,9 +101,9 @@ export function MainNav() {
             <SidebarMenuSubItem>
                 <SidebarMenuSubButton
                 asChild
-                isActive={pathname === '/dashboard/settings'}
+                isActive={pathname === '/dashboard/settings/general'}
                 >
-                <Link href="/dashboard/settings">Ерөнхий</Link>
+                <Link href="/dashboard/settings/general">Ерөнхий</Link>
                 </SidebarMenuSubButton>
             </SidebarMenuSubItem>
             <SidebarMenuSubItem>
