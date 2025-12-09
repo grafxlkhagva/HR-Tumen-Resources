@@ -13,14 +13,18 @@ import {
   Clock,
   Award,
   Sparkles,
+  ClipboardList,
 } from 'lucide-react';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 
-const links = [
+const mainLinks = [
   {
     href: '/dashboard',
     label: 'Хяналтын самбар',
@@ -61,11 +65,6 @@ const links = [
     label: 'Онооны систем',
     icon: Award,
   },
-  {
-    href: '/dashboard/settings',
-    label: 'Тохиргоо',
-    icon: Settings,
-  },
 ];
 
 export function MainNav() {
@@ -73,7 +72,7 @@ export function MainNav() {
 
   return (
     <SidebarMenu>
-      {links.map((link) => {
+      {mainLinks.map((link) => {
         const Icon = link.icon;
         return (
           <SidebarMenuItem key={link.href}>
@@ -90,6 +89,41 @@ export function MainNav() {
           </SidebarMenuItem>
         );
       })}
+        <SidebarMenuItem>
+            <SidebarMenuButton
+            isActive={pathname.startsWith('/dashboard/settings')}
+            tooltip="Тохиргоо"
+            >
+            <Settings />
+            <span>Тохиргоо</span>
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+            <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname === '/dashboard/settings'}
+                >
+                <Link href="/dashboard/settings">Ерөнхий</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname === '/dashboard/settings/questionnaire'}
+                >
+                <Link href="/dashboard/settings/questionnaire">Анкет</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+             <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname === '/dashboard/settings/onboarding'}
+                >
+                <Link href="/dashboard/settings/onboarding">Дасан зохицох</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            </SidebarMenuSub>
+        </SidebarMenuItem>
     </SidebarMenu>
   );
 }
