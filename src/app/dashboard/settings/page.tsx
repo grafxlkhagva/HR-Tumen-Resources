@@ -107,13 +107,15 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
+                         <>
+                            <Save className="mr-2 size-4 shrink-0" />
+                            {isSubmitting ? 'Хадгалж байна...' : 'Хадгалах'}
+                         </>
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
+                    {/* <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
                        <History className="mr-2 size-4 shrink-0" />
                        Түүх харах
-                    </Button>
+                    </Button> */}
                 </div>
             </form>
         </Form>
@@ -160,8 +162,10 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                     )}
                 />
                 <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                    Хадгалах
+                   <>
+                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                     Хадгалах
+                   </>
                 </Button>
             </form>
         </Form>
