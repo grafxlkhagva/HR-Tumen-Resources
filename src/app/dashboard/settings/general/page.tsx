@@ -78,14 +78,13 @@ function AttendanceConfigCard() {
     );
 }
 
-export default function SettingsPage() {
+export default function GeneralSettingsPage() {
   const { firestore } = useFirebase();
 
   // Data hooks for each reference collection
   const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
   const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'employmentTypes') : null, [firestore]));
   const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
-  const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
 
@@ -236,22 +235,6 @@ export default function SettingsPage() {
                 dialogTitle="Хүсэлтийн төрөл"
                 />
             </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Ажил мэргэжлийн ангилал (ҮАМАТ)</CardTitle>
-                    <CardDescription>Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтын кодыг удирдах.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ReferenceTable 
-                    collectionName="jobCategories"
-                    columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
-                    itemData={jobCategories}
-                    isLoading={loadingJobCategories}
-                    dialogTitle="Ажил мэргэжлийн ангилал"
-                    />
-                </CardContent>
             </Card>
         </div>
       </div>

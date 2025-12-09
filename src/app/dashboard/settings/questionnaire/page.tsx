@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 type SimpleReferenceItem = ReferenceItem & { name: string };
+type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
+
 
 export default function QuestionnaireSettingsPage() {
   const { firestore } = useFirebase();
@@ -22,13 +24,14 @@ export default function QuestionnaireSettingsPage() {
   const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
   const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
   const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
+  const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
 
   return (
     <div className="py-8">
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
             <Button asChild variant="outline" size="icon">
-                <Link href="/dashboard/settings">
+                <Link href="/dashboard/settings/general">
                     <ArrowLeft className="h-4 w-4" />
                     <span className="sr-only">Буцах</span>
                 </Link>
@@ -101,6 +104,13 @@ export default function QuestionnaireSettingsPage() {
                     itemData={questionnaireEmploymentTypes}
                     isLoading={loadingQuestionnaireEmpTypes}
                     dialogTitle="Ажлын туршлагын хөдөлмөрийн нөхцөл"
+                    />
+                <ReferenceTable 
+                    collectionName="jobCategories"
+                    columns={[{ key: 'code', header: 'Код' }, { key: 'name', header: 'Нэр' }]}
+                    itemData={jobCategories}
+                    isLoading={loadingJobCategories}
+                    dialogTitle="Ажил мэргэжлийн ангилал"
                     />
             </CardContent>
         </Card>
