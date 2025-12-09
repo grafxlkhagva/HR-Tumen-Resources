@@ -106,16 +106,16 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                     <FormField control={form.control} name="nextNumber" render={({ field }) => ( <FormItem> <FormLabel>Эхлэх дугаар</FormLabel> <FormControl> <Input type="number" placeholder="1" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                         <>
-                            <Save className="mr-2 size-4 shrink-0" />
-                            {isSubmitting ? 'Хадгалж байна...' : 'Хадгалах'}
-                         </>
+                     <Button type="submit" disabled={isSubmitting}>
+                       <>
+                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                         Хадгалах
+                       </>
                     </Button>
-                    {/* <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
+                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
                        <History className="mr-2 size-4 shrink-0" />
                        Түүх харах
-                    </Button> */}
+                    </Button>
                 </div>
             </form>
         </Form>
@@ -529,3 +529,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
