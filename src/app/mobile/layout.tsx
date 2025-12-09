@@ -19,32 +19,34 @@ export default function MobileLayout({
   const pathname = usePathname();
 
   return (
-    <div className="flex h-dvh flex-col bg-muted/20">
-      <main className="flex-1 overflow-y-auto pb-20">{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 border-t bg-background shadow-t-lg">
-        <div className="mx-auto flex h-16 max-w-md items-center justify-around">
-          {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 text-xs transition-colors ${
-                  isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-primary'
-                }`}
-              >
-                <item.icon
-                  className="h-6 w-6"
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+    <div className="flex min-h-dvh w-full justify-center bg-background">
+      <div className="relative flex h-dvh w-full max-w-md flex-col border-x bg-muted/20 shadow-lg">
+        <main className="flex-1 overflow-y-auto pb-20">{children}</main>
+        <nav className="absolute bottom-0 left-0 right-0 border-t bg-background">
+          <div className="mx-auto flex h-16 max-w-md items-center justify-around">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex flex-col items-center gap-1 text-xs transition-colors ${
+                    isActive
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-primary'
+                  }`}
+                >
+                  <item.icon
+                    className="h-6 w-6"
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }
