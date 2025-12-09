@@ -1,10 +1,7 @@
-
-
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,7 +12,7 @@ import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, History, Settings, MapPin } from 'lucide-react';
+import { Loader2, Save, History, Settings, MapPin, ClipboardList } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -76,7 +73,6 @@ type AttendanceConfig = {
 function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const router = useRouter();
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
 
     const form = useForm<EmployeeCodeFormValues>({
@@ -111,9 +107,11 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                         {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
                         Хадгалах
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
-                       <History className="mr-2 size-4 shrink-0" />
-                       Түүх харах
+                    <Button asChild type="button" variant="outline">
+                        <Link href="/dashboard/settings/code-log">
+                            <History className="mr-2 size-4 shrink-0" />
+                            Түүх харах
+                        </Link>
                     </Button>
                 </div>
             </form>
@@ -210,6 +208,7 @@ function AttendanceConfigForm({ initialData }: { initialData: AttendanceFormValu
         </Form>
     );
 }
+
 
 function ConfigCardSkeleton() {
     return (
@@ -310,17 +309,6 @@ export default function SettingsPage() {
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
 
-
-  // Questionnaire references
-  const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
-  const { data: questionnaireSchools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
-  const { data: questionnaireDegrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
-  const { data: questionnaireAcademicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
-  const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
-  const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
-  const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
-  const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
-
   const docTypeColumns = [
     { key: 'name', header: 'Нэр' },
     { key: 'fields', header: 'Талбарууд' }
@@ -364,63 +352,13 @@ export default function SettingsPage() {
                 <CardTitle>Анкетын лавлах сан</CardTitle>
                 <CardDescription>Ажилтны анкетын сонголтуудыг эндээс удирдна.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
-                 <ReferenceTable 
-                    collectionName="questionnaireCountries"
-                    columns={[{ key: 'name', header: 'Улс' }]}
-                    itemData={questionnaireCountries}
-                    isLoading={loadingCountries}
-                    dialogTitle="Улсын нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireSchools"
-                    columns={[{ key: 'name', header: 'Сургууль' }]}
-                    itemData={questionnaireSchools}
-                    isLoading={loadingSchools}
-                    dialogTitle="Сургуулийн нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireDegrees"
-                    columns={[{ key: 'name', header: 'Мэргэжил' }]}
-                    itemData={questionnaireDegrees}
-                    isLoading={loadingDegrees}
-                    dialogTitle="Мэргэжлийн нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireAcademicRanks"
-                    columns={[{ key: 'name', header: 'Зэрэг, цол' }]}
-                    itemData={questionnaireAcademicRanks}
-                    isLoading={loadingRanks}
-                    dialogTitle="Эрдмийн зэрэг, цол"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireLanguages"
-                    columns={[{ key: 'name', header: 'Гадаад хэл' }]}
-                    itemData={questionnaireLanguages}
-                    isLoading={loadingLanguages}
-                    dialogTitle="Гадаад хэлний нэр"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireFamilyRelationships"
-                    columns={[{ key: 'name', header: 'Гэр бүлийн хамаарал' }]}
-                    itemData={questionnaireFamilyRelationships}
-                    isLoading={loadingFamilyR}
-                    dialogTitle="Гэр бүлийн гишүүний хамаарал"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireEmergencyRelationships"
-                    columns={[{ key: 'name', header: 'Яаралтай үеийн хамаарал' }]}
-                    itemData={questionnaireEmergencyRelationships}
-                    isLoading={loadingEmergencyR}
-                    dialogTitle="Яаралтай үед холбоо барих хүний хамаарал"
-                    />
-                <ReferenceTable 
-                    collectionName="questionnaireEmploymentTypes"
-                    columns={[{ key: 'name', header: 'Хөдөлмөрийн нөхцөл' }]}
-                    itemData={questionnaireEmploymentTypes}
-                    isLoading={loadingQuestionnaireEmpTypes}
-                    dialogTitle="Ажлын туршлагын хөдөлмөрийн нөхцөл"
-                    />
+            <CardContent>
+                 <Button asChild>
+                    <Link href="/dashboard/settings/questionnaire">
+                        <ClipboardList className="mr-2 size-4 shrink-0" />
+                        Анкет тохиргоо руу очих
+                    </Link>
+                </Button>
             </CardContent>
         </Card>
 
