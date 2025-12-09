@@ -9,7 +9,7 @@ import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Settings, MapPin, ClipboardList, Code } from 'lucide-react';
+import { Settings, MapPin, ClipboardList, Code, Network } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type FieldDefinition = {
@@ -83,9 +83,6 @@ export default function GeneralSettingsPage() {
 
   // Data hooks for each reference collection
   const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
-  const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'employmentTypes') : null, [firestore]));
-  const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
-  const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
 
   const docTypeColumns = [
@@ -120,6 +117,21 @@ export default function GeneralSettingsPage() {
                     <Link href="/dashboard/settings/employee-code">
                         <Code className="mr-2 size-4 shrink-0" />
                         Кодчлолын тохиргоо руу очих
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Бүтцийн тохиргоо</CardTitle>
+                <CardDescription>Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг эндээс тохируулна.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button asChild>
+                    <Link href="/dashboard/settings/structure">
+                        <Network className="mr-2 size-4 shrink-0" />
+                        Бүтцийн тохиргоо руу очих
                     </Link>
                 </Button>
             </CardContent>
@@ -171,54 +183,6 @@ export default function GeneralSettingsPage() {
                         enableFieldDefs={true}
                     />
                 </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
-                <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="employmentTypes"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={employmentTypes}
-                isLoading={loadingEmpTypes}
-                dialogTitle="Ажил эрхлэлтийн төрөл"
-                />
-            </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажлын байрны зэрэглэл</CardTitle>
-                <CardDescription>Удирдах, ахлах, мэргэжилтэн гэх мэт зэрэглэлүүдийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="positionLevels"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={positionLevels}
-                isLoading={loadingLevels}
-                dialogTitle="Албан тушаалын зэрэглэл"
-                />
-            </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Ажлын байрны төлөв</CardTitle>
-                <CardDescription>Нээлттэй, хаалттай гэх мэт төлвүүдийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                collectionName="positionStatuses"
-                columns={[{ key: 'name', header: 'Нэр' }]}
-                itemData={positionStatuses}
-                isLoading={loadingStatuses}
-                dialogTitle="Ажлын байрны төлөв"
-                />
-            </CardContent>
             </Card>
 
             <Card>

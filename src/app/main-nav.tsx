@@ -14,6 +14,7 @@ import {
   Award,
   Sparkles,
   ClipboardList,
+  Code,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -104,6 +105,14 @@ export function MainNav() {
                 isActive={pathname === '/dashboard/settings/general'}
                 >
                 <Link href="/dashboard/settings/general">Ерөнхий</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+             <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname.startsWith('/dashboard/settings/structure')}
+                >
+                <Link href="/dashboard/settings/structure">Бүтэц</Link>
                 </SidebarMenuSubButton>
             </SidebarMenuSubItem>
             <SidebarMenuSubItem>
