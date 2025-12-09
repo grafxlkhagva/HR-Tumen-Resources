@@ -120,7 +120,7 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
 
   const historyQuery = useMemoFirebase(
     () =>
-      firestore
+      firestore && employeeId
         ? query(
             collection(firestore, `employees/${employeeId}/employmentHistory`),
             orderBy('eventDate', 'desc')

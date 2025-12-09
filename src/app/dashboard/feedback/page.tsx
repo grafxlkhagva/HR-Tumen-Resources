@@ -130,11 +130,12 @@ export default function FeedbackPage() {
   
   const feedbackQuery = useMemoFirebase(
     () => {
-      // Ensure profile is loaded AND the user is an admin before creating the query.
-      if (!isProfileLoading && employeeProfile?.role === 'admin' && firestore) {
+      if (isProfileLoading || !firestore) {
+          return null;
+      }
+      if (employeeProfile?.role === 'admin') {
         return query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc'));
       }
-      // Return null in all other cases (loading, not admin, or firestore not ready)
       return null;
     },
     [firestore, employeeProfile?.role, isProfileLoading]
@@ -142,8 +143,7 @@ export default function FeedbackPage() {
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  // Loading state is true if we are still verifying the profile OR if we are an admin and the feedbacks are loading.
-  const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
+  const shouldShowLoading = isProfileLoading || isLoading;
 
   if (isProfileLoading) {
     return (

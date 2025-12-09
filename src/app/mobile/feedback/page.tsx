@@ -108,16 +108,14 @@ export default function FeedbackPage() {
   });
 
   const feedbackQuery = useMemoFirebase(() => {
-    // Only create the query if the employeeProfile is loaded and has an ID
-    if (firestore && employeeProfile?.id) {
-      return query(
-        collection(firestore, 'feedback'),
-        where('employeeId', '==', employeeProfile.id),
-        orderBy('createdAt', 'desc')
-      );
+    if (!firestore || !employeeProfile?.id) {
+      return null;
     }
-    // Return null if we are not ready to query
-    return null;
+    return query(
+      collection(firestore, 'feedback'),
+      where('employeeId', '==', employeeProfile.id),
+      orderBy('createdAt', 'desc')
+    );
   }, [firestore, employeeProfile?.id]);
   
   const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
