@@ -26,9 +26,21 @@ import { Loader2, Save } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { GoogleMap, useJsApiLoader, Marker, Circle, Autocomplete } from '@react-google-maps/api';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { AddWorkScheduleDialog } from './add-work-schedule-dialog';
+import { Badge } from '@/components/ui/badge';
+import { format, differenceInMinutes, parse } from 'date-fns';
 
 
 type SimpleReferenceItem = ReferenceItem & { name: string };
+type WorkScheduleItem = ReferenceItem & { 
+  name: string;
+  category: string;
+  workingDays: string[];
+  isActive: boolean;
+  startTime?: string;
+  endTime?: string;
+};
+
 type TimeOffRequestConfig = {
     requestDeadlineDays: number;
 }
@@ -317,6 +329,40 @@ export default function TimeAndAttendanceSettingsPage() {
   const { firestore } = useFirebase();
 
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
+  
+  const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(useMemoFirebase(() => firestore ? collection(firestore, 'workSchedules') : null, [firestore]));
+
+  const workScheduleColumns = [
+    { key: 'name', header: 'Нэр' },
+    { key: 'category', header: 'Ангилал' },
+    { 
+        key: 'schedule', 
+        header: 'Цагийн хуваарь',
+        render: (item: WorkScheduleItem) => {
+            if (item.category === 'fixed' || item.category === 'shift') {
+                return `${item.startTime} - ${item.endTime}`;
+            }
+            // Add other category rendering logic here
+            return 'N/A';
+        }
+    },
+    { 
+        key: 'workingDays', 
+        header: 'Ажлын өдөр',
+        render: (item: WorkScheduleItem) => (
+            <div className="flex flex-wrap gap-1">
+                {item.workingDays?.map(day => <Badge key={day} variant="secondary" className="font-normal">{day.substring(0,2)}</Badge>)}
+            </div>
+        )
+    },
+    { 
+        key: 'isActive', 
+        header: 'Төлөв',
+        render: (item: WorkScheduleItem) => (
+             <Badge variant={item.isActive ? 'default' : 'destructive'}>{item.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</Badge>
+        )
+    },
+  ];
 
   return (
     <div className="py-8">
@@ -335,6 +381,22 @@ export default function TimeAndAttendanceSettingsPage() {
         </div>
       </div>
       <div className="space-y-8">
+        <Card>
+            <CardHeader>
+                <CardTitle>Ажлын цагийн хуваарь</CardTitle>
+                <CardDescription>Байгууллагын нийтлэг ажлын цагийн төрлүүдийг үүсгэж удирдах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReferenceTable 
+                    collectionName="workSchedules"
+                    columns={workScheduleColumns}
+                    itemData={workSchedules}
+                    isLoading={loadingWorkSchedules}
+                    dialogTitle="Ажлын цагийн хуваарь"
+                    dialogComponent={AddWorkScheduleDialog}
+                />
+            </CardContent>
+        </Card>
         <TimeOffRequestConfigCard />
         <Card>
             <CardHeader>
