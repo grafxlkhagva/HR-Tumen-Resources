@@ -69,8 +69,10 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 
                  <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
+                        <>
+                            {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                            Хадгалах
+                        </>
                     </Button>
                     <Button asChild type="button" variant="outline">
                         <Link href="/dashboard/settings/code-log">
