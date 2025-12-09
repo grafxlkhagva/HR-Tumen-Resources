@@ -57,20 +57,6 @@ type TimeOffRequestConfig = {
     requestDeadlineDays: number;
 }
 
-const pointsConfigSchema = z.object({
-    monthlyAllocation: z.coerce.number().min(0, "Оноо 0-ээс бага байж болохгүй."),
-    dailyAllocation: z.coerce.number().min(0, "Оноо 0-ээс бага байж болохгүй."),
-    maxPerTransaction: z.coerce.number().min(0, "Оноо 0-ээс бага байж болохгүй."),
-});
-
-type PointsConfigFormValues = z.infer<typeof pointsConfigSchema>;
-
-type PointsConfig = {
-    monthlyAllocation: number;
-    dailyAllocation: number;
-    maxPerTransaction: number;
-}
-
 
 function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
     const { firestore } = useFirebase();
@@ -174,56 +160,6 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
     );
 }
 
-function PointsConfigForm({ initialData }: { initialData: PointsConfigFormValues }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'pointsConfig') : null), [firestore]);
-
-    const form = useForm<PointsConfigFormValues>({
-        resolver: zodResolver(pointsConfigSchema),
-        defaultValues: initialData,
-    });
-
-    const { isSubmitting } = form.formState;
-
-    const onSubmit = (data: PointsConfigFormValues) => {
-        if (!configRef) return;
-        setDocumentNonBlocking(configRef, data, { merge: true });
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Онооны тохиргоо шинэчлэгдлээ.',
-        });
-    };
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="monthlyAllocation" render={({ field }) => ( <FormItem> <FormLabel>Ажилтанд сард өгөх оноо</FormLabel> <FormControl> <Input type="number" placeholder="100" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="dailyAllocation" render={({ field }) => ( <FormItem> <FormLabel>Ажилтанд өдөрт өгөх оноо</FormLabel> <FormControl> <Input type="number" placeholder="20" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="maxPerTransaction" render={({ field }) => ( <FormItem> <FormLabel>Нэг хүнд өгөх дээд оноо</FormLabel> <FormControl> <Input type="number" placeholder="20" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                </div>
-                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                        <>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
-                        </>
-                    </Button>
-                    <Button asChild type="button" variant="outline" disabled={isSubmitting}>
-                       <Link href="/dashboard/scoring">
-                        <> 
-                         <Star className="mr-2 size-4 shrink-0" />
-                         Онооны дүрэм
-                        </>
-                       </Link>
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    );
-}
-
 function EmployeeCodeConfigCard() {
     const { firestore } = useFirebase();
 
@@ -285,39 +221,6 @@ function TimeOffRequestConfigCard() {
     );
 }
 
-function PointsConfigCard() {
-    const { firestore } = useFirebase();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'pointsConfig') : null), [firestore]);
-    const { data: config, isLoading } = useDoc<PointsConfig>(configRef);
-    const initialData = config || { monthlyAllocation: 100, dailyAllocation: 20, maxPerTransaction: 20 };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Онооны системийн тохиргоо</CardTitle>
-                <CardDescription>Ажилтан хооронд оноо шилжүүлэх болон системээс оноо авахтай холбоотой ерөнхий тохиргоо.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {isLoading ? (
-                    <div className="space-y-4">
-                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                            <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <Skeleton className="h-10 w-28" />
-                           <Skeleton className="h-10 w-36" />
-                        </div>
-                    </div>
-                 ) : (
-                    <PointsConfigForm initialData={initialData} />
-                 )}
-            </CardContent>
-        </Card>
-    );
-}
-
 export default function SettingsPage() {
   const { firestore } = useFirebase();
 
@@ -358,13 +261,10 @@ export default function SettingsPage() {
         </div>
       </div>
       <div className="space-y-8">
-        {/*
+        
         <EmployeeCodeConfigCard />
 
         <TimeOffRequestConfigCard />
-        
-        <PointsConfigCard />
-        */}
 
         <Card>
             <CardHeader>
@@ -548,5 +448,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

@@ -875,24 +875,6 @@
         "status": { "type": "string", "enum": ["PRESENT", "LEFT"] }
       },
       "required": ["id", "employeeId", "date", "checkInTime", "status"]
-    },
-    "Feedback": {
-        "title": "Санал хүсэлт",
-        "description": "Ажилтны илгээсэн санал, гомдол, асуултыг хадгална.",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "employeeId": { "type": "string", "description": "Санал хүсэлт илгээсэн ажилтны ID (нууцалсан бол null)." },
-            "employeeName": { "type": "string", "description": "Санал хүсэлт илгээсэн ажилтны нэр (нууцалсан бол null)." },
-            "employeePhotoURL": { "type": "string", "format": "uri", "description": "Санал хүсэлт илгээсэн ажилтны зургийн URL (нууцалсан бол null)." },
-            "subject": { "type": "string", "description": "Санал хүсэлтийн гарчиг." },
-            "message": { "type": "string", "description": "Санал хүсэлтийн дэлгэрэнгүй агуулга." },
-            "category": { "type": "string", "enum": ["Санал", "Гомдол", "Асуулт"], "description": "Санал хүсэлтийн ангилал." },
-            "status": { "type": "string", "enum": ["Шинэ", "Хянаж буй", "Шийдвэрлэсэн"], "description": "Санал хүсэлтийн одоогийн төлөв." },
-            "createdAt": { "type": "string", "format": "date-time", "description": "Санал хүсэлт үүсгэсэн огноо." },
-            "isAnonymous": { "type": "boolean", "description": "Нэрээ нууцалсан эсэхийг заана." }
-        },
-        "required": ["id", "subject", "message", "category", "status", "createdAt", "isAnonymous"]
     }
   },
   "auth": {
@@ -1281,13 +1263,6 @@
         "definition": {
           "schema": { "$ref": "#/backend/entities/Attendance" },
           "description": "Ажилтны цагийн бүртгэлийн мэдээллийг хадгална."
-        }
-      },
-      {
-        "path": "/feedback/{feedbackId}",
-        "definition": {
-          "schema": { "$ref": "#/backend/entities/Feedback" },
-          "description": "Ажилтнуудын санал, хүсэлтийг хадгална."
         }
       }
     ],
