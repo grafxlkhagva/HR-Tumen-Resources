@@ -124,27 +124,76 @@ function FeedbackRow({ feedback }: { feedback: Feedback }) {
   );
 }
 
+function FeedbackTable() {
+    const { firestore } = useFirebase();
+    const feedbackQuery = useMemoFirebase(
+      () => query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')),
+      [firestore]
+    );
+
+    const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
+
+    if (isLoading) {
+        return (
+            <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell>
+                        <div className="flex items-center gap-3">
+                            <Skeleton className="h-9 w-9 rounded-full" />
+                            <div className="space-y-1">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-3 w-32" />
+                            </div>
+                        </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
+                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        );
+    }
+    
+    if (error) {
+        return (
+            <TableBody>
+                <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                    Алдаа гарлаа: {error.message}
+                </TableCell>
+                </TableRow>
+            </TableBody>
+        )
+    }
+
+    if (feedbacks?.length === 0) {
+        return (
+            <TableBody>
+                <TableRow>
+                    <TableCell colSpan={5} className="h-48 text-center">
+                        <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
+                    </TableCell>
+                </TableRow>
+            </TableBody>
+        )
+    }
+
+    return (
+        <TableBody>
+            {feedbacks?.map((feedback) => (
+                <FeedbackRow key={feedback.id} feedback={feedback} />
+            ))}
+        </TableBody>
+    );
+}
+
 export default function FeedbackPage() {
-  const { firestore } = useFirebase();
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
   
-  const feedbackQuery = useMemoFirebase(
-    () => {
-      if (isProfileLoading || !firestore) {
-          return null;
-      }
-      if (employeeProfile?.role === 'admin') {
-        return query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc'));
-      }
-      return null;
-    },
-    [firestore, employeeProfile?.role, isProfileLoading]
-  );
-  
-  const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
-
-  const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
-
   if (isProfileLoading) {
     return (
         <div className="py-8">
@@ -196,44 +245,7 @@ export default function FeedbackPage() {
                         <TableHead className="text-right">Төлөв</TableHead>
                     </TableRow>
                     </TableHeader>
-                    <TableBody>
-                    {shouldShowLoading ? (
-                         Array.from({ length: 3 }).map((_, i) => (
-                            <TableRow key={i}>
-                                <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <Skeleton className="h-9 w-9 rounded-full" />
-                                    <div className="space-y-1">
-                                    <Skeleton className="h-4 w-24" />
-                                    <Skeleton className="h-3 w-32" />
-                                    </div>
-                                </div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
-                                <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
-                                <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                                <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
-                            </TableRow>
-                         ))
-                    ) : error ? (
-                        <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-destructive">
-                            Алдаа гарлаа: {error.message}
-                        </TableCell>
-                        </TableRow>
-                    ) : feedbacks?.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="h-48 text-center">
-                                <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                       feedbacks?.map((feedback) => (
-                         <FeedbackRow key={feedback.id} feedback={feedback} />
-                       ))
-                    )}
-                    </TableBody>
+                    {!isProfileLoading && employeeProfile?.role === 'admin' && <FeedbackTable />}
                 </Table>
         </CardContent>
       </Card>

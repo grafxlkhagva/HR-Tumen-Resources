@@ -69,6 +69,43 @@ function FeedbackHistoryItem({ item }: { item: Feedback }) {
     )
 }
 
+function FeedbackHistory() {
+    const { employeeProfile } = useEmployeeProfile();
+    const { firestore } = useFirebase();
+
+    const feedbackQuery = useMemoFirebase(() => {
+        if (!firestore || !employeeProfile?.id) {
+          return null;
+        }
+        return query(
+          collection(firestore, 'feedback'),
+          where('employeeId', '==', employeeProfile.id),
+          orderBy('createdAt', 'desc')
+        );
+      }, [firestore, employeeProfile?.id]);
+      
+    const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Илгээсэн түүх
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                 {isHistoryLoading && Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+                 {!isHistoryLoading && history?.map(item => <FeedbackHistoryItem key={item.id} item={item} />)}
+                 {!isHistoryLoading && (!history || history.length === 0) && (
+                    <p className="text-center text-sm text-muted-foreground py-4">Илгээсэн түүх байхгүй байна.</p>
+                 )}
+            </CardContent>
+      </Card>
+    )
+}
+
+
 function PageSkeleton() {
     return (
         <div className="p-4 space-y-6">
@@ -106,19 +143,6 @@ export default function FeedbackPage() {
       isAnonymous: false,
     },
   });
-
-  const feedbackQuery = useMemoFirebase(() => {
-    if (!firestore || !employeeProfile?.id) {
-      return null;
-    }
-    return query(
-      collection(firestore, 'feedback'),
-      where('employeeId', '==', employeeProfile.id),
-      orderBy('createdAt', 'desc')
-    );
-  }, [firestore, employeeProfile?.id]);
-  
-  const { data: history, isLoading: isHistoryLoading } = useCollection<Feedback>(feedbackQuery);
 
   const { isSubmitting } = form.formState;
 
@@ -240,21 +264,8 @@ export default function FeedbackPage() {
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Илгээсэн түүх
-            </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-             {isHistoryLoading && Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-             {!isHistoryLoading && history?.map(item => <FeedbackHistoryItem key={item.id} item={item} />)}
-             {!isHistoryLoading && (!history || history.length === 0) && (
-                <p className="text-center text-sm text-muted-foreground py-4">Илгээсэн түүх байхгүй байна.</p>
-             )}
-        </CardContent>
-      </Card>
+      {!isProfileLoading && <FeedbackHistory />}
+      
     </div>
   );
 }
