@@ -12,7 +12,7 @@ import { collection, doc } from "firebase/firestore";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, History, Settings, MapPin, ClipboardList } from 'lucide-react';
+import { Loader2, Save, Settings, MapPin, ClipboardList, Code } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -25,26 +25,6 @@ type FieldDefinition = {
 type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldDefinition[] };
 type SimpleReferenceItem = ReferenceItem & { name: string };
 type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
-
-const employeeCodeSchema = z.object({
-    prefix: z.string().min(1, 'Угтвар үсэг хоосон байж болохгүй.'),
-    digitCount: z.coerce.number().min(1, 'Оронгийн тоо 1-ээс бага байж болохгүй.').max(10, 'Оронгийн тоо 10-аас их байж болохгүй.'),
-    nextNumber: z.coerce.number().min(1, 'Эхлэх дугаар 1-ээс бага байж болохгүй.'),
-}).refine((data) => {
-    const maxNumber = Math.pow(10, data.digitCount);
-    return data.nextNumber < maxNumber;
-}, {
-    message: "Эхлэх дугаар нь тооны орноос хэтэрсэн байна.",
-    path: ["nextNumber"], 
-});
-
-type EmployeeCodeFormValues = z.infer<typeof employeeCodeSchema>;
-
-type EmployeeCodeConfig = {
-    prefix: string;
-    digitCount: number;
-    nextNumber: number;
-};
 
 const timeOffRequestSchema = z.object({
     requestDeadlineDays: z.coerce.number().min(0, 'Хязгаар 0-ээс бага байж болохгүй.'),
@@ -68,55 +48,6 @@ type AttendanceConfig = {
     latitude: number;
     longitude: number;
     radius: number;
-}
-
-function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
-
-    const form = useForm<EmployeeCodeFormValues>({
-        resolver: zodResolver(employeeCodeSchema),
-        defaultValues: initialData,
-    });
-
-    const { isSubmitting } = form.formState;
-
-    const onSubmit = (data: EmployeeCodeFormValues) => {
-        if (!codeConfigRef) return;
-
-        setDocumentNonBlocking(codeConfigRef, data, { merge: true });
-        
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Ажилтны кодчлолын тохиргоо шинэчлэгдлээ.',
-        });
-    };
-
-    return (
-         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="prefix" render={({ field }) => ( <FormItem> <FormLabel>Угтвар үсэг</FormLabel> <FormControl> <Input placeholder="EMP" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="digitCount" render={({ field }) => ( <FormItem> <FormLabel>Тооны орон</FormLabel> <FormControl> <Input type="number" placeholder="4" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="nextNumber" render={({ field }) => ( <FormItem> <FormLabel>Эхлэх дугаар</FormLabel> <FormControl> <Input type="number" placeholder="1" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                </div>
-                
-                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
-                    </Button>
-                    <Button asChild type="button" variant="outline">
-                        <Link href="/dashboard/settings/code-log">
-                            <History className="mr-2 size-4 shrink-0" />
-                            Түүх харах
-                        </Link>
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    );
 }
 
 function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequestFormValues }) {
@@ -209,7 +140,6 @@ function AttendanceConfigForm({ initialData }: { initialData: AttendanceFormValu
     );
 }
 
-
 function ConfigCardSkeleton() {
     return (
         <Card>
@@ -228,25 +158,6 @@ function ConfigCardSkeleton() {
                         <Skeleton className="h-10 w-28" />
                     </div>
                 </div>
-            </CardContent>
-        </Card>
-    )
-}
-
-function EmployeeCodeConfigCard() {
-    const { firestore } = useFirebase();
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
-    const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-    const initialData = codeConfig || { prefix: '', digitCount: 4, nextNumber: 1 };
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
-                <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? <ConfigCardSkeleton /> : <EmployeeCodeConfigForm initialData={initialData} />}
             </CardContent>
         </Card>
     )
@@ -319,7 +230,7 @@ export default function SettingsPage() {
        <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Тохиргоо
+            Ерөнхий тохиргоо
           </h1>
           <p className="text-muted-foreground">
             Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах.
@@ -328,9 +239,23 @@ export default function SettingsPage() {
       </div>
       <div className="space-y-8">
         
-        <EmployeeCodeConfigCard />
         <TimeOffRequestConfigCard />
         <AttendanceConfigCard />
+
+         <Card>
+            <CardHeader>
+                <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
+                <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button asChild>
+                    <Link href="/dashboard/settings/employee-code">
+                        <Code className="mr-2 size-4 shrink-0" />
+                        Кодчлолын тохиргоо руу очих
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
 
         <Card>
             <CardHeader>
@@ -341,7 +266,7 @@ export default function SettingsPage() {
                 <Button asChild>
                     <Link href="/dashboard/settings/onboarding">
                         <Settings className="mr-2 size-4 shrink-0" />
-                        Тохиргоо руу очих
+                        Дасан зохицох тохиргоо руу очих
                     </Link>
                 </Button>
             </CardContent>

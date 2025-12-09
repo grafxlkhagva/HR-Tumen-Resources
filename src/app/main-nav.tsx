@@ -109,7 +109,15 @@ export function MainNav() {
             <SidebarMenuSubItem>
                 <SidebarMenuSubButton
                 asChild
-                isActive={pathname === '/dashboard/settings/questionnaire'}
+                isActive={pathname.startsWith('/dashboard/settings/employee-code')}
+                >
+                <Link href="/dashboard/settings/employee-code">Кодчлол</Link>
+                </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                asChild
+                isActive={pathname.startsWith('/dashboard/settings/questionnaire')}
                 >
                 <Link href="/dashboard/settings/questionnaire">Анкет</Link>
                 </SidebarMenuSubButton>
@@ -117,7 +125,7 @@ export function MainNav() {
              <SidebarMenuSubItem>
                 <SidebarMenuSubButton
                 asChild
-                isActive={pathname === '/dashboard/settings/onboarding'}
+                isActive={pathname.startsWith('/dashboard/settings/onboarding')}
                 >
                 <Link href="/dashboard/settings/onboarding">Дасан зохицох</Link>
                 </SidebarMenuSubButton>
