@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -5,139 +6,265 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  useFirebase,
+  useMemoFirebase,
+  useDoc,
+  setDocumentNonBlocking,
+} from '@/firebase';
+import { doc } from 'firebase/firestore';
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Save, History, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const employeeCodeSchema = z.object({
+const employeeCodeSchema = z
+  .object({
     prefix: z.string().min(1, 'Угтвар үсэг хоосон байж болохгүй.'),
-    digitCount: z.coerce.number().min(1, 'Оронгийн тоо 1-ээс бага байж болохгүй.').max(10, 'Оронгийн тоо 10-аас их байж болохгүй.'),
-    nextNumber: z.coerce.number().min(1, 'Эхлэх дугаар 1-ээс бага байж болохгүй.'),
-}).refine((data) => {
-    const maxNumber = Math.pow(10, data.digitCount);
-    return data.nextNumber < maxNumber;
-}, {
-    message: "Эхлэх дугаар нь тооны орноос хэтэрсэн байна.",
-    path: ["nextNumber"], 
-});
+    digitCount: z
+      .coerce
+      .number()
+      .min(1, 'Оронгийн тоо 1-ээс бага байж болохгүй.')
+      .max(10, 'Оронгийн тоо 10-аас их байж болохгүй.'),
+    nextNumber: z
+      .coerce
+      .number()
+      .min(1, 'Эхлэх дугаар 1-ээс бага байж болохгүй.'),
+  })
+  .refine(
+    (data) => {
+      const maxNumber = Math.pow(10, data.digitCount);
+      return data.nextNumber < maxNumber;
+    },
+    {
+      message: 'Эхлэх дугаар нь тооны орноос хэтэрсэн байна.',
+      path: ['nextNumber'],
+    }
+  );
 
 type EmployeeCodeFormValues = z.infer<typeof employeeCodeSchema>;
 
 type EmployeeCodeConfig = {
-    prefix: string;
-    digitCount: number;
-    nextNumber: number;
+  prefix: string;
+  digitCount: number;
+  nextNumber: number;
 };
 
-function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
+function EmployeeCodeConfigForm({
+  initialData,
+}: {
+  initialData: EmployeeCodeFormValues;
+}) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
 
-    const form = useForm<EmployeeCodeFormValues>({
-        resolver: zodResolver(employeeCodeSchema),
-        defaultValues: initialData,
-    });
+  const codeConfigRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    [firestore]
+  );
 
-    const { isSubmitting } = form.formState;
+  const form = useForm<EmployeeCodeFormValues>({
+    resolver: zodResolver(employeeCodeSchema),
+    defaultValues: initialData,
+  });
 
-    const onSubmit = (data: EmployeeCodeFormValues) => {
-        if (!codeConfigRef) return;
+  const { isSubmitting } = form.formState;
 
-        setDocumentNonBlocking(codeConfigRef, data, { merge: true });
-        
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Ажилтны кодчлолын тохиргоо шинэчлэгдлээ.',
-        });
-    };
+  // Firestore-оос ирсэн өгөгдөл өөрчлөгдвөл form-оо шинэчлэх
+  React.useEffect(() => {
+    form.reset(initialData);
+  }, [initialData, form]);
 
-    return (
-         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="prefix" render={({ field }) => ( <FormItem> <FormLabel>Угтвар үсэг</FormLabel> <FormControl> <Input placeholder="EMP" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="digitCount" render={({ field }) => ( <FormItem> <FormLabel>Тооны орон</FormLabel> <FormControl> <Input type="number" placeholder="4" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="nextNumber" render={({ field }) => ( <FormItem> <FormLabel>Эхлэх дугаар</FormLabel> <FormControl> <Input type="number" placeholder="1" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
-                </div>
-                
-                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                        <>
-                            {isSubmitting ? <Loader2 className="mr-2 size-4 shrink-0 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                            Хадгалах
-                        </>
-                    </Button>
-                    <Button asChild type="button" variant="outline">
-                        <Link href="/dashboard/settings/code-log">
-                            <History className="mr-2 size-4 shrink-0" />
-                            Түүх харах
-                        </Link>
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    );
+  const onSubmit = async (data: EmployeeCodeFormValues) => {
+    if (!codeConfigRef) return;
+
+    try {
+      await setDocumentNonBlocking(codeConfigRef, data, { merge: true });
+
+      toast({
+        title: 'Амжилттай хадгаллаа',
+        description: 'Ажилтны кодчлолын тохиргоо шинэчлэгдлээ.',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Алдаа гарлаа',
+        description:
+          'Тохиргоо хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Угтвар үсэг */}
+          <FormField
+            control={form.control}
+            name="prefix"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Угтвар үсэг</FormLabel>
+                <FormControl>
+                  {/* FormControl дотор ганцхан хүүхэд = Input */}
+                  <Input placeholder="EMP" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Тооны орон */}
+          <FormField
+            control={form.control}
+            name="digitCount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Тооны орон</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="4"
+                    min={1}
+                    max={10}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Эхлэх дугаар */}
+          <FormField
+            control={form.control}
+            name="nextNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Эхлэх дугаар</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="1" min={1} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />
+            ) : (
+              <Save className="mr-2 size-4 shrink-0" />
+            )}
+            Хадгалах
+          </Button>
+
+          <Button asChild type="button" variant="outline">
+            <Link href="/dashboard/settings/code-log">
+              <History className="mr-2 size-4 shrink-0" />
+              Түүх харах
+            </Link>
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
 }
 
 function ConfigCardSkeleton() {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-full max-w-md mt-2" />
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                        <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-10 w-full" /></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Skeleton className="h-10 w-28" />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    )
+  // Карт давхардахаас зайлсхийж зөвхөн контент хэсгийн skeleton
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-10 w-28" />
+      </div>
+    </div>
+  );
 }
 
 export default function EmployeeCodeSettingsPage() {
-    const { firestore } = useFirebase();
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
-    const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-    const initialData = codeConfig || { prefix: '', digitCount: 4, nextNumber: 1 };
-    
-    return (
-        <div className="py-8">
-            <div className="mb-4 flex items-center gap-4">
-                <Button asChild variant="outline" size="icon">
-                    <Link href="/dashboard/settings">
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="sr-only">Буцах</span>
-                    </Link>
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Ажилтны кодчлолын тохиргоо</h1>
-                    <p className="text-muted-foreground">Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</p>
-                </div>
-            </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Кодчлол</CardTitle>
-                    <CardDescription>Жишээ: EMP0001</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? <ConfigCardSkeleton /> : <EmployeeCodeConfigForm initialData={initialData} />}
-                </CardContent>
-            </Card>
+  const { firestore } = useFirebase();
+  const codeConfigRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    [firestore]
+  );
+
+  const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
+
+  const initialData: EmployeeCodeFormValues = codeConfig || {
+    prefix: '',
+    digitCount: 4,
+    nextNumber: 1,
+  };
+
+  return (
+    <div className="py-8">
+      <div className="mb-4 flex items-center gap-4">
+        <Button asChild variant="outline" size="icon">
+          <Link href="/dashboard/settings">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Буцах</span>
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Ажилтны кодчлолын тохиргоо
+          </h1>
+          <p className="text-muted-foreground">
+            Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.
+          </p>
         </div>
-    )
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Кодчлол</CardTitle>
+          <CardDescription>Жишээ: EMP0001</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <ConfigCardSkeleton />
+          ) : (
+            <EmployeeCodeConfigForm initialData={initialData} />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
