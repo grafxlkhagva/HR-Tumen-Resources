@@ -137,7 +137,6 @@ export default function FeedbackPage() {
       // Return null in all other cases (loading, not admin, or firestore not ready)
       return null;
     },
-    // The dependency array is crucial. It now only depends on the role and loading state.
     [firestore, employeeProfile?.role, isProfileLoading]
   );
   
