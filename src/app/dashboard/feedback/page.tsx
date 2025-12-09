@@ -127,7 +127,7 @@ function FeedbackRow({ feedback }: { feedback: Feedback }) {
 function FeedbackTable() {
     const { firestore } = useFirebase();
     const feedbackQuery = useMemoFirebase(
-      () => query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')),
+      () => firestore ? query(collection(firestore, 'feedback'), orderBy('createdAt', 'desc')) : null,
       [firestore]
     );
 
@@ -213,18 +213,6 @@ export default function FeedbackPage() {
     )
   }
 
-  if (employeeProfile?.role !== 'admin') {
-      return (
-          <div className="py-8">
-              <Card>
-                  <CardContent className="p-8 text-center">
-                      <p className="text-muted-foreground">Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.</p>
-                  </CardContent>
-              </Card>
-          </div>
-      )
-  }
-
   return (
     <div className="py-8">
       <Card>
@@ -245,8 +233,13 @@ export default function FeedbackPage() {
                         <TableHead className="text-right">Төлөв</TableHead>
                     </TableRow>
                     </TableHeader>
-                    {!isProfileLoading && employeeProfile?.role === 'admin' && <FeedbackTable />}
+                    {employeeProfile?.role === 'admin' && <FeedbackTable />}
                 </Table>
+                {employeeProfile?.role !== 'admin' && (
+                    <div className="text-center py-10 text-muted-foreground">
+                        Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.
+                    </div>
+                )}
         </CardContent>
       </Card>
     </div>
