@@ -13,7 +13,7 @@ export type Employee = {
   hireDate: string;
   skills?: string[];
   jobHistory?: { title: string; company: string; duration: string }[];
+  deviceId?: string;
 };
 
 export const employees: Employee[] = [];
-

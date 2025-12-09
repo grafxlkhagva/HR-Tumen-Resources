@@ -63,6 +63,10 @@
           "type": "string",
           "description": "Ажилтныг ажлаас халсан огноо (хэрэв байгаа бол).",
           "format": "date-time"
+        },
+        "deviceId": {
+            "type": "string",
+            "description": "Цаг бүртгүүлэхээр бүртгэгдсэн төхөөрөмжийн давтагдашгүй танигч."
         }
       },
       "required": [
@@ -567,6 +571,27 @@
         },
         "required": ["requestDeadlineDays"]
     },
+    "AttendanceConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Цагийн бүртгэлийн тохиргоо",
+        "type": "object",
+        "description": "Цагийн бүртгэлийн байршил, хяналтын тохиргоог хадгална.",
+        "properties": {
+            "latitude": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын өргөрөг."
+            },
+            "longitude": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын уртраг."
+            },
+            "radius": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын хүрээ (метр)."
+            }
+        },
+        "required": ["latitude", "longitude", "radius"]
+    },
     "EmployeeQuestionnaire": {
       "title": "Ажилтны анкет",
       "description": "Ажилтны дэлгэрэнгүй анкетын мэдээллийг хадгална.",
@@ -1010,6 +1035,17 @@
                 "$ref": "#/backend/entities/TimeOffRequestConfig"
             },
             "description": "Чөлөөний хүсэлтийн тохиргоог хадгалах ганц баримт бичиг.",
+            "params": []
+        }
+      },
+      {
+        "path": "/company/attendanceConfig",
+        "definition": {
+            "entityName": "AttendanceConfig",
+            "schema": {
+                "$ref": "#/backend/entities/AttendanceConfig"
+            },
+            "description": "Цагийн бүртгэлийн тохиргоог хадгалах ганц баримт бичиг.",
             "params": []
         }
       },
