@@ -105,18 +105,18 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                     <FormField control={form.control} name="digitCount" render={({ field }) => ( <FormItem> <FormLabel>Тооны орон</FormLabel> <FormControl> <Input type="number" placeholder="4" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="nextNumber" render={({ field }) => ( <FormItem> <FormLabel>Эхлэх дугаар</FormLabel> <FormControl> <Input type="number" placeholder="1" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                 </div>
+                {/* 
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        <>
-                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                         Хадгалах
-                        </>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                        Хадгалах
                     </Button>
                     <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
                        <History className="mr-2 size-4 shrink-0" />
                        Түүх харах
                     </Button>
                 </div>
+                */}
             </form>
         </Form>
     );
@@ -161,12 +161,12 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                         </FormItem>
                     )}
                 />
+                {/*
                 <Button type="submit" disabled={isSubmitting}>
-                   <>
-                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                     Хадгалах
-                   </>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                    Хадгалах
                 </Button>
+                */}
             </form>
         </Form>
     );
@@ -203,12 +203,14 @@ function AttendanceConfigForm({ initialData }: { initialData: AttendanceFormValu
                     <FormField control={form.control} name="longitude" render={({ field }) => ( <FormItem> <FormLabel>Уртраг (Longitude)</FormLabel> <FormControl> <Input type="number" step="any" placeholder="106.9172" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="radius" render={({ field }) => ( <FormItem> <FormLabel>Радиус (метр)</FormLabel> <FormControl> <Input type="number" placeholder="50" {...field} /> </FormControl> <FormMessage /> </FormItem> )} />
                 </div>
+                {/*
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
                         Хадгалах
                     </Button>
                 </div>
+                */}
             </form>
         </Form>
     );
