@@ -8,7 +8,6 @@ import { Home, Clock, User, MessageSquare } from 'lucide-react';
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
   { href: '/mobile/attendance', label: 'Цагийн бүртгэл', icon: Clock },
-  { href: '/mobile/feedback', label: 'Санал хүсэлт', icon: MessageSquare },
   { href: '/mobile/user', label: 'Хэрэглэгч', icon: User },
 ];
 
