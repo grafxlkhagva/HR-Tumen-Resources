@@ -4,6 +4,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -75,6 +76,7 @@ type AttendanceConfig = {
 function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeFormValues }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const router = useRouter();
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
 
     const form = useForm<EmployeeCodeFormValues>({
@@ -105,18 +107,12 @@ function EmployeeCodeConfigForm({ initialData }: { initialData: EmployeeCodeForm
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        <>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                            Хадгалах
-                        </>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                        Хадгалах
                     </Button>
-                    <Button type="button" variant="outline" asChild>
-                        <Link href="/dashboard/settings/code-log">
-                           <> 
-                             <History className="mr-2 size-4 shrink-0" />
-                             Түүх харах
-                           </>
-                        </Link>
+                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/settings/code-log')}>
+                       <History className="mr-2 size-4 shrink-0" />
+                       Түүх харах
                     </Button>
                 </div>
             </form>
@@ -164,10 +160,8 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: TimeOffRequest
                     )}
                 />
                 <Button type="submit" disabled={isSubmitting}>
-                    <>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
-                        Хадгалах
-                    </>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
+                    Хадгалах
                 </Button>
             </form>
         </Form>
@@ -207,10 +201,8 @@ function AttendanceConfigForm({ initialData }: { initialData: AttendanceFormValu
                 </div>
                 <div className="flex items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
-                        <>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 size-4 shrink-0" />}
                         Хадгалах
-                        </>
                     </Button>
                 </div>
             </form>
