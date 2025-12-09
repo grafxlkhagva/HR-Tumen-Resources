@@ -134,10 +134,19 @@ function FeedbackTable() {
 
     const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-    if (isLoading) {
-        return (
+    return (
+        <Table>
+            <TableHeader>
+            <TableRow>
+                <TableHead>Илгээгч</TableHead>
+                <TableHead className="hidden md:table-cell">Агуулга</TableHead>
+                <TableHead className="hidden sm:table-cell">Ангилал</TableHead>
+                <TableHead className="hidden lg:table-cell">Огноо</TableHead>
+                <TableHead className="text-right">Төлөв</TableHead>
+            </TableRow>
+            </TableHeader>
             <TableBody>
-                {Array.from({ length: 3 }).map((_, i) => (
+                {isLoading && Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell>
                         <div className="flex items-center gap-3">
@@ -154,41 +163,29 @@ function FeedbackTable() {
                         <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto" /></TableCell>
                     </TableRow>
                 ))}
-            </TableBody>
-        );
-    }
-    
-    if (error) {
-        return (
-            <TableBody>
-                <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-destructive">
-                    Алдаа гарлаа: {error.message}
-                </TableCell>
-                </TableRow>
-            </TableBody>
-        )
-    }
 
-    if (feedbacks?.length === 0) {
-        return (
-            <TableBody>
-                <TableRow>
-                    <TableCell colSpan={5} className="h-48 text-center">
-                        <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
-                    </TableCell>
-                </TableRow>
-            </TableBody>
-        )
-    }
+                {error && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                            Алдаа гарлаа: {error.message}
+                        </TableCell>
+                    </TableRow>
+                )}
 
-    return (
-        <TableBody>
-            {feedbacks?.map((feedback) => (
-                <FeedbackRow key={feedback.id} feedback={feedback} />
-            ))}
-        </TableBody>
+                {!isLoading && feedbacks?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-48 text-center">
+                            <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">Санал хүсэлт одоогоор байхгүй.</p>
+                        </TableCell>
+                    </TableRow>
+                )}
+
+                {!isLoading && feedbacks?.map((feedback) => (
+                    <FeedbackRow key={feedback.id} feedback={feedback} />
+                ))}
+            </TableBody>
+        </Table>
     );
 }
 
@@ -224,28 +221,13 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Илгээгч</TableHead>
-                        <TableHead className="hidden md:table-cell">Агуулга</TableHead>
-                        <TableHead className="hidden sm:table-cell">Ангилал</TableHead>
-                        <TableHead className="hidden lg:table-cell">Огноо</TableHead>
-                        <TableHead className="text-right">Төлөв</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    {!isProfileLoading && employeeProfile?.role === 'admin' ? (
-                       <FeedbackTable />
-                    ) : (
-                        <TableBody>
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
-                                    Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.
-                                </TableCell>
-                            </TableRow>
-                        </TableBody>
-                    )}
-                </Table>
+            {employeeProfile?.role === 'admin' ? (
+                <FeedbackTable />
+            ) : (
+                <div className="h-48 flex items-center justify-center text-center text-muted-foreground">
+                    Энэ хуудсыг зөвхөн админ эрхтэй хэрэглэгч харна.
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>
