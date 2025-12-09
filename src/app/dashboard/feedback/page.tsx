@@ -143,7 +143,7 @@ export default function FeedbackPage() {
   
   const { data: feedbacks, isLoading, error } = useCollection<Feedback>(feedbackQuery);
 
-  const shouldShowLoading = isProfileLoading || isLoading;
+  const shouldShowLoading = isProfileLoading || (employeeProfile?.role === 'admin' && isLoading);
 
   if (isProfileLoading) {
     return (
