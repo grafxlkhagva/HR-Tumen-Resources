@@ -174,7 +174,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                                 render={({ field: iconField }) => (
                                     <FormItem>
                                         <FormControl>
-                                            <>
+                                            <div>
                                                 <label htmlFor={`icon-upload-${index}`} className="cursor-pointer">
                                                     <div className="h-20 w-20 flex items-center justify-center rounded-lg border-2 border-dashed bg-muted hover:bg-muted/50">
                                                         {iconField.value ? (
@@ -185,7 +185,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                                                     </div>
                                                 </label>
                                                 <Input id={`icon-upload-${index}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleIconUpload(e, index)} />
-                                            </>
+                                            </div>
                                         </FormControl>
                                          <FormMessage />
                                     </FormItem>
