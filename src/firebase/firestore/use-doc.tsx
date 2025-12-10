@@ -45,6 +45,15 @@ export function useDoc<T = any>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  if (!docRef) {
+    if (data !== null || isLoading !== false || error !== null) {
+      setData(null);
+      setIsLoading(false);
+      setError(null);
+    }
+    return { data: null, isLoading: false, error: null };
+  }
+
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
     if (!docRef) {

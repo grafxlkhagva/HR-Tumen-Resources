@@ -59,13 +59,27 @@ export function useCollection<T = any>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  // If the reference or query is not provided at the time of calling,
+  // immediately return a non-loading, non-error state.
+  if (!refOrQuery) {
+    // This check is crucial to prevent the useEffect from running
+    // with an invalid reference on the initial render.
+    if (data !== null || isLoading !== false || error !== null) {
+      setData(null);
+      setIsLoading(false);
+      setError(null);
+    }
+    return { data: null, isLoading: false, error: null };
+  }
+
   useEffect(() => {
-    // If the reference or query is not provided, reset state and do nothing.
+    // Redundant check inside useEffect to handle cases where the refOrQuery
+    // might change to null/undefined during the component's lifecycle.
     if (!refOrQuery) {
-        setData(null);
-        setIsLoading(false);
-        setError(null);
-        return;
+      setData(null);
+      setIsLoading(false);
+      setError(null);
+      return;
     }
 
     setIsLoading(true);
@@ -82,8 +96,8 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        let path: string = '[unknown path]';
+      (err: FirestoreError) => {
+        let path = '[unknown path]';
         try {
             if (refOrQuery instanceof CollectionReference) {
                 path = refOrQuery.path;
@@ -92,7 +106,7 @@ export function useCollection<T = any>(
                 path = (refOrQuery as InternalQuery)._query.path.canonicalString();
             }
         } catch (e) {
-          console.error("Could not extract path from Firestore query/reference:", e);
+            console.error("Could not extract path from Firestore query/reference:", e);
         }
 
         const contextualError = new FirestorePermissionError({
