@@ -66,13 +66,12 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // This is a robust check to ensure we have a valid Firestore query or collection reference.
-    // It verifies the object is not null/undefined and has the characteristic 'type' property.
-    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query)) {
+    // Explicitly check for null/undefined before proceeding.
+    if (!memoizedTargetRefOrQuery) {
         setData(null);
-        setIsLoading(false); // Set loading to false as we are not fetching anything
+        setIsLoading(false);
         setError(null);
-        return; // Stop execution if the query/ref is not valid
+        return;
     }
 
     setIsLoading(true);
@@ -96,7 +95,7 @@ export function useCollection<T = any>(
                 path = memoizedTargetRefOrQuery.path;
             } else if (memoizedTargetRefOrQuery instanceof Query) {
                 // @ts-ignore
-                path = memoizedTargetRefOrQuery._query.path.canonicalString();
+                path = (memoizedTargetRefOrQuery as InternalQuery)._query.path.canonicalString();
             }
         } catch (e) {
             console.error("Could not extract path from Firestore query/reference:", e);

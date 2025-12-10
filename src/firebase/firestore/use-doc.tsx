@@ -48,17 +48,16 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // This is a robust check to ensure we have a valid Firestore document reference.
+    // Explicitly check for null/undefined before proceeding.
     if (!memoizedDocRef) {
       setData(null);
       setIsLoading(false);
       setError(null);
-      return; // Stop execution if the docRef is not valid
+      return;
     }
 
     setIsLoading(true);
     setError(null);
-    // Optional: setData(null); // Clear previous data instantly
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,
