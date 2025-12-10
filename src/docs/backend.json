@@ -1,0 +1,1374 @@
+{
+  "entities": {
+    "WorkSchedule": {
+      "title": "Ажлын цагийн хуваарь",
+      "description": "Ажлын цагийн төрөл бүрийн тохиргоог хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Ажлын цагийн төрлийн нэр." },
+        "code": { "type": "string", "description": "Богино таних код." },
+        "category": { "type": "string", "enum": ["fixed", "shift", "flex", "split", "remote"], "description": "Ажлын цагийн ангилал." },
+        "workingDays": { "type": "array", "items": { "type": "string", "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] }, "description": "Ажиллах өдрүүд." },
+        "isActive": { "type": "boolean", "description": "Идэвхтэй эсэх төлөв." },
+        "startTime": { "type": "string", "format": "time", "description": "'fixed' эсвэл 'shift' төрлийн эхлэх цаг." },
+        "endTime": { "type": "string", "format": "time", "description": "'fixed' эсвэл 'shift' төрлийн дуусах цаг." },
+        "flexStartEarliest": { "type": "string", "format": "time", "description": "'flex' төрлийн эрт эхлэх цаг." },
+        "flexStartLatest": { "type": "string", "format": "time", "description": "'flex' төрлийн оройтож эхлэх цаг." },
+        "flexTotalHours": { "type": "number", "description": "'flex' төрлийн нийт ажиллах цаг." },
+        "splitIntervals": {
+          "type": "array",
+          "description": "'split' төрлийн цагийн хэсгүүд.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "startTime": { "type": "string", "format": "time" },
+              "endTime": { "type": "string", "format": "time" }
+            },
+            "required": ["startTime", "endTime"]
+          }
+        },
+        "remoteTotalHoursDay": { "type": "number", "description": "'remote' төрлийн өдөрт ажиллах цаг." },
+        "remoteTotalHoursWeek": { "type": "number", "description": "'remote' төрлийн 7 хоногт ажиллах цаг." },
+        "hasBreak": { "type": "boolean", "description": "Завсарлагатай эсэх." },
+        "breakStartTime": { "type": "string", "format": "time", "description": "Завсарлагын эхлэх цаг." },
+        "breakEndTime": { "type": "string", "format": "time", "description": "Завсарлагын дуусах цаг." }
+      },
+      "required": ["name", "category", "workingDays", "isActive"]
+    },
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажилтан",
+      "type": "object",
+      "description": "Хүний нөөцийн систем дэх ажилтныг илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Ажилтны давтагдашгүй танигч."
+        },
+        "employeeCode": {
+          "type": "string",
+          "description": "Ажилтны давтагдашгүй код, системд нэвтрэх нэр болно."
+        },
+        "role": {
+          "type": "string",
+          "description": "Ажилтны системийн эрх (жишээ нь: admin, employee)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Ажилтны одоогийн төлөв.",
+          "enum": [
+            "Идэвхтэй",
+            "Жирэмсний амралттай",
+            "Хүүхэд асрах чөлөөтэй",
+            "Урт хугацааны чөлөөтэй",
+            "Ажлаас гарсан"
+          ]
+        },
+        "firstName": {
+          "type": "string",
+          "description": "Ажилтны нэр."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Ажилтны овог."
+        },
+        "email": {
+          "type": "string",
+          "description": "Ажилтны имэйл хаяг.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Ажилтны утасны дугаар."
+        },
+        "jobTitle": {
+          "type": "string",
+          "description": "Ажилтны албан тушаал."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Ажилтны харьяалагдах хэлтэс."
+        },
+        "hireDate": {
+          "type": "string",
+          "description": "Ажилтныг ажилд авсан огноо.",
+          "format": "date-time"
+        },
+        "terminationDate": {
+          "type": "string",
+          "description": "Ажилтныг ажлаас халсан огноо (хэрэв байгаа бол).",
+          "format": "date-time"
+        },
+        "deviceId": {
+            "type": "string",
+            "description": "Цаг бүртгүүлэхээр бүртгэгдсэн төхөөрөмжийн давтагдашгүй танигч."
+        },
+        "workScheduleId": {
+            "type": "string",
+            "description": "Хамаарах ажлын цагийн хуваарийн танигч. (Хамаарал: WorkSchedule 1:N Employee)"
+        }
+      },
+      "required": [
+        "id",
+        "employeeCode",
+        "role",
+        "status",
+        "firstName",
+        "lastName",
+        "email",
+        "jobTitle",
+        "departmentId",
+        "hireDate"
+      ]
+    },
+    "EmploymentHistory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Хөдөлмөрийн харилцааны түүх",
+      "type": "object",
+      "description": "Ажилтны хөдөлмөрийн харилцааны үе шатуудыг хадгална.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Түүхийн давтагдашгүй танигч."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Ажилтантай холбогдох танигч."
+        },
+        "eventType": {
+          "type": "string",
+          "description": "Үйл явдлын төрөл (жишээ нь, Ажилд авсан, Үндсэн ажилтан болгосон)."
+        },
+        "eventDate": {
+          "type": "string",
+          "description": "Үйл явдал болсон огноо.",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Нэмэлт тэмдэглэл, тайлбар."
+        },
+        "documentUrl": {
+          "type": "string",
+          "description": "Холбогдох баримт бичгийн URL.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Бүртгэл үүсгэсэн огноо.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "employeeId",
+        "eventType",
+        "eventDate",
+        "createdAt"
+      ]
+    },
+    "TimeOffRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Чөлөөний хүсэлт",
+      "type": "object",
+      "description": "Ажилтны ирүүлсэн чөлөөний хүсэлтийг илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Чөлөөний хүсэлтийн давтагдашгүй танигч."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Ажилтантай холбогдох танигч. (Хамаарал: Ажилтан 1:N Чөлөөний хүсэлт)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Хүсэлтийн төрөл (жишээ нь, Ээлжийн амралт, Ар гэрийн гачигдал)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Чөлөө авах эхлэх огноо.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Чөлөө авах дуусах огноо.",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Чөлөө авах болсон шалтгаан."
+        },
+        "status": {
+          "type": "string",
+          "description": "Чөлөөний хүсэлтийн төлөв (жишээ нь, хүлээгдэж буй, зөвшөөрсөн, татгалзсан)."
+        }
+      },
+      "required": [
+        "id",
+        "employeeId",
+        "type",
+        "startDate",
+        "endDate",
+        "reason",
+        "status"
+      ]
+    },
+    "AttendanceRequest": {
+      "title": "Ирцийн хүсэлт",
+      "description": "Ажилтны ирүүлсэн ирцтэй холбоотой хүсэлт (илүү цаг, хоцролт г.м).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["OVERTIME", "LATE_ARRIVAL", "REMOTE_WORK"] },
+        "date": { "type": "string", "format": "date" },
+        "startTime": { "type": "string", "format": "time" },
+        "endTime": { "type": "string", "format": "time" },
+        "hours": { "type": "number", "description": "Илүү цагаар ажилласан нийт цаг." },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["Хүлээгдэж буй", "Зөвшөөрсөн", "Татгалзсан"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "employeeId", "type", "date", "reason", "status", "createdAt"]
+    },
+    "Document": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Баримт бичиг",
+      "type": "object",
+      "description": "Хүний нөөцийн баримт бичгийг илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Баримт бичгийн давтагдашгүй танигч."
+        },
+        "title": {
+          "type": "string",
+          "description": "Баримт бичгийн гарчиг."
+        },
+        "description": {
+          "type": "string",
+          "description": "Баримт бичгийн тодорхойлолт."
+        },
+        "url": {
+          "type": "string",
+          "description": "Баримт бичгийн URL эсвэл зам.",
+          "format": "uri"
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Баримт бичгийг байршуулсан огноо.",
+          "format": "date-time"
+        },
+        "documentType": {
+          "type": "string",
+          "description": "Баримт бичгийн төрөл (жишээ нь: Хөдөлмөрийн гэрээ, Дотоод журам)."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Баримт бичгийн төрлөөс хамаарсан нэмэлт мэдээлэл хадгалах талбар.",
+          "properties": {}
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "url",
+        "uploadDate",
+        "documentType"
+      ]
+    },
+    "OnboardingTask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Шинэ ажилтны даалгавар",
+      "type": "object",
+      "description": "Шинэ ажилтны дадлагын шалгах хуудасны даалгаврыг илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Дадлагын даалгаврын давтагдашгүй танигч."
+        },
+        "description": {
+          "type": "string",
+          "description": "Дадлагын даалгаврын тодорхойлолт."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Даалгаврыг дуусгах хугацаа.",
+          "format": "date-time"
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Даалгавар дууссан эсэхийг заана."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Ажилтантай холбогдох танигч. (Хамаарал: Ажилтан 1:N Шинэ ажилтны даалгавар)"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "dueDate",
+        "completed",
+        "employeeId"
+      ]
+    },
+    "CompanyProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Компанийн мэдээлэл",
+      "type": "object",
+      "description": "Компанийн ерөнхий мэдээллийг хадгална.",
+      "properties": {
+        "logoUrl": {
+          "type": "string",
+          "description": "Компанийн логоны URL.",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "description": "Компанийн нэр."
+        },
+        "legalName": {
+          "type": "string",
+          "description": "Хуулийн этгээдийн нэр."
+        },
+        "registrationNumber": {
+          "type": "string",
+          "description": "Улсын бүртгэлийн дугаар."
+        },
+        "taxId": {
+          "type": "string",
+          "description": "Татвар төлөгчийн дугаар."
+        },
+        "industry": {
+          "type": "string",
+          "description": "Үйл ажиллагааны чиглэл."
+        },
+        "employeeCount": {
+          "type": "string",
+          "description": "Ажилтны тоо."
+        },
+        "ceo": {
+          "type": "string",
+          "description": "Гүйцэтгэх захирал."
+        },
+        "website": {
+          "type": "string",
+          "description": "Компанийн вэбсайт.",
+          "format": "uri"
+        },
+        "mission": {
+          "type": "string",
+          "description": "Компанийн эрхэм зорилго."
+        },
+        "vision": {
+          "type": "string",
+          "description": "Компанийн алсын хараа."
+        },
+        "values": {
+          "type": "array",
+          "description": "Компанийн үнэт зүйлс.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Үнэт зүйлийн гарчиг."
+              },
+              "description": {
+                "type": "string",
+                "description": "Үнэт зүйлийн тодорхойлолт."
+              },
+              "icon": {
+                "type": "string",
+                "description": "Үнэт зүйлийн дүрсний танигч."
+              }
+            },
+            "required": [
+              "title",
+              "description",
+              "icon"
+            ]
+          }
+        },
+        "videos": {
+            "type": "array",
+            "description": "Компанийн танилцуулга видео.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "Видеоны гарчиг." },
+                    "description": { "type": "string", "description": "Видеоны товч тайлбар." },
+                    "url": { "type": "string", "format": "uri", "description": "Видеоны URL." }
+                },
+                "required": ["title", "url"]
+            }
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Компанийн утасны дугаар."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "Компанийн холбоо барих имэйл хаяг.",
+          "format": "email"
+        },
+        "address": {
+          "type": "string",
+          "description": "Компанийн хаяг."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Хэлтэс",
+      "type": "object",
+      "description": "Байгууллагын бүтцэд орсон хэлтэс нэгжийг илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Хэлтсийн давтагдашгүй танигч."
+        },
+        "name": {
+          "type": "string",
+          "description": "Хэлтсийн нэр."
+        },
+        "typeId": {
+          "type": "string",
+          "description": "Бүтцийн төрлийн танигч. (Хамаарал: DepartmentType 1:N Department)"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Энэ нэгжийн харьяалагдах дээд нэгжийн танигч. (Хамаарал: Department 1:N Department)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "typeId"
+      ]
+    },
+    "DepartmentType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Хэлтсийн төрөл",
+      "type": "object",
+      "description": "Байгууллагын бүтцийн нэгжийн төрлийг илэрхийлнэ (жишээ нь, Хэлтэс, Алба, Баг).",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Төрлийн нэр (жишээ нь, 'Хэлтэс')."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Position": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Албан тушаал",
+      "type": "object",
+      "description": "Байгууллага доторх албан тушаал, орон тоог илэрхийлнэ.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Албан тушаалын давтагдашгүй танигч."
+        },
+        "title": {
+          "type": "string",
+          "description": "Албан тушаалын нэр."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)"
+        },
+        "levelId": {
+          "type": "string",
+          "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)"
+        },
+        "employmentTypeId": {
+          "type": "string",
+          "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)"
+        },
+        "jobCategoryId": {
+          "type": "string",
+          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)"
+        },
+        "headcount": {
+          "type": "number",
+          "description": "Энэ албан тушаалын батлагдсан орон тооны тоо."
+        },
+        "filled": {
+          "type": "number",
+          "description": "Одоо ажиллаж буй ажилтны тоо."
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Ажлын байрны төлвийн танигч. (Хамаарал: PositionStatus 1:N Position)"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "departmentId",
+        "headcount"
+      ]
+    },
+    "EmploymentType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажил эрхлэлтийн төрөл",
+      "description": "Ажил эрхлэлтийн төрлийг тодорхойлно (жишээ нь: Үндсэн, Гэрээт).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Төрлийн нэр."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "PositionStatus": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажлын байрны төлөв",
+      "description": "Ажлын байрны төлвийг тодорхойлно (жишээ нь: Нээлттэй, Хаалттай).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Төлвийн нэр."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "JobCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажил мэргэжлийн ангилал",
+      "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолтыг (ҮАМАТ) хадгална.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string",
+          "description": "Ангиллын код."
+        },
+        "name": {
+          "type": "string",
+          "description": "Ангиллын нэр."
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "name"
+      ]
+    },
+    "PositionLevel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Албан тушаалын зэрэглэл",
+      "description": "Албан тушаалын зэрэглэлийг тодорхойлно (жишээ нь: Удирдах, Гүйцэтгэх).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Зэрэглэлийн нэр."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "EmployeeCodeConfig": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ажилтны кодчлолын тохиргоо",
+      "type": "object",
+      "description": "Ажилтны кодыг автоматаар үүсгэх тохиргоог хадгална.",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "Кодын угтвар үсэг (жишээ нь: 'EMP')."
+        },
+        "digitCount": {
+          "type": "number",
+          "description": "Кодын тоон хэсгийн уртын тоо (жишээ нь: 4 => 0001)."
+        },
+        "nextNumber": {
+          "type": "number",
+          "description": "Дараагийн үүсгэх кодын дугаар."
+        }
+      },
+      "required": [
+        "prefix",
+        "digitCount",
+        "nextNumber"
+      ]
+    },
+    "TimeOffRequestConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Чөлөөний хүсэлтийн тохиргоо",
+        "type": "object",
+        "description": "Чөлөөний хүсэлттэй холбоотой тохиргоог хадгална.",
+        "properties": {
+            "requestDeadlineDays": {
+                "type": "number",
+                "description": "Ажилтан хүсэлтээ ажлын хэдэн хоногийн өмнө гаргах ёстойг заана."
+            }
+        },
+        "required": ["requestDeadlineDays"]
+    },
+    "AttendanceConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Цагийн бүртгэлийн тохиргоо",
+        "type": "object",
+        "description": "Цагийн бүртгэлийн байршил, хяналтын тохиргоог хадгална.",
+        "properties": {
+            "latitude": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын өргөрөг."
+            },
+            "longitude": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын уртраг."
+            },
+            "radius": {
+                "type": "number",
+                "description": "Зөвшөөрөгдсөн байршлын хүрээ (метр)."
+            }
+        },
+        "required": ["latitude", "longitude", "radius"]
+    },
+    "EmployeeQuestionnaire": {
+      "title": "Ажилтны анкет",
+      "description": "Ажилтны дэлгэрэнгүй анкетын мэдээллийг хадгална.",
+      "type": "object",
+      "properties": {
+        "lastName": { "type": "string" },
+        "firstName": { "type": "string" },
+        "registrationNumber": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date-time" },
+        "gender": { "type": "string" },
+        "idCardNumber": { "type": "string" },
+        "hasDisability": { "type": "boolean" },
+        "disabilityPercentage": { "type": "string" },
+        "disabilityDate": { "type": "string", "format": "date-time" },
+        "hasDriversLicense": { "type": "boolean" },
+        "driverLicenseCategories": { "type": "array", "items": { "type": "string" } },
+        "workPhone": { "type": "string" },
+        "personalPhone": { "type": "string" },
+        "workEmail": { "type": "string", "format": "email" },
+        "personalEmail": { "type": "string", "format": "email" },
+        "homeAddress": { "type": "string" },
+        "temporaryAddress": { "type": "string" },
+        "facebook": { "type": "string", "format": "uri" },
+        "instagram": { "type": "string", "format": "uri" },
+        "emergencyContacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fullName": { "type": "string" },
+              "relationship": { "type": "string" },
+              "phone": { "type": "string" }
+            },
+            "required": ["fullName", "relationship", "phone"]
+          }
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "country": { "type": "string" },
+              "school": { "type": "string" },
+              "schoolCustom": { "type": "string" },
+              "degree": { "type": "string" },
+              "diplomaNumber": { "type": "string" },
+              "academicRank": { "type": "string" },
+              "entryDate": { "type": "string", "format": "date-time" },
+              "gradDate": { "type": "string", "format": "date-time" },
+              "isCurrent": { "type": "boolean" }
+            },
+            "required": ["country"]
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": { "type": "string" },
+              "listening": { "type": "string" },
+              "reading": { "type": "string" },
+              "speaking": { "type": "string" },
+              "writing": { "type": "string" },
+              "testScore": { "type": "string" }
+            },
+            "required": ["language", "listening", "reading", "speaking", "writing"]
+          }
+        },
+        "trainings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "organization": { "type": "string" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" },
+              "certificateNumber": { "type": "string" }
+            },
+            "required": ["name", "organization"]
+          }
+        },
+        "familyMembers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "relationship": { "type": "string" },
+              "lastName": { "type": "string" },
+              "firstName": { "type": "string" },
+              "phone": { "type": "string" }
+            },
+            "required": ["relationship", "lastName", "firstName"]
+          }
+        },
+        "experiences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": { "type": "string" },
+              "position": { "type": "string" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" },
+              "employmentType": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["company", "position", "employmentType"]
+          }
+        }
+      }
+    },
+    "ReferenceData": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Лавлах сангийн зүйл",
+      "type": "object",
+      "description": "Энгийн лавлах сангийн өгөгдлийг хадгална. Нэмэлт талбаруудтай байж болно.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Лавлах сангийн зүйлийн нэр."
+        },
+        "code": {
+          "type": "string",
+          "description": "Лавлах сангийн зүйлийн код (заавал биш)."
+        },
+        "fields": {
+          "type": "array",
+          "description": "Энэ төрлийн баримт бичигт зориулсан динамик талбаруудын тодорхойлолт.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Талбарын системийн түлхүүр үг (жишээ нь: 'salaryAmount')."
+              },
+              "label": {
+                "type": "string",
+                "description": "Хэрэглэгчид харагдах талбарын нэр (жишээ нь: 'Цалингийн дүн')."
+              },
+              "type": {
+                "type": "string",
+                "description": "Талбарын төрөл.",
+                "enum": [
+                  "text",
+                  "number",
+                  "date"
+                ]
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "type"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Post": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Нийтлэл",
+      "type": "object",
+      "description": "Байгууллагын дотоод нийтлэлийн самбарт орох мэдээ, мэдээлэл.",
+      "properties": {
+        "id": { "type": "string", "description": "Нийтлэлийн давтагдашгүй танигч." },
+        "title": { "type": "string", "description": "Нийтлэлийн гарчиг." },
+        "content": { "type": "string", "description": "Нийтлэлийн дэлгэрэнгүй агуулга." },
+        "imageUrls": { "type": "array", "items": { "type": "string", "format": "uri" }, "description": "Нийтлэлийн зургуудын URL-ууд." },
+        "authorName": { "type": "string", "description": "Нийтлэлийг оруулсан хүний нэр." },
+        "createdAt": { "type": "string", "description": "Нийтлэл үүсгэсэн огноо.", "format": "date-time" },
+        "reactions": {
+          "type": "object",
+          "description": "Реакцуудыг хадгалах объект. Key нь хэрэглэгчийн ID, value нь реакцын төрөл.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["like", "love", "care"]
+          }
+        }
+      },
+      "required": ["id", "title", "content", "authorName", "createdAt"]
+    },
+    "OnboardingProgram": {
+      "title": "Дасан зохицох хөтөлбөр (Загвар)",
+      "description": "Дасан зохицох эсвэл ажлаас чөлөөлөх хөтөлбөрийн загварыг тодорхойлно.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Хөтөлбөрийн нэр." },
+        "description": { "type": "string", "description": "Хөтөлбөрийн дэлгэрэнгүй тайлбар." },
+        "type": { "type": "string", "enum": ["ONBOARDING", "OFFBOARDING"], "description": "Хөтөлбөрийн төрөл." },
+        "appliesTo": {
+          "type": "object",
+          "description": "Энэ хөтөлбөр ямар нөхцөлд автоматаар оноогдохыг заана.",
+          "properties": {
+            "departmentId": { "type": "string" },
+            "positionId": { "type": "string" }
+          }
+        },
+        "stageCount": {
+            "type": "number",
+            "description": "Энэ хөтөлбөрт хамаарах нийт үе шатын тоо."
+        },
+        "taskCount": {
+            "type": "number",
+            "description": "Энэ хөтөлбөрт хамаарах нийт даалгаврын тоо."
+        }
+      },
+      "required": ["id", "title", "type"]
+    },
+    "OnboardingStage": {
+      "title": "Дасан зохицох хөтөлбөрийн үе шат (Загвар)",
+      "description": "Хөтөлбөрийн нэг үе шатыг тодорхойлно.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Үе шатын нэр (жишээ нь: Эхний 7 хоног)." },
+        "order": { "type": "number", "description": "Үе шатын дараалал." }
+      },
+      "required": ["id", "title", "order"]
+    },
+    "OnboardingTaskTemplate": {
+      "title": "Дасан зохицох хөтөлбөрийн даалгавар (Загвар)",
+      "description": "Хөтөлбөрийн нэг даалгаврын загварыг тодорхойлно.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Даалгаврын гарчиг." },
+        "description": { "type": "string", "description": "Даалгаврын дэлгэрэнгүй тайлбар." },
+        "assigneeType": { "type": "string", "enum": ["NEW_HIRE", "MANAGER", "HR", "BUDDY", "SPECIFIC_PERSON"], "description": "Даалгаврыг гүйцэтгэгч." },
+        "dueDays": { "type": "number", "description": "Хөтөлбөр эхэлснээс хойш хэдэн өдрийн дотор хийх хугацаа." }
+      },
+      "required": ["id", "title", "assigneeType", "dueDays"]
+    },
+    "AssignedProgram": {
+      "title": "Оноогдсон хөтөлбөр",
+      "description": "Ажилтанд оноогдсон дасан зохицох хөтөлбөрийн явцыг хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "programId": { "type": "string", "description": "Эх загвар болох хөтөлбөрийн ID." },
+        "programName": { "type": "string" },
+        "status": { "type": "string", "enum": ["IN_PROGRESS", "COMPLETED"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "progress": { "type": "number" },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/backend/entities/AssignedTask"
+          }
+        }
+      },
+      "required": ["id", "programId", "programName", "status", "startDate"]
+    },
+    "AssignedTask": {
+      "title": "Оноогдсон даалгавар",
+      "description": "Ажилтанд оноогдсон нэг даалгаврын явц.",
+      "type": "object",
+      "properties": {
+        "templateTaskId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["TODO", "IN_PROGRESS", "DONE", "VERIFIED"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "assigneeId": { "type": "string", "description": "Даалгаврыг гүйцэтгэх ажилтны ID." },
+        "assigneeName": { "type": "string", "description": "Даалгаврыг гүйцэтгэгчийн нэр." }
+      },
+      "required": ["templateTaskId", "title", "status", "dueDate", "assigneeId"]
+    },
+     "Attendance": {
+      "title": "Цагийн бүртгэл",
+      "description": "Ажилтны цагийн бүртгэлийн мэдээллийг хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "checkInTime": { "type": "string", "format": "date-time" },
+        "checkOutTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["PRESENT", "LEFT"] }
+      },
+      "required": ["id", "employeeId", "date", "checkInTime", "status"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/workSchedules/{workScheduleId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/WorkSchedule" },
+          "description": "Ажлын цагийн хуваарийн төрлүүдийг хадгална."
+        }
+      },
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Ажилтны профайлын мэдээллийг хадгална.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Ажилтны давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/employmentHistory/{historyId}",
+        "definition": {
+          "entityName": "EmploymentHistory",
+          "schema": {
+            "$ref": "#/backend/entities/EmploymentHistory"
+          },
+          "description": "Ажилтантай холбоотой хөдөлмөрийн харилцааны түүхийг хадгална.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Ажилтны давтагдашгүй танигч."
+            },
+            {
+              "name": "historyId",
+              "description": "Түүхийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/questionnaire/data",
+        "definition": {
+          "entityName": "EmployeeQuestionnaire",
+          "schema": {
+            "$ref": "#/backend/entities/EmployeeQuestionnaire"
+          },
+          "description": "Ажилтантай холбоотой дэлгэрэнгүй анкетын мэдээллийг хадгалах ганц баримт бичиг.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Ажилтны давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/timeOffRequests/{timeOffRequestId}",
+        "definition": {
+          "entityName": "TimeOffRequest",
+          "schema": {
+            "$ref": "#/backend/entities/TimeOffRequest"
+          },
+          "description": "Ажилтантай холбоотой чөлөөний хүсэлтийг хадгална.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Ажилтны давтагдашгүй танигч."
+            },
+            {
+              "name": "timeOffRequestId",
+              "description": "Чөлөөний хүсэлтийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/attendanceRequests/{attendanceRequestId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/AttendanceRequest" },
+          "description": "Ажилтны ирцтэй холбоотой хүсэлтүүдийг хадгална."
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/assignedPrograms/{assignedProgramId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/AssignedProgram" },
+          "description": "Ажилтанд оноогдсон дасан зохицох хөтөлбөрийн явцыг хадгална."
+        }
+      },
+      {
+        "path": "/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": {
+            "$ref": "#/backend/entities/Document"
+          },
+          "description": "Хүний нөөцийн баримт бичгүүдийг хадгална.",
+          "params": [
+            {
+              "name": "documentId",
+              "description": "Баримт бичгийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/company/profile",
+        "definition": {
+          "entityName": "CompanyProfile",
+          "schema": {
+            "$ref": "#/backend/entities/CompanyProfile"
+          },
+          "description": "Компанийн үндсэн мэдээллийг хадгалах ганц баримт бичиг.",
+          "params": []
+        }
+      },
+      {
+        "path": "/company/employeeCodeConfig",
+        "definition": {
+          "entityName": "EmployeeCodeConfig",
+          "schema": {
+            "$ref": "#/backend/entities/EmployeeCodeConfig"
+          },
+          "description": "Ажилтны кодчлолын тохиргоог хадгалах ганц баримт бичиг.",
+          "params": []
+        }
+      },
+      {
+        "path": "/company/timeOffRequestConfig",
+        "definition": {
+            "entityName": "TimeOffRequestConfig",
+            "schema": {
+                "$ref": "#/backend/entities/TimeOffRequestConfig"
+            },
+            "description": "Чөлөөний хүсэлтийн тохиргоог хадгалах ганц баримт бичиг.",
+            "params": []
+        }
+      },
+      {
+        "path": "/company/attendanceConfig",
+        "definition": {
+            "entityName": "AttendanceConfig",
+            "schema": {
+                "$ref": "#/backend/entities/AttendanceConfig"
+            },
+            "description": "Цагийн бүртгэлийн тохиргоог хадгалах ганц баримт бичиг.",
+            "params": []
+        }
+      },
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Байгууллагын хэлтсүүдийг хадгална.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "Хэлтсийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/departmentTypes/{departmentTypeId}",
+        "definition": {
+          "entityName": "DepartmentType",
+          "schema": {
+            "$ref": "#/backend/entities/DepartmentType"
+          },
+          "description": "Байгууллагын бүтцийн нэгжийн төрлийг хадгална (жишээ нь, Хэлтэс, Алба).",
+          "params": [
+            {
+              "name": "departmentTypeId",
+              "description": "Бүтцийн төрлийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/documentTypes/{documentTypeId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Баримт бичгийн төрлийн лавлах сан."
+        }
+      },
+      {
+        "path": "/positions/{positionId}",
+        "definition": {
+          "entityName": "Position",
+          "schema": {
+            "$ref": "#/backend/entities/Position"
+          },
+          "description": "Байгууллагын бүх албан тушаалын мэдээллийг хадгална.",
+          "params": [
+            {
+              "name": "positionId",
+              "description": "Албан тушаалын давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employmentTypes/{employmentTypeId}",
+        "definition": {
+          "entityName": "EmploymentType",
+          "schema": {
+            "$ref": "#/backend/entities/EmploymentType"
+          },
+          "description": "Ажил эрхлэлтийн төрлийн лавлах сан.",
+          "params": [
+            {
+              "name": "employmentTypeId",
+              "description": "Төрлийн танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/positionStatuses/{positionStatusId}",
+        "definition": {
+          "entityName": "PositionStatus",
+          "schema": {
+            "$ref": "#/backend/entities/PositionStatus"
+          },
+          "description": "Ажлын байрны төлвийн лавлах сан.",
+          "params": [
+            {
+              "name": "positionStatusId",
+              "description": "Төлвийн танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/jobCategories/{jobCategoryId}",
+        "definition": {
+          "entityName": "JobCategory",
+          "schema": {
+            "$ref": "#/backend/entities/JobCategory"
+          },
+          "description": "Ажил мэргэжлийн ангиллын лавлах сан.",
+          "params": [
+            {
+              "name": "jobCategoryId",
+              "description": "Ангиллын танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/positionLevels/{positionLevelId}",
+        "definition": {
+          "entityName": "PositionLevel",
+          "schema": {
+            "$ref": "#/backend/entities/PositionLevel"
+          },
+          "description": "Албан тушаалын зэрэглэлийн лавлах сан.",
+          "params": [
+            {
+              "name": "positionLevelId",
+              "description": "Зэрэглэлийн танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/timeOffRequestTypes/{id}",
+        "definition": {
+            "schema": {
+                "$ref": "#/backend/entities/ReferenceData"
+            },
+            "description": "Чөлөөний хүсэлтийн төрлийн лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireCountries/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Улс' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireSchools/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Сургууль' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireDegrees/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Мэргэжил' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireAcademicRanks/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Зэрэг, цол' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireLanguages/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Гадаад хэл' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireFamilyRelationships/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Гэр бүлийн хамаарал' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireEmergencyRelationships/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Яаралтай үеийн хамаарал' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/questionnaireEmploymentTypes/{id}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ReferenceData"
+          },
+          "description": "Анкетын 'Хөдөлмөрийн нөхцөл' талбарын лавлах сан."
+        }
+      },
+      {
+        "path": "/posts/{postId}",
+        "definition": {
+          "entityName": "Post",
+          "schema": {
+            "$ref": "#/backend/entities/Post"
+          },
+          "description": "Байгууллагын дотоод нийтлэлийн самбарт орох мэдээллийг хадгална.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "Нийтлэлийн давтагдашгүй танигч."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/onboardingPrograms/{programId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/OnboardingProgram"
+          },
+          "description": "Дасан зохицох хөтөлбөрийн загваруудыг хадгална."
+        }
+      },
+      {
+        "path": "/onboardingPrograms/{programId}/stages/{stageId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/OnboardingStage"
+          },
+          "description": "Хөтөлбөрийн загварын үе шатуудыг хадгална."
+        }
+      },
+      {
+        "path": "/onboardingPrograms/{programId}/stages/{stageId}/tasks/{taskId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/OnboardingTaskTemplate"
+          },
+          "description": "Хөтөлбөрийн үе шатын даалгаврын загваруудыг хадгална."
+        }
+      },
+      {
+        "path": "/attendance/{attendanceId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Attendance" },
+          "description": "Ажилтны цагийн бүртгэлийн мэдээллийг хадгална."
+        }
+      }
+    ],
+    "reasoning": "Firestore өгөгдлийн бүтцийг Teal HR програмын онцлогт тохируулан, ажилтны удирдлага, чөлөөний хүсэлт, баримт бичгийн удирдлага, шинэ ажилтны дадлага зэрэгт төвлөрүүлэн боловсруулсан. Энэхүү бүтэц нь өгөгдлийг салгах замаар зөвшөөрлийн бие даасан байдлыг хангах, аюулгүй, өргөтгөх боломжтой үйл ажиллагааг идэвхжүүлэхэд чиглэгдсэн. Ажилтны профайлыг `/employees/{employeeId}` замд хадгалах ба чөлөөний хүсэлт, дадлагын даалгавар зэрэг холбогдох өгөгдлийг `/employees/{employeeId}/timeOffRequests/{timeOffRequestId}` болон `/employees/{employeeId}/assignedPrograms/{assignedProgramId}` гэсэн дэд цуглуулгад хадгална. Энэхүү шаталсан бүтэц нь тодорхой ажилтантай холбоотой өгөгдлийг хялбархан асуух боломжийг олгож, өмчлөлд суурилсан аюулгүй байдлын дүрмийг хэрэгжүүлдэг. Баримт бичгүүдийг `/documents/{documentId}` гэсэн дээд түвшний цуглуулгад хадгална. Ингэж тусгаарласнаар баrimт бичгийн хандалтыг бие даан удирдах боломжтой болно. Компанийн мэдээллийг `/company/profile` гэсэн замд хадгалснаар системд нэг л компанийн мэдээлэл байх боломжийг бүрдүүлнэ. Байгууллагын бүтцийн хувьд хэлтсүүдийг `/departments/{departmentId}` гэсэн дээд түвшний цуглуулгад хадгалж, албан тушаалуудыг `/positions/{positionId}` гэсэн тусдаа цуглуулгад хадгалах нь өгөгдлийн зохион байгуулалтыг сайжруулж, удирдан асуухад хялбар болгоно. Энэ нь хэлтсийн мэдээллээс хамааралгүйгээр албан тушаалыг удирдах боломжийг олгоно. Ажилтантай холбоотой өгөгдлийг замд суурилсан өмчлөл (`/employees/{employeeId}/...`) ашиглах нь өгөгдлийг ажилтны ID-тай шууд холбож, аюулгүй байдлын дүрмийг хялбаршуулдаг. Энэ бүтэц нь маш аюулгүй бөгөөд өгөгдлийн нууцлалыг хангана. Зөвшөөрлийн бие даасан байдлыг хангахын тулд `get()` дуудлага шаардлагагүй, учир нь бүх шаардлагатай зөвшөөрлийн шалгалтыг замд үндэслэн гүйцэтгэнэ.\n\nЭнэхүү бүтэц нь өгөгдлийг өмчлөлөөр нь ангилснаар QAPs (Дүрэм бол шүүлтүүр биш) -ийг дэмждэг. Жагсаалтын үйлдэл нь зөвхөн хэрэглэгчийн хандах эрхтэй зүйлсийг буцаана, учир нь тэдгээр нь зам нь өмчлөлийг заадаг цуглуулгад ангилагдсан байдаг. Энэ тохиолдолд гишүүнчлэлийн загварыг хатуу мөрддөггүй, учир нь бүх ажилчид өөрсдийн зам дахь өөрсдийн өгөгдөлд хандах эрхтэй гэж үздэг. Нөгөө талаас, баримт бичгүүдийг хэрэглэгч унших зөвшөөрөлтэй бол хандах боломжтой. Энэ бүтцэд ямар ч глобал үүрэг хэрэглэгдээгүй."
+  }
+}

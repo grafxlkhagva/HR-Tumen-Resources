@@ -4,16 +4,21 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, orderBy, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, orderBy, doc, arrayUnion, arrayRemove, getDoc, getDocs, deleteField } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ArrowRight, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ArrowRight, ChevronsDown, ChevronsUp, Heart, Smile } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Employee } from '@/app/dashboard/employees/data';
 
+type ReactionType = 'like' | 'love' | 'care';
 
 type Post = {
     id: string;
@@ -22,8 +27,21 @@ type Post = {
     imageUrls?: string[];
     authorName: string;
     createdAt: string;
-    likes: string[];
+    reactions: { [userId: string]: ReactionType };
 };
+
+const reactionIcons: { [key in ReactionType]: React.ReactNode } = {
+    like: <ThumbsUp className="h-5 w-5 text-white bg-blue-500 rounded-full p-0.5" />,
+    love: <Heart className="h-5 w-5 text-white bg-red-500 rounded-full p-0.5" fill="white" />,
+    care: <Smile className="h-5 w-5 text-yellow-500" />,
+};
+
+function ReactionIcon({ type }: { type: ReactionType }) {
+    if (type === 'like') return <ThumbsUp className="h-5 w-5 text-white bg-blue-500 rounded-full p-0.5" />;
+    if (type === 'love') return <Heart className="h-5 w-5 text-white bg-red-500 rounded-full p-0.5" fill="white"/>;
+    if (type === 'care') return <div className="h-5 w-5 rounded-full bg-yellow-400 flex items-center justify-center">🤗</div>;
+    return null;
+}
 
 function PostSkeleton() {
     return (
@@ -49,21 +67,76 @@ function PostSkeleton() {
 function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const postDate = new Date(post.createdAt);
     const [isExpanded, setIsExpanded] = React.useState(false);
+    const [isReactionsOpen, setIsReactionsOpen] = React.useState(false);
+    const [reactionDetails, setReactionDetails] = React.useState<{ employee: Employee; reaction: ReactionType }[]>([]);
     const { firestore } = useFirebase();
 
-    const isLiked = userId ? (post.likes || []).includes(userId) : false;
+    const reactions = post.reactions || {};
+    const userReaction = userId ? reactions[userId] : null;
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
     
-    const handleLike = () => {
+    const handleReaction = (reaction: ReactionType) => {
         if (!firestore || !userId) return;
         const postRef = doc(firestore, 'posts', post.id);
-        updateDocumentNonBlocking(postRef, {
-            likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
-        });
+
+        const currentReaction = reactions[userId];
+        
+        let newReactions = { ...reactions };
+        if (currentReaction === reaction) {
+            // User is removing their reaction
+            delete newReactions[userId];
+        } else {
+            // User is adding or changing their reaction
+            newReactions[userId] = reaction;
+        }
+
+        updateDocumentNonBlocking(postRef, { reactions: newReactions });
     }
+    
+    const showReactions = async () => {
+        if (!firestore) return;
+        const employeeCollection = collection(firestore, 'employees');
+        const details: { employee: Employee; reaction: ReactionType }[] = [];
+        
+        for (const uid in reactions) {
+            const userDoc = await getDoc(doc(employeeCollection, uid));
+            if (userDoc.exists()) {
+                details.push({ employee: userDoc.data() as Employee, reaction: reactions[uid] });
+            }
+        }
+        setReactionDetails(details);
+        setIsReactionsOpen(true);
+    };
+
+    const reactionCounts = Object.values(reactions).reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+    }, {} as Record<ReactionType, number>);
 
     return (
+        <>
+        <Dialog open={isReactionsOpen} onOpenChange={setIsReactionsOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Реакцууд</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {reactionDetails.map(({ employee, reaction }) => (
+                        <div key={employee.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={employee.photoURL} />
+                                    <AvatarFallback>{employee.firstName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <span>{employee.firstName} {employee.lastName}</span>
+                            </div>
+                            <ReactionIcon type={reaction} />
+                        </div>
+                    ))}
+                </div>
+            </DialogContent>
+        </Dialog>
         <Card className="overflow-hidden">
              {post.imageUrls && post.imageUrls.length > 0 && (
                  <Carousel className="w-full">
@@ -93,27 +166,52 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
             <CardContent>
                 <div className={cn("text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none", !isExpanded && "line-clamp-3")} dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
             </CardContent>
-            <CardFooter className="flex justify-between items-center">
-                 <Button variant="link" className="p-0 h-auto text-primary" onClick={toggleExpand}>
-                    {isExpanded ? 'Хураангуй' : 'Дэлгэрэнгүй унших'}
-                    {isExpanded ? <ChevronsUp className="ml-2 h-4 w-4" /> : <ChevronsDown className="ml-2 h-4 w-4" />}
-                </Button>
+             <CardFooter className="flex justify-between items-center flex-wrap gap-y-2">
+                 <div className="flex items-center gap-2">
+                    {Object.keys(reactionCounts).length > 0 && (
+                        <button onClick={showReactions} className="flex items-center">
+                            {(Object.keys(reactionCounts) as ReactionType[]).sort().map(r => <ReactionIcon key={r} type={r} />)}
+                            <span className="ml-1.5 text-xs text-muted-foreground">{Object.values(reactionCounts).reduce((a, b) => a + b, 0)}</span>
+                        </button>
+                    )}
+                </div>
+
                 <div className="flex items-center gap-4 text-muted-foreground">
-                    <button 
-                        className={cn("flex items-center gap-1.5 text-sm transition-colors", isLiked ? "text-primary hover:text-primary/80" : "hover:text-primary")}
-                        onClick={handleLike}
-                        disabled={!userId}
-                        >
-                        <ThumbsUp className={cn("h-4 w-4", isLiked && "fill-current")} />
-                        <span>{post.likes?.length || 0}</span>
-                    </button>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <button className={cn("flex items-center gap-1.5 text-sm transition-colors", 
+                                userReaction === 'like' && "text-blue-500 font-semibold",
+                                userReaction === 'love' && "text-red-500 font-semibold",
+                                userReaction === 'care' && "text-yellow-500 font-semibold",
+                                !userReaction && "hover:text-primary"
+                                )} disabled={!userId}>
+                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-4 w-4" />}
+                                <span>{userReaction ? 'Reacted' : 'Like'}</span>
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-1 rounded-full">
+                            <div className="flex gap-1">
+                                <button onClick={() => handleReaction('like')} className="p-1.5 rounded-full hover:bg-muted"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
+                                <button onClick={() => handleReaction('love')} className="p-1.5 rounded-full hover:bg-muted"><Heart className="h-6 w-6 text-red-500" fill="currentColor" /></button>
+                                <button onClick={() => handleReaction('care')} className="p-1.5 rounded-full hover:bg-muted">🤗</button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
                     <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
                         <MessageSquare className="h-4 w-4" />
                         <span>0</span>
                     </button>
                 </div>
             </CardFooter>
+            <CardFooter>
+                 <Button variant="link" className="p-0 h-auto text-primary" onClick={toggleExpand}>
+                    {isExpanded ? 'Хураангуй' : 'Дэлгэрэнгүй унших'}
+                    {isExpanded ? <ChevronsUp className="ml-2 h-4 w-4" /> : <ChevronsDown className="ml-2 h-4 w-4" />}
+                </Button>
+            </CardFooter>
         </Card>
+        </>
     );
 }
 
@@ -165,3 +263,4 @@ export default function MobileHomePage() {
     </div>
   );
 }
+
