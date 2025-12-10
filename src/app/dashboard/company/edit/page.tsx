@@ -40,12 +40,6 @@ const valueSchema = z.object({
   icon: z.string().min(1, 'Дүрс сонгоно уу.'),
 });
 
-const videoSchema = z.object({
-    title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
-    description: z.string().optional(),
-    url: z.string().url('URL хаяг буруу байна.'),
-});
-
 const companyProfileSchema = z.object({
   name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
   logoUrl: z.string().optional(),
@@ -59,7 +53,6 @@ const companyProfileSchema = z.object({
   mission: z.string().optional(),
   vision: z.string().optional(),
   values: z.array(valueSchema).optional(),
-  videos: z.array(videoSchema).optional(),
   phoneNumber: z.string().optional(),
   contactEmail: z.string().email({ message: 'Имэйл хаяг буруу байна.' }).optional().or(z.literal('')),
   address: z.string().optional(),
@@ -143,7 +136,6 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
   
   const [logoPreview, setLogoPreview] = React.useState<string | null>(initialData.logoUrl || null);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadingVideoIndex, setUploadingVideoIndex] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const companyProfileRef = useMemoFirebase(
@@ -159,11 +151,6 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "values",
-  });
-  
-  const { fields: videoFields, append: appendVideo, remove: removeVideo } = useFieldArray({
-    control: form.control,
-    name: "videos",
   });
 
   const { isSubmitting } = form.formState;
@@ -190,40 +177,13 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
     }
   };
   
-  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadingVideoIndex(index);
-    const storage = getStorage();
-    const storageRef = ref(storage, `company-videos/${Date.now()}-${file.name}`);
-
-    try {
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        form.setValue(`videos.${index}.url`, downloadURL, { shouldValidate: true });
-        toast({ title: 'Видео амжилттай байршлаа.' });
-    } catch (error) {
-        console.error("Видео байршуулахад алдаа гарлаа: ", error);
-        toast({ variant: 'destructive', title: 'Алдаа', description: 'Видео байршуулахад алдаа гарлаа.' });
-    } finally {
-        setUploadingVideoIndex(null);
-    }
-  };
-
-
   const handleSave = (values: CompanyProfileFormValues) => {
     if (!companyProfileRef) return;
     
-    const finalValues = {
-        ...values,
-        videos: values.videos?.filter(v => v.url) // Only save videos that have a URL
-    };
-
     if (docExists) {
-        updateDocumentNonBlocking(companyProfileRef, finalValues);
+        updateDocumentNonBlocking(companyProfileRef, values);
     } else {
-        setDocumentNonBlocking(companyProfileRef, finalValues, { merge: true });
+        setDocumentNonBlocking(companyProfileRef, values, { merge: true });
     }
 
     toast({
@@ -486,55 +446,6 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
 
         <Card>
             <CardHeader>
-                <CardTitle>Видео контент</CardTitle>
-                <CardDescription>Компанийн танилцуулга, соёлын видеонуудыг энд оруулна уу.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {videoFields.map((field, index) => (
-                    <Card key={field.id} className="p-4 bg-muted/20">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="space-y-4">
-                                <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Видеоны гарчиг</FormLabel><FormControl><Input placeholder="Компанийн танилцуулга" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                <FormField control={form.control} name={`videos.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Товч тайлбар</FormLabel><FormControl><Textarea placeholder="Энэ видеонд юу гардаг вэ?" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                            </div>
-                            <div className="space-y-2">
-                                <FormLabel>Видео файл</FormLabel>
-                                {form.watch(`videos.${index}.url`) ? (
-                                    <div className="aspect-video rounded-md overflow-hidden bg-background">
-                                        <video src={form.watch(`videos.${index}.url`)} controls className="w-full h-full object-cover" />
-                                    </div>
-                                ) : (
-                                     <div className="aspect-video flex items-center justify-center rounded-md border-2 border-dashed">
-                                        <div className="text-center">
-                                            <Film className="mx-auto h-12 w-12 text-gray-400" />
-                                            <p className="mt-2 text-sm text-muted-foreground">Видео байршуулаагүй байна</p>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex gap-2 items-center">
-                                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`video-upload-${index}`)?.click()} disabled={uploadingVideoIndex === index}>
-                                    {uploadingVideoIndex === index ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                    Видео солих
-                                </Button>
-                                <input id={`video-upload-${index}`} type="file" accept="video/*" className="hidden" onChange={(e) => handleVideoUpload(e, index)} />
-                                <Button type="button" variant="destructive" size="sm" onClick={() => removeVideo(index)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                </Button>
-                                </div>
-                                <FormField control={form.control} name={`videos.${index}.url`} render={() => ( <FormMessage /> )}/>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendVideo({ title: '', description: '', url: '' })}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Видео нэмэх
-                </Button>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
                 <CardTitle>Холбоо барих мэдээлэл засах</CardTitle>
             </CardHeader>
              <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -581,15 +492,15 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         </Card>
         
         <div className="flex items-center gap-2">
-            <Button type="submit" disabled={isSubmitting || isUploading || uploadingVideoIndex !== null}>
-            {isSubmitting || isUploading || uploadingVideoIndex !== null ? (
+            <Button type="submit" disabled={isSubmitting || isUploading}>
+            {isSubmitting || isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
                 <Save className="mr-2 h-4 w-4" />
             )}
             Хадгалах
             </Button>
-            <Button variant="outline" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || isUploading || uploadingVideoIndex !== null}>
+            <Button variant="outline" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || isUploading}>
                 <X className="mr-2 h-4 w-4" />
                 Цуцлах
             </Button>
@@ -612,7 +523,6 @@ const defaultFormValues: CompanyProfileFormValues = {
   mission: '',
   vision: '',
   values: [],
-  videos: [],
   phoneNumber: '',
   contactEmail: '',
   address: '',

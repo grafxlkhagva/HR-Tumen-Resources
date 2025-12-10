@@ -233,7 +233,7 @@ const VideoContentCard = ({ profile }: { profile: CompanyProfileValues }) => {
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Видео танилцуулга</CardTitle>
                  <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/company/edit">
+                    <Link href="/dashboard/company/videos">
                         <Pencil className="mr-2 h-4 w-4" />
                         Засварлах
                     </Link>
