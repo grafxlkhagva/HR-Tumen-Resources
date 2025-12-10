@@ -68,7 +68,7 @@ export function useCollection<T = any>(
   useEffect(() => {
     // This is a robust check to ensure we have a valid Firestore query or collection reference.
     // It verifies the object is not null/undefined and has the characteristic 'type' property.
-    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query || memoizedTargetRefOrQuery instanceof CollectionReference)) {
+    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query)) {
         setData(null);
         setIsLoading(false); // Set loading to false as we are not fetching anything
         setError(null);
