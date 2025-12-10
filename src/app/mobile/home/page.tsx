@@ -1,31 +1,34 @@
-
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import { collection, query, orderBy, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, ThumbsUp, ArrowRight, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+
 
 type Post = {
     id: string;
     title: string;
     content: string;
-    imageUrl: string;
+    imageUrls?: string[];
     authorName: string;
     createdAt: string;
+    likes: string[];
 };
 
 function PostSkeleton() {
     return (
         <Card className="overflow-hidden">
-            <Skeleton className="h-48 w-full" />
+            <Skeleton className="aspect-video w-full" />
             <CardHeader>
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/4" />
@@ -43,18 +46,43 @@ function PostSkeleton() {
     )
 }
 
-function PostCard({ post }: { post: Post }) {
+function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const postDate = new Date(post.createdAt);
     const [isExpanded, setIsExpanded] = React.useState(false);
+    const { firestore } = useFirebase();
+
+    const isLiked = userId ? post.likes.includes(userId) : false;
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
+    
+    const handleLike = () => {
+        if (!firestore || !userId) return;
+        const postRef = doc(firestore, 'posts', post.id);
+        updateDocumentNonBlocking(postRef, {
+            likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
+        });
+    }
 
     return (
         <Card className="overflow-hidden">
-            {post.imageUrl && (
-                <div className="relative aspect-video w-full">
-                    <Image src={post.imageUrl} alt={post.title} fill className="object-cover" />
-                </div>
+             {post.imageUrls && post.imageUrls.length > 0 && (
+                 <Carousel className="w-full">
+                    <CarouselContent>
+                    {post.imageUrls.map((url, index) => (
+                        <CarouselItem key={index}>
+                            <div className="relative aspect-video w-full">
+                                <Image src={url} alt={`${post.title} image ${index + 1}`} fill className="object-cover" />
+                            </div>
+                        </CarouselItem>
+                    ))}
+                    </CarouselContent>
+                    {post.imageUrls.length > 1 && (
+                        <>
+                            <CarouselPrevious className="left-2" />
+                            <CarouselNext className="right-2" />
+                        </>
+                    )}
+                </Carousel>
             )}
             <CardHeader>
                 <CardTitle className="text-lg">{post.title}</CardTitle>
@@ -63,9 +91,7 @@ function PostCard({ post }: { post: Post }) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <p className={cn("text-sm text-muted-foreground", !isExpanded && "line-clamp-3")}>
-                    {post.content}
-                </p>
+                <div className={cn("text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none", !isExpanded && "line-clamp-3")} dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
             </CardContent>
             <CardFooter className="flex justify-between items-center">
                  <Button variant="link" className="p-0 h-auto text-primary" onClick={toggleExpand}>
@@ -73,9 +99,13 @@ function PostCard({ post }: { post: Post }) {
                     {isExpanded ? <ChevronsUp className="ml-2 h-4 w-4" /> : <ChevronsDown className="ml-2 h-4 w-4" />}
                 </Button>
                 <div className="flex items-center gap-4 text-muted-foreground">
-                    <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
-                        <ThumbsUp className="h-4 w-4" />
-                        <span>0</span>
+                    <button 
+                        className={cn("flex items-center gap-1.5 text-sm transition-colors", isLiked ? "text-primary hover:text-primary/80" : "hover:text-primary")}
+                        onClick={handleLike}
+                        disabled={!userId}
+                        >
+                        <ThumbsUp className={cn("h-4 w-4", isLiked && "fill-current")} />
+                        <span>{post.likes?.length || 0}</span>
                     </button>
                     <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
                         <MessageSquare className="h-4 w-4" />
@@ -89,6 +119,7 @@ function PostCard({ post }: { post: Post }) {
 
 export default function MobileHomePage() {
   const { firestore } = useFirebase();
+  const { employeeProfile } = useEmployeeProfile();
 
   const postsQuery = useMemoFirebase(
       () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc')) : null,
@@ -120,7 +151,7 @@ export default function MobileHomePage() {
 
         {!isLoading && !error && posts && posts.length > 0 && (
             <div className="space-y-6">
-                {posts.map(post => <PostCard key={post.id} post={post} />)}
+                {posts.map(post => <PostCard key={post.id} post={post} userId={employeeProfile?.id || null} />)}
             </div>
         )}
 
