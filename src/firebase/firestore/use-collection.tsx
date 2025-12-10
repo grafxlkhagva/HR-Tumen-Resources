@@ -68,7 +68,7 @@ export function useCollection<T = any>(
   useEffect(() => {
     // This is a robust check to ensure we have a valid Firestore query or collection reference.
     // It verifies the object is not null/undefined and has the characteristic 'type' property.
-    if (!memoizedTargetRefOrQuery) {
+    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query || memoizedTargetRefOrQuery instanceof CollectionReference)) {
         setData(null);
         setIsLoading(false); // Set loading to false as we are not fetching anything
         setError(null);
@@ -93,13 +93,15 @@ export function useCollection<T = any>(
         // This logic extracts the path from either a ref or a query
         let path: string = '[unknown path]';
         try {
-            if (memoizedTargetRefOrQuery.type === 'collection') {
-                path = (memoizedTargetRefOrQuery as CollectionReference).path;
-            } else if (memoizedTargetRefOrQuery.type === 'query') {
-                path = (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+            if (memoizedTargetRefOrQuery instanceof CollectionReference) {
+                path = memoizedTargetRefOrQuery.path;
+            } else if (memoizedTargetRefOrQuery instanceof Query) {
+                // Query path авах дотоод API
+                // canonicalString() нь үргэлж байдаг
+                // @ts-ignore
+                path = memoizedTargetRefOrQuery._query.path.canonicalString();
             }
         } catch (e) {
-            // Failsafe in case path extraction fails
             console.error("Could not extract path from Firestore query/reference:", e);
         }
         
