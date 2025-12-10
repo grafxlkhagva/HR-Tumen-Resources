@@ -38,12 +38,12 @@ export default function EmployeeDetailPage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
 
-    const { firestore } = useFirebase();
 
-    const employeeRef = useMemoFirebase(() => (firestore ? doc(firestore, 'employees', employeeId) : null), [firestore, employeeId]);
-    
+    const employeeRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'employees', employeeId) : null), [employeeId]);
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeRef);
-    const { data: department, isLoading: isLoadingDept } = useDoc(useMemoFirebase(() => (firestore && employee?.departmentId ? doc(firestore, 'departments', employee.departmentId) : null), [firestore, employee?.departmentId]));
+    
+    const departmentRef = useMemoFirebase(({firestore}) => (firestore && employee?.departmentId ? doc(firestore, 'departments', employee.departmentId) : null), [employee?.departmentId]);
+    const { data: department, isLoading: isLoadingDept } = useDoc(departmentRef);
 
     const isLoading = isLoadingEmployee || isLoadingDept;
 

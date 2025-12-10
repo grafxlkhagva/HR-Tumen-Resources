@@ -34,11 +34,9 @@ const calculateProgress = (stages: OnboardingStage[]) => {
 };
 
 export default function NewHiresPage() {
-  const { firestore } = useFirebase();
-
   const newHiresQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'newHires') : null),
-    [firestore]
+    ({firestore}) => (firestore ? collection(firestore, 'newHires') : null),
+    []
   );
   const { data: newHires, isLoading: isLoadingHires } =
     useCollection<NewHire>(newHiresQuery);

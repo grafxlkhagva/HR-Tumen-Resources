@@ -97,10 +97,9 @@ function DocumentRow({ doc }: { doc: Document }) {
 }
 
 export default function DocumentsPage() {
-  const { firestore } = useFirebase();
   const documentsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'documents') : null),
-    [firestore]
+    ({firestore}) => (firestore ? collection(firestore, 'documents') : null),
+    []
   );
   const {
     data: documents,

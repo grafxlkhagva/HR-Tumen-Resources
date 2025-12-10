@@ -70,7 +70,8 @@ export function useDoc<T = any>(
         setError(null); // Clear any previous error on successful snapshot
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (err: FirestoreError) => {
+        console.error(`[useDoc] Firestore permission error on path: ${docRef.path}`, err);
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: docRef.path,

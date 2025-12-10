@@ -37,8 +37,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const companyProfileRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'profile') : null),
-    [firestore]
+    ({firestore}) => (firestore ? doc(firestore, 'company', 'profile') : null),
+    []
   );
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
 

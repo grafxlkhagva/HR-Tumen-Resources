@@ -18,9 +18,8 @@ type FieldDefinition = {
 type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldDefinition[] };
 
 export default function DocumentSettingsPage() {
-  const { firestore } = useFirebase();
-
-  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'documentTypes') : null, [firestore]));
+  const documentTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'documentTypes') : null, []);
+  const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(documentTypesQuery);
 
   const docTypeColumns = [
     { key: 'name', header: 'Нэр' },

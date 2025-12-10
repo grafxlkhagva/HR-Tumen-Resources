@@ -25,11 +25,9 @@ import type { Employee } from '../../employees/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CodeLogPage() {
-  const { firestore } = useFirebase();
-
   const employeesQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'employees') : null),
-    [firestore]
+    ({firestore}) => (firestore ? collection(firestore, 'employees') : null),
+    []
   );
   const { data: employees, isLoading, error } = useCollection<Employee>(employeesQuery);
 

@@ -199,10 +199,9 @@ const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition
 
 function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const [isEditing, setIsEditing] = React.useState(false);
-    const { firestore } = useFirebase();
     const { toast } = useToast();
-    const documentRef = useMemoFirebase(() => doc(firestore, 'documents', documentData.id), [firestore, documentData.id]);
-    const docTypesQuery = useMemoFirebase(() => collection(firestore, 'documentTypes'), [firestore]);
+    const documentRef = useMemoFirebase(({firestore}) => doc(firestore, 'documents', documentData.id), [documentData.id]);
+    const docTypesQuery = useMemoFirebase(({firestore}) => collection(firestore, 'documentTypes'), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<DocumentType>(docTypesQuery);
 
     const form = useForm<DocumentFormValues>({
@@ -223,6 +222,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const { isSubmitting } = form.formState;
 
     const handleSave = (values: DocumentFormValues) => {
+        if (!documentRef) return;
         updateDocumentNonBlocking(documentRef, values);
         toast({ title: 'Амжилттай хадгаллаа' });
         setIsEditing(false);
@@ -325,11 +325,10 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
 export default function DocumentDetailPage() {
     const { id } = useParams();
     const documentId = Array.isArray(id) ? id[0] : id;
-    const { firestore } = useFirebase();
 
     const documentRef = useMemoFirebase(
-        () => (firestore && documentId ? doc(firestore, 'documents', documentId) : null),
-        [firestore, documentId]
+        ({firestore}) => (firestore && documentId ? doc(firestore, 'documents', documentId) : null),
+        [documentId]
     );
 
     const { data: documentData, isLoading, error } = useDoc<Document>(documentRef);

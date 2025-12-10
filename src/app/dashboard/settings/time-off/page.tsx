@@ -64,8 +64,7 @@ const libraries: ('places')[] = ['places'];
 
 
 function TimeOffRequestConfigCard() {
-    const { firestore } = useFirebase();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
+    const configRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), []);
     const { data: config, isLoading } = useDoc<TimeOffRequestConfig>(configRef);
     const initialData = config || { requestDeadlineDays: 3 };
 
@@ -96,8 +95,8 @@ function AttendanceConfigForm({ initialData }: { initialData: AttendanceConfigFo
   const mapRef = React.useRef<google.maps.Map | null>(null);
 
   const configRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
-    [firestore]
+    ({firestore}) => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
+    []
   );
 
   const form = useForm<AttendanceConfigFormValues>({
@@ -277,10 +276,9 @@ function AttendanceConfigCardSkeleton() {
 }
 
 function AttendanceSettings() {
-    const { firestore } = useFirebase();
     const configRef = useMemoFirebase(
-      () => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
-      [firestore]
+      ({firestore}) => (firestore ? doc(firestore, 'company', 'attendanceConfig') : null),
+      []
     );
   
     const { data: config, isLoading } = useDoc<AttendanceConfigFormValues>(configRef);
@@ -326,11 +324,11 @@ function AttendanceSettings() {
 
 
 export default function TimeAndAttendanceSettingsPage() {
-  const { firestore } = useFirebase();
-
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'timeOffRequestTypes') : null, [firestore]));
+  const timeOffRequestTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
+  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(timeOffRequestTypesQuery);
   
-  const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(useMemoFirebase(() => firestore ? collection(firestore, 'workSchedules') : null, [firestore]));
+  const workSchedulesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'workSchedules') : null, []);
+  const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
 
   const workScheduleColumns = [
     { key: 'name', header: 'Нэр' },

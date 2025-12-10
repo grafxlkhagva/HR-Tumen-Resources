@@ -13,16 +13,16 @@ export type EmployeeProfile = {
   employeeCode: string;
   avatarId?: string;
   photoURL?: string;
+  deviceId?: string;
   // Add other fields as needed
 };
 
 export const useEmployeeProfile = () => {
   const { user, isUserLoading, userError } = useUser();
-  const { firestore } = useFirebase();
 
   const employeeDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'employees', user.uid) : null),
-    [firestore, user]
+    ({ firestore, user: memoizedUser }) => (firestore && memoizedUser ? doc(firestore, 'employees', memoizedUser.uid) : null),
+    []
   );
 
   const {

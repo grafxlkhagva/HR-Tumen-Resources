@@ -12,12 +12,13 @@ import { ArrowLeft } from 'lucide-react';
 type SimpleReferenceItem = ReferenceItem & { name: string };
 
 export default function StructureSettingsPage() {
-  const { firestore } = useFirebase();
+  const employmentTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'employmentTypes') : null, []);
+  const positionStatusesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positionStatuses') : null, []);
+  const positionLevelsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positionLevels') : null, []);
 
-  // Data hooks for each reference collection
-  const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'employmentTypes') : null, [firestore]));
-  const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]));
-  const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'positionLevels') : null, [firestore]));
+  const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(employmentTypesQuery);
+  const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(positionStatusesQuery);
+  const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(positionLevelsQuery);
 
   return (
     <div className="py-8">

@@ -66,8 +66,8 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
     const { toast } = useToast();
     const isEditMode = !!editingStage;
     
-    const programDocRef = useMemoFirebase(() => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-    const stagesCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
+    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
+    const stagesCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
 
     const form = useForm<StageFormValues>({
         resolver: zodResolver(stageSchema),
@@ -90,6 +90,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
             updateDocumentNonBlocking(docRef, data);
             toast({ title: 'Үе шат шинэчлэгдлээ' });
         } else {
+            if (!stagesCollectionRef || !programDocRef) return;
             addDocumentNonBlocking(stagesCollectionRef, data);
             updateDocumentNonBlocking(programDocRef, { stageCount: increment(1) });
             toast({ title: 'Шинэ үе шат нэмэгдлээ' });
@@ -134,8 +135,8 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const { toast } = useToast();
     const isEditMode = !!editingTask;
 
-    const programDocRef = useMemoFirebase(() => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-    const tasksCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
+    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
+    const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
 
     const form = useForm<TaskFormValues>({
         resolver: zodResolver(taskSchema),
@@ -153,7 +154,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     }, [open, editingTask, isEditMode, form]);
 
     const onSubmit = (data: TaskFormValues) => {
-        if (!firestore) return;
+        if (!firestore || !programDocRef || !tasksCollectionRef) return;
         if (isEditMode && editingTask) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`, editingTask.id);
             updateDocumentNonBlocking(docRef, data);
@@ -205,7 +206,7 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
     const [editingTask, setEditingTask] = React.useState<OnboardingTaskTemplate | null>(null);
     const [isTaskDialogOpen, setIsTaskDialogOpen] = React.useState(false);
 
-    const tasksCollectionRef = useMemoFirebase(() => collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`), [firestore, programId, stage.id]);
+    const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`), [programId, stage.id]);
     const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksCollectionRef);
 
     const handleEditStage = () => {
@@ -214,7 +215,7 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
     };
 
     const handleDeleteStage = async () => {
-        if (!firestore || !programRef) return;
+        if (!firestore || !programRef || !tasksCollectionRef) return;
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
         
         try {
@@ -306,12 +307,11 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
 export default function OnboardingProgramBuilderPage() {
     const { programId } = useParams();
     const id = Array.isArray(programId) ? programId[0] : programId;
-    const { firestore } = useFirebase();
 
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
 
-    const programDocRef = useMemoFirebase(() => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [firestore, id]);
-    const stagesQuery = useMemoFirebase(() => (firestore ? collection(firestore, `onboardingPrograms/${id}/stages`) : null), [firestore, id]);
+    const programDocRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [id]);
+    const stagesQuery = useMemoFirebase(({firestore}) => (firestore ? collection(firestore, `onboardingPrograms/${id}/stages`) : null), [id]);
     
     const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
     const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
@@ -364,5 +364,3 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
-
-  

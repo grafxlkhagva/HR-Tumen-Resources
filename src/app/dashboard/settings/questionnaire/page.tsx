@@ -14,17 +14,15 @@ type JobCategoryReferenceItem = ReferenceItem & { name: string; code: string };
 
 
 export default function QuestionnaireSettingsPage() {
-  const { firestore } = useFirebase();
-
-  const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
-  const { data: questionnaireSchools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
-  const { data: questionnaireDegrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
-  const { data: questionnaireAcademicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
-  const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
-  const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
-  const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
-  const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
-  const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
+  const { data: questionnaireCountries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireCountries') : null, []));
+  const { data: questionnaireSchools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireSchools') : null, []));
+  const { data: questionnaireDegrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireDegrees') : null, []));
+  const { data: questionnaireAcademicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, []));
+  const { data: questionnaireLanguages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireLanguages') : null, []));
+  const { data: questionnaireFamilyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, []));
+  const { data: questionnaireEmergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, []));
+  const { data: questionnaireEmploymentTypes, isLoading: loadingQuestionnaireEmpTypes } = useCollection<SimpleReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, []));
+  const { data: jobCategories, isLoading: loadingJobCategories } = useCollection<JobCategoryReferenceItem>(useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'jobCategories') : null, []));
 
   return (
     <div className="py-8">

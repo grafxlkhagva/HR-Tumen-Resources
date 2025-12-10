@@ -73,12 +73,11 @@ function EmployeeCodeConfigForm({
 }: {
   initialData: EmployeeCodeFormValues;
 }) {
-  const { firestore } = useFirebase();
   const { toast } = useToast();
 
   const codeConfigRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
-    [firestore]
+    ({firestore}) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    []
   );
 
   const form = useForm<EmployeeCodeFormValues>({
@@ -219,10 +218,9 @@ function ConfigCardSkeleton() {
 }
 
 export default function EmployeeCodeSettingsPage() {
-  const { firestore } = useFirebase();
   const codeConfigRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
-    [firestore]
+    ({firestore}) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    []
   );
 
   const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);

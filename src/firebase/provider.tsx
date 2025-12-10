@@ -161,12 +161,25 @@ export const useFirebaseApp = (): FirebaseApp => {
   return firebaseApp;
 };
 
+/**
+ * A wrapper for React.useMemo that is aware of the Firebase context.
+ * This is useful for memoizing Firebase queries or other objects that depend on
+ * the Firebase services being available. The factory function will only be
+ * called when the services are ready.
+ */
 export const useMemoFirebase = <T,>(
-  factory: () => T,
+  factory: (services: { firestore: Firestore, auth: Auth, user: User | null }) => T,
   deps: DependencyList
-): T => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(factory, deps);
+): T | null => {
+  const { firestore, auth, user } = useFirebase();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => {
+    if (!firestore || !auth) {
+      return null;
+    }
+    return factory({ firestore, auth, user });
+  }, [firestore, auth, user, ...deps]);
 };
 
 /**

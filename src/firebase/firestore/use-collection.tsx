@@ -1,102 +1,89 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import {
-  Query,
   onSnapshot,
+  Query,
+  CollectionReference,
   DocumentData,
   FirestoreError,
-  QuerySnapshot,
-  CollectionReference,
-} from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { useFirebase } from '..';
+} from "firebase/firestore";
+import { FirestorePermissionError } from "@/firebase/errors";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { useFirebase } from "..";
 
-/** Utility type to add an 'id' field to a given type T. */
-export type WithId<T> = T & { id: string };
+type TargetRef<T = DocumentData> =
+  | Query<T>
+  | CollectionReference<T>
+  | null
+  | undefined;
 
-/**
- * Interface for the return value of the useCollection hook.
- * @template T Type of the document data.
- */
-export interface UseCollectionResult<T> {
-  data: WithId<T>[] | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+export interface UseCollectionResult<T = DocumentData> {
+  data: (T & { id: string })[];
+  loading: boolean;
+  error: FirestoreError | null;
 }
 
 /**
- * React hook to subscribe to a Firestore collection or query in real-time.
- * Handles nullable references/queries.
- *
- * IMPORTANT! The caller MUST MEMOIZE the inputted refOrQuery (e.g., using useMemo)
- * for this hook to work correctly and avoid unnecessary re-renders or subscriptions.
- *
- * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} refOrQuery -
- * The memoized Firestore CollectionReference or Query. The hook is dormant if null/undefined.
- * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
+ * Реал-тайм collection / query-д subscribe хийх энгийн hook.
+ * - target байхгүй үед Firestore руу ХҮСЭЛТ ЯВУУЛАХГҮЙ.
+ * - Алдаа гарсан ч throw хийхгүй, state-д хадгална.
  */
-export function useCollection<T = any>(
-    refOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined,
+export function useCollection<T = DocumentData>(
+  target: TargetRef<T>
 ): UseCollectionResult<T> {
+  const [data, setData] = useState<(T & { id: string })[]>([]);
+  const [loading, setLoading] = useState<boolean>(!!target);
+  const [error, setError] = useState<FirestoreError | null>(null);
   const { firestore } = useFirebase();
-  const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState(!!refOrQuery);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
+
 
   useEffect(() => {
-    if (!refOrQuery || !firestore) {
-      setIsLoading(false);
-      setData(null);
+    // 🔒 target бэлэн биш үед: ямар ч асуулга явуулахгүй
+    if (!target || !firestore) {
+      setLoading(false);
+      setData([]);
       setError(null);
       return () => {};
     }
 
-    setIsLoading(true);
+    setLoading(true);
 
     const unsubscribe = onSnapshot(
-      refOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: WithId<T>[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
-        setData(results);
+      target,
+      (snapshot) => {
+        const docs = snapshot.docs.map(
+          (doc) =>
+            ({
+              id: doc.id,
+              ...doc.data(),
+            } as T & { id: string })
+        );
+        setData(docs);
+        setLoading(false);
         setError(null);
-        setIsLoading(false);
       },
       (err: FirestoreError) => {
-        let path = '[unknown path]';
-        try {
-            if ('path' in refOrQuery) {
-                path = refOrQuery.path;
-            // @ts-ignore _query is a private but stable API
-            } else if (refOrQuery._query?.path) {
-                // @ts-ignore
-                path = refOrQuery._query.path.canonicalString();
-            }
-        } catch (e) {
-            console.error("Could not extract path from Firestore query/reference:", e);
+        let path = "unknown";
+        if ("path" in target) {
+          path = (target as CollectionReference).path;
+        } else if ("_query" in target) {
+          path = (target as any)._query.path?.join('/') || "unknown";
         }
+        
+        console.error(`[useCollection] Firestore permission error on path: ${path}`, err);
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path,
         })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
+        
+        setError(contextualError);
+        setLoading(false);
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [refOrQuery, firestore]);
+  }, [target, firestore]);
 
-  return { data, isLoading, error };
+  return { data, loading, error };
 }

@@ -72,17 +72,13 @@ type PositionStatus = {
 }
 
 export default function OnboardingSettingsPage() {
-    const { firestore } = useFirebase();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingProgram, setEditingProgram] = React.useState<OnboardingProgram | null>(null);
 
-    const programsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
-        [firestore]
-    );
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const positionStatusesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionStatuses') : null), [firestore]);
+    const programsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'onboardingPrograms') : null, []);
+    const departmentsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'departments') : null, []);
+    const positionsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positions') : null, []);
+    const positionStatusesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positionStatuses') : null, []);
 
 
     const { data: programs, isLoading: isLoadingPrograms } = useCollection<OnboardingProgram>(programsQuery);
@@ -109,11 +105,11 @@ export default function OnboardingSettingsPage() {
         setIsDialogOpen(true);
     }
 
-    const handleDelete = (programId: string) => {
+    const handleDelete = (program: OnboardingProgram) => {
+        // TODO: add logic to delete subcollections
+        const { firestore } = useFirebase();
         if (!firestore) return;
-        // Add confirmation dialog
-        const docRef = doc(firestore, 'onboardingPrograms', programId);
-        // TODO: Add logic to delete subcollections (stages, tasks) if necessary
+        const docRef = doc(firestore, 'onboardingPrograms', program.id);
         deleteDocumentNonBlocking(docRef);
     }
 
@@ -209,7 +205,7 @@ export default function OnboardingSettingsPage() {
                                                 <DropdownMenuItem onClick={() => handleEdit(program)}>
                                                     <Pencil className="mr-2 h-4 w-4" /> Засах
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDelete(program.id)} className="text-destructive">
+                                                <DropdownMenuItem onClick={() => handleDelete(program)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Устгах
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>

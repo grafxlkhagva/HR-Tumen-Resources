@@ -38,11 +38,10 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const auth = useAuth();
-  const { firestore } = useFirebase();
 
   const companyProfileRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'profile') : null),
-    [firestore]
+    ({firestore}) => (firestore ? doc(firestore, 'company', 'profile') : null),
+    []
   );
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
     
