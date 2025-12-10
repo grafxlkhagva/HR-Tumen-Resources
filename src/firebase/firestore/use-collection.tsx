@@ -8,12 +8,10 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
-  collection,
-  query
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useMemoFirebase } from '../provider';
+import { useFirebase, useMemoFirebase } from '../provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -58,16 +56,17 @@ export function useCollection<T = any>(
     targetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>))  | null | undefined,
 ): UseCollectionResult<T> {
   const memoizedTargetRefOrQuery = useMemoFirebase(() => targetRefOrQuery, [targetRefOrQuery]);
+  const { firestore } = useFirebase(); // Get firestore instance
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start with loading true
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     // Explicitly check for null/undefined before proceeding.
-    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query)) {
+    if (!firestore || !memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query)) {
         setData(null);
         setIsLoading(false);
         setError(null);
@@ -116,7 +115,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
+  }, [memoizedTargetRefOrQuery, firestore]); // Re-run if the target query/reference or firestore instance changes.
 
   return { data, isLoading, error };
 }
