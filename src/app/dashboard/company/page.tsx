@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin, Video } from 'lucide-react';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -157,13 +157,6 @@ function PageSkeleton() {
     );
 }
 
-const valueIcons: { [key: string]: React.ElementType } = {
-  responsibility: Handshake,
-  innovation: Zap,
-  collaboration: Users2,
-  default: Shield,
-};
-
 const MissionVisionCard = ({ profile }: { profile: CompanyProfileValues }) => {
     return (
         <Card>
@@ -206,12 +199,15 @@ const MissionVisionCard = ({ profile }: { profile: CompanyProfileValues }) => {
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {profile.values.map((value, index) => {
-                                const Icon = valueIcons[value.icon] || valueIcons.default;
                                 return (
                                     <Card key={index} className="p-4 bg-muted/40">
                                         <div className="flex flex-col items-center text-center">
-                                            <div className="mb-3 rounded-full bg-primary/10 p-3">
-                                               <Icon className="h-6 w-6 text-primary" />
+                                            <div className="mb-3 rounded-full bg-primary/10 p-2 flex items-center justify-center size-12">
+                                               {value.icon ? (
+                                                <Image src={value.icon} alt={value.title} width={32} height={32} className="object-contain" />
+                                               ) : (
+                                                <Shield className="h-6 w-6 text-primary" />
+                                               )}
                                             </div>
                                             <h4 className="font-semibold">{value.title}</h4>
                                             <p className="text-sm text-muted-foreground mt-1">{value.description}</p>

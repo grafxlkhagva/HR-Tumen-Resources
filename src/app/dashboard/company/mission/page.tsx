@@ -24,18 +24,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Loader2, Save, X, PlusCircle, Trash2, ArrowLeft } from 'lucide-react';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Loader2, Save, X, PlusCircle, Trash2, ArrowLeft, Upload, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const valueSchema = z.object({
   title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
   description: z.string().min(1, 'Тайлбар хоосон байж болохгүй.'),
-  icon: z.string().min(1, 'Дүрс сонгоно уу.'),
+  icon: z.string().min(1, 'Дүрс оруулна уу.'),
 });
 
 const missionVisionSchema = z.object({
@@ -75,6 +75,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
   const router = useRouter();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = React.useState<number | null>(null);
 
   const companyProfileRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'company', 'profile') : null),
@@ -92,6 +93,27 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
   });
 
   const { isSubmitting } = form.formState;
+
+  const handleIconUpload = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(index);
+    const storage = getStorage();
+    const storageRef = ref(storage, `company-assets/value-icons/${Date.now()}-${file.name}`);
+
+    try {
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      form.setValue(`values.${index}.icon`, downloadURL, { shouldValidate: true });
+      toast({ title: 'Дүрс амжилттай байршлаа.' });
+    } catch (error) {
+      console.error("Дүрс байршуулахад алдаа гарлаа: ", error);
+      toast({ variant: 'destructive', title: 'Алдаа', description: 'Дүрс байршуулахад алдаа гарлаа.' });
+    } finally {
+      setIsUploading(null);
+    }
+  };
 
   const handleSave = (values: MissionVisionFormValues) => {
     if (!companyProfileRef) return;
@@ -121,7 +143,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                     <FormItem>
                         <FormLabel>Эрхэм зорилго</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Бидний эрхэм зорилго бол..." {...field} />
+                            <Textarea placeholder="Бидний эрхэм зорилго бол..." {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -134,7 +156,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                     <FormItem>
                         <FormLabel>Алсын хараа</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Бид ирээдүйд..." {...field} />
+                            <Textarea placeholder="Бид ирээдүйд..." {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -144,68 +166,74 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                   <FormLabel>Үнэт зүйлс</FormLabel>
                   <div className="mt-2 space-y-4">
                     {fields.map((field, index) => (
-                      <div key={field.id} className="grid grid-cols-1 gap-4 items-end md:grid-cols-[1fr_1fr_1fr_auto]">
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.title`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Гарчиг</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Жишээ нь: Хариуцлага" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Тайлбар</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Богино тайлбар..." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
-                          control={form.control}
-                          name={`values.${index}.icon`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Дүрс</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Дүрс сонгох" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="responsibility">Хариуцлага (Handshake)</SelectItem>
-                                  <SelectItem value="innovation">Инноваци (Zap)</SelectItem>
-                                  <SelectItem value="collaboration">Хамтын ажиллагаа (Users2)</SelectItem>
-                                  <SelectItem value="default">Бусад (Shield)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         
+                      <div key={field.id} className="grid grid-cols-1 items-start gap-4 rounded-md border p-4 md:grid-cols-[1fr_2fr_1fr]">
+                        <div className="flex flex-col items-center gap-2">
+                            <FormField
+                                control={form.control}
+                                name={`values.${index}.icon`}
+                                render={({ field: iconField }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <>
+                                                <label htmlFor={`icon-upload-${index}`} className="cursor-pointer">
+                                                    <div className="h-20 w-20 flex items-center justify-center rounded-lg border-2 border-dashed bg-muted hover:bg-muted/50">
+                                                        {iconField.value ? (
+                                                            <Image src={iconField.value} alt="Icon preview" width={80} height={80} className="object-contain h-full w-full p-1" />
+                                                        ) : (
+                                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                        )}
+                                                    </div>
+                                                </label>
+                                                <Input id={`icon-upload-${index}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleIconUpload(e, index)} />
+                                            </>
+                                        </FormControl>
+                                         <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             {isUploading === index && <p className="text-xs text-muted-foreground animate-pulse">Зураг хуулж байна...</p>}
+                        </div>
+
+                        <div className="space-y-4">
+                             <FormField
+                                control={form.control}
+                                name={`values.${index}.title`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel className="text-xs">Гарчиг</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Жишээ нь: Хариуцлага" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            <FormField
+                                control={form.control}
+                                name={`values.${index}.description`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel className="text-xs">Тайлбар</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Богино тайлбар..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        
+                        <div className="flex justify-end items-start h-full">
                             <Button
                                 type="button"
                                 variant="destructive"
-                                size="icon"
+                                size="sm"
                                 onClick={() => remove(index)}
                             >
                                 <Trash2 className="h-4 w-4" />
                                 <span className="sr-only">Устгах</span>
                             </Button>
-                         
-                         {index < fields.length - 1 && <Separator className="my-4 col-span-1 md:col-span-4"/>}
+                        </div>
                       </div>
                     ))}
                     <Button
@@ -213,7 +241,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                       variant="outline"
                       size="sm"
                       className="mt-4"
-                      onClick={() => append({ title: '', description: '', icon: 'default' })}
+                      onClick={() => append({ title: '', description: '', icon: '' })}
                     >
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Үнэт зүйл нэмэх
@@ -224,15 +252,15 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
         </Card>
         
         <div className="flex items-center gap-2">
-            <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+            <Button type="submit" disabled={isSubmitting || isUploading !== null}>
+            {isSubmitting || isUploading !== null ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
                 <Save className="mr-2 h-4 w-4" />
             )}
             Хадгалах
             </Button>
-            <Button asChild variant="outline" disabled={isSubmitting}>
+            <Button asChild variant="outline" disabled={isSubmitting || isUploading !== null}>
               <Link href="/dashboard/company">
                 <X className="mr-2 h-4 w-4" />
                 Цуцлах

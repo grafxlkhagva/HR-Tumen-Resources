@@ -384,7 +384,7 @@
               },
               "icon": {
                 "type": "string",
-                "description": "Үнэт зүйлийн дүрсний танигч."
+                "description": "Үнэт зүйлийн дүрсний URL."
               }
             },
             "required": [
@@ -836,50 +836,22 @@
       "type": "object",
       "description": "Байгууллагын дотоод нийтлэлийн самбарт орох мэдээ, мэдээлэл.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Нийтлэлийн давтагдашгүй танигч."
-        },
-        "title": {
-          "type": "string",
-          "description": "Нийтлэлийн гарчиг."
-        },
-        "content": {
-          "type": "string",
-          "description": "Нийтлэлийн дэлгэрэнгүй агуулга."
-        },
-        "imageUrls": {
-          "type": "array",
-          "items": {
+        "id": { "type": "string", "description": "Нийтлэлийн давтагдашгүй танигч." },
+        "title": { "type": "string", "description": "Нийтлэлийн гарчиг." },
+        "content": { "type": "string", "description": "Нийтлэлийн дэлгэрэнгүй агуулга." },
+        "imageUrls": { "type": "array", "items": { "type": "string", "format": "uri" }, "description": "Нийтлэлийн зургуудын URL-ууд." },
+        "authorName": { "type": "string", "description": "Нийтлэлийг оруулсан хүний нэр." },
+        "createdAt": { "type": "string", "description": "Нийтлэл үүсгэсэн огноо.", "format": "date-time" },
+        "reactions": {
+          "type": "object",
+          "description": "Реакцуудыг хадгалах объект. Key нь хэрэглэгчийн ID, value нь реакцын төрөл.",
+          "additionalProperties": {
             "type": "string",
-            "format": "uri"
-          },
-          "description": "Нийтлэлийн зургуудын URL-ууд."
-        },
-        "authorName": {
-          "type": "string",
-          "description": "Нийтлэлийг оруулсан хүний нэр."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Нийтлэл үүсгэсэн огноо.",
-          "format": "date-time"
-        },
-        "likes": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Энэ нийтлэлд 'like' дарсан хэрэглэгчдийн ID-нууд."
+            "enum": ["like", "love", "care"]
+          }
         }
       },
-      "required": [
-        "id",
-        "title",
-        "content",
-        "authorName",
-        "createdAt"
-      ]
+      "required": ["id", "title", "content", "authorName", "createdAt"]
     },
     "OnboardingProgram": {
       "title": "Дасан зохицох хөтөлбөр (Загвар)",
