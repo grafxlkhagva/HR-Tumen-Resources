@@ -848,10 +848,13 @@
           "type": "string",
           "description": "Нийтлэлийн дэлгэрэнгүй агуулга."
         },
-        "imageUrl": {
-          "type": "string",
-          "description": "Нийтлэлийн зурагны URL.",
-          "format": "uri"
+        "imageUrls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Нийтлэлийн зургуудын URL-ууд."
         },
         "authorName": {
           "type": "string",
@@ -861,6 +864,13 @@
           "type": "string",
           "description": "Нийтлэл үүсгэсэн огноо.",
           "format": "date-time"
+        },
+        "likes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Энэ нийтлэлд 'like' дарсан хэрэглэгчдийн ID-нууд."
         }
       },
       "required": [

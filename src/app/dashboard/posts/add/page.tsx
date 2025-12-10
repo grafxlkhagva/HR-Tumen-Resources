@@ -34,6 +34,7 @@ import {
   ArrowLeft,
   Upload,
   Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -42,7 +43,7 @@ import Image from 'next/image';
 const postSchema = z.object({
   title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
   content: z.string().min(1, 'Агуулга хоосон байж болохгүй.'),
-  imageUrl: z.string().optional(),
+  imageUrls: z.array(z.string()).optional(),
 });
 
 type PostFormValues = z.infer<typeof postSchema>;
@@ -52,8 +53,8 @@ export default function AddPostPage() {
   const { firestore } = useFirebase();
   const { employeeProfile } = useEmployeeProfile();
   const { toast } = useToast();
-  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
-  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+  const [imageFiles, setImageFiles] = React.useState<File[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
 
   const form = useForm<PostFormValues>({
@@ -61,42 +62,50 @@ export default function AddPostPage() {
     defaultValues: {
       title: '',
       content: '',
-      imageUrl: '',
+      imageUrls: [],
     },
   });
 
   const { isSubmitting } = form.formState;
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setImageFiles((prevFiles) => [...prevFiles, ...newFiles]);
+      const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+      setImagePreviews((prevPreviews) => [...prevPreviews, ...newPreviews]);
     }
   };
+  
+  const handleRemoveImage = (index: number) => {
+    setImageFiles(files => files.filter((_, i) => i !== index));
+    setImagePreviews(previews => previews.filter((_, i) => i !== index));
+  }
 
   const handleSave = async (values: PostFormValues) => {
     if (!firestore || !employeeProfile) return;
 
     setIsUploading(true);
-    let imageUrl = '';
-    if (imageFile) {
-      const storage = getStorage();
-      const storageRef = ref(
-        storage,
-        `posts/${Date.now()}-${imageFile.name}`
-      );
-      await uploadBytes(storageRef, imageFile);
-      imageUrl = await getDownloadURL(storageRef);
+    const imageUrls: string[] = [];
+    if (imageFiles.length > 0) {
+        const storage = getStorage();
+        for (const file of imageFiles) {
+            const storageRef = ref(storage, `posts/${Date.now()}-${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+            imageUrls.push(downloadURL);
+        }
     }
     setIsUploading(false);
 
     const postsCollection = collection(firestore, 'posts');
     await addDocumentNonBlocking(postsCollection, {
       ...values,
-      imageUrl,
+      imageUrls,
       authorName: `${employeeProfile.firstName} ${employeeProfile.lastName}`,
       createdAt: new Date().toISOString(),
+      likes: [],
     });
 
     toast({
@@ -193,54 +202,35 @@ export default function AddPostPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="relative h-64 w-full max-w-2xl rounded-md border-2 border-dashed">
-                          {imagePreview ? (
-                            <Image
-                              src={imagePreview}
-                              alt="Post image preview"
-                              fill
-                              className="object-contain"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
-                              <ImageIcon className="h-12 w-12" />
-                              <p className="mt-2 text-sm">
-                                Зураг урьдчилан харах
-                              </p>
-                            </div>
-                          )}
+              <div className="space-y-4">
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {imagePreviews.map((src, index) => (
+                        <div key={index} className="relative aspect-square">
+                            <Image src={src} alt={`Preview ${index + 1}`} fill className="object-cover rounded-md" />
+                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemoveImage(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
                         </div>
-                        <label
-                          htmlFor="image-upload"
-                          className="cursor-pointer"
-                        >
-                          <Button type="button" asChild>
-                            <span>
-                              <Upload className="mr-2 h-4 w-4" />
-                              Зураг сонгох
-                            </span>
-                          </Button>
-                          <Input
-                            id="image-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleImageSelect}
-                          />
-                        </label>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    ))}
+                 </div>
+                <label
+                  htmlFor="image-upload"
+                  className="cursor-pointer flex items-center justify-center w-full rounded-md border-2 border-dashed p-8 text-muted-foreground hover:bg-muted/50"
+                >
+                    <div className="text-center">
+                        <Upload className="mx-auto h-8 w-8" />
+                        <p className="mt-2 text-sm">Зураг сонгох</p>
+                    </div>
+                    <Input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageSelect}
+                    />
+                </label>
+              </div>
             </CardContent>
           </Card>
         </form>
