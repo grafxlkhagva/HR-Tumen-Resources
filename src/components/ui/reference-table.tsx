@@ -272,7 +272,7 @@ function ReferenceItemDialog({
   const { firestore } = useFirebase();
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (!firestore) return;
+    if (!firestore || !collectionRef) return;
 
     if (isEditMode && item) {
       const docRef = doc(firestore, collectionRef.path, item.id);
