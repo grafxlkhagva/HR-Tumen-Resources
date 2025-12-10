@@ -43,8 +43,8 @@ import type { Employee } from './employees/data';
 // --- Types ---
 type Position = { id: string; statusId: string; headcount: number; filled: number; };
 type PositionStatus = { id: string; name: string; };
-type TimeOffRequest = { id: string, employeeId: string, type: string, status: string, startDate: string };
-type AttendanceRequest = { id: string, employeeId: string, type: string, status: string, date: string };
+type TimeOffRequest = { id: string, employeeId: string, type: string, status: string, startDate: string, createdAt: string };
+type AttendanceRequest = { id: string, employeeId: string, type: string, status: string, date: string, createdAt: string };
 
 
 // --- Chart Component ---
@@ -128,8 +128,10 @@ function RecentRequestsTable() {
 
         const mappedTimeOff: CombinedRequest[] = timeOffFiltered.map(r => ({ ...r, requestType: 'Чөлөө', date: r.startDate }));
         const mappedAttendance: CombinedRequest[] = attendanceFiltered.map(r => ({ ...r, requestType: 'Ирц' }));
+        
+        const allRequests = [...mappedTimeOff, ...mappedAttendance];
 
-        return [...mappedTimeOff, ...mappedAttendance].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+        return allRequests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
     }, [timeOffRequests, attendanceRequests]);
 
     const requestTypeLabels = {
@@ -179,6 +181,7 @@ function RecentRequestsTable() {
                 {combinedRequests.map(req => {
                     const employee = employeeMap.get(req.employeeId);
                     let displayType = req.requestType === 'Чөлөө' ? req.type : requestTypeLabels[req.type as keyof typeof requestTypeLabels] || req.type;
+                    const dateKey = (req as any).date || (req as any).startDate;
                     
                     return (
                         <TableRow key={req.id}>
@@ -195,7 +198,7 @@ function RecentRequestsTable() {
                                 <Badge variant="outline">{displayType}</Badge>
                             </TableCell>
                              <TableCell>
-                               {format(new Date(req.date), 'yyyy.MM.dd')}
+                               {format(new Date(dateKey), 'yyyy.MM.dd')}
                             </TableCell>
                         </TableRow>
                     )
@@ -216,15 +219,15 @@ export default function DashboardPage() {
     const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
     const posStatusesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positionStatuses'), where('name', '==', 'Нээлттэй')) : null, [firestore]);
     const newHiresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'employees'), where('hireDate', '>=', startOfMonth(new Date()).toISOString())) : null, [firestore]);
-    const pendingTimeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Хүлээгдэж буй')) : null, [firestore]);
-    const pendingAttendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests'), where('status', '==', 'Хүлээгдэж буй')) : null, [firestore]);
+    const pendingTimeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests')) : null, [firestore]);
+    const pendingAttendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests')) : null, [firestore]);
 
     const { data: activeEmployees, isLoading: loadingEmployees } = useCollection(employeesQuery);
     const { data: positions, isLoading: loadingPositions } = useCollection<Position>(positionsQuery);
     const { data: openStatus, isLoading: loadingStatus } = useCollection<PositionStatus>(posStatusesQuery);
     const { data: newHires, isLoading: loadingNewHires } = useCollection(newHiresQuery);
-    const { data: pendingTimeOff, isLoading: loadingTimeOff } = useCollection(pendingTimeOffQuery);
-    const { data: pendingAttendance, isLoading: loadingAttendance } = useCollection(pendingAttendanceQuery);
+    const { data: pendingTimeOff, isLoading: loadingTimeOff } = useCollection<TimeOffRequest>(pendingTimeOffQuery);
+    const { data: pendingAttendance, isLoading: loadingAttendance } = useCollection<AttendanceRequest>(pendingAttendanceQuery);
 
     const openPositionsCount = React.useMemo(() => {
         if (!positions || !openStatus || openStatus.length === 0) return 0;
@@ -232,7 +235,7 @@ export default function DashboardPage() {
         return positions.filter(p => p.statusId === openStatusId).reduce((acc, pos) => acc + (pos.headcount - (pos.filled || 0)), 0);
     }, [positions, openStatus]);
     
-    const pendingRequestsCount = (pendingTimeOff?.length || 0) + (pendingAttendance?.length || 0);
+    const pendingRequestsCount = (pendingTimeOff?.filter(r => r.status === 'Хүлээгдэж буй').length || 0) + (pendingAttendance?.filter(r => r.status === 'Хүлээгдэж буй').length || 0);
 
   return (
     <div className="flex flex-col gap-8 py-8">
