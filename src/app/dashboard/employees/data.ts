@@ -7,6 +7,7 @@ export type Employee = {
   photoURL?: string;
   jobTitle: string;
   departmentId: string;
+  workScheduleId?: string;
   email: string;
   phone?: string;
   status: 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан';
@@ -17,3 +18,5 @@ export type Employee = {
 };
 
 export const employees: Employee[] = [];
+
+    

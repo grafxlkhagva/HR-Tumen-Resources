@@ -103,6 +103,10 @@
         "deviceId": {
             "type": "string",
             "description": "Цаг бүртгүүлэхээр бүртгэгдсэн төхөөрөмжийн давтагдашгүй танигч."
+        },
+        "workScheduleId": {
+            "type": "string",
+            "description": "Хамаарах ажлын цагийн хуваарийн танигч. (Хамаарал: WorkSchedule 1:N Employee)"
         }
       },
       "required": [
@@ -1349,3 +1353,4 @@
   }
 }
 
+    

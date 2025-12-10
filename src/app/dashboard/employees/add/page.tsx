@@ -58,6 +58,7 @@ const employeeSchema = z.object({
   phoneNumber: z.string().optional(),
   positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
+  workScheduleId: z.string().min(1, 'Ажлын цагийн хуваарь сонгоно уу.'),
   status: z.string().min(1, 'Төлөв сонгоно уу.'),
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
@@ -68,6 +69,7 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 type Position = { id: string; title: string };
 type Department = { id: string; name: string };
+type WorkSchedule = { id: string; name: string };
 type EmployeeCodeConfig = {
     id: string;
     prefix: string;
@@ -86,7 +88,7 @@ function AddEmployeeFormSkeleton() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Array.from({ length: 8 }).map((_, i) => (
+                    {Array.from({ length: 9 }).map((_, i) => (
                         <div className="space-y-2" key={i}>
                             <Skeleton className="h-4 w-20" />
                             <Skeleton className="h-10 w-full" />
@@ -115,11 +117,13 @@ export default function AddEmployeePage() {
 
   const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
   const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+  const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
   const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
 
 
   const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
   const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+  const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
   const { data: codeConfig, isLoading: isLoadingCodeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
 
 
@@ -205,6 +209,7 @@ export default function AddEmployeePage() {
             phoneNumber: values.phoneNumber,
             departmentId: values.departmentId,
             positionId: values.positionId,
+            workScheduleId: values.workScheduleId,
             hireDate: values.hireDate.toISOString(),
             jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
             photoURL: photoURL,
@@ -232,7 +237,7 @@ export default function AddEmployeePage() {
     }
   };
 
-  const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingCodeConfig;
+  const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingCodeConfig || isLoadingSchedules;
 
   if (isLoading) {
       return (
@@ -388,6 +393,30 @@ export default function AddEmployeePage() {
                         </FormItem>
                         )}
                     />
+                     <FormField
+                        control={form.control}
+                        name="workScheduleId"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Ажлын цагийн хуваарь</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Ажлын хуваарь сонгоно уу" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {workSchedules?.map((schedule) => (
+                                    <SelectItem key={schedule.id} value={schedule.id}>
+                                    {schedule.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                     <FormField
                         control={form.control}
                         name="hireDate"
@@ -450,3 +479,5 @@ export default function AddEmployeePage() {
     </div>
   );
 }
+
+    

@@ -39,6 +39,11 @@ type Department = {
     name: string;
 };
 
+type WorkSchedule = {
+    id: string;
+    name: string;
+}
+
 type EmploymentHistoryEvent = {
   id: string;
   eventType: string;
@@ -95,7 +100,7 @@ function ProfileSkeleton() {
                     <div className="space-y-4">
                         <Skeleton className="h-6 w-32" />
                         <div className="space-y-3">
-                            {Array.from({ length: 4 }).map((_, i) => (
+                            {Array.from({ length: 5 }).map((_, i) => (
                                 <div key={i} className="grid grid-cols-3 gap-4">
                                     <Skeleton className="h-5 w-24" />
                                     <Skeleton className="h-5 w-48 col-span-2" />
@@ -369,11 +374,17 @@ export default function EmployeeProfilePage() {
         () => (firestore ? collection(firestore, 'departments') : null),
         [firestore]
     );
+    
+    const workSchedulesQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'workSchedules') : null),
+        [firestore]
+    );
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
-    const isLoading = isLoadingEmployee || isLoadingDepts;
+    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingSchedules;
 
     const departmentMap = React.useMemo(() => {
         if (!departments) return new Map<string, string>();
@@ -382,6 +393,14 @@ export default function EmployeeProfilePage() {
             return map;
         }, new Map<string, string>());
     }, [departments]);
+    
+    const workScheduleMap = React.useMemo(() => {
+        if (!workSchedules) return new Map<string, string>();
+        return workSchedules.reduce((map, schedule) => {
+            map.set(schedule.id, schedule.name);
+            return map;
+        }, new Map<string, string>());
+    }, [workSchedules]);
     
     if (isLoading) {
         return (
@@ -404,6 +423,7 @@ export default function EmployeeProfilePage() {
     
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
+    const workScheduleName = employee.workScheduleId ? workScheduleMap.get(employee.workScheduleId) : 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
 
     return (
@@ -457,6 +477,7 @@ export default function EmployeeProfilePage() {
                             <InfoRow icon={Mail} label="Имэйл" value={<a href={`mailto:${employee.email}`} className="text-primary hover:underline">{employee.email}</a>} />
                             <InfoRow icon={Phone} label="Утасны дугаар" value={employee.phoneNumber || '-'} />
                             <InfoRow icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} />
+                            <InfoRow icon={Clock} label="Ажлын цагийн хуваарь" value={workScheduleName} />
                              <InfoRow icon={User} label="Ажилтны код" value={employee.employeeCode || '-'} />
                             <InfoRow icon={Shield} label="Ажилтны төлөв" value={employee.status || '-'} />
                             <InfoRow icon={Calendar} label="Ажилд орсон огноо" value={employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'} />
@@ -501,3 +522,5 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
+
+    
