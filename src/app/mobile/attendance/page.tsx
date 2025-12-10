@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus } from 'lucide-react';
 import { format } from 'date-fns';
