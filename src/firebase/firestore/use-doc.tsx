@@ -40,9 +40,7 @@ export interface UseDocResult<T> {
 export function useDoc<T = any>(
   docRef: DocumentReference<DocumentData> | null | undefined,
 ): UseDocResult<T> {
-  type StateDataType = WithId<T> | null;
-
-  const [data, setData] = useState<StateDataType>(null);
+  const [data, setData] = useState<WithId<T> | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
   const { firestore } = useFirebase();
@@ -87,7 +85,7 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [docRef, firestore]); // Re-run effect only if the memoized document reference object changes.
+  }, [docRef, firestore]); 
 
   return { data, isLoading, error };
 }

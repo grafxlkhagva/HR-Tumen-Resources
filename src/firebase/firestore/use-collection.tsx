@@ -53,17 +53,13 @@ export interface InternalQuery extends Query<DocumentData> {
 export function useCollection<T = any>(
     refOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined,
 ): UseCollectionResult<T> {
-  type ResultItemType = WithId<T>;
-  type StateDataType = ResultItemType[] | null;
-
-  const [data, setData] = useState<StateDataType>(null);
+  const [data, setData] = useState<WithId<T>[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
   const { firestore } = useFirebase();
 
   useEffect(() => {
-    // Redundant check inside useEffect to handle cases where the refOrQuery
-    // might change to null/undefined during the component's lifecycle.
+    // If the query is not ready, do nothing. The hook will be re-run when refOrQuery changes.
     if (!refOrQuery || !firestore) {
       setData(null);
       setIsLoading(false);
@@ -77,7 +73,7 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       refOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
+        const results: WithId<T>[] = [];
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
         }
@@ -113,7 +109,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [refOrQuery, firestore]); // Re-run effect only if the memoized query/reference object changes.
+  }, [refOrQuery, firestore]);
 
   return { data, isLoading, error };
 }
