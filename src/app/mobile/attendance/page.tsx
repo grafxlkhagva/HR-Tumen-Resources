@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText } from 'lucide-react';
+import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle } from 'lucide-react';
 import { format, addDays, isWeekend } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
