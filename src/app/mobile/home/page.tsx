@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee } from '@/app/dashboard/employees/data';
+import { EmployeeCard } from '../employees/EmployeeCard';
 
 type ReactionType = 'like' | 'love' | 'care';
 
@@ -215,6 +216,50 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     );
 }
 
+function EmployeeCarousel() {
+    const { firestore } = useFirebase();
+    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
+
+    if (isLoading) {
+        return (
+            <div className="flex space-x-4">
+                {Array.from({length: 4}).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                        <Skeleton className="w-16 h-16 rounded-full" />
+                        <Skeleton className="h-4 w-20" />
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    if (!employees || employees.length === 0) {
+        return null;
+    }
+
+    return (
+        <Carousel opts={{ align: "start", loop: false }} className="w-full">
+            <CarouselContent className="-ml-2">
+                {employees.map((employee) => (
+                    <CarouselItem key={employee.id} className="basis-1/4 pl-2">
+                        <Link href={`/mobile/employees/${employee.id}`}>
+                            <div className="flex flex-col items-center gap-2 text-center">
+                                <Avatar className="w-16 h-16 border-2 border-primary">
+                                    <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                                    <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <p className="text-xs font-medium leading-tight line-clamp-2">{employee.firstName} {employee.lastName}</p>
+                            </div>
+                        </Link>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+        </Carousel>
+    );
+}
+
+
 export default function MobileHomePage() {
   const { firestore } = useFirebase();
   const { employeeProfile } = useEmployeeProfile();
@@ -229,38 +274,45 @@ export default function MobileHomePage() {
   return (
     <div className="p-4 space-y-6 animate-in fade-in-50">
        <header className="py-4">
-            <h1 className="text-2xl font-bold">Нийтлэлийн самбар</h1>
+            <h1 className="text-2xl font-bold">Нүүр хуудас</h1>
         </header>
 
-        {isLoading && (
-            <div className="space-y-6">
-                <PostSkeleton />
-                <PostSkeleton />
-            </div>
-        )}
+        <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Хамт олон</h2>
+            <EmployeeCarousel />
+        </div>
+        
+        <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Нийтлэлийн самбар</h2>
+            {isLoading && (
+                <div className="space-y-6">
+                    <PostSkeleton />
+                    <PostSkeleton />
+                </div>
+            )}
 
-        {error && (
-            <Card>
-                <CardContent className="p-6 text-center text-destructive">
-                    Нийтлэлүүдийг ачаалахад алдаа гарлаа.
-                </CardContent>
-            </Card>
-        )}
+            {error && (
+                <Card>
+                    <CardContent className="p-6 text-center text-destructive">
+                        Нийтлэлүүдийг ачаалахад алдаа гарлаа.
+                    </CardContent>
+                </Card>
+            )}
 
-        {!isLoading && !error && posts && posts.length > 0 && (
-            <div className="space-y-6">
-                {posts.map(post => <PostCard key={post.id} post={post} userId={employeeProfile?.id || null} />)}
-            </div>
-        )}
+            {!isLoading && !error && posts && posts.length > 0 && (
+                <div className="space-y-6">
+                    {posts.map(post => <PostCard key={post.id} post={post} userId={employeeProfile?.id || null} />)}
+                </div>
+            )}
 
-        {!isLoading && !error && (!posts || posts.length === 0) && (
-             <Card>
-                <CardContent className="p-10 text-center text-muted-foreground">
-                   Одоогоор нийтлэл байхгүй байна.
-                </CardContent>
-            </Card>
-        )}
+            {!isLoading && !error && (!posts || posts.length === 0) && (
+                 <Card>
+                    <CardContent className="p-10 text-center text-muted-foreground">
+                       Одоогоор нийтлэл байхгүй байна.
+                    </CardContent>
+                </Card>
+            )}
+        </div>
     </div>
   );
 }
-
