@@ -60,16 +60,17 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start with loading true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Ensure the query/reference is not null/undefined and is a valid Firestore object before proceeding.
-    if (!memoizedTargetRefOrQuery || (typeof memoizedTargetRefOrQuery !== 'object' || !('type' in memoizedTargetRefOrQuery))) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
-      return;
+    // This is a robust check to ensure we have a valid Firestore query or collection reference.
+    // It verifies the object is not null/undefined and has the characteristic 'type' property.
+    if (!memoizedTargetRefOrQuery || typeof memoizedTargetRefOrQuery !== 'object' || !('type' in memoizedTargetRefOrQuery)) {
+        setData(null);
+        setIsLoading(false);
+        setError(null);
+        return; // Stop execution if the query/ref is not valid
     }
 
     setIsLoading(true);

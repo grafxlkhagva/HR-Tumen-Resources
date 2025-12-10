@@ -44,15 +44,16 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start with loading true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    if (!memoizedDocRef) {
+    // This is a robust check to ensure we have a valid Firestore document reference.
+    if (!memoizedDocRef || typeof memoizedDocRef !== 'object' || !('type' in memoizedDocRef) || memoizedDocRef.type !== 'document') {
       setData(null);
       setIsLoading(false);
       setError(null);
-      return;
+      return; // Stop execution if the docRef is not valid
     }
 
     setIsLoading(true);
