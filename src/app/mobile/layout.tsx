@@ -3,11 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, User } from 'lucide-react';
+import { Home, Clock, User, Building } from 'lucide-react';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
   { href: '/mobile/attendance', label: 'Ирц', icon: Clock },
+  { href: '/mobile/company', label: 'Компани', icon: Building },
   { href: '/mobile/user', label: 'Хэрэглэгч', icon: User },
 ];
 
