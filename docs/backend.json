@@ -394,6 +394,19 @@
             ]
           }
         },
+        "videos": {
+            "type": "array",
+            "description": "Компанийн танилцуулга видео.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "Видеоны гарчиг." },
+                    "description": { "type": "string", "description": "Видеоны товч тайлбар." },
+                    "url": { "type": "string", "format": "uri", "description": "Видеоны URL." }
+                },
+                "required": ["title", "url"]
+            }
+        },
         "phoneNumber": {
           "type": "string",
           "description": "Компанийн утасны дугаар."

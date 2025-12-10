@@ -12,11 +12,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin } from 'lucide-react';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin, Video } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+
+const videoSchema = z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    url: z.string(),
+});
 
 const companyProfileSchema = z.object({
   name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
@@ -35,6 +41,7 @@ const companyProfileSchema = z.object({
     description: z.string(),
     icon: z.string(),
   })).optional(),
+  videos: z.array(videoSchema).optional(),
   phoneNumber: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
@@ -220,6 +227,44 @@ const MissionVisionCard = ({ profile }: { profile: CompanyProfileValues }) => {
     );
 };
 
+const VideoContentCard = ({ profile }: { profile: CompanyProfileValues }) => {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Видео танилцуулга</CardTitle>
+                 <Button asChild variant="outline" size="sm">
+                    <Link href="/dashboard/company/edit">
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Засварлах
+                    </Link>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                {(!profile.videos || profile.videos.length === 0) ? (
+                    <div className="text-center text-muted-foreground py-8">
+                        <Video className="mx-auto h-12 w-12" />
+                        <p className="mt-4">Видео контент оруулаагүй байна.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {profile.videos.map((video, index) => (
+                            <div key={index} className="space-y-2">
+                                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                                    <video src={video.url} controls className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold">{video.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{video.description}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 const ContactInfoCard = ({ profile }: { profile: CompanyProfileValues }) => {
     return (
         <Card>
@@ -275,10 +320,11 @@ export default function CompanyPage() {
   
   const hasGeneralInfo = companyProfile && (companyProfile.name || companyProfile.legalName || companyProfile.ceo);
   const hasMissionInfo = companyProfile && (companyProfile.mission || companyProfile.vision || (companyProfile.values && companyProfile.values.length > 0));
+  const hasVideoContent = companyProfile && companyProfile.videos && companyProfile.videos.length > 0;
   const hasContactInfo = companyProfile && (companyProfile.phoneNumber || companyProfile.contactEmail || companyProfile.address);
 
 
-  if (!companyProfile || (!hasGeneralInfo && !hasMissionInfo && !hasContactInfo)) {
+  if (!companyProfile || (!hasGeneralInfo && !hasMissionInfo && !hasContactInfo && !hasVideoContent)) {
       return (
            <div className="py-8 text-center">
               <Card>
@@ -332,6 +378,8 @@ export default function CompanyPage() {
         </Card>
 
         {hasMissionInfo && <MissionVisionCard profile={companyProfile} />}
+
+        {hasVideoContent && <VideoContentCard profile={companyProfile} />}
         
         {hasContactInfo && <ContactInfoCard profile={companyProfile} />}
     </div>
