@@ -64,6 +64,7 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // Ensure the query/reference is not null/undefined before proceeding.
     if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
@@ -88,10 +89,18 @@ export function useCollection<T = any>(
       },
       (error: FirestoreError) => {
         // This logic extracts the path from either a ref or a query
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+        let path: string = '[unknown path]';
+        try {
+            if (memoizedTargetRefOrQuery.type === 'collection') {
+                path = (memoizedTargetRefOrQuery as CollectionReference).path;
+            } else if (memoizedTargetRefOrQuery.type === 'query') {
+                path = (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+            }
+        } catch (e) {
+            // Failsafe in case path extraction fails
+            console.error("Could not extract path from Firestore query/reference:", e);
+        }
+        
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
