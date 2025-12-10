@@ -102,7 +102,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
     };
-  }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState]);
+  }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState.user, userAuthState.isUserLoading, userAuthState.userError]);
   
   // Do not render children until Firebase services are available.
   // This prevents hooks like useCollection from running with an undefined firestore instance.
