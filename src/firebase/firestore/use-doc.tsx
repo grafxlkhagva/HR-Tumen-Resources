@@ -49,7 +49,7 @@ export function useDoc<T = any>(
 
   useEffect(() => {
     // This is a robust check to ensure we have a valid Firestore document reference.
-    if (!memoizedDocRef || typeof memoizedDocRef !== 'object' || !('type' in memoizedDocRef) || memoizedDocRef.type !== 'document') {
+    if (!memoizedDocRef) {
       setData(null);
       setIsLoading(false);
       setError(null);

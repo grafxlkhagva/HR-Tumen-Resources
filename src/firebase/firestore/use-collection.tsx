@@ -8,6 +8,8 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
+  collection,
+  query
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -66,9 +68,9 @@ export function useCollection<T = any>(
   useEffect(() => {
     // This is a robust check to ensure we have a valid Firestore query or collection reference.
     // It verifies the object is not null/undefined and has the characteristic 'type' property.
-    if (!memoizedTargetRefOrQuery || typeof memoizedTargetRefOrQuery !== 'object' || !('type' in memoizedTargetRefOrQuery)) {
+    if (!memoizedTargetRefOrQuery) {
         setData(null);
-        setIsLoading(false);
+        setIsLoading(false); // Set loading to false as we are not fetching anything
         setError(null);
         return; // Stop execution if the query/ref is not valid
     }
@@ -76,7 +78,6 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
