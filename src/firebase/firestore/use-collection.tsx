@@ -91,15 +91,15 @@ export function useCollection<T = any>(
       (error: FirestoreError) => {
         let path: string = '[unknown path]';
         try {
-            if (memoizedTargetRefOrQuery instanceof CollectionReference) {
-                path = memoizedTargetRefOrQuery.path;
-            } else if (memoizedTargetRefOrQuery instanceof Query) {
-                // @ts-ignore
-                path = (memoizedTargetRefOrQuery as InternalQuery)._query.path.canonicalString();
-            }
-        } catch (e) {
-            console.error("Could not extract path from Firestore query/reference:", e);
-        }
+          if (memoizedTargetRefOrQuery instanceof CollectionReference) {
+              path = memoizedTargetRefOrQuery.path;
+          } else if (memoizedTargetRefOrQuery instanceof Query) {
+              // @ts-ignore
+              path = (memoizedTargetRefOrQuery as InternalQuery)._query.path.canonicalString();
+          }
+      } catch (e) {
+          console.error("Could not extract path from Firestore query/reference:", e);
+      }
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
