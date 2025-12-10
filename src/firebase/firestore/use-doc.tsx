@@ -42,7 +42,7 @@ export function useDoc<T = any>(
 ): UseDocResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T> | null>(null);
-  const [isLoading, setIsLoading] = useState(!!docRef);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {

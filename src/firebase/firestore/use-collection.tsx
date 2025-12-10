@@ -55,7 +55,7 @@ export function useCollection<T = any>(
 ): UseCollectionResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState(!!refOrQuery);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {

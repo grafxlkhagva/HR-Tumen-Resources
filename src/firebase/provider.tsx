@@ -103,7 +103,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       userError: userAuthState.userError,
     };
   }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState]);
-
+  
   if (!servicesAvailable) {
     return null;
   }
