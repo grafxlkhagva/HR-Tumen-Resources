@@ -2,8 +2,83 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper functions
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/employees/$(userId)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+    }
+
+    // Default deny all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Employees can read their own data, admins can read any
+    match /employees/{employeeId} {
+      allow get: if isOwner(employeeId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn(); // Signup
+      allow update: if isOwner(employeeId) || isAdmin();
+    }
+    
+    // Subcollections of employees are only accessible by the owner or an admin
+    match /employees/{employeeId}/{subcollection}/{docId} {
+       allow read, write: if isOwner(employeeId) || isAdmin();
+    }
+    
+    // Company profile, code config, and other settings are readable by anyone signed in, writable only by admin
+    match /company/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
+    // Writable only by admins
+    match /{refCollection}/{docId} {
+       allow read: if isSignedIn();
+       allow write: if isAdmin();
+    }
+
+    // All users can read departments, positions, and company info
+    match /departments/{departmentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /positions/{positionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Posts are readable by all signed-in users
+    // Writing/deleting posts can be restricted, e.g., to admins or authors
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin(); // Or check against post author
+    }
+
+    // Onboarding program templates are managed by admins
+    match /onboardingPrograms/{programId}/{document=**} {
+       allow read: if isSignedIn();
+       allow write: if isAdmin();
+    }
+    
+    // Attendance records can be created by the user, but likely only read by admins or managers
+    match /attendance/{attendanceId} {
+      allow create: if isOwner(request.resource.data.employeeId);
+      allow read, update: if isAdmin();
     }
   }
 }
