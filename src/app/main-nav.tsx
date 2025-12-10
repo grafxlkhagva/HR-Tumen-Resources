@@ -60,11 +60,6 @@ const mainLinks = [
     label: 'Хуулийн зөвлөгөө',
     icon: Sparkles,
   },
-  {
-    href: '/dashboard/scoring',
-    label: 'Онооны систем',
-    icon: Award,
-  },
 ];
 
 export function MainNav() {
