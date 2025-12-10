@@ -53,10 +53,10 @@ export interface InternalQuery extends Query<DocumentData> {
 export function useCollection<T = any>(
     refOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined,
 ): UseCollectionResult<T> {
-  const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
   const { firestore } = useFirebase();
+  const [data, setData] = useState<WithId<T>[] | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(!!refOrQuery);
+  const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     // If the query is not ready, do nothing. The hook will be re-run when refOrQuery changes.
@@ -67,6 +67,7 @@ export function useCollection<T = any>(
       return;
     }
 
+    // Set loading to true when a valid query is provided
     setIsLoading(true);
     setError(null);
 

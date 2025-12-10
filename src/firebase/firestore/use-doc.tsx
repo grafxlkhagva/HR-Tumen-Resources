@@ -40,10 +40,10 @@ export interface UseDocResult<T> {
 export function useDoc<T = any>(
   docRef: DocumentReference<DocumentData> | null | undefined,
 ): UseDocResult<T> {
-  const [data, setData] = useState<WithId<T> | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
   const { firestore } = useFirebase();
+  const [data, setData] = useState<WithId<T> | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(!!docRef);
+  const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
