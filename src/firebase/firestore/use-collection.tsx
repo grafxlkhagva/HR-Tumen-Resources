@@ -63,7 +63,7 @@ export function useCollection<T = any>(
       setIsLoading(false);
       setData(null);
       setError(null);
-      return;
+      return () => {}; // Return an empty cleanup function
     }
 
     setIsLoading(true);
@@ -84,11 +84,12 @@ export function useCollection<T = any>(
       (err: FirestoreError) => {
         let path = '[unknown path]';
         try {
-            if (refOrQuery instanceof CollectionReference) {
+            if ('path' in refOrQuery) {
                 path = refOrQuery.path;
-            } else if (refOrQuery instanceof Query) {
+            // @ts-ignore _query is a private but stable API
+            } else if (refOrQuery._query?.path) {
                 // @ts-ignore
-                path = (refOrQuery as InternalQuery)._query.path.canonicalString();
+                path = refOrQuery._query.path.canonicalString();
             }
         } catch (e) {
             console.error("Could not extract path from Firestore query/reference:", e);

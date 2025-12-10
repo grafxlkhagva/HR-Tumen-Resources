@@ -51,7 +51,7 @@ export function useDoc<T = any>(
       setIsLoading(false);
       setData(null);
       setError(null);
-      return;
+      return () => {}; // Return an empty cleanup function
     }
 
     setIsLoading(true);
