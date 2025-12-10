@@ -16,6 +16,11 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -84,73 +89,79 @@ export function MainNav() {
           </SidebarMenuItem>
         );
       })}
+       <Collapsible asChild>
         <SidebarMenuItem>
-            <SidebarMenuButton
-            isActive={pathname.startsWith('/dashboard/settings')}
-            tooltip="Тохиргоо"
-            >
-            <Settings />
-            <span>Тохиргоо</span>
-            </SidebarMenuButton>
+            <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                isActive={pathname.startsWith('/dashboard/settings')}
+                tooltip="Тохиргоо"
+                >
+                <Settings />
+                <span>Тохиргоо</span>
+                </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent asChild>
             <SidebarMenuSub>
-            <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname === '/dashboard/settings/general'}
-                >
-                <Link href="/dashboard/settings/general">Ерөнхий</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-             <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/structure')}
-                >
-                <Link href="/dashboard/settings/structure">Бүтэц</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-            <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/employee-code')}
-                >
-                <Link href="/dashboard/settings/employee-code">Кодчлол</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-            <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/documents')}
-                >
-                <Link href="/dashboard/settings/documents">Бичиг баримт</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-             <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/time-off')}
-                >
-                <Link href="/dashboard/settings/time-off">Цаг ба Ирц</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-            <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/questionnaire')}
-                >
-                <Link href="/dashboard/settings/questionnaire">Анкет</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-             <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                asChild
-                isActive={pathname.startsWith('/dashboard/settings/onboarding')}
-                >
-                <Link href="/dashboard/settings/onboarding">Дасан зохицох</Link>
-                </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname === '/dashboard/settings/general'}
+                    >
+                    <Link href="/dashboard/settings/general">Ерөнхий</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/structure')}
+                    >
+                    <Link href="/dashboard/settings/structure">Бүтэц</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/employee-code')}
+                    >
+                    <Link href="/dashboard/settings/employee-code">Кодчлол</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/documents')}
+                    >
+                    <Link href="/dashboard/settings/documents">Бичиг баримт</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/time-off')}
+                    >
+                    <Link href="/dashboard/settings/time-off">Цаг ба Ирц</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/questionnaire')}
+                    >
+                    <Link href="/dashboard/settings/questionnaire">Анкет</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                    asChild
+                    isActive={pathname.startsWith('/dashboard/settings/onboarding')}
+                    >
+                    <Link href="/dashboard/settings/onboarding">Дасан зохицох</Link>
+                    </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
             </SidebarMenuSub>
+           </CollapsibleContent>
         </SidebarMenuItem>
+       </Collapsible>
     </SidebarMenu>
   );
 }
