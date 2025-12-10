@@ -55,14 +55,14 @@ export function useCollection<T = any>(
 ): UseCollectionResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(!!refOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     // If the query is not ready, do nothing.
     if (!refOrQuery || !firestore) {
-      setData(null);
       setIsLoading(false);
+      setData(null);
       setError(null);
       return;
     }

@@ -42,14 +42,14 @@ export function useDoc<T = any>(
 ): UseDocResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T> | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(!!docRef);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
     if (!docRef || !firestore) {
-      setData(null);
       setIsLoading(false);
+      setData(null);
       setError(null);
       return;
     }

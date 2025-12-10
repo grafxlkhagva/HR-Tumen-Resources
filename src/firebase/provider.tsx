@@ -104,11 +104,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState]);
 
+  if (!servicesAvailable) {
+    return null;
+  }
+
   return (
     <FirebaseContext.Provider value={contextValue}>
       <FirebaseErrorListener />
-      {/* Only render children when core services are available */}
-      {servicesAvailable ? children : null}
+      {children}
     </FirebaseContext.Provider>
   );
 };
