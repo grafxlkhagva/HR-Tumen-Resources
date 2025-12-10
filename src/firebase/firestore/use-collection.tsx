@@ -64,8 +64,8 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Ensure the query/reference is not null/undefined before proceeding.
-    if (!memoizedTargetRefOrQuery) {
+    // Ensure the query/reference is not null/undefined and is a valid Firestore object before proceeding.
+    if (!memoizedTargetRefOrQuery || (typeof memoizedTargetRefOrQuery !== 'object' || !('type' in memoizedTargetRefOrQuery))) {
       setData(null);
       setIsLoading(false);
       setError(null);
