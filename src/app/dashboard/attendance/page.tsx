@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, onSnapshot } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, differenceInMinutes } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -248,7 +248,7 @@ function TimeOffRequestsTable() {
               orderBy('createdAt', 'desc')
             );
             
-            onSnapshot(requestsQuery, (snapshot) => {
+            const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
                 const allFetchedRequests = snapshot.docs.map(doc => {
                     const req = doc.data() as TimeOffRequest;
                     const employee = employeeMap.get(req.employeeId);
@@ -264,6 +264,8 @@ function TimeOffRequestsTable() {
                 console.error("Error fetching time-off requests:", error);
                 setRequestsData({ data: [], isLoading: false });
             });
+
+            return () => unsubscribe();
         };
 
         fetchAllRequests();
@@ -271,6 +273,7 @@ function TimeOffRequestsTable() {
 
 
     const handleUpdateStatus = (requestId: string, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
+        if (!firestore) return;
         const docRef = doc(firestore, 'timeOffRequests', requestId);
         updateDocumentNonBlocking(docRef, { status });
     };
@@ -368,7 +371,7 @@ function AttendanceRequestsTable() {
               orderBy('createdAt', 'desc')
             );
 
-             onSnapshot(requestsQuery, (snapshot) => {
+             const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
                 const allFetchedRequests = snapshot.docs.map(doc => {
                     const req = doc.data() as AttendanceRequest;
                     const employee = employeeMap.get(req.employeeId);
@@ -384,12 +387,15 @@ function AttendanceRequestsTable() {
                 console.error("Error fetching attendance requests:", error);
                 setRequestsData({ data: [], isLoading: false });
             });
+
+            return () => unsubscribe();
         };
 
         fetchAllRequests();
     }, [firestore]);
     
     const handleUpdateStatus = (requestId: string, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
+        if (!firestore) return;
         const docRef = doc(firestore, `attendanceRequests`, requestId);
         updateDocumentNonBlocking(docRef, { status });
     };
