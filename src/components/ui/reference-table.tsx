@@ -49,6 +49,7 @@ import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  useMemoFirebase,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +89,7 @@ export function ReferenceTable({
   const [editingItem, setEditingItem] = React.useState<ReferenceItem | null>(null);
 
   const { firestore } = useFirebase();
-  const collectionRef = React.useMemo(
+  const collectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, collectionName) : null),
     [firestore, collectionName]
   );
