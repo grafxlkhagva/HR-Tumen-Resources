@@ -75,6 +75,11 @@ service cloud.firestore {
        allow write: if isAdmin();
     }
     
+    // Onboarding-related collections are managed by admins
+    match /newHires/{hireId} {
+        allow read, write: if isAdmin();
+    }
+
     // Attendance records can be created by the user, but likely only read by admins or managers
     match /attendance/{attendanceId} {
       allow create: if isOwner(request.resource.data.employeeId);
