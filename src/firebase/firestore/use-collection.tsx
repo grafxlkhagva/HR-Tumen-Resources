@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, DependencyList } from 'react';
 import {
   Query,
   onSnapshot,
@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirebase } from '..';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -58,19 +59,6 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
-
-  // If the reference or query is not provided at the time of calling,
-  // immediately return a non-loading, non-error state.
-  if (!refOrQuery) {
-    // This check is crucial to prevent the useEffect from running
-    // with an invalid reference on the initial render.
-    if (data !== null || isLoading !== false || error !== null) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
-    }
-    return { data: null, isLoading: false, error: null };
-  }
 
   useEffect(() => {
     // Redundant check inside useEffect to handle cases where the refOrQuery

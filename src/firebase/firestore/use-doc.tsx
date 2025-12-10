@@ -1,6 +1,6 @@
 'use client';
     
-import { useState, useEffect } from 'react';
+import { useState, useEffect, DependencyList } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirebase } from '..';
 
 /** Utility type to add an 'id' field to a given type T. */
 type WithId<T> = T & { id: string };
@@ -44,15 +45,6 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
-
-  if (!docRef) {
-    if (data !== null || isLoading !== false || error !== null) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
-    }
-    return { data: null, isLoading: false, error: null };
-  }
 
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
