@@ -104,6 +104,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState]);
   
+  // Do not render children until Firebase services are available.
+  // This prevents hooks like useCollection from running with an undefined firestore instance.
   if (!servicesAvailable) {
     return null;
   }

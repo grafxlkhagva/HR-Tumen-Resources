@@ -42,7 +42,7 @@ export function useDoc<T = any>(
 ): UseDocResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!docRef);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
@@ -56,6 +56,7 @@ export function useDoc<T = any>(
 
     setIsLoading(true);
     setError(null);
+    setData(null);
 
     const unsubscribe = onSnapshot(
       docRef,

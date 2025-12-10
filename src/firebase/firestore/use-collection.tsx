@@ -55,11 +55,14 @@ export function useCollection<T = any>(
 ): UseCollectionResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize isLoading based on whether we have a query object initially.
+  // If no query, we are not loading. If there is a query, we start in a loading state.
+  const [isLoading, setIsLoading] = useState(!!refOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready, do nothing.
+    // If the query is not ready (null/undefined) or firestore is not available,
+    // reset state and do nothing.
     if (!refOrQuery || !firestore) {
       setIsLoading(false);
       setData(null);
@@ -70,6 +73,7 @@ export function useCollection<T = any>(
     // Set loading to true when a valid query is provided
     setIsLoading(true);
     setError(null);
+    setData(null);
 
     const unsubscribe = onSnapshot(
       refOrQuery,
