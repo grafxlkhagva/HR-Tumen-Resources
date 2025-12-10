@@ -101,7 +101,7 @@ function TimeOffRequestsTable() {
 
             for (const employee of employees) {
                 const reqsCollection = collection(firestore, `employees/${employee.id}/timeOffRequests`);
-                const reqsQuery = query(reqsCollection, orderBy('status'), orderBy('startDate', 'desc'));
+                const reqsQuery = query(reqsCollection, orderBy('createdAt', 'desc'));
                 const snapshot = await (await import('firebase/firestore')).getDocs(reqsQuery);
                 snapshot.forEach(doc => {
                     allFetchedRequests.push({ 
@@ -209,7 +209,7 @@ function AttendanceRequestsTable() {
 
             for (const employee of employees) {
                 const reqsCollection = collection(firestore, `employees/${employee.id}/attendanceRequests`);
-                const reqsQuery = query(reqsCollection, orderBy('status'), orderBy('date', 'desc'));
+                const reqsQuery = query(reqsCollection, orderBy('createdAt', 'desc'));
                 const snapshot = await (await import('firebase/firestore')).getDocs(reqsQuery);
                 snapshot.forEach(doc => {
                     allFetchedRequests.push({ 
