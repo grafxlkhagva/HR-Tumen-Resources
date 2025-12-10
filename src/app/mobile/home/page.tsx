@@ -9,8 +9,9 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ArrowRight } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ArrowRight, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type Post = {
     id: string;
@@ -44,6 +45,9 @@ function PostSkeleton() {
 
 function PostCard({ post }: { post: Post }) {
     const postDate = new Date(post.createdAt);
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    const toggleExpand = () => setIsExpanded(!isExpanded);
 
     return (
         <Card className="overflow-hidden">
@@ -59,12 +63,14 @@ function PostCard({ post }: { post: Post }) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <p className="line-clamp-3 text-sm text-muted-foreground">{post.content}</p>
+                <p className={cn("text-sm text-muted-foreground", !isExpanded && "line-clamp-3")}>
+                    {post.content}
+                </p>
             </CardContent>
             <CardFooter className="flex justify-between items-center">
-                 <Button variant="link" className="p-0 h-auto text-primary">
-                    Дэлгэрэнгүй унших
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                 <Button variant="link" className="p-0 h-auto text-primary" onClick={toggleExpand}>
+                    {isExpanded ? 'Хураангуй' : 'Дэлгэрэнгүй унших'}
+                    {isExpanded ? <ChevronsUp className="ml-2 h-4 w-4" /> : <ChevronsDown className="ml-2 h-4 w-4" />}
                 </Button>
                 <div className="flex items-center gap-4 text-muted-foreground">
                     <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
