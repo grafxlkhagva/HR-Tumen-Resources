@@ -6,14 +6,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar as CalendarIcon, FileText, Loader2 } from 'lucide-react';
+import { PlusCircle, Calendar as CalendarIcon, FileText, Loader2, Clock } from 'lucide-react';
 import { format, addDays, isWeekend } from 'date-fns';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 type TimeOffRequest = {
@@ -32,6 +33,18 @@ type TimeOffRequest = {
     status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
     createdAt: string;
 };
+
+type AttendanceRequest = {
+    id: string;
+    date: string;
+    reason: string;
+    type: 'OVERTIME' | 'LATE_ARRIVAL' | 'REMOTE_WORK';
+    startTime?: string;
+    endTime?: string;
+    hours?: number;
+    status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
+    createdAt: string;
+}
 
 type ReferenceItem = {
     id: string;
@@ -52,23 +65,42 @@ const timeOffRequestSchema = z.object({
 });
 type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
 
+const attendanceRequestSchema = z.object({
+    type: z.enum(['OVERTIME', 'LATE_ARRIVAL', 'REMOTE_WORK'], { required_error: "Хүсэлтийн төрлийг сонгоно уу." }),
+    date: z.date({ required_error: "Огноог сонгоно уу." }),
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    hours: z.coerce.number().optional(),
+    reason: z.string().min(1, "Шалтгаан хоосон байж болохгүй."),
+}).refine(data => {
+    if (data.type === 'OVERTIME') {
+        return !!data.startTime && !!data.endTime;
+    }
+    return true;
+}, { message: "Илүү цагийн эхлэх, дуусах цагийг оруулна уу.", path: ["startTime"] });
+type AttendanceRequestFormValues = z.infer<typeof attendanceRequestSchema>;
 
-function LeaveRequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open: boolean; onOpenChange: (open: boolean) => void; employeeId: string | undefined, disabledDates: Date[] }) {
+
+function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open: boolean; onOpenChange: (open: boolean) => void; employeeId: string | undefined, disabledDates: Date[] }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const [requestType, setRequestType] = React.useState<'time-off' | 'attendance'>('time-off');
     
     const timeOffCollectionRef = useMemoFirebase(() => (firestore && employeeId ? collection(firestore, `employees/${employeeId}/timeOffRequests`) : null), [firestore, employeeId]);
+    const attendanceCollectionRef = useMemoFirebase(() => (firestore && employeeId ? collection(firestore, `employees/${employeeId}/attendanceRequests`) : null), [firestore, employeeId]);
+    
     const requestTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'timeOffRequestTypes') : null), [firestore]);
     const { data: requestTypes, isLoading: isLoadingTypes } = useCollection<ReferenceItem>(requestTypesQuery);
 
-    const form = useForm<TimeOffRequestFormValues>({
-        resolver: zodResolver(timeOffRequestSchema),
-    });
-    const { isSubmitting } = form.formState;
+    const timeOffForm = useForm<TimeOffRequestFormValues>({ resolver: zodResolver(timeOffRequestSchema) });
+    const attendanceForm = useForm<AttendanceRequestFormValues>({ resolver: zodResolver(attendanceRequestSchema) });
 
-    const onSubmit = async (values: TimeOffRequestFormValues) => {
+    const { isSubmitting: isSubmittingTimeOff } = timeOffForm.formState;
+    const { isSubmitting: isSubmittingAttendance } = attendanceForm.formState;
+    const isSubmitting = isSubmittingTimeOff || isSubmittingAttendance;
+
+    const onTimeOffSubmit = async (values: TimeOffRequestFormValues) => {
         if (!timeOffCollectionRef || !employeeId) return;
-
         await addDocumentNonBlocking(timeOffCollectionRef, {
             employeeId,
             type: values.type,
@@ -78,109 +110,105 @@ function LeaveRequestDialog({ open, onOpenChange, employeeId, disabledDates }: {
             status: 'Хүлээгдэж буй',
             createdAt: new Date().toISOString(),
         });
-        
-        toast({ title: 'Хүсэлт амжилттай илгээгдлээ' });
+        toast({ title: 'Чөлөөний хүсэлт амжилттай илгээгдлээ' });
         onOpenChange(false);
-        form.reset();
+        timeOffForm.reset();
     };
+    
+    const onAttendanceSubmit = async (values: AttendanceRequestFormValues) => {
+        if (!attendanceCollectionRef || !employeeId) return;
+        await addDocumentNonBlocking(attendanceCollectionRef, {
+            employeeId,
+            ...values,
+            date: format(values.date, 'yyyy-MM-dd'),
+            status: 'Хүлээгдэж буй',
+            createdAt: new Date().toISOString(),
+        });
+        toast({ title: 'Ирцийн хүсэлт амжилттай илгээгдлээ' });
+        onOpenChange(false);
+        attendanceForm.reset();
+    };
+    
+    const attendanceRequestType = attendanceForm.watch('type');
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Чөлөөний хүсэлт</DialogTitle>
+                    <DialogTitle>Шинэ хүсэлт</DialogTitle>
+                    <DialogDescription>Гаргах хүсэлтийнхээ төрлийг сонгож, мэдээллээ бөглөнө үү.</DialogDescription>
                 </DialogHeader>
-                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="type"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Хүсэлтийн төрөл</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger disabled={isLoadingTypes}>
-                                                <SelectValue placeholder={isLoadingTypes ? "Ачааллаж байна..." : "Төрөл сонгоно уу..."} />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {requestTypes?.map(type => (
-                                                <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="dateRange"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Хүсэлт гаргах хугацаа</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}
-                                            >
-                                                {field.value?.from ? (
-                                                field.value.to ? (
-                                                    <>
-                                                    {format(field.value.from, "yyyy/MM/dd")} -{" "}
-                                                    {format(field.value.to, "yyyy/MM/dd")}
-                                                    </>
-                                                ) : (
-                                                    format(field.value.from, "yyyy/MM/dd")
-                                                )
-                                                ) : (
-                                                <span>Огноо сонгох</span>
-                                                )}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={field.value?.from}
-                                            selected={{ from: field.value?.from, to: field.value?.to }}
-                                            onSelect={field.onChange}
-                                            numberOfMonths={1}
-                                            disabled={disabledDates}
-                                        />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="reason"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Шалтгаан</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Цуцлах</Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                Илгээх
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                 <Tabs value={requestType} onValueChange={(value) => setRequestType(value as any)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="time-off">Чөлөөний хүсэлт</TabsTrigger>
+                        <TabsTrigger value="attendance">Ирцийн хүсэлт</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="time-off">
+                         <Form {...timeOffForm}>
+                            <form onSubmit={timeOffForm.handleSubmit(onTimeOffSubmit)} className="space-y-4 pt-4">
+                                <FormField control={timeOffForm.control} name="type" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Хүсэлтийн төрөл</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger disabled={isLoadingTypes}><SelectValue placeholder={isLoadingTypes ? "Ачааллаж байна..." : "Төрөл сонгоно уу..."} /></SelectTrigger></FormControl>
+                                            <SelectContent>{requestTypes?.map(type => (<SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={timeOffForm.control} name="dateRange" render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Хугацаа</FormLabel>
+                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={{ from: field.value?.from, to: field.value?.to }} onSelect={field.onChange} numberOfMonths={1} disabled={disabledDates}/></PopoverContent></Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                 <FormField control={timeOffForm.control} name="reason" render={({ field }) => (
+                                    <FormItem><FormLabel>Шалтгаан</FormLabel><FormControl><Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                 <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Цуцлах</Button>
+                                    <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Илгээх</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </TabsContent>
+                    <TabsContent value="attendance">
+                        <Form {...attendanceForm}>
+                            <form onSubmit={attendanceForm.handleSubmit(onAttendanceSubmit)} className="space-y-4 pt-4">
+                                <FormField control={attendanceForm.control} name="type" render={({ field }) => (
+                                    <FormItem><FormLabel>Ирцийн хүсэлтийн төрөл</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Төрөл сонгоно уу..." /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="OVERTIME">Илүү цаг</SelectItem>
+                                                <SelectItem value="LATE_ARRIVAL">Хоцролт</SelectItem>
+                                                <SelectItem value="REMOTE_WORK">Гадуур ажиллах</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={attendanceForm.control} name="date" render={({ field }) => (
+                                    <FormItem className="flex flex-col"><FormLabel>Огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>
+                                )}/>
+                                {attendanceRequestType === 'OVERTIME' && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={attendanceForm.control} name="startTime" render={({ field }) => ( <FormItem><FormLabel>Эхлэх цаг</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={attendanceForm.control} name="endTime" render={({ field }) => ( <FormItem><FormLabel>Дуусах цаг</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                )}
+                                 <FormField control={attendanceForm.control} name="reason" render={({ field }) => (
+                                    <FormItem><FormLabel>Шалтгаан / Дэлгэрэнгүй</FormLabel><FormControl><Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Цуцлах</Button>
+                                    <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Илгээх</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </TabsContent>
+                 </Tabs>
             </DialogContent>
         </Dialog>
     );
@@ -218,7 +246,7 @@ function TimeOffHistory({ employeeId }: { employeeId: string }) {
         return (
             <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
                 <FileText className="mx-auto h-12 w-12" />
-                <p className="mt-4">Хүсэлтийн түүх байхгүй байна.</p>
+                <p className="mt-4">Чөлөөний хүсэлтийн түүх байхгүй байна.</p>
             </div>
         )
     }
@@ -246,8 +274,69 @@ function TimeOffHistory({ employeeId }: { employeeId: string }) {
     )
 }
 
+function AttendanceRequestHistory({ employeeId }: { employeeId: string }) {
+    const { firestore } = useFirebase();
+    const attendanceRequestQuery = useMemoFirebase(
+      () =>
+        firestore
+          ? query(
+              collection(firestore, `employees/${employeeId}/attendanceRequests`),
+              orderBy('createdAt', 'desc')
+            )
+          : null,
+      [firestore, employeeId]
+    );
+
+    const { data: requests, isLoading } = useCollection<AttendanceRequest>(attendanceRequestQuery);
+    
+    const typeLabels = {
+        OVERTIME: 'Илүү цаг',
+        LATE_ARRIVAL: 'Хоцролт',
+        REMOTE_WORK: 'Гадуур ажиллах'
+    }
+
+    if (isLoading) {
+        return <div className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+        </div>
+    }
+
+    if (!requests || requests.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                <Clock className="mx-auto h-12 w-12" />
+                <p className="mt-4">Ирцийн хүсэлтийн түүх байхгүй байна.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            {requests.map(req => {
+                const status = statusConfig[req.status] || { variant: 'outline', label: req.status };
+                return (
+                    <Card key={req.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="font-semibold">{typeLabels[req.type] || req.type}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {format(new Date(req.date), 'yyyy/MM/dd')}
+                                    {req.startTime && req.endTime && ` (${req.startTime} - ${req.endTime})`}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-2">Илгээсэн: {format(new Date(req.createdAt), 'yyyy/MM/dd, HH:mm')}</p>
+                            </div>
+                            <Badge variant={status.variant} className={status.className}>{status.label}</Badge>
+                        </div>
+                    </Card>
+                )
+            })}
+        </div>
+    )
+}
+
 export default function RequestsPage() {
-    const [isLeaveDialogOpen, setIsLeaveDialogOpen] = React.useState(false);
+    const [isRequestDialogOpen, setIsRequestDialogOpen] = React.useState(false);
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const { firestore } = useFirebase();
 
@@ -280,10 +369,10 @@ export default function RequestsPage() {
 
     return (
         <div className="p-4 space-y-6 animate-in fade-in-50 relative min-h-full">
-             <LeaveRequestDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen} employeeId={employeeProfile?.id} disabledDates={disabledDates} />
+             <RequestDialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen} employeeId={employeeProfile?.id} disabledDates={disabledDates} />
             <header className="py-4">
                 <h1 className="text-2xl font-bold">Хүсэлтүүд</h1>
-                <p className="text-muted-foreground">Чөлөөний хүсэлт гаргах, түүхээ харах хэсэг.</p>
+                <p className="text-muted-foreground">Чөлөө болон ирцийн хүсэлт гаргах, түүхээ харах хэсэг.</p>
             </header>
 
             <div className="pb-24">
@@ -293,7 +382,18 @@ export default function RequestsPage() {
                         <Skeleton className="h-20 w-full" />
                     </div>
                 ) : employeeProfile ? (
-                     <TimeOffHistory employeeId={employeeProfile.id} />
+                    <Tabs defaultValue="time-off">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
+                            <TabsTrigger value="attendance">Ирц</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="time-off">
+                            <TimeOffHistory employeeId={employeeProfile.id} />
+                        </TabsContent>
+                        <TabsContent value="attendance">
+                            <AttendanceRequestHistory employeeId={employeeProfile.id} />
+                        </TabsContent>
+                    </Tabs>
                 ) : (
                     <p className="text-center text-muted-foreground">Хэрэглэгчийн мэдээлэл олдсонгүй.</p>
                 )}
@@ -302,7 +402,7 @@ export default function RequestsPage() {
              <div className="absolute bottom-24 right-4">
                 <Button 
                     className="rounded-full w-14 h-14 shadow-lg"
-                    onClick={() => setIsLeaveDialogOpen(true)}
+                    onClick={() => setIsRequestDialogOpen(true)}
                     disabled={isLoading}
                 >
                     <PlusCircle className="h-7 w-7" />

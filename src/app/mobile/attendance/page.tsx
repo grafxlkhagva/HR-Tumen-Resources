@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone } from 'lucide-react';
+import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -12,6 +12,7 @@ import { collection, query, where, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 type AttendanceRecord = {
     id: string;
@@ -271,6 +272,21 @@ export default function AttendancePage() {
                 </CardHeader>
                 <CardContent>
                     <AttendanceHistory record={todaysRecord || null} />
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Бусад хүсэлт</CardTitle>
+                    <CardDescription>Илүү цаг, хоцролт, гадуур ажиллах зэрэг хүсэлтээ илгээнэ үү.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/mobile/requests">
+                            <FilePlus className="mr-2 h-4 w-4" />
+                            Хүсэлт гаргах
+                        </Link>
+                    </Button>
                 </CardContent>
             </Card>
         </div>
