@@ -11,8 +11,8 @@ import {
   Network,
   Settings,
   Clock,
-  Award,
   ClipboardList,
+  Newspaper,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -33,6 +33,11 @@ const mainLinks = [
     href: '/dashboard',
     label: 'Хяналтын самбар',
     icon: LayoutDashboard,
+  },
+  {
+    href: '/dashboard/posts',
+    label: 'Нийтлэл',
+    icon: Newspaper,
   },
   {
     href: '/dashboard/company',
