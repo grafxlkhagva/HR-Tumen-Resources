@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, where, onSnapshot, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, differenceInMinutes } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -233,43 +233,26 @@ function RequestRowSkeleton() {
 
 function TimeOffRequestsTable() {
     const { firestore } = useFirebase();
-    const [requestsData, setRequestsData] = React.useState<{data: (TimeOffRequest & { employeeName: string, employeeAvatar?: string })[], isLoading: boolean}>({data: [], isLoading: true});
 
-    React.useEffect(() => {
-        if (!firestore) return;
+    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const { data: employees } = useCollection<Employee>(employeesQuery);
 
-        const fetchAllRequests = async () => {
-            setRequestsData({data: [], isLoading: true});
-            const employeesSnapshot = await getDocs(query(collection(firestore, 'employees')));
-            const employeeMap = new Map(employeesSnapshot.docs.map(doc => [doc.id, doc.data() as Employee]));
+    const requestsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
+    const { data: requests, isLoading } = useCollection<TimeOffRequest>(requestsQuery);
 
-            const requestsQuery = query(
-              collectionGroup(firestore, 'timeOffRequests'),
-              orderBy('createdAt', 'desc')
-            );
-            
-            const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-                const allFetchedRequests = snapshot.docs.map(doc => {
-                    const req = doc.data() as TimeOffRequest;
-                    const employee = employeeMap.get(req.employeeId);
-                    return {
-                        ...req,
-                        id: doc.id,
-                        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Тодорхойгүй',
-                        employeeAvatar: employee?.photoURL
-                    };
-                });
-                setRequestsData({ data: allFetchedRequests, isLoading: false });
-            }, (error) => {
-                console.error("Error fetching time-off requests:", error);
-                setRequestsData({ data: [], isLoading: false });
-            });
+    const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
 
-            return () => unsubscribe();
-        };
-
-        fetchAllRequests();
-    }, [firestore]);
+    const requestsWithEmployeeData = React.useMemo(() => {
+        if (!requests || !employees) return [];
+        return requests.map(req => {
+            const employee = employeeMap.get(req.employeeId);
+            return {
+                ...req,
+                employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Тодорхойгүй',
+                employeeAvatar: employee?.photoURL
+            };
+        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [requests, employees, employeeMap]);
 
 
     const handleUpdateStatus = (request: TimeOffRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
@@ -297,8 +280,8 @@ function TimeOffRequestsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {requestsData.isLoading && Array.from({length: 3}).map((_, i) => <RequestRowSkeleton key={i} />)}
-                        {!requestsData.isLoading && requestsData.data.map(req => {
+                        {isLoading && Array.from({length: 3}).map((_, i) => <RequestRowSkeleton key={i} />)}
+                        {!isLoading && requestsWithEmployeeData.map(req => {
                             const status = statusConfig[req.status];
                             return(
                             <TableRow key={req.id}>
@@ -334,7 +317,7 @@ function TimeOffRequestsTable() {
                                 </TableCell>
                             </TableRow>
                         )})}
-                        {!requestsData.isLoading && requestsData.data.length === 0 && (
+                        {!isLoading && requestsWithEmployeeData.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-24 text-center">
                                     Чөлөөний хүсэлт одоогоор байхгүй байна.
@@ -350,49 +333,32 @@ function TimeOffRequestsTable() {
 
 function AttendanceRequestsTable() {
     const { firestore } = useFirebase();
-    const [requestsData, setRequestsData] = React.useState<{data: (AttendanceRequest & { employeeName: string, employeeAvatar?: string })[], isLoading: boolean}>({data: [], isLoading: true});
+
+    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const { data: employees } = useCollection<Employee>(employeesQuery);
+
+    const requestsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, [firestore]);
+    const { data: requests, isLoading } = useCollection<AttendanceRequest>(requestsQuery);
+
+    const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
+
+    const requestsWithEmployeeData = React.useMemo(() => {
+        if (!requests || !employees) return [];
+        return requests.map(req => {
+            const employee = employeeMap.get(req.employeeId);
+            return {
+                ...req,
+                employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Тодорхойгүй',
+                employeeAvatar: employee?.photoURL
+            };
+        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [requests, employees, employeeMap]);
     
     const requestTypeLabels = {
         'OVERTIME': 'Илүү цаг',
         'LATE_ARRIVAL': 'Хоцролт',
         'REMOTE_WORK': 'Гадуур ажиллах'
     }
-
-    React.useEffect(() => {
-        if (!firestore) return;
-        
-        const fetchAllRequests = async () => {
-             setRequestsData({data: [], isLoading: true});
-            const employeesSnapshot = await getDocs(query(collection(firestore, 'employees')));
-            const employeeMap = new Map(employeesSnapshot.docs.map(doc => [doc.id, doc.data() as Employee]));
-
-            const requestsQuery = query(
-              collectionGroup(firestore, 'attendanceRequests'),
-              orderBy('createdAt', 'desc')
-            );
-
-             const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-                const allFetchedRequests = snapshot.docs.map(doc => {
-                    const req = doc.data() as AttendanceRequest;
-                    const employee = employeeMap.get(req.employeeId);
-                    return {
-                        ...req,
-                        id: doc.id,
-                        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Тодорхойгүй',
-                        employeeAvatar: employee?.photoURL
-                    };
-                });
-                setRequestsData({ data: allFetchedRequests, isLoading: false });
-            }, (error) => {
-                console.error("Error fetching attendance requests:", error);
-                setRequestsData({ data: [], isLoading: false });
-            });
-
-            return () => unsubscribe();
-        };
-
-        fetchAllRequests();
-    }, [firestore]);
     
     const handleUpdateStatus = (request: AttendanceRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
         if (!firestore || !request.employeeId) return;
@@ -419,8 +385,8 @@ function AttendanceRequestsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {requestsData.isLoading && Array.from({length: 3}).map((_, i) => <RequestRowSkeleton key={i} />)}
-                        {!requestsData.isLoading && requestsData.data.map(req => {
+                        {isLoading && Array.from({length: 3}).map((_, i) => <RequestRowSkeleton key={i} />)}
+                        {!isLoading && requestsWithEmployeeData.map(req => {
                             const status = statusConfig[req.status];
                             return(
                             <TableRow key={req.id}>
@@ -456,7 +422,7 @@ function AttendanceRequestsTable() {
                                 </TableCell>
                             </TableRow>
                         )})}
-                        {!requestsData.isLoading && requestsData.data.length === 0 && (
+                        {!isLoading && requestsWithEmployeeData.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-24 text-center">
                                 Ирцийн хүсэлт одоогоор байхгүй байна.
