@@ -41,7 +41,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from './employees/data';
 
 // --- Types ---
-type Position = { id: string; statusId: string; };
+type Position = { id: string; statusId: string; headcount: number; filled: number; };
 type PositionStatus = { id: string; name: string; };
 type TimeOffRequest = { id: string, employeeId: string, type: string, status: string, startDate: string };
 type AttendanceRequest = { id: string, employeeId: string, type: string, status: string, date: string };
@@ -111,8 +111,8 @@ function RecentRequestsTable() {
     const { firestore } = useFirebase();
 
     const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-    const timeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Хүлээгдэж буй')) : null, [firestore]);
-    const attendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests'), where('status', '==', 'Хүлээгдэж буй')) : null, [firestore]);
+    const timeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests')) : null, [firestore]);
+    const attendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests')) : null, [firestore]);
 
     const { data: employees, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
     const { data: timeOffRequests, isLoading: loadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
@@ -123,8 +123,12 @@ function RecentRequestsTable() {
     const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
 
     const combinedRequests = React.useMemo(() => {
-        const mappedTimeOff: CombinedRequest[] = timeOffRequests?.map(r => ({ ...r, requestType: 'Чөлөө', date: r.startDate })) || [];
-        const mappedAttendance: CombinedRequest[] = attendanceRequests?.map(r => ({ ...r, requestType: 'Ирц' })) || [];
+        const timeOffFiltered = timeOffRequests?.filter(r => r.status === 'Хүлээгдэж буй') || [];
+        const attendanceFiltered = attendanceRequests?.filter(r => r.status === 'Хүлээгдэж буй') || [];
+
+        const mappedTimeOff: CombinedRequest[] = timeOffFiltered.map(r => ({ ...r, requestType: 'Чөлөө', date: r.startDate }));
+        const mappedAttendance: CombinedRequest[] = attendanceFiltered.map(r => ({ ...r, requestType: 'Ирц' }));
+
         return [...mappedTimeOff, ...mappedAttendance].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
     }, [timeOffRequests, attendanceRequests]);
 
