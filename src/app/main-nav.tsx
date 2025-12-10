@@ -14,9 +14,6 @@ import {
   Award,
   Sparkles,
   ClipboardList,
-  Code,
-  CalendarClock,
-  Activity,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -47,6 +44,11 @@ const mainLinks = [
     href: '/dashboard/employees',
     label: 'Ажилтан',
     icon: Users,
+  },
+   {
+    href: '/dashboard/requests',
+    label: 'Хүсэлтүүд',
+    icon: ClipboardList,
   },
   {
     href: '/dashboard/attendance',
@@ -162,4 +164,3 @@ export function MainNav() {
     </SidebarMenu>
   );
 }
-
