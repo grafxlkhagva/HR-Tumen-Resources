@@ -170,7 +170,7 @@ const MissionVisionCard = ({ profile }: { profile: CompanyProfileValues }) => {
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Эрхэм зорилго, Алсын хараа, Үнэт зүйлс</CardTitle>
                 <Button asChild variant="outline" size="sm">
-                <Link href="/dashboard/company/edit">
+                <Link href="/dashboard/company/mission">
                     <Pencil className="mr-2 h-4 w-4" />
                     Засварлах
                 </Link>
