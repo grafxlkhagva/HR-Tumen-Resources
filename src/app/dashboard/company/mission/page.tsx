@@ -177,7 +177,7 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
                                             <div>
                                                 <label htmlFor={`icon-upload-${index}`} className="cursor-pointer">
                                                     <div className="h-20 w-20 flex items-center justify-center rounded-lg border-2 border-dashed bg-muted hover:bg-muted/50">
-                                                        {iconField.value ? (
+                                                        {iconField.value && iconField.value.startsWith('https') ? (
                                                             <Image src={iconField.value} alt="Icon preview" width={80} height={80} className="object-contain h-full w-full p-1" />
                                                         ) : (
                                                             <ImageIcon className="h-8 w-8 text-muted-foreground" />
