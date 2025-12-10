@@ -59,11 +59,12 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const { firestore } = useFirebase();
 
   useEffect(() => {
     // Redundant check inside useEffect to handle cases where the refOrQuery
     // might change to null/undefined during the component's lifecycle.
-    if (!refOrQuery) {
+    if (!refOrQuery || !firestore) {
       setData(null);
       setIsLoading(false);
       setError(null);
@@ -112,7 +113,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [refOrQuery]); // Re-run effect only if the memoized query/reference object changes.
+  }, [refOrQuery, firestore]); // Re-run effect only if the memoized query/reference object changes.
 
   return { data, isLoading, error };
 }

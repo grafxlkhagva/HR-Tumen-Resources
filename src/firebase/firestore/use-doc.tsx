@@ -45,10 +45,11 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const { firestore } = useFirebase();
 
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
-    if (!docRef) {
+    if (!docRef || !firestore) {
       setData(null);
       setIsLoading(false);
       setError(null);
@@ -86,7 +87,7 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [docRef]); // Re-run effect only if the memoized document reference object changes.
+  }, [docRef, firestore]); // Re-run effect only if the memoized document reference object changes.
 
   return { data, isLoading, error };
 }
