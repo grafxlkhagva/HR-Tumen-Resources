@@ -90,21 +90,17 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
         let path: string = '[unknown path]';
         try {
             if (memoizedTargetRefOrQuery instanceof CollectionReference) {
                 path = memoizedTargetRefOrQuery.path;
             } else if (memoizedTargetRefOrQuery instanceof Query) {
-                // Query path авах дотоод API
-                // canonicalString() нь үргэлж байдаг
                 // @ts-ignore
                 path = memoizedTargetRefOrQuery._query.path.canonicalString();
             }
         } catch (e) {
             console.error("Could not extract path from Firestore query/reference:", e);
         }
-        
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
