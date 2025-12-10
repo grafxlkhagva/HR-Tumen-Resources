@@ -90,7 +90,7 @@ export function ReferenceTable({
 
   const { firestore } = useFirebase();
   const collectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, collectionName) : null),
+    () => (firestore && collectionName ? collection(firestore, collectionName) : null),
     [firestore, collectionName]
   );
 
