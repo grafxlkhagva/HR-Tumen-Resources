@@ -58,30 +58,18 @@ export function useCollection<T = DocumentData>(
             } as T & { id: string })
         );
         setData(docs);
-        setLoading(false);
+        setIsLoading(false);
         setError(null);
       },
       (err: FirestoreError) => {
         let path = "unknown_path";
         try {
-          if (refOrQuery instanceof CollectionReference) {
-            path = refOrQuery.path;
-          } else if (refOrQuery instanceof Query) {
-            // This is a simplified and safer way to get a representation of the query target.
-            // It might not be the full path for complex queries but is safer than internal properties.
-            // @ts-ignore - _query is an internal but useful property
-            const internalQuery = refOrQuery._query;
-            if (internalQuery && internalQuery.path) {
-              // Check if path is an object with a segments property
-              if (typeof internalQuery.path === 'object' && internalQuery.path.segments) {
-                 path = internalQuery.path.segments.join('/');
-              } else {
-                 // Fallback for different internal structures.
-                 // This part is speculative and depends on Firebase internal implementation.
-                 path = String(internalQuery.path);
-              }
+            const target = refOrQuery as any;
+            if (target.path) {
+                path = target.path;
+            } else if (target._query?.path?.toString) {
+                path = target._query.path.toString();
             }
-          }
         } catch (e) {
           // In case accessing internal properties fails, we don't crash.
           console.error("Could not determine path for Firestore error reporting:", e);
