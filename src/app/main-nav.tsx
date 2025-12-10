@@ -45,14 +45,9 @@ const mainLinks = [
     label: 'Ажилтан',
     icon: Users,
   },
-   {
-    href: '/dashboard/requests',
-    label: 'Хүсэлтүүд',
-    icon: ClipboardList,
-  },
   {
     href: '/dashboard/attendance',
-    label: 'Цагийн бүртгэл',
+    label: 'Цаг ба Ирц',
     icon: Clock,
   },
   {
