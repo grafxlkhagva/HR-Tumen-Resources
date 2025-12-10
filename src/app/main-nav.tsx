@@ -12,7 +12,6 @@ import {
   Settings,
   Clock,
   Award,
-  Sparkles,
   ClipboardList,
 } from 'lucide-react';
 import {
@@ -59,11 +58,6 @@ const mainLinks = [
     href: '/dashboard/documents',
     label: 'Баримт бичиг',
     icon: FileText,
-  },
-   {
-    href: '/dashboard/compliance',
-    label: 'Хуулийн зөвлөгөө',
-    icon: Sparkles,
   },
 ];
 
