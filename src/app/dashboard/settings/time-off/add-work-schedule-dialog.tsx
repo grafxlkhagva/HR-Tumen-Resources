@@ -134,6 +134,17 @@ interface AddWorkScheduleDialogProps {
   editingItem?: WorkScheduleFormValues & { id: string } | null;
 }
 
+// Function to remove undefined fields from an object
+const cleanupData = (data: any) => {
+    const cleanedData: any = {};
+    Object.keys(data).forEach(key => {
+        if (data[key] !== undefined) {
+            cleanedData[key] = data[key];
+        }
+    });
+    return cleanedData;
+};
+
 export function AddWorkScheduleDialog({ open, onOpenChange, editingItem }: AddWorkScheduleDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -180,12 +191,15 @@ export function AddWorkScheduleDialog({ open, onOpenChange, editingItem }: AddWo
 
   const onSubmit = (data: WorkScheduleFormValues) => {
     if (!collectionRef || !firestore) return;
+
+    const cleanedData = cleanupData(data);
+
     if (isEditMode && editingItem) {
         const docRef = doc(firestore, 'workSchedules', editingItem.id);
-        updateDocumentNonBlocking(docRef, data);
+        updateDocumentNonBlocking(docRef, cleanedData);
         toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {
-        addDocumentNonBlocking(collectionRef, data);
+        addDocumentNonBlocking(collectionRef, cleanedData);
         toast({ title: 'Амжилттай нэмэгдлээ' });
     }
     onOpenChange(false);
