@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, onSnapshot, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, differenceInMinutes } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -240,11 +240,11 @@ function TimeOffRequestsTable() {
 
         const fetchAllRequests = async () => {
             setRequestsData({data: [], isLoading: true});
-            const employeesSnapshot = await (await import('firebase/firestore')).getDocs(query(collection(firestore, 'employees')));
+            const employeesSnapshot = await getDocs(query(collection(firestore, 'employees')));
             const employeeMap = new Map(employeesSnapshot.docs.map(doc => [doc.id, doc.data() as Employee]));
 
             const requestsQuery = query(
-              collection(firestore, 'timeOffRequests'),
+              collectionGroup(firestore, 'timeOffRequests'),
               orderBy('createdAt', 'desc')
             );
             
@@ -272,9 +272,9 @@ function TimeOffRequestsTable() {
     }, [firestore]);
 
 
-    const handleUpdateStatus = (requestId: string, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
-        if (!firestore) return;
-        const docRef = doc(firestore, 'timeOffRequests', requestId);
+    const handleUpdateStatus = (request: TimeOffRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
+        if (!firestore || !request.employeeId) return;
+        const docRef = doc(firestore, `employees/${request.employeeId}/timeOffRequests`, request.id);
         updateDocumentNonBlocking(docRef, { status });
     };
 
@@ -323,10 +323,10 @@ function TimeOffRequestsTable() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'Зөвшөөрсөн')}>
+                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Зөвшөөрсөн')}>
                                                 <Check className="mr-2 h-4 w-4 text-green-500"/> Зөвшөөрөх
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'Татгалзсан')}>
+                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Татгалзсан')}>
                                                 <X className="mr-2 h-4 w-4 text-red-500" /> Татгалзах
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -363,11 +363,11 @@ function AttendanceRequestsTable() {
         
         const fetchAllRequests = async () => {
              setRequestsData({data: [], isLoading: true});
-            const employeesSnapshot = await (await import('firebase/firestore')).getDocs(query(collection(firestore, 'employees')));
+            const employeesSnapshot = await getDocs(query(collection(firestore, 'employees')));
             const employeeMap = new Map(employeesSnapshot.docs.map(doc => [doc.id, doc.data() as Employee]));
 
             const requestsQuery = query(
-              collection(firestore, 'attendanceRequests'),
+              collectionGroup(firestore, 'attendanceRequests'),
               orderBy('createdAt', 'desc')
             );
 
@@ -394,9 +394,9 @@ function AttendanceRequestsTable() {
         fetchAllRequests();
     }, [firestore]);
     
-    const handleUpdateStatus = (requestId: string, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
-        if (!firestore) return;
-        const docRef = doc(firestore, `attendanceRequests`, requestId);
+    const handleUpdateStatus = (request: AttendanceRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
+        if (!firestore || !request.employeeId) return;
+        const docRef = doc(firestore, `employees/${request.employeeId}/attendanceRequests`, request.id);
         updateDocumentNonBlocking(docRef, { status });
     };
 
@@ -445,10 +445,10 @@ function AttendanceRequestsTable() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'Зөвшөөрсөн')}>
+                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Зөвшөөрсөн')}>
                                                 <Check className="mr-2 h-4 w-4 text-green-500"/> Зөвшөөрөх
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'Татгалзсан')}>
+                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Татгалзсан')}>
                                                 <X className="mr-2 h-4 w-4 text-red-500" /> Татгалзах
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
