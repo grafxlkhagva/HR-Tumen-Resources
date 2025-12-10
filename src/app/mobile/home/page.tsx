@@ -4,20 +4,19 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, orderBy, doc, arrayUnion, arrayRemove, getDoc, getDocs, deleteField } from 'firebase/firestore';
+import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ArrowRight, ChevronsDown, ChevronsUp, Heart, Smile } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee } from '@/app/dashboard/employees/data';
-import { EmployeeCard } from '../employees/EmployeeCard';
 
 type ReactionType = 'like' | 'love' | 'care';
 
@@ -31,16 +30,10 @@ type Post = {
     reactions: { [userId: string]: ReactionType };
 };
 
-const reactionIcons: { [key in ReactionType]: React.ReactNode } = {
-    like: <ThumbsUp className="h-5 w-5 text-white bg-blue-500 rounded-full p-0.5" />,
-    love: <Heart className="h-5 w-5 text-white bg-red-500 rounded-full p-0.5" fill="white" />,
-    care: <Smile className="h-5 w-5 text-yellow-500" />,
-};
-
-function ReactionIcon({ type }: { type: ReactionType }) {
-    if (type === 'like') return <ThumbsUp className="h-5 w-5 text-white bg-blue-500 rounded-full p-0.5" />;
-    if (type === 'love') return <Heart className="h-5 w-5 text-white bg-red-500 rounded-full p-0.5" fill="white"/>;
-    if (type === 'care') return <div className="h-5 w-5 rounded-full bg-yellow-400 flex items-center justify-center">🤗</div>;
+function ReactionIcon({ type, className }: { type: ReactionType, className?: string }) {
+    if (type === 'like') return <ThumbsUp className={cn("h-5 w-5 text-white bg-blue-500 rounded-full p-0.5", className)} />;
+    if (type === 'love') return <Heart className={cn("h-5 w-5 text-white bg-red-500 rounded-full p-0.5", className)} fill="white"/>;
+    if (type === 'care') return <div className={cn("h-5 w-5 rounded-full bg-yellow-400 flex items-center justify-center text-xs", className)}>🤗</div>;
     return null;
 }
 
@@ -96,7 +89,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     }
     
     const showReactions = async () => {
-        if (!firestore) return;
+        if (!firestore || Object.keys(reactions).length === 0) return;
         const employeeCollection = collection(firestore, 'employees');
         const details: { employee: Employee; reaction: ReactionType }[] = [];
         
@@ -114,6 +107,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
         acc[curr] = (acc[curr] || 0) + 1;
         return acc;
     }, {} as Record<ReactionType, number>);
+    const totalReactions = Object.values(reactionCounts).reduce((a,b) => a+b, 0);
 
     return (
         <>
@@ -140,12 +134,12 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
         </Dialog>
         <Card className="overflow-hidden">
              {post.imageUrls && post.imageUrls.length > 0 && (
-                 <Carousel className="w-full">
+                 <Carousel className="w-full bg-muted">
                     <CarouselContent>
                     {post.imageUrls.map((url, index) => (
                         <CarouselItem key={index}>
                             <div className="relative aspect-video w-full">
-                                <Image src={url} alt={`${post.title} image ${index + 1}`} fill className="object-cover" />
+                                <Image src={url} alt={`${post.title} image ${index + 1}`} fill className="object-contain" />
                             </div>
                         </CarouselItem>
                     ))}
@@ -165,51 +159,50 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className={cn("text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none", !isExpanded && "line-clamp-3")} dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
+                <div className={cn("text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none break-words", !isExpanded && "line-clamp-3")} dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
+                 {totalReactions > 0 && (
+                    <button onClick={showReactions} className="flex items-center mt-3">
+                        <div className="flex items-center">
+                            {(Object.keys(reactionCounts) as ReactionType[]).sort().map(r => <ReactionIcon key={r} type={r} className="-ml-1 first:ml-0 border-2 border-card rounded-full" />)}
+                        </div>
+                        <span className="ml-2 text-xs text-muted-foreground">{totalReactions}</span>
+                    </button>
+                )}
             </CardContent>
-             <CardFooter className="flex justify-between items-center flex-wrap gap-y-2">
-                 <div className="flex items-center gap-2">
-                    {Object.keys(reactionCounts).length > 0 && (
-                        <button onClick={showReactions} className="flex items-center">
-                            {(Object.keys(reactionCounts) as ReactionType[]).sort().map(r => <ReactionIcon key={r} type={r} />)}
-                            <span className="ml-1.5 text-xs text-muted-foreground">{Object.values(reactionCounts).reduce((a, b) => a + b, 0)}</span>
-                        </button>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-4 text-muted-foreground">
-                     <Popover>
+             <CardFooter className="flex flex-col items-start gap-2">
+                 <div className="w-full h-px bg-border" />
+                 <div className="flex w-full justify-between items-center">
+                    <Popover>
                         <PopoverTrigger asChild>
-                            <button className={cn("flex items-center gap-1.5 text-sm transition-colors", 
+                            <Button variant="ghost" className={cn("flex-1", 
                                 userReaction === 'like' && "text-blue-500 font-semibold",
                                 userReaction === 'love' && "text-red-500 font-semibold",
                                 userReaction === 'care' && "text-yellow-500 font-semibold",
-                                !userReaction && "hover:text-primary"
-                                )} disabled={!userId}>
+                            )} disabled={!userId}>
                                 {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-4 w-4" />}
-                                <span>{userReaction ? 'Reacted' : 'Like'}</span>
-                            </button>
+                                <span className="ml-2">{userReaction ? userReaction.charAt(0).toUpperCase() + userReaction.slice(1) : 'Like'}</span>
+                            </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-1 rounded-full">
                             <div className="flex gap-1">
-                                <button onClick={() => handleReaction('like')} className="p-1.5 rounded-full hover:bg-muted"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
-                                <button onClick={() => handleReaction('love')} className="p-1.5 rounded-full hover:bg-muted"><Heart className="h-6 w-6 text-red-500" fill="currentColor" /></button>
-                                <button onClick={() => handleReaction('care')} className="p-1.5 rounded-full hover:bg-muted">🤗</button>
+                                <Button onClick={() => handleReaction('like')} variant="ghost" size="icon" className="p-1.5 rounded-full hover:bg-muted h-10 w-10"><ThumbsUp className="h-6 w-6 text-blue-500" /></Button>
+                                <Button onClick={() => handleReaction('love')} variant="ghost" size="icon" className="p-1.5 rounded-full hover:bg-muted h-10 w-10"><Heart className="h-6 w-6 text-red-500" fill="currentColor" /></Button>
+                                <Button onClick={() => handleReaction('care')} variant="ghost" size="icon" className="p-1.5 rounded-full hover:bg-muted h-10 w-10"><div className="text-xl">🤗</div></Button>
                             </div>
                         </PopoverContent>
                     </Popover>
 
-                    <button className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
+                    <Button variant="ghost" className="flex-1">
                         <MessageSquare className="h-4 w-4" />
-                        <span>0</span>
-                    </button>
+                        <span className="ml-2">Comment</span>
+                    </Button>
                 </div>
-            </CardFooter>
-            <CardFooter>
-                 <Button variant="link" className="p-0 h-auto text-primary" onClick={toggleExpand}>
-                    {isExpanded ? 'Хураангуй' : 'Дэлгэрэнгүй унших'}
-                    {isExpanded ? <ChevronsUp className="ml-2 h-4 w-4" /> : <ChevronsDown className="ml-2 h-4 w-4" />}
-                </Button>
+                 {post.content.length > 200 && (
+                    <Button variant="link" className="p-0 h-auto text-primary text-xs" onClick={toggleExpand}>
+                        {isExpanded ? 'Хураангуй' : 'Дэлгэрэнгүй унших'}
+                        {isExpanded ? <ChevronsUp className="ml-1 h-4 w-4" /> : <ChevronsDown className="ml-1 h-4 w-4" />}
+                    </Button>
+                 )}
             </CardFooter>
         </Card>
         </>
@@ -245,7 +238,7 @@ function EmployeeCarousel() {
                     <CarouselItem key={employee.id} className="basis-1/4 pl-2">
                         <Link href={`/mobile/employees/${employee.id}`}>
                             <div className="flex flex-col items-center gap-2 text-center">
-                                <Avatar className="w-16 h-16 border-2 border-primary">
+                                <Avatar className="w-16 h-16 border-2 border-transparent group-hover:border-primary transition-colors">
                                     <AvatarImage src={employee.photoURL} alt={employee.firstName} />
                                     <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
                                 </Avatar>
@@ -272,27 +265,28 @@ export default function MobileHomePage() {
   const { data: posts, isLoading, error } = useCollection<Post>(postsQuery);
 
   return (
-    <div className="p-4 space-y-6 animate-in fade-in-50">
-       <header className="py-4">
+    <div className="space-y-6 animate-in fade-in-50">
+       <header className="p-4 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
             <h1 className="text-2xl font-bold">Нүүр хуудас</h1>
+            {employeeProfile && <p className="text-muted-foreground">Сайн уу, {employeeProfile.firstName}!</p>}
         </header>
 
-        <div className="space-y-3">
+        <div className="px-4 space-y-3">
             <h2 className="text-lg font-semibold">Хамт олон</h2>
             <EmployeeCarousel />
         </div>
         
         <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Нийтлэлийн самбар</h2>
+            <h2 className="text-lg font-semibold px-4">Нийтлэлийн самбар</h2>
             {isLoading && (
-                <div className="space-y-6">
+                <div className="px-4 space-y-6">
                     <PostSkeleton />
                     <PostSkeleton />
                 </div>
             )}
 
             {error && (
-                <Card>
+                <Card className="mx-4">
                     <CardContent className="p-6 text-center text-destructive">
                         Нийтлэлүүдийг ачаалахад алдаа гарлаа.
                     </CardContent>
@@ -306,7 +300,7 @@ export default function MobileHomePage() {
             )}
 
             {!isLoading && !error && (!posts || posts.length === 0) && (
-                 <Card>
+                 <Card className="mx-4">
                     <CardContent className="p-10 text-center text-muted-foreground">
                        Одоогоор нийтлэл байхгүй байна.
                     </CardContent>

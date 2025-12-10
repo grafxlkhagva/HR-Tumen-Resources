@@ -20,10 +20,10 @@ export default function MobileLayout({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-dvh w-full justify-center bg-background">
-      <div className="relative flex h-dvh w-full max-w-md flex-col border-x bg-muted/20 shadow-lg">
+    <div className="flex min-h-dvh w-full justify-center bg-muted/30">
+      <div className="relative flex h-dvh w-full max-w-md flex-col border-x bg-background shadow-lg">
         <main className="flex-1 overflow-y-auto pb-20">{children}</main>
-        <nav className="absolute bottom-0 left-0 right-0 border-t bg-background">
+        <nav className="absolute bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur-sm">
           <div className="mx-auto flex h-16 max-w-md items-center justify-around">
             {navItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
@@ -33,7 +33,7 @@ export default function MobileLayout({
                   href={item.href}
                   className={`flex flex-col items-center gap-1 text-xs transition-colors ${
                     isActive
-                      ? 'text-primary'
+                      ? 'text-primary font-bold'
                       : 'text-muted-foreground hover:text-primary'
                   }`}
                 >
