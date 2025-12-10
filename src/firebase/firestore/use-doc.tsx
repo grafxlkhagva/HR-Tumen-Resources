@@ -48,8 +48,8 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Explicitly check for null/undefined before proceeding.
-    if (!memoizedDocRef) {
+    // Explicitly check for null/undefined and correct instance type before proceeding.
+    if (!memoizedDocRef || !(memoizedDocRef instanceof DocumentReference)) {
       setData(null);
       setIsLoading(false);
       setError(null);

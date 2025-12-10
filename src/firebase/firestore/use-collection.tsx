@@ -67,7 +67,7 @@ export function useCollection<T = any>(
 
   useEffect(() => {
     // Explicitly check for null/undefined before proceeding.
-    if (!memoizedTargetRefOrQuery) {
+    if (!memoizedTargetRefOrQuery || !(memoizedTargetRefOrQuery instanceof Query)) {
         setData(null);
         setIsLoading(false);
         setError(null);
@@ -97,9 +97,9 @@ export function useCollection<T = any>(
               // @ts-ignore
               path = (memoizedTargetRefOrQuery as InternalQuery)._query.path.canonicalString();
           }
-      } catch (e) {
+        } catch (e) {
           console.error("Could not extract path from Firestore query/reference:", e);
-      }
+        }
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
