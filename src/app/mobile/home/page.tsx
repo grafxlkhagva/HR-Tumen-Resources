@@ -51,7 +51,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const [isExpanded, setIsExpanded] = React.useState(false);
     const { firestore } = useFirebase();
 
-    const isLiked = userId ? post.likes.includes(userId) : false;
+    const isLiked = userId ? (post.likes || []).includes(userId) : false;
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
     
