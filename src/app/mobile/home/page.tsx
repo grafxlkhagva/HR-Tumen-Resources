@@ -39,7 +39,7 @@ function ReactionIcon({ type, className }: { type: ReactionType, className?: str
 
 function PostSkeleton() {
     return (
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden rounded-lg shadow-md">
             <Skeleton className="aspect-video w-full" />
             <CardHeader>
                 <Skeleton className="h-6 w-3/4" />
@@ -132,14 +132,14 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                 </div>
             </DialogContent>
         </Dialog>
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden rounded-lg shadow-md">
              {post.imageUrls && post.imageUrls.length > 0 && (
                  <Carousel className="w-full bg-muted">
                     <CarouselContent>
                     {post.imageUrls.map((url, index) => (
                         <CarouselItem key={index}>
                             <div className="relative aspect-video w-full">
-                                <Image src={url} alt={`${post.title} image ${index + 1}`} fill className="object-contain" />
+                                <Image src={url} alt={`${post.title} image ${index + 1}`} fill className="object-cover" />
                             </div>
                         </CarouselItem>
                     ))}
