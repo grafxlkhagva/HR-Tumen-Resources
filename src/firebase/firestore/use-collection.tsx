@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, DependencyList } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Query,
   onSnapshot,
@@ -59,7 +59,7 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready, do nothing. The hook will be re-run when refOrQuery changes.
+    // If the query is not ready, do nothing.
     if (!refOrQuery || !firestore) {
       setData(null);
       setIsLoading(false);

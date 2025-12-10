@@ -1,6 +1,6 @@
 'use client';
     
-import { useState, useEffect, DependencyList } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DocumentReference,
   onSnapshot,
