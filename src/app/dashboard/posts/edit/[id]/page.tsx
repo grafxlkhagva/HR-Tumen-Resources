@@ -110,6 +110,11 @@ export default function EditPostPage() {
 
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
+    defaultValues: {
+        title: '',
+        content: '',
+        imageUrl: '',
+    }
   });
 
   React.useEffect(() => {
