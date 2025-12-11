@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, getMonth, getDate, getYear } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { ReferenceTable, ReferenceItem } from '@/components/ui/reference-table';
-import { AddHolidayDialog } from './add-holiday-dialog';
+import { AddHolidayDialog } from '../add-holiday-dialog';
 
 export type PublicHoliday = ReferenceItem & {
     id: string;
@@ -134,7 +134,7 @@ export default function HolidaysPage() {
                                 itemData={publicHolidays}
                                 isLoading={loadingPublicHolidays}
                                 dialogTitle="Баярын өдөр"
-                                hideAddButton={true} // We use our own button
+                                hideAddButton={true} 
                                 onEdit={handleEdit}
                             />
                         </CardContent>
