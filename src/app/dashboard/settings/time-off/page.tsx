@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,6 +16,7 @@ import { z } from 'zod';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -259,7 +261,7 @@ export default function TimeAndAttendanceSettingsPage() {
   const timeConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
   const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
   
-  const timeOffConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), []);
+  const timeOffConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), []);
   const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef);
   
   const workScheduleColumns = [
