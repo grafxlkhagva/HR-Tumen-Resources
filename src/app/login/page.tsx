@@ -53,38 +53,15 @@ export default function LoginPage() {
 
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const loggedInUser = userCredential.user;
-
-      if (!loggedInUser) {
-        throw new Error("Хэрэглэгчийн мэдээлэл олдсонгүй.");
-      }
-      
-      const userDocRef = doc(firestore, 'employees', loggedInUser.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists()) {
-        throw new Error("Ажилтны бүртгэл олдсонгүй.");
-      }
-
-      const userData = userDoc.data();
-      const userRole = userData.role;
-      
-      // Store a cookie to signify login
-      document.cookie = `firebase-auth-token=${await loggedInUser.getIdToken()}; path=/; max-age=3600`;
+      await signInWithEmailAndPassword(auth, email, password);
 
       toast({
           title: 'Амжилттай нэвтэрлээ',
           description: 'Хуудас руу шилжиж байна.',
       });
 
-      if (userRole === 'admin') {
-        router.push('/dashboard');
-      } else if (userRole === 'employee') {
-        router.push('/mobile/home');
-      } else {
-        throw new Error("Тодорхойгүй хэрэглэгчийн эрх.");
-      }
+      // Redirect to home page, which will handle role-based redirection
+      router.replace('/');
 
     } catch (err: any) {
       setIsLoading(false);
