@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle } from 'lucide-react';
-import { format, addDays, isWeekend } from 'date-fns';
+import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle, History } from 'lucide-react';
+import { format, addDays, isWeekend, differenceInMinutes } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, doc, orderBy } from 'firebase/firestore';
+import { collection, query, where, doc, orderBy, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -380,6 +380,65 @@ function AttendanceRequestHistory({ employeeId }: { employeeId: string }) {
     )
 }
 
+function calculateDuration(checkInTime: string, checkOutTime?: string): string {
+    if (!checkOutTime) return '-';
+    const durationMinutes = differenceInMinutes(new Date(checkOutTime), new Date(checkInTime));
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    return `${hours}ц ${minutes}м`;
+}
+
+function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
+    const { firestore } = useFirebase();
+    const attendanceLogQuery = useMemoFirebase(() => firestore ? query(
+        collection(firestore, 'attendance'),
+        where('employeeId', '==', employeeId),
+        orderBy('date', 'desc'),
+        limit(30)
+    ) : null, [firestore, employeeId]);
+    
+    const { data: logs, isLoading } = useCollection<AttendanceRecord>(attendanceLogQuery);
+
+    if (isLoading) {
+        return <div className="space-y-2 pt-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
+    }
+
+    if (!logs || logs.length === 0) {
+        return (
+             <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg mt-4">
+                <History className="mx-auto h-12 w-12" />
+                <p className="mt-4">Цаг бүртгэлийн түүх байхгүй байна.</p>
+            </div>
+        )
+    }
+    
+    return (
+        <div className="space-y-4">
+             <h2 className="text-lg font-semibold mt-6">Сүүлийн 30 хоногийн ирц</h2>
+             {logs.map(log => (
+                 <Card key={log.id} className="p-4">
+                     <div className="flex justify-between items-center">
+                         <div className="font-semibold">{format(new Date(log.date), 'yyyy.MM.dd, EEEE', { locale: mn })}</div>
+                         <Badge variant={log.checkOutTime ? 'default' : 'secondary'} className={cn(log.checkOutTime ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800')}>
+                             {calculateDuration(log.checkInTime, log.checkOutTime)}
+                         </Badge>
+                     </div>
+                     <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
+                         <div className="flex items-center gap-2">
+                             <ArrowRight className="h-4 w-4 text-green-500" />
+                             <span>{format(new Date(log.checkInTime), 'HH:mm:ss')}</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                             <ArrowLeft className="h-4 w-4 text-red-500" />
+                             <span>{log.checkOutTime ? format(new Date(log.checkOutTime), 'HH:mm:ss') : '-'}</span>
+                         </div>
+                     </div>
+                 </Card>
+             ))}
+        </div>
+    )
+}
+
 function AttendanceSkeleton() {
     return (
         <div className="p-4 space-y-6">
@@ -557,6 +616,8 @@ export default function AttendancePage() {
                             </Button>
                         </CardContent>
                     </Card>
+
+                    {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
 
                     {!config && (
                         <Alert>
