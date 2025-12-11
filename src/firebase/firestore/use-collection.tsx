@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   onSnapshot,
   Query,
@@ -6,9 +6,6 @@ import {
   DocumentData,
   FirestoreError,
 } from "firebase/firestore";
-import { FirestorePermissionError } from "@/firebase/errors";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { useFirebase } from "..";
 
 type TargetRef<T = DocumentData> =
   | Query<T>
@@ -18,48 +15,36 @@ type TargetRef<T = DocumentData> =
 
 export interface UseCollectionResult<T = DocumentData> {
   data: (T & { id: string })[];
-  isLoading: boolean;
+  loading: boolean;
   error: FirestoreError | null;
 }
 
 /**
- * React hook to subscribe to a Firestore collection or query in real-time.
- * - DOES NOT RUN when the target reference is not available.
- * - Does not throw errors, but returns them in the state.
+ * Реал-тайм collection / query-д subscribe хийх энгийн hook.
+ * - target байхгүй үед Firestore руу ХҮСЭЛТ ЯВУУЛАХГҮЙ.
+ * - Алдаа гарсан ч throw хийхгүй, state-д хадгална.
  */
 export function useCollection<T = DocumentData>(
-  refOrQuery: TargetRef<T>
+  target: TargetRef<T>
 ): UseCollectionResult<T> {
-  const { firestore } = useFirebase();
-  const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<(T & { id: string })[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
-  const path = refOrQuery ? (refOrQuery as any).path : null;
-  const queryConstraints = refOrQuery ? JSON.stringify((refOrQuery as any)._query?.constraints) : null;
-  const isMountedRef = useRef(true);
-
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-        isMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!refOrQuery || !firestore) {
-      setIsLoading(false);
+    // 🔒 target бэлэн биш үед: ямар ч асуулга явуулахгүй
+    if (!target) {
+      setLoading(false);
       setData([]);
       setError(null);
-      return () => {};
+      return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
 
     const unsubscribe = onSnapshot(
-      refOrQuery,
+      target,
       (snapshot) => {
-        if (!isMountedRef.current) return;
         const docs = snapshot.docs.map(
           (doc) =>
             ({
@@ -68,26 +53,18 @@ export function useCollection<T = DocumentData>(
             } as T & { id: string })
         );
         setData(docs);
-        setIsLoading(false);
-        setError(null);
+        setLoading(false);
       },
       (err: FirestoreError) => {
-        if (!isMountedRef.current) return;
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: path || 'unknown_path',
-        })
-        
-        setError(contextualError);
-        setData([]);
-        setIsLoading(false);
-        errorEmitter.emit('permission-error', contextualError);
+        console.error("[useCollection] Firestore error:", err);
+        setError(err);
+        setLoading(false);
+        // ❗ ЭНД ЯМАР Ч ЮМЫГ THROW ХИЙХГҮЙ.
       }
     );
 
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, queryConstraints, firestore]);
+  }, [target]);
 
-  return { data, isLoading, error };
+  return { data, loading, error };
 }

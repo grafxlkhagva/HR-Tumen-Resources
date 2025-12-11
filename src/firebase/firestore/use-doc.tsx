@@ -1,100 +1,80 @@
-'use client';
-    
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState, useMemo } from "react";
 import {
-  DocumentReference,
   onSnapshot,
+  DocumentReference,
   DocumentData,
   FirestoreError,
-  DocumentSnapshot,
-} from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { useFirebase } from '..';
+  doc,
+} from "firebase/firestore";
+import { useFirebase } from "..";
+import { FirestorePermissionError } from "../errors";
 
-/** Utility type to add an 'id' field to a given type T. */
-type WithId<T> = T & { id: string };
 
-/**
- * Interface for the return value of the useDoc hook.
- * @template T Type of the document data.
- */
-export interface UseDocResult<T> {
-  data: WithId<T> | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+export interface UseDocResult<T = DocumentData> {
+  data: (T & { id: string }) | null;
+  loading: boolean;
+  error: FirestoreError | null;
+  exists: boolean | null;
 }
 
 /**
- * React hook to subscribe to a single Firestore document in real-time.
- * Handles nullable references.
- *
- * IMPORTANT! The caller MUST MEMOIZE the inputted docRef (e.g., using useMemo)
- * for this hook to work correctly and avoid unnecessary re-renders or subscriptions.
- *
- * @template T Optional type for document data. Defaults to any.
- * @param {DocumentReference<DocumentData> | null | undefined} docRef -
- * The memoized Firestore DocumentReference. The hook is dormant if null/undefined.
- * @returns {UseDocResult<T>} Object with data, isLoading, error.
+ * Энгийн useDoc hook.
+ * - firestore эсвэл docRef байхгүй үед snapshot нээхгүй
+ * - алдааг state-д буцаана, throw хийхгүй
  */
-export function useDoc<T = any>(
-  docRef: DocumentReference<DocumentData> | null | undefined,
+export function useDoc<T = DocumentData>(
+  docRef: DocumentReference<T> | null | undefined
 ): UseDocResult<T> {
   const { firestore } = useFirebase();
-  const [data, setData] = useState<WithId<T> | null>(null);
-  const [isLoading, setIsLoading] = useState(!!docRef);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
-  const isMountedRef = useRef(true);
-  
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-        isMountedRef.current = false;
-    };
-  }, []);
+  const [data, setData] = useState<(T & { id: string }) | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<FirestoreError | null>(null);
+  const [exists, setExists] = useState<boolean | null>(null);
 
   const path = docRef ? docRef.path : null;
 
   useEffect(() => {
-    if (!docRef || !firestore) {
-      setIsLoading(false);
+    if (!firestore || !path) {
       setData(null);
+      setExists(null);
+      setLoading(false);
       setError(null);
-      return () => {}; 
+      return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
+    
+    // docRef is recreated on each render, so we need to use path to track changes.
+    // However, the onSnapshot needs the actual docRef object.
+    const docRefCurrent = doc(firestore, path) as DocumentReference<T>;
 
     const unsubscribe = onSnapshot(
-      docRef,
-      (snapshot: DocumentSnapshot<DocumentData>) => {
-        if (!isMountedRef.current) return;
-        if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
-        } else {
-          setData(null);
-        }
-        setError(null);
-        setIsLoading(false);
+      docRefCurrent,
+      (snapshot) => {
+          if (!snapshot.exists()) {
+            setData(null);
+            setExists(false);
+          } else {
+            setData({
+              id: snapshot.id,
+              ...(snapshot.data() as T),
+            });
+            setExists(true);
+          }
+          setLoading(false);
+          setError(null);
       },
       (err: FirestoreError) => {
-        if (!isMountedRef.current) return;
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: docRef.path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        errorEmitter.emit('permission-error', contextualError);
+        setError(err);
+        setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, firestore]); 
+  }, [firestore, path]);
 
-  return { data, isLoading, error };
+  return { data, loading, error, exists };
 }
