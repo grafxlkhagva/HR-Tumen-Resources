@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle, History } from 'lucide-react';
-import { format, addDays, isWeekend, differenceInMinutes } from 'date-fns';
+import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addDays, isWeekend, differenceInMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 type AttendanceRecord = {
     id: string;
     employeeId: string;
-    date: string;
+    date: string; // yyyy-MM-dd
     checkInTime: string;
     checkOutTime?: string;
     status: 'PRESENT' | 'LEFT';
@@ -72,6 +72,11 @@ type ReferenceItem = {
 
 type TimeOffRequestConfig = {
     requestDeadlineDays: number;
+}
+
+type WorkSchedule = {
+    id: string;
+    name: string;
 }
 
 
@@ -443,6 +448,115 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     )
 }
 
+function MonthlyAttendanceDashboard({ employeeId }: { employeeId: string }) {
+    const { firestore } = useFirebase();
+    const [currentMonth, setCurrentMonth] = React.useState(new Date());
+
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+
+    const attendanceQuery = useMemoFirebase(() => employeeId ? query(
+        collection(firestore, 'attendance'),
+        where('employeeId', '==', employeeId),
+        where('date', '>=', format(monthStart, 'yyyy-MM-dd')),
+        where('date', '<=', format(monthEnd, 'yyyy-MM-dd'))
+    ) : null, [firestore, employeeId, monthStart, monthEnd]);
+    const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+
+    const timeOffQuery = useMemoFirebase(() => employeeId ? query(
+        collection(firestore, `employees/${employeeId}/timeOffRequests`),
+        where('status', '==', 'Зөвшөөрсөн')
+    ) : null, [firestore, employeeId]);
+    const { data: timeOffRecords, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
+
+
+    const { presentDays, onLeaveDays, totalHours } = React.useMemo(() => {
+        let present = new Set<string>();
+        let onLeave = new Set<string>();
+        let hours = 0;
+
+        attendanceRecords?.forEach(rec => {
+            present.add(rec.date);
+            if (rec.checkInTime && rec.checkOutTime) {
+                hours += differenceInMinutes(new Date(rec.checkOutTime), new Date(rec.checkInTime));
+            }
+        });
+        
+        timeOffRecords?.forEach(req => {
+             for (let d = new Date(req.startDate); d <= new Date(req.endDate); d = addDays(d, 1)) {
+                if(d >= monthStart && d <= monthEnd) {
+                   onLeave.add(format(d, 'yyyy-MM-dd'));
+                }
+            }
+        });
+
+        return { presentDays: present, onLeaveDays: onLeave, totalHours: Math.floor(hours / 60) };
+    }, [attendanceRecords, timeOffRecords, monthStart, monthEnd]);
+
+    const modifiers = {
+        present: (date: Date) => presentDays.has(format(date, 'yyyy-MM-dd')),
+        onLeave: (date: Date) => onLeaveDays.has(format(date, 'yyyy-MM-dd')),
+        weekend: (date: Date) => isWeekend(date),
+    };
+    const modifierStyles = {
+        present: { backgroundColor: 'var(--color-present)', color: 'var(--color-present-foreground)' },
+        onLeave: { backgroundColor: 'var(--color-onLeave)', color: 'var(--color-onLeave-foreground)' },
+        weekend: { color: 'var(--color-weekend)' },
+    };
+
+    return (
+        <Card>
+             <style>{`
+                :root {
+                  --color-present: hsl(var(--primary) / 0.2); 
+                  --color-present-foreground: hsl(var(--primary));
+                  --color-onLeave: hsl(var(--yellow-500) / 0.2);
+                  --color-onLeave-foreground: hsl(var(--yellow-600));
+                  --color-weekend: hsl(var(--muted-foreground) / 0.6);
+                }
+             `}</style>
+            <CardHeader>
+                <CardTitle>Сарын ирцийн тойм</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Calendar
+                    mode="single"
+                    month={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    modifiers={modifiers}
+                    modifierStyles={modifierStyles}
+                    className="rounded-md border p-0"
+                    components={{
+                        Caption: ({...props}) => {
+                           return <div className="flex items-center justify-between px-4 py-2 relative">
+                                <h2 className="font-semibold">{format(props.displayMonth, 'yyyy оны MMMM', { locale: mn })}</h2>
+                                <div className="flex gap-1">
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addDays(currentMonth, -30))}><ChevronLeft className="h-4 w-4" /></Button>
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addDays(currentMonth, 30))}><ChevronRight className="h-4 w-4" /></Button>
+                                </div>
+                           </div>
+                        }
+                    }}
+                />
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-green-100 p-2 text-green-800">
+                        <p className="text-xs font-medium">Ирцтэй</p>
+                        <p className="text-lg font-bold">{presentDays.size}</p>
+                    </div>
+                    <div className="rounded-md bg-yellow-100 p-2 text-yellow-800">
+                        <p className="text-xs font-medium">Чөлөөтэй</p>
+                        <p className="text-lg font-bold">{onLeaveDays.size}</p>
+                    </div>
+                     <div className="rounded-md bg-blue-100 p-2 text-blue-800">
+                        <p className="text-xs font-medium">Ажилласан цаг</p>
+                        <p className="text-lg font-bold">{totalHours}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 function AttendanceSkeleton() {
     return (
         <div className="p-4 space-y-6">
@@ -453,7 +567,7 @@ function AttendanceSkeleton() {
             <div className="space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-64 w-full" />
             </div>
         </div>
     )
@@ -475,10 +589,12 @@ export default function AttendancePage() {
     const attendanceQuery = useMemoFirebase(() => employeeProfile ? query(collection(firestore, 'attendance'), where('employeeId', '==', employeeProfile.id), where('date', '==', todayString)) : null, [firestore, employeeProfile, todayString]);
     const configQuery = useMemoFirebase(() => doc(firestore, 'company', 'attendanceConfig'), [firestore]);
     const timeOffConfigQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), [firestore]);
+    const workScheduleQuery = useMemoFirebase(() => (employeeProfile?.workScheduleId ? doc(firestore, 'workSchedules', employeeProfile.workScheduleId) : null), [employeeProfile?.workScheduleId]);
 
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
     const { data: config, isLoading: isConfigLoading } = useDoc<AttendanceConfig>(configQuery);
     const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
+    const { data: workSchedule, isLoading: isWorkScheduleLoading } = useDoc<WorkSchedule>(workScheduleQuery);
 
     const todaysRecord = attendanceRecords?.[0];
 
@@ -565,7 +681,7 @@ export default function AttendancePage() {
         }
     };
     
-    const isLoading = isProfileLoading || isAttendanceLoading || isConfigLoading || isTimeOffConfigLoading;
+    const isLoading = isProfileLoading || isAttendanceLoading || isConfigLoading || isTimeOffConfigLoading || isWorkScheduleLoading;
 
     if(isLoading) {
         return <AttendanceSkeleton />;
@@ -583,6 +699,9 @@ export default function AttendancePage() {
             <header className="py-4">
                 <h1 className="text-2xl font-bold">Ирц ба Хүсэлт</h1>
                 <p className="text-muted-foreground">Ирцээ бүртгүүлж, хүсэлтүүдээ удирдана уу.</p>
+                 {workSchedule && (
+                    <Badge variant="outline" className="mt-2">Ажлын хуваарь: {workSchedule.name}</Badge>
+                )}
             </header>
 
             <Tabs defaultValue="attendance" className="w-full">
@@ -621,6 +740,8 @@ export default function AttendancePage() {
                         </CardContent>
                     </Card>
 
+                    {employeeProfile && <MonthlyAttendanceDashboard employeeId={employeeProfile.id} />}
+
                     {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
 
                     {!config && (
@@ -646,7 +767,7 @@ export default function AttendancePage() {
                     {employeeProfile ? <AttendanceRequestHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
                 </TabsContent>
             </Tabs>
-             <div className="absolute bottom-24 right-4">
+             <div className="fixed bottom-20 right-4 z-50">
                 <Button 
                     className="rounded-full w-14 h-14 shadow-lg"
                     onClick={() => setIsRequestDialogOpen(true)}
