@@ -103,6 +103,9 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                 <Card>
                     <CardHeader>
                         <CardTitle>Цагийн тайлангийн үе</CardTitle>
+                        <CardDescription>
+                            Цалин бодох эсвэл цагийн тайлан гаргах үеийг тохируулна уу. 'Календарийн сар' нь тухайн сарын 1-нээс эхэлж сарын сүүлийн өдөр дуусна. 'Тодорхой өдрөөр' нь өмнөх сарын X-нээс тухайн сарын Y-нд дуусах хугацааг тохируулна.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <FormField control={form.control} name="periodType" render={({ field }) => (
@@ -303,5 +306,3 @@ export default function TimeAndAttendanceSettingsPage() {
     </div>
   );
 }
-
-    
