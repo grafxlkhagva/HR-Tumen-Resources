@@ -8,7 +8,7 @@ import { collection } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, getYear } from 'date-fns';
+import { format, getYear, isMatch } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { ReferenceTable, ReferenceItem } from "../../../../../components/ui/reference-table";
 import { AddHolidayDialog } from '../add-holiday-dialog';
@@ -49,7 +49,11 @@ export default function HolidaysPage() {
                     return `Жил бүрийн ${item.month}-р сарын ${item.day}`;
                 }
                 if (item.date) {
-                    return format(new Date(item.date), 'yyyy-MM-dd');
+                    try {
+                        return format(new Date(item.date), 'yyyy-MM-dd');
+                    } catch (e) {
+                        return item.date;
+                    }
                 }
                 return 'Тодорхойгүй';
             }
@@ -61,31 +65,37 @@ export default function HolidaysPage() {
         }
     ];
 
-    const holidaysForCalendar = React.useMemo(() => {
-        if (!publicHolidays) return [];
-        const currentYear = getYear(new Date());
-        return publicHolidays.map(h => {
-            if (h.isRecurring && h.month && h.day) {
-                return new Date(currentYear, h.month - 1, h.day);
-            }
-            if (h.date) {
-                // to avoid timezone issues, manually construct date
-                const [year, month, day] = h.date.split('-').map(Number);
-                return new Date(year, month - 1, day);
-            }
-            return null;
-        }).filter(d => d !== null) as Date[];
-    }, [publicHolidays]);
+    const holidayModifiers = React.useMemo(() => {
+        if (!publicHolidays) return { holiday: [] };
 
-    const holidayModifiers = {
-        holiday: holidaysForCalendar,
-    };
+        const nonRecurringDays = publicHolidays
+            .filter(h => !h.isRecurring && h.date)
+            .map(h => {
+                const [year, month, day] = h.date!.split('-').map(Number);
+                return new Date(year, month - 1, day);
+            });
+        
+        const isRecurringHoliday = (date: Date) => {
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return publicHolidays.some(h => h.isRecurring && h.month === month && h.day === day);
+        };
+
+        return {
+            holiday: nonRecurringDays,
+            recurring: isRecurringHoliday,
+        };
+    }, [publicHolidays]);
 
     const holidayModifierStyles = {
         holiday: {
             border: '2px solid hsl(var(--primary))',
             borderRadius: 'var(--radius)',
         },
+        recurring: {
+             border: '2px solid hsl(var(--primary))',
+            borderRadius: 'var(--radius)',
+        }
     };
 
     return (
@@ -117,7 +127,6 @@ export default function HolidaysPage() {
                 <div className="lg:col-span-1">
                     <Calendar
                         mode="multiple"
-                        selected={holidaysForCalendar}
                         locale={mn}
                         modifiers={holidayModifiers}
                         modifiersStyles={holidayModifierStyles}
