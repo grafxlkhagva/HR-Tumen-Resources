@@ -155,14 +155,14 @@ export function AddProgramDialog({
   
   const appliesToType = form.watch('appliesToType');
 
-  const activePositionStatusId = React.useMemo(() => {
-    return positionStatuses.find(status => status.name === 'Нээлттэй')?.id;
-  }, [positionStatuses]);
-
   const activePositions = React.useMemo(() => {
-    if (!activePositionStatusId) return positions;
-    return positions.filter(pos => pos.statusId === activePositionStatusId);
-  }, [positions, activePositionStatusId]);
+    if (!positions || !positionStatuses) return [];
+    const openStatusId = positionStatuses.find(status => status.name === 'Нээлттэй')?.id;
+    if (openStatusId) {
+        return positions.filter(pos => pos.statusId === openStatusId);
+    }
+    return positions;
+  }, [positions, positionStatuses]);
 
 
   return (
