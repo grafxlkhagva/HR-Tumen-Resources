@@ -81,13 +81,11 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
       if (isEditMode && editingItem) {
         let formDate;
         if(editingItem.date) {
-            // Firestore date is a string yyyy-MM-dd, so we need to parse it carefully to avoid timezone issues.
             const dateParts = editingItem.date.split('-').map(Number);
             if(dateParts.length === 3) {
               formDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
             }
         } else if (editingItem.isRecurring && editingItem.month && editingItem.day) {
-            // For recurring dates, just use the current year for the picker.
             formDate = new Date(new Date().getFullYear(), editingItem.month - 1, editingItem.day);
         }
         form.reset({
@@ -116,9 +114,12 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
     };
 
     if (data.isRecurring) {
-        finalData.month = getMonth(data.date) + 1; // getMonth is 0-indexed
+        finalData.month = getMonth(data.date) + 1;
         finalData.day = getDate(data.date);
-        finalData.date = undefined; // Clear the specific date
+        // Ensure date field is not set to undefined
+        if ('date' in finalData) {
+            delete finalData.date;
+        }
     } else {
         finalData.date = format(data.date, 'yyyy-MM-dd');
         finalData.month = undefined;
