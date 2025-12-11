@@ -36,7 +36,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, getMonth, getDate } from 'date-fns';
+import { format, getMonth, getDate, isValid } from 'date-fns';
 import type { PublicHoliday } from './holidays/page';
 
 const holidaySchema = z.object({
@@ -81,9 +81,13 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
       if (isEditMode && editingItem) {
         let formDate;
         if(editingItem.date) {
-            const [year, month, day] = editingItem.date.split('-').map(Number);
-            formDate = new Date(year, month - 1, day);
+            // Firestore date is a string yyyy-MM-dd, so we need to parse it carefully to avoid timezone issues.
+            const dateParts = editingItem.date.split('-').map(Number);
+            if(dateParts.length === 3) {
+              formDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            }
         } else if (editingItem.isRecurring && editingItem.month && editingItem.day) {
+            // For recurring dates, just use the current year for the picker.
             formDate = new Date(new Date().getFullYear(), editingItem.month - 1, editingItem.day);
         }
         form.reset({
@@ -182,7 +186,7 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
                         <PopoverTrigger asChild>
                             <FormControl>
                             <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                {field.value ? (
+                                {field.value && isValid(new Date(field.value)) ? (
                                     format(new Date(field.value), isRecurring ? 'MM-dd' : 'yyyy-MM-dd')
                                 ) : (
                                     <span>Огноо сонгох</span>
