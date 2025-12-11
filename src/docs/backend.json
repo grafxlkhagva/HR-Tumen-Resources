@@ -668,8 +668,9 @@
         "description": "Цагтай холбоотой ерөнхий тохиргоог хадгална.",
         "type": "object",
         "properties": {
-            "periodStartDay": { "type": "number", "description": "Сар бүрийн цалин/цагийн тайлан эхлэх өдөр." },
-            "periodEndDay": { "type": "number", "description": "Сар бүрийн цалин/цагийн тайлан дуусах өдөр." },
+            "periodType": { "type": "string", "enum": ["CALENDAR_MONTH", "SHIFTED_MONTH"], "description": "Цагийн тайлангийн үеийн төрөл." },
+            "periodStartDay": { "type": "number", "description": "'SHIFTED_MONTH' үед сар бүрийн цалин/цагийн тайлан эхлэх өдөр." },
+            "periodShiftEndDay": { "type": "number", "description": "'SHIFTED_MONTH' үед сар бүрийн цалин/цагийн тайлан дуусах өдөр." },
             "nightShiftStartTime": { "type": "string", "format": "time", "description": "Шөнийн цаг тооцож эхлэх цаг." },
             "nightShiftEndTime": { "type": "string", "format": "time", "description": "Шөнийн цаг тооцож дуусах цаг." },
             "compensatoryOffPeriod": { "type": "string", "enum": ["monthly", "quarterly", "yearly"], "description": "Нөхөн амралтын хугацааг тооцох давтамж." }

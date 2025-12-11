@@ -43,19 +43,29 @@ type WorkScheduleItem = ReferenceItem & {
 };
 
 type TimeConfig = {
+    periodType?: 'CALENDAR_MONTH' | 'SHIFTED_MONTH';
     periodStartDay?: number;
-    periodEndDay?: number;
+    periodShiftEndDay?: number;
     nightShiftStartTime?: string;
     nightShiftEndTime?: string;
     compensatoryOffPeriod?: 'monthly' | 'quarterly' | 'yearly';
 }
 
 const timeConfigSchema = z.object({
-    periodStartDay: z.coerce.number().min(1).max(31),
-    periodEndDay: z.coerce.number().min(1).max(31),
+    periodType: z.enum(['CALENDAR_MONTH', 'SHIFTED_MONTH']),
+    periodStartDay: z.coerce.number().min(1).max(31).optional(),
+    periodShiftEndDay: z.coerce.number().min(1).max(31).optional(),
     nightShiftStartTime: z.string().regex(/^(?:2[0-3]|[01]?[0-9]):[0-5][0-9]$/, 'Цагийн формат буруу (HH:MM)'),
     nightShiftEndTime: z.string().regex(/^(?:2[0-3]|[01]?[0-9]):[0-5][0-9]$/, 'Цагийн формат буруу (HH:MM)'),
     compensatoryOffPeriod: z.enum(['monthly', 'quarterly', 'yearly']),
+}).refine((data) => {
+    if (data.periodType === 'SHIFTED_MONTH') {
+        return !!data.periodStartDay && !!data.periodShiftEndDay;
+    }
+    return true;
+}, {
+    message: "Эхлэх болон дуусах өдрийг заавал оруулах шаардлагатай.",
+    path: ["periodStartDay"],
 });
 
 type TimeConfigFormValues = z.infer<typeof timeConfigSchema>;
@@ -70,8 +80,9 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
     const form = useForm<TimeConfigFormValues>({
         resolver: zodResolver(timeConfigSchema),
         defaultValues: {
+            periodType: initialData.periodType || 'CALENDAR_MONTH',
             periodStartDay: initialData.periodStartDay || 26,
-            periodEndDay: initialData.periodEndDay || 25,
+            periodShiftEndDay: initialData.periodShiftEndDay || 25,
             nightShiftStartTime: initialData.nightShiftStartTime || '22:00',
             nightShiftEndTime: initialData.nightShiftEndTime || '06:00',
             compensatoryOffPeriod: initialData.compensatoryOffPeriod || 'monthly',
@@ -83,19 +94,38 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
         setDocumentNonBlocking(configRef, data, { merge: true });
         toast({ title: 'Амжилттай хадгаллаа' });
     }
+    
+    const periodType = form.watch('periodType');
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <Card>
-                    <CardHeader><CardTitle>Цагийн тайлангийн үе</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="periodStartDay" render={({ field }) => (
-                            <FormItem><FormLabel>Эхлэх өдөр</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <CardHeader>
+                        <CardTitle>Цагийн тайлангийн үе</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <FormField control={form.control} name="periodType" render={({ field }) => (
+                            <FormItem><FormLabel>Үеийн төрөл</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="CALENDAR_MONTH">Календарийн сар (1-нээс сарын сүүлч)</SelectItem>
+                                        <SelectItem value="SHIFTED_MONTH">Тодорхой өдрөөр</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="periodEndDay" render={({ field }) => (
-                            <FormItem><FormLabel>Дуусах өдөр</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
+                        {periodType === 'SHIFTED_MONTH' && (
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField control={form.control} name="periodStartDay" render={({ field }) => (
+                                    <FormItem><FormLabel>Эхлэх өдөр</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name="periodShiftEndDay" render={({ field }) => (
+                                    <FormItem><FormLabel>Дуусах өдөр</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
                 <Card>
