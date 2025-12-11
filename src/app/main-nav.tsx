@@ -138,7 +138,7 @@ export function MainNav() {
                     asChild
                     isActive={pathname.startsWith('/dashboard/settings/time-off')}
                     >
-                    <Link href="/dashboard/settings/time-off">Цаг ба Ирц</Link>
+                    <Link href="/dashboard/settings/time-off">цаг бүртгэл</Link>
                     </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
                 <SidebarMenuSubItem>
