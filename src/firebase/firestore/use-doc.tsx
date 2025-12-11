@@ -1,6 +1,6 @@
 'use client';
     
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -44,17 +44,23 @@ export function useDoc<T = any>(
   const [data, setData] = useState<WithId<T> | null>(null);
   const [isLoading, setIsLoading] = useState(!!docRef);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+        isMountedRef.current = false;
+    };
+  }, []);
 
-  // Use the path as a stable dependency
   const path = docRef ? docRef.path : null;
 
   useEffect(() => {
-    // If the document reference is not provided, reset state and do nothing.
     if (!docRef || !firestore) {
       setIsLoading(false);
       setData(null);
       setError(null);
-      return () => {}; // Return an empty cleanup function
+      return () => {}; 
     }
 
     setIsLoading(true);
@@ -62,16 +68,17 @@ export function useDoc<T = any>(
     const unsubscribe = onSnapshot(
       docRef,
       (snapshot: DocumentSnapshot<DocumentData>) => {
+        if (!isMountedRef.current) return;
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
         } else {
-          // Document does not exist
           setData(null);
         }
-        setError(null); // Clear any previous error on successful snapshot
+        setError(null);
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        if (!isMountedRef.current) return;
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: docRef.path,
@@ -81,7 +88,6 @@ export function useDoc<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );

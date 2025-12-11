@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   onSnapshot,
   Query,
@@ -35,9 +35,16 @@ export function useCollection<T = DocumentData>(
   const [data, setData] = useState<(T & { id: string })[]>([]);
   const [error, setError] = useState<FirestoreError | null>(null);
 
-  // Memoize stable properties of the query/reference to use in the dependency array
   const path = refOrQuery ? (refOrQuery as any).path : null;
   const queryConstraints = refOrQuery ? JSON.stringify((refOrQuery as any)._query?.constraints) : null;
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+        isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!refOrQuery || !firestore) {
@@ -52,6 +59,7 @@ export function useCollection<T = DocumentData>(
     const unsubscribe = onSnapshot(
       refOrQuery,
       (snapshot) => {
+        if (!isMountedRef.current) return;
         const docs = snapshot.docs.map(
           (doc) =>
             ({
@@ -64,6 +72,7 @@ export function useCollection<T = DocumentData>(
         setError(null);
       },
       (err: FirestoreError) => {
+        if (!isMountedRef.current) return;
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path: path || 'unknown_path',
