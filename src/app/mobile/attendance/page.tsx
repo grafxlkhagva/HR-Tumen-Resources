@@ -393,17 +393,21 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     const attendanceLogQuery = useMemoFirebase(() => firestore ? query(
         collection(firestore, 'attendance'),
         where('employeeId', '==', employeeId),
-        orderBy('date', 'desc'),
         limit(30)
     ) : null, [firestore, employeeId]);
     
     const { data: logs, isLoading } = useCollection<AttendanceRecord>(attendanceLogQuery);
+    
+    const sortedLogs = React.useMemo(() => {
+        if (!logs) return [];
+        return [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [logs]);
 
     if (isLoading) {
         return <div className="space-y-2 pt-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
     }
 
-    if (!logs || logs.length === 0) {
+    if (!sortedLogs || sortedLogs.length === 0) {
         return (
              <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg mt-4">
                 <History className="mx-auto h-12 w-12" />
@@ -415,7 +419,7 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     return (
         <div className="space-y-4">
              <h2 className="text-lg font-semibold mt-6">Сүүлийн 30 хоногийн ирц</h2>
-             {logs.map(log => (
+             {sortedLogs.map(log => (
                  <Card key={log.id} className="p-4">
                      <div className="flex justify-between items-center">
                          <div className="font-semibold">{format(new Date(log.date), 'yyyy.MM.dd, EEEE', { locale: mn })}</div>
