@@ -132,7 +132,10 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader><CardTitle>Шөнийн ээлжийн цаг</CardTitle></CardHeader>
+                    <CardHeader>
+                        <CardTitle>Шөнийн цаг</CardTitle>
+                        <CardDescription>Энд тохируулсан цагийн хооронд ажилласан тохиолдолд шөнийн цагийн нэмэгдэл тооцно.</CardDescription>
+                    </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="nightShiftStartTime" render={({ field }) => (
                             <FormItem><FormLabel>Эхлэх цаг</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
