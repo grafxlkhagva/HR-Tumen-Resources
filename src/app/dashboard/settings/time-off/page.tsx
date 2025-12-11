@@ -7,7 +7,7 @@ import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-ta
 import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,9 +29,6 @@ import { format, differenceInMinutes, parse } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // --- Type Definitions ---
-
-type SimpleReferenceItem = ReferenceItem & { name: string };
-type HolidayReferenceItem = ReferenceItem & { name: string; date: string; };
 
 type WorkScheduleItem = ReferenceItem & { 
   name: string;
@@ -173,40 +170,12 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
     )
 }
 
-function TimeOffRequestConfigCard() {
-    const configRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), []);
-    const { data: config, isLoading } = useDoc<TimeOffRequestConfig>(configRef);
-    const initialData = config || { requestDeadlineDays: 3 };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
-                <CardDescription>Ажилтан чөлөөний хүсэлтээ хэдэн хоногийн дотор гаргахыг тохируулах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {isLoading ? (
-                    <div className="space-y-4">
-                        <div className="space-y-2 max-w-sm"><Skeleton className="h-4 w-48" /><Skeleton className="h-10 w-full" /></div>
-                        <Skeleton className="h-10 w-28" />
-                    </div>
-                 ) : (
-                    <p>{initialData.requestDeadlineDays} хоногийн өмнө</p>
-                 )}
-            </CardContent>
-        </Card>
-    );
-}
-
 export default function TimeAndAttendanceSettingsPage() {
   const timeOffRequestTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<SimpleReferenceItem>(timeOffRequestTypesQuery);
+  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection(timeOffRequestTypesQuery);
   
   const workSchedulesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'workSchedules') : null, []);
   const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
-
-  const publicHolidaysQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'publicHolidays') : null, []);
-  const { data: publicHolidays, isLoading: loadingPublicHolidays } = useCollection<HolidayReferenceItem>(publicHolidaysQuery);
 
   const timeConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
   const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
@@ -275,23 +244,24 @@ export default function TimeAndAttendanceSettingsPage() {
                 />
             </CardContent>
         </Card>
+
         {loadingTimeConfig ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
-         <Card>
+        
+        <Card>
             <CardHeader>
                 <CardTitle>Бүх нийтийн амралтын өдрүүд</CardTitle>
-                <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэх.</CardDescription>
+                <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэж, удирдах.</CardDescription>
             </CardHeader>
             <CardContent>
-                <ReferenceTable 
-                    collectionName="publicHolidays"
-                    columns={[{ key: 'date', header: 'Огноо' }, { key: 'name', header: 'Нэр' }]}
-                    itemData={publicHolidays}
-                    isLoading={loadingPublicHolidays}
-                    dialogTitle="Баярын өдөр"
-                />
+                <Button asChild>
+                    <Link href="/dashboard/settings/time-off/holidays">
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Амралтын өдрийн тохиргоо
+                    </Link>
+                </Button>
             </CardContent>
         </Card>
-        <TimeOffRequestConfigCard />
+        
         <Card>
             <CardHeader>
                 <CardTitle>Чөлөөний хүсэлтийн төрөл</CardTitle>

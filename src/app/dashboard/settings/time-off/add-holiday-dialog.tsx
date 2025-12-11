@@ -1,0 +1,226 @@
+'use client';
+
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import {
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
+  useFirebase,
+} from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format, getMonth, getDate } from 'date-fns';
+import type { PublicHoliday } from './holidays/page';
+
+const holidaySchema = z.object({
+  name: z.string().min(1, 'Баярын нэр хоосон байж болохгүй.'),
+  date: z.date().optional(),
+  isRecurring: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+    if (!data.isRecurring && !data.date) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Давтагдахгүй баярын огноог заавал сонгоно уу.',
+            path: ['date'],
+        });
+    }
+     if (data.isRecurring && !data.date) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Давтагдах баярын сар, өдрийг сонгоно уу.',
+            path: ['date'],
+        });
+    }
+});
+
+type HolidayFormValues = z.infer<typeof holidaySchema>;
+
+interface AddHolidayDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingItem?: PublicHoliday | null;
+}
+
+export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHolidayDialogProps) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const isEditMode = !!editingItem;
+  
+  const collectionRef = React.useMemo(() => (firestore ? collection(firestore, 'publicHolidays') : null), [firestore]);
+
+  const form = useForm<HolidayFormValues>({
+    resolver: zodResolver(holidaySchema),
+    defaultValues: {
+      name: '',
+      isRecurring: false,
+    },
+  });
+
+  React.useEffect(() => {
+    if (open) {
+      if (isEditMode && editingItem) {
+        let formDate;
+        if(editingItem.date) {
+            formDate = new Date(editingItem.date);
+        } else if (editingItem.isRecurring && editingItem.month && editingItem.day) {
+            // Create a temporary date for the picker
+            formDate = new Date(new Date().getFullYear(), editingItem.month - 1, editingItem.day);
+        }
+        form.reset({
+            name: editingItem.name,
+            isRecurring: editingItem.isRecurring || false,
+            date: formDate
+        });
+      } else {
+        form.reset({
+          name: '',
+          date: undefined,
+          isRecurring: false,
+        });
+      }
+    }
+  }, [open, editingItem, isEditMode, form]);
+
+  const { isSubmitting } = form.formState;
+
+  const onSubmit = (data: HolidayFormValues) => {
+    if (!collectionRef || !firestore) return;
+    
+    let finalData: Partial<PublicHoliday> = {
+        name: data.name,
+        isRecurring: data.isRecurring,
+    };
+
+    if (data.isRecurring && data.date) {
+        finalData.month = getMonth(data.date) + 1; // getMonth is 0-indexed
+        finalData.day = getDate(data.date);
+        finalData.date = undefined; // Clear the specific date
+    } else if (data.date) {
+        finalData.date = format(data.date, 'yyyy-MM-dd');
+        finalData.month = undefined;
+        finalData.day = undefined;
+    }
+
+    if (isEditMode && editingItem) {
+      const docRef = doc(firestore, 'publicHolidays', editingItem.id);
+      updateDocumentNonBlocking(docRef, finalData);
+      toast({ title: 'Амжилттай шинэчлэгдлээ' });
+    } else {
+      addDocumentNonBlocking(collectionRef, finalData);
+      toast({ title: 'Амжилттай нэмэгдлээ' });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Баярын өдөр засах' : 'Шинэ баярын өдөр'}</DialogTitle>
+              <DialogDescription>
+                Бүх нийтийн амралтын өдрийг бүртгэх.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Баярын нэр</FormLabel>
+                        <FormControl><Input placeholder="Шинэ жил" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="isRecurring"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                        <FormLabel>Жил бүр давтагдах</FormLabel>
+                        <FormDescription>
+                            Хэрэв идэвхжүүлбэл энэ баяр жил бүр сонгосон сар, өдөр тохионо.
+                        </FormDescription>
+                        </div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Огноо</FormLabel>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                {field.value ? (
+                                    format(field.value, 'yyyy-MM-dd')
+                                ) : (
+                                    <span>Огноо сонгох</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Цуцлах
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Хадгалах
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
