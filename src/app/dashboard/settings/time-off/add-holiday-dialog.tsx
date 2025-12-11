@@ -122,8 +122,13 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
         }
     } else {
         finalData.date = format(data.date, 'yyyy-MM-dd');
-        finalData.month = undefined;
-        finalData.day = undefined;
+        // Ensure recurring fields are not set to undefined
+        if ('month' in finalData) {
+            delete finalData.month;
+        }
+        if ('day' in finalData) {
+            delete finalData.day;
+        }
     }
 
     if (isEditMode && editingItem) {
