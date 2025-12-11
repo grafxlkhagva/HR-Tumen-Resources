@@ -31,22 +31,20 @@ export function useCollection<T = DocumentData>(
   refOrQuery: TargetRef<T>
 ): UseCollectionResult<T> {
   const { firestore } = useFirebase();
-  // Initialize isLoading based on whether a valid refOrQuery is provided.
   const [isLoading, setIsLoading] = useState(!!refOrQuery);
   const [data, setData] = useState<(T & { id: string })[]>([]);
   const [error, setError] = useState<FirestoreError | null>(null);
 
   useEffect(() => {
-    // If the reference is not provided, reset state and do nothing.
     if (!refOrQuery || !firestore) {
       setIsLoading(false);
       setData([]);
       setError(null);
-      return () => {}; // Return an empty cleanup function
+      return () => {};
     }
 
     setIsLoading(true);
-    
+
     const unsubscribe = onSnapshot(
       refOrQuery,
       (snapshot) => {
@@ -71,11 +69,8 @@ export function useCollection<T = DocumentData>(
                 path = (target._query.path.segments || []).join('/');
             }
         } catch (e) {
-          // In case accessing internal properties fails, we don't crash.
           console.error("Could not determine path for Firestore error reporting:", e);
         }
-
-        console.error(`[useCollection] Firestore error on path: ${path}`, err);
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',

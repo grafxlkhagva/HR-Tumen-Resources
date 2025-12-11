@@ -76,8 +76,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    // This check is important. Only start the auth listener if we have an auth instance.
-    // The initial state is already set to loading.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => { // Auth state determined
@@ -104,8 +102,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState.user, userAuthState.isUserLoading, userAuthState.userError]);
   
-  // Do not render children until Firebase services are available.
-  // This prevents hooks like useCollection from running with an undefined firestore instance.
   if (!servicesAvailable) {
     return null;
   }
@@ -165,6 +161,7 @@ export const useFirebaseApp = (): FirebaseApp => {
  * A wrapper for React.useMemo that is aware of the Firebase context.
  * This is useful for memoizing Firebase queries or other objects that depend on
  * the Firebase services being available. The factory function will only be
+
  * called when the services are ready.
  */
 export const useMemoFirebase = <T,>(
