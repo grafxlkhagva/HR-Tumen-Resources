@@ -69,6 +69,9 @@ export default function LoginPage() {
 
       const userData = userDoc.data();
       const userRole = userData.role;
+      
+      // Store a cookie to signify login
+      document.cookie = `firebase-auth-token=${await loggedInUser.getIdToken()}; path=/; max-age=3600`;
 
       toast({
           title: 'Амжилттай нэвтэрлээ',
