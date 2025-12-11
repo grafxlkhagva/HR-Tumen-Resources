@@ -58,8 +58,8 @@ export function useCollection<T = DocumentData>(
             } as T & { id: string })
         );
         setData(docs);
-        setError(null);
         setIsLoading(false);
+        setError(null);
       },
       (err: FirestoreError) => {
         let path = "unknown_path";
@@ -75,7 +75,7 @@ export function useCollection<T = DocumentData>(
           console.error("Could not determine path for Firestore error reporting:", e);
         }
 
-        console.error(`[useCollection] Firestore permission error on path: ${path}`, err);
+        console.error(`[useCollection] Firestore error on path: ${path}`, err);
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
