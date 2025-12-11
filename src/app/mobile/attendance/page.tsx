@@ -395,7 +395,7 @@ function calculateDuration(checkInTime: string, checkOutTime?: string): string {
 
 function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     const { firestore } = useFirebase();
-    const attendanceLogQuery = useMemoFirebase(() => firestore ? query(
+    const attendanceLogQuery = useMemoFirebase(() => employeeId ? query(
         collection(firestore, 'attendance'),
         where('employeeId', '==', employeeId),
         orderBy('date', 'desc'),
@@ -406,7 +406,8 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     
     const sortedLogs = React.useMemo(() => {
         if (!logs) return [];
-        return [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // The data is already ordered by Firestore, no need to sort again
+        return logs;
     }, [logs]);
 
     if (isLoading) {
@@ -742,6 +743,8 @@ export default function AttendancePage() {
                         </CardContent>
                     </Card>
 
+                    {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
+
                     {!config && (
                         <Alert>
                             <MapPin className="h-4 w-4" />
@@ -760,7 +763,6 @@ export default function AttendancePage() {
                 </TabsContent>
                 <TabsContent value="overview">
                     {employeeProfile && <MonthlyAttendanceDashboard employeeId={employeeProfile.id} />}
-                    {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
                 </TabsContent>
                  <TabsContent value="requests">
                     <Tabs defaultValue="time-off" className="w-full">
