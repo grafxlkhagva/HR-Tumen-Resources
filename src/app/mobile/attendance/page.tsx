@@ -709,8 +709,8 @@ export default function AttendancePage() {
             <Tabs defaultValue="attendance" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="attendance">Цаг бүртгэл</TabsTrigger>
-                    <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
-                    <TabsTrigger value="other-requests">Ирц</TabsTrigger>
+                    <TabsTrigger value="overview">Тойм</TabsTrigger>
+                    <TabsTrigger value="requests">Хүсэлт</TabsTrigger>
                 </TabsList>
                 <TabsContent value="attendance" className="space-y-6">
                      {error && (
@@ -742,10 +742,6 @@ export default function AttendancePage() {
                         </CardContent>
                     </Card>
 
-                    {employeeProfile && <MonthlyAttendanceDashboard employeeId={employeeProfile.id} />}
-
-                    {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
-
                     {!config && (
                         <Alert>
                             <MapPin className="h-4 w-4" />
@@ -762,11 +758,23 @@ export default function AttendancePage() {
                         </Alert>
                     )}
                 </TabsContent>
-                <TabsContent value="time-off">
-                    {employeeProfile ? <TimeOffHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
+                <TabsContent value="overview">
+                    {employeeProfile && <MonthlyAttendanceDashboard employeeId={employeeProfile.id} />}
+                    {employeeProfile ? <AttendanceLogHistory employeeId={employeeProfile.id} /> : null}
                 </TabsContent>
-                 <TabsContent value="other-requests">
-                    {employeeProfile ? <AttendanceRequestHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
+                 <TabsContent value="requests">
+                    <Tabs defaultValue="time-off" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
+                            <TabsTrigger value="attendance">Ирц</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="time-off">
+                            {employeeProfile ? <TimeOffHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
+                        </TabsContent>
+                        <TabsContent value="attendance">
+                            {employeeProfile ? <AttendanceRequestHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
+                        </TabsContent>
+                    </Tabs>
                 </TabsContent>
             </Tabs>
              <div className="fixed bottom-20 right-4 z-50">
