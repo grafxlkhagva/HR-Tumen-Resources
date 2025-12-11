@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, ArrowRight, ArrowLeft, CheckCircle, Loader2, WifiOff, MapPin, Smartphone, FilePlus, Calendar as CalendarIcon, FileText, PlusCircle, History, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, addDays, isWeekend, differenceInMinutes, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addDays, isWeekend, differenceInMinutes, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
@@ -398,6 +398,7 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     const attendanceLogQuery = useMemoFirebase(() => firestore ? query(
         collection(firestore, 'attendance'),
         where('employeeId', '==', employeeId),
+        orderBy('date', 'desc'),
         limit(30)
     ) : null, [firestore, employeeId]);
     
@@ -531,8 +532,8 @@ function MonthlyAttendanceDashboard({ employeeId }: { employeeId: string }) {
                            return <div className="flex items-center justify-between px-4 py-2 relative">
                                 <h2 className="font-semibold">{format(props.displayMonth, 'yyyy оны MMMM', { locale: mn })}</h2>
                                 <div className="flex gap-1">
-                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addDays(currentMonth, -30))}><ChevronLeft className="h-4 w-4" /></Button>
-                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addDays(currentMonth, 30))}><ChevronRight className="h-4 w-4" /></Button>
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}><ChevronLeft className="h-4 w-4" /></Button>
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
                                 </div>
                            </div>
                         }
@@ -599,9 +600,10 @@ export default function AttendancePage() {
     const todaysRecord = attendanceRecords?.[0];
 
     React.useEffect(() => {
-        setCurrentTime(new Date());
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
+        // This useEffect runs only on the client, after hydration
+        setCurrentTime(new Date()); // Set the initial time
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000); // Update every second
+        return () => clearInterval(timer); // Cleanup timer on unmount
     }, []);
 
      const disabledDates = React.useMemo(() => {
