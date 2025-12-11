@@ -10,7 +10,7 @@ import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, getYear } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { ReferenceTable, ReferenceItem } from "@/components/ui/reference-table";
+import { ReferenceTable, ReferenceItem } from "../../../../../components/ui/reference-table";
 import { AddHolidayDialog } from '../add-holiday-dialog';
 
 export type PublicHoliday = ReferenceItem & {
