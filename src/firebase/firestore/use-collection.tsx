@@ -46,7 +46,7 @@ export function useCollection<T = DocumentData>(
     }
 
     setIsLoading(true);
-
+    
     const unsubscribe = onSnapshot(
       refOrQuery,
       (snapshot) => {
@@ -58,8 +58,8 @@ export function useCollection<T = DocumentData>(
             } as T & { id: string })
         );
         setData(docs);
-        setIsLoading(false);
         setError(null);
+        setIsLoading(false);
       },
       (err: FirestoreError) => {
         let path = "unknown_path";
@@ -67,8 +67,8 @@ export function useCollection<T = DocumentData>(
             const target = refOrQuery as any;
             if (target.path) {
                 path = target.path;
-            } else if (target._query?.path?.toString) {
-                path = target._query.path.toString();
+            } else if (target._query?.path) {
+                path = (target._query.path.segments || []).join('/');
             }
         } catch (e) {
           // In case accessing internal properties fails, we don't crash.

@@ -55,8 +55,6 @@ export function useDoc<T = any>(
     }
 
     setIsLoading(true);
-    setError(null);
-    setData(null);
 
     const unsubscribe = onSnapshot(
       docRef,
