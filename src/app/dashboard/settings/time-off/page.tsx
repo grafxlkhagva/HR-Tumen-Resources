@@ -280,7 +280,7 @@ export default function TimeAndAttendanceSettingsPage() {
         
         <Card>
             <CardHeader>
-                <CardTitle>Чөлөөний хүсэлтийн төрөл</CardTitle>
+                <CardTitle>Ирцийн хүсэлтийн төрөл</CardTitle>
                 <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
             </CardHeader>
             <CardContent>
