@@ -406,8 +406,7 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     
     const sortedLogs = React.useMemo(() => {
         if (!logs) return [];
-        // The data is already ordered by Firestore, no need to sort again
-        return logs;
+        return [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [logs]);
 
     if (isLoading) {
@@ -764,11 +763,19 @@ export default function AttendancePage() {
                 <TabsContent value="overview">
                     {employeeProfile && <MonthlyAttendanceDashboard employeeId={employeeProfile.id} />}
                 </TabsContent>
-                 <TabsContent value="requests">
+                 <TabsContent value="requests" className="space-y-4">
+                    <Button 
+                        className="w-full"
+                        onClick={() => setIsRequestDialogOpen(true)}
+                        disabled={isLoading}
+                    >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Шинэ хүсэлт илгээх
+                    </Button>
                     <Tabs defaultValue="time-off" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
-                            <TabsTrigger value="attendance">Ирц</TabsTrigger>
+                            <TabsTrigger value="time-off">Чөлөөний</TabsTrigger>
+                            <TabsTrigger value="attendance">Ирцийн</TabsTrigger>
                         </TabsList>
                         <TabsContent value="time-off">
                             {employeeProfile ? <TimeOffHistory employeeId={employeeProfile.id} /> : <p>Ачааллаж байна...</p>}
@@ -779,16 +786,6 @@ export default function AttendancePage() {
                     </Tabs>
                 </TabsContent>
             </Tabs>
-             <div className="fixed bottom-20 right-4 z-50">
-                <Button 
-                    className="rounded-full w-14 h-14 shadow-lg"
-                    onClick={() => setIsRequestDialogOpen(true)}
-                    disabled={isLoading}
-                >
-                    <PlusCircle className="h-7 w-7" />
-                    <span className="sr-only">Шинэ хүсэлт</span>
-                </Button>
-            </div>
         </div>
     );
 }
