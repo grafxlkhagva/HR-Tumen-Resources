@@ -54,6 +54,7 @@ import {
 import { collection, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from './switch';
 
 export interface ReferenceItem {
   id: string;
@@ -204,6 +205,7 @@ export function ReferenceTable({
           collectionRef={collectionRef}
           dialogTitle={dialogTitle}
           enableFieldDefs={enableFieldDefs}
+          collectionName={collectionName}
         />
       )}
     </>
@@ -219,6 +221,7 @@ interface ReferenceItemDialogProps {
   collectionRef: any;
   dialogTitle: string;
   enableFieldDefs?: boolean;
+  collectionName: string;
 }
 
 function ReferenceItemDialog({
@@ -229,6 +232,7 @@ function ReferenceItemDialog({
   collectionRef,
   dialogTitle,
   enableFieldDefs,
+  collectionName,
 }: ReferenceItemDialogProps) {
   const isEditMode = !!item;
 
@@ -246,8 +250,11 @@ function ReferenceItemDialog({
         type: z.enum(['text', 'number', 'date']),
       })).optional();
     }
+    if (collectionName === 'timeOffRequestTypes') {
+        shape.paid = z.boolean().default(false);
+    }
     return z.object(shape);
-  }, [columns, enableFieldDefs]);
+  }, [columns, enableFieldDefs, collectionName]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -267,16 +274,22 @@ function ReferenceItemDialog({
              defaultValues[col.key] = item[col.key] || (col.key === 'fields' ? [] : '');
            }
         });
+        if (collectionName === 'timeOffRequestTypes') {
+            defaultValues.paid = item.paid || false;
+        }
       } else {
         columns.forEach(col => {
           if (!col.render) {
             defaultValues[col.key] = col.key === 'fields' ? [] : '';
           }
         });
+        if (collectionName === 'timeOffRequestTypes') {
+            defaultValues.paid = false;
+        }
       }
       form.reset(defaultValues);
     }
-  }, [open, item, isEditMode, columns, form]);
+  }, [open, item, isEditMode, columns, form, collectionName]);
 
   const { isSubmitting } = form.formState;
   const { firestore } = useFirebase();
@@ -322,6 +335,26 @@ function ReferenceItemDialog({
                     )}
                     />
                 ))}
+
+                {collectionName === 'timeOffRequestTypes' && (
+                    <FormField
+                        control={form.control}
+                        name="paid"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel>Цалинтай эсэх</FormLabel>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                )}
 
                 {enableFieldDefs && (
                     <div>

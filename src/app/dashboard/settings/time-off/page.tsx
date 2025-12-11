@@ -39,6 +39,11 @@ type WorkScheduleItem = ReferenceItem & {
   endTime?: string;
 };
 
+type TimeOffRequestTypeItem = ReferenceItem & {
+    name: string;
+    paid: boolean;
+}
+
 type TimeConfig = {
     periodType?: 'CALENDAR_MONTH' | 'SHIFTED_MONTH';
     periodStartDay?: number;
@@ -172,7 +177,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
 
 export default function TimeAndAttendanceSettingsPage() {
   const timeOffRequestTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection(timeOffRequestTypesQuery);
+  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<TimeOffRequestTypeItem>(timeOffRequestTypesQuery);
   
   const workSchedulesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'workSchedules') : null, []);
   const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
@@ -207,6 +212,17 @@ export default function TimeAndAttendanceSettingsPage() {
         header: 'Төлөв',
         render: (item: WorkScheduleItem) => (
              <Badge variant={item.isActive ? 'default' : 'destructive'}>{item.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</Badge>
+        )
+    },
+  ];
+
+   const timeOffRequestTypeColumns = [
+    { key: 'name', header: 'Нэр' },
+    { 
+        key: 'paid', 
+        header: 'Төлбөр',
+        render: (item: TimeOffRequestTypeItem) => (
+            <Badge variant={item.paid ? 'secondary' : 'outline'}>{item.paid ? 'Цалинтай' : 'Цалингүй'}</Badge>
         )
     },
   ];
@@ -270,7 +286,7 @@ export default function TimeAndAttendanceSettingsPage() {
             <CardContent>
                 <ReferenceTable 
                     collectionName="timeOffRequestTypes"
-                    columns={[{ key: 'name', header: 'Нэр' }]}
+                    columns={timeOffRequestTypeColumns}
                     itemData={timeOffRequestTypes}
                     isLoading={loadingTimeOffRequestTypes}
                     dialogTitle="Хүсэлтийн төрөл"
