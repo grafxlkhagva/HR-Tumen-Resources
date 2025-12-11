@@ -48,7 +48,7 @@ type TimeConfig = {
     periodShiftEndDay?: number;
     nightShiftStartTime?: string;
     nightShiftEndTime?: string;
-    compensatoryOffPeriod?: 'monthly' | 'quarterly' | 'yearly';
+    compensatoryOffPeriod?: 'quarterly' | 'yearly';
 }
 
 const timeConfigSchema = z.object({
@@ -57,7 +57,7 @@ const timeConfigSchema = z.object({
     periodShiftEndDay: z.coerce.number().min(1).max(31).optional(),
     nightShiftStartTime: z.string().regex(/^(?:2[0-3]|[01]?[0-9]):[0-5][0-9]$/, 'Цагийн формат буруу (HH:MM)'),
     nightShiftEndTime: z.string().regex(/^(?:2[0-3]|[01]?[0-9]):[0-5][0-9]$/, 'Цагийн формат буруу (HH:MM)'),
-    compensatoryOffPeriod: z.enum(['monthly', 'quarterly', 'yearly']),
+    compensatoryOffPeriod: z.enum(['quarterly', 'yearly']),
 }).refine((data) => {
     if (data.periodType === 'SHIFTED_MONTH') {
         return !!data.periodStartDay && !!data.periodShiftEndDay;
@@ -85,7 +85,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
             periodShiftEndDay: initialData.periodShiftEndDay || 25,
             nightShiftStartTime: initialData.nightShiftStartTime || '22:00',
             nightShiftEndTime: initialData.nightShiftEndTime || '06:00',
-            compensatoryOffPeriod: initialData.compensatoryOffPeriod || 'monthly',
+            compensatoryOffPeriod: initialData.compensatoryOffPeriod || 'quarterly',
         },
     });
 
@@ -146,14 +146,16 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                     </CardContent>
                 </Card>
                  <Card>
-                    <CardHeader><CardTitle>Нөхөн амралтын бодлого</CardTitle></CardHeader>
+                    <CardHeader>
+                        <CardTitle>Нөхөн амралтын бодлого</CardTitle>
+                        <CardDescription>Ажиллах ёстой цагаас хэтрүүлэн ажилласан цагийг сонгосон улирал эсвэл жилийн хугацаанд багтаан тооцож, нөхөн амраана.</CardDescription>
+                    </CardHeader>
                     <CardContent>
                         <FormField control={form.control} name="compensatoryOffPeriod" render={({ field }) => (
                             <FormItem><FormLabel>Нөхөн амралт бодох үе</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        <SelectItem value="monthly">Сар бүр</SelectItem>
                                         <SelectItem value="quarterly">Улирал бүр</SelectItem>
                                         <SelectItem value="yearly">Жил бүр</SelectItem>
                                     </SelectContent>

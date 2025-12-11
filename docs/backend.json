@@ -673,7 +673,7 @@
             "periodShiftEndDay": { "type": "number", "description": "'SHIFTED_MONTH' үед сар бүрийн цалин/цагийн тайлан дуусах өдөр." },
             "nightShiftStartTime": { "type": "string", "format": "time", "description": "Шөнийн цаг тооцож эхлэх цаг." },
             "nightShiftEndTime": { "type": "string", "format": "time", "description": "Шөнийн цаг тооцож дуусах цаг." },
-            "compensatoryOffPeriod": { "type": "string", "enum": ["monthly", "quarterly", "yearly"], "description": "Нөхөн амралтын хугацааг тооцох давтамж." }
+            "compensatoryOffPeriod": { "type": "string", "enum": ["quarterly", "yearly"], "description": "Нөхөн амралтын хугацааг тооцох давтамж." }
         }
     },
     "PublicHoliday": {
