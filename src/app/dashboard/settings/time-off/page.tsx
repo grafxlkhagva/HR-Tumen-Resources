@@ -53,6 +53,12 @@ type TimeConfig = {
     compensatoryOffPeriod?: 'quarterly' | 'yearly';
 }
 
+type TimeOffRequestConfig = {
+    requestDeadlineDays: number;
+}
+
+// --- Zod Schemas ---
+
 const timeConfigSchema = z.object({
     periodType: z.enum(['CALENDAR_MONTH', 'SHIFTED_MONTH']),
     periodStartDay: z.coerce.number().min(1).max(31).optional(),
@@ -71,6 +77,13 @@ const timeConfigSchema = z.object({
 });
 
 type TimeConfigFormValues = z.infer<typeof timeConfigSchema>;
+
+const timeOffRequestConfigSchema = z.object({
+    requestDeadlineDays: z.coerce.number().min(0, "Хоног 0-ээс бага байж болохгүй."),
+});
+
+type TimeOffRequestConfigFormValues = z.infer<typeof timeOffRequestConfigSchema>;
+
 
 // --- Components ---
 
@@ -174,6 +187,68 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
     )
 }
 
+function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOffRequestConfigFormValues> }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
+
+    const form = useForm<TimeOffRequestConfigFormValues>({
+        resolver: zodResolver(timeOffRequestConfigSchema),
+        defaultValues: {
+            requestDeadlineDays: initialData.requestDeadlineDays || 0,
+        },
+    });
+
+     React.useEffect(() => {
+        form.reset({
+            requestDeadlineDays: initialData.requestDeadlineDays || 0,
+        });
+    }, [initialData, form]);
+
+    const onSubmit = (data: TimeOffRequestConfigFormValues) => {
+        if (!configRef) return;
+        setDocumentNonBlocking(configRef, data, { merge: true });
+        toast({ title: 'Амжилттай хадгаллаа' });
+    }
+
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
+                        <CardDescription>Чөлөө авахтай холбоотой ерөнхий дүрмүүдийг энд тохируулна уу.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <FormField
+                            control={form.control}
+                            name="requestDeadlineDays"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Хүсэлт гаргах эцсийн хугацаа (хоногоор)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="Жишээ нь: 3" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Ажилтан чөлөө авах өдрөөс дор хаяж хэдэн хоногийн өмнө хүсэлтээ илгээх ёстойг заана.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="submit" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Хадгалах
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </form>
+        </Form>
+    )
+}
+
 export default function TimeAndAttendanceSettingsPage() {
   const timeOffRequestTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
   const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<TimeOffRequestTypeItem>(timeOffRequestTypesQuery);
@@ -183,6 +258,9 @@ export default function TimeAndAttendanceSettingsPage() {
 
   const timeConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
   const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
+  
+  const timeOffConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), []);
+  const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef);
   
   const workScheduleColumns = [
     { key: 'name', header: 'Нэр' },
@@ -225,6 +303,8 @@ export default function TimeAndAttendanceSettingsPage() {
         )
     },
   ];
+  
+  const isLoading = loadingTimeOffConfig || loadingTimeConfig;
 
   return (
     <div className="py-8">
@@ -260,7 +340,9 @@ export default function TimeAndAttendanceSettingsPage() {
             </CardContent>
         </Card>
 
-        {loadingTimeConfig ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
+        {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeOffRequestConfigForm initialData={timeOffConfigData || {}} />}
+
+        {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
         
         <Card>
             <CardHeader>
