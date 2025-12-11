@@ -35,6 +35,10 @@ export function useCollection<T = DocumentData>(
   const [data, setData] = useState<(T & { id: string })[]>([]);
   const [error, setError] = useState<FirestoreError | null>(null);
 
+  // Memoize stable properties of the query/reference to use in the dependency array
+  const path = refOrQuery ? (refOrQuery as any).path : null;
+  const queryConstraints = refOrQuery ? JSON.stringify((refOrQuery as any)._query?.constraints) : null;
+
   useEffect(() => {
     if (!refOrQuery || !firestore) {
       setIsLoading(false);
@@ -60,21 +64,9 @@ export function useCollection<T = DocumentData>(
         setError(null);
       },
       (err: FirestoreError) => {
-        let path = "unknown_path";
-        try {
-            const target = refOrQuery as any;
-            if (target.path) {
-                path = target.path;
-            } else if (target._query?.path) {
-                path = (target._query.path.segments || []).join('/');
-            }
-        } catch (e) {
-          console.error("Could not determine path for Firestore error reporting:", e);
-        }
-
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path,
+          path: path || 'unknown_path',
         })
         
         setError(contextualError);
@@ -85,7 +77,8 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [refOrQuery, firestore]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, queryConstraints, firestore]);
 
   return { data, isLoading, error };
 }

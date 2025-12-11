@@ -45,6 +45,9 @@ export function useDoc<T = any>(
   const [isLoading, setIsLoading] = useState(!!docRef);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  // Use the path as a stable dependency
+  const path = docRef ? docRef.path : null;
+
   useEffect(() => {
     // If the document reference is not provided, reset state and do nothing.
     if (!docRef || !firestore) {
@@ -69,7 +72,6 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        console.error(`[useDoc] Firestore permission error on path: ${docRef.path}`, err);
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: docRef.path,
@@ -85,7 +87,8 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [docRef, firestore]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, firestore]); 
 
   return { data, isLoading, error };
 }
