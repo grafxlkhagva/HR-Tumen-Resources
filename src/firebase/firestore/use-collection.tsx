@@ -31,7 +31,7 @@ export function useCollection<T = DocumentData>(
   refOrQuery: TargetRef<T>
 ): UseCollectionResult<T> {
   const { firestore } = useFirebase();
-  const [isLoading, setIsLoading] = useState(!!refOrQuery);
+  const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<(T & { id: string })[]>([]);
   const [error, setError] = useState<FirestoreError | null>(null);
 
