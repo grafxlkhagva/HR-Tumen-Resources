@@ -81,11 +81,9 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
       if (isEditMode && editingItem) {
         let formDate;
         if(editingItem.date) {
-            // Need to add 1 to day because of timezone issues. new Date('2024-01-01') can become 2023-12-31.
             const [year, month, day] = editingItem.date.split('-').map(Number);
             formDate = new Date(year, month - 1, day);
         } else if (editingItem.isRecurring && editingItem.month && editingItem.day) {
-            // Create a temporary date for the picker
             formDate = new Date(new Date().getFullYear(), editingItem.month - 1, editingItem.day);
         }
         form.reset({
@@ -185,7 +183,7 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
                             <FormControl>
                             <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
                                 {field.value ? (
-                                    format(field.value, isRecurring ? 'MM-dd' : 'yyyy-MM-dd')
+                                    format(new Date(field.value), isRecurring ? 'MM-dd' : 'yyyy-MM-dd')
                                 ) : (
                                     <span>Огноо сонгох</span>
                                 )}
