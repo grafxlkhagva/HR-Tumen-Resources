@@ -74,6 +74,8 @@ interface ReferenceTableProps {
   dialogTitle: string;
   enableFieldDefs?: boolean;
   dialogComponent?: React.ComponentType<any>;
+  hideAddButton?: boolean;
+  onEdit?: (item: ReferenceItem) => void;
 }
 
 export function ReferenceTable({
@@ -84,6 +86,8 @@ export function ReferenceTable({
   dialogTitle,
   enableFieldDefs = false,
   dialogComponent: DialogComponent,
+  hideAddButton = false,
+  onEdit,
 }: ReferenceTableProps) {
   const [open, setOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReferenceItem | null>(null);
@@ -100,8 +104,12 @@ export function ReferenceTable({
   };
 
   const handleEdit = (item: ReferenceItem) => {
-    setEditingItem(item);
-    setOpen(true);
+    if (onEdit) {
+      onEdit(item);
+    } else {
+      setEditingItem(item);
+      setOpen(true);
+    }
   };
 
   const handleDelete = (item: ReferenceItem) => {
@@ -112,12 +120,14 @@ export function ReferenceTable({
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <Button size="sm" onClick={handleAddNew}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Шинээр нэмэх
-        </Button>
-      </div>
+      {!hideAddButton && (
+        <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={handleAddNew}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Шинээр нэмэх
+            </Button>
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>

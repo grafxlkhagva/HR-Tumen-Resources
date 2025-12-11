@@ -43,17 +43,10 @@ const holidaySchema = z.object({
   date: z.date().optional(),
   isRecurring: z.boolean().default(false),
 }).superRefine((data, ctx) => {
-    if (!data.isRecurring && !data.date) {
+    if (!data.date) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Давтагдахгүй баярын огноог заавал сонгоно уу.',
-            path: ['date'],
-        });
-    }
-     if (data.isRecurring && !data.date) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Давтагдах баярын сар, өдрийг сонгоно уу.',
+            message: 'Огноог заавал сонгоно уу.',
             path: ['date'],
         });
     }
@@ -87,7 +80,9 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
       if (isEditMode && editingItem) {
         let formDate;
         if(editingItem.date) {
-            formDate = new Date(editingItem.date);
+            // Need to add 1 to day because of timezone issues. new Date('2024-01-01') can become 2023-12-31.
+            const [year, month, day] = editingItem.date.split('-').map(Number);
+            formDate = new Date(year, month - 1, day);
         } else if (editingItem.isRecurring && editingItem.month && editingItem.day) {
             // Create a temporary date for the picker
             formDate = new Date(new Date().getFullYear(), editingItem.month - 1, editingItem.day);
@@ -110,18 +105,18 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
   const { isSubmitting } = form.formState;
 
   const onSubmit = (data: HolidayFormValues) => {
-    if (!collectionRef || !firestore) return;
+    if (!collectionRef || !firestore || !data.date) return;
     
     let finalData: Partial<PublicHoliday> = {
         name: data.name,
         isRecurring: data.isRecurring,
     };
 
-    if (data.isRecurring && data.date) {
+    if (data.isRecurring) {
         finalData.month = getMonth(data.date) + 1; // getMonth is 0-indexed
         finalData.day = getDate(data.date);
         finalData.date = undefined; // Clear the specific date
-    } else if (data.date) {
+    } else {
         finalData.date = format(data.date, 'yyyy-MM-dd');
         finalData.month = undefined;
         finalData.day = undefined;
@@ -137,6 +132,8 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
     }
     onOpenChange(false);
   };
+  
+  const isRecurring = form.watch('isRecurring');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,7 +184,7 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
                             <FormControl>
                             <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
                                 {field.value ? (
-                                    format(field.value, 'yyyy-MM-dd')
+                                    format(field.value, isRecurring ? 'MM-dd' : 'yyyy-MM-dd')
                                 ) : (
                                     <span>Огноо сонгох</span>
                                 )}
@@ -200,6 +197,9 @@ export function AddHolidayDialog({ open, onOpenChange, editingItem }: AddHoliday
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                captionLayout={isRecurring ? "dropdown-buttons" : "dropdown-nav"}
+                                fromYear={isRecurring ? undefined : 1990}
+                                toYear={isRecurring ? undefined : new Date().getFullYear() + 5}
                                 initialFocus
                             />
                         </PopoverContent>

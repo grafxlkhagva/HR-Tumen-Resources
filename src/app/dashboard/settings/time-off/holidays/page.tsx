@@ -8,9 +8,9 @@ import { collection } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, getMonth, getDate, getYear } from 'date-fns';
+import { format, getYear } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { ReferenceTable, ReferenceItem } from '@/components/ui/reference-table';
+import { ReferenceTable, ReferenceItem } from "@/components/ui/reference-table";
 import { AddHolidayDialog } from '../add-holiday-dialog';
 
 export type PublicHoliday = ReferenceItem & {
@@ -69,7 +69,9 @@ export default function HolidaysPage() {
                 return new Date(currentYear, h.month - 1, h.day);
             }
             if (h.date) {
-                return new Date(h.date);
+                // to avoid timezone issues, manually construct date
+                const [year, month, day] = h.date.split('-').map(Number);
+                return new Date(year, month - 1, day);
             }
             return null;
         }).filter(d => d !== null) as Date[];
@@ -134,7 +136,7 @@ export default function HolidaysPage() {
                                 itemData={publicHolidays}
                                 isLoading={loadingPublicHolidays}
                                 dialogTitle="Баярын өдөр"
-                                hideAddButton={true} 
+                                hideAddButton={true}
                                 onEdit={handleEdit}
                             />
                         </CardContent>
