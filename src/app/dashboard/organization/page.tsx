@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -418,16 +419,17 @@ const PositionsTab = () => {
     const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses || isLoadingJobCategories;
 
     const totalHeadcount = useMemo(() => {
-        if (isLoading) return 0;
-        if (!positions || !positionStatuses) return 0;
-
+        if (!positions || !positionStatuses) {
+            return 0;
+        }
         const openStatus = positionStatuses.find(s => s.name === 'Нээлттэй');
-        if (!openStatus) return 0;
-        
+        if (!openStatus) {
+            return 0;
+        }
         return positions
             .filter(pos => pos.statusId === openStatus.id)
-            .reduce((acc, pos) => acc + (pos.headcount || 0), 0) || 0;
-    }, [positions, positionStatuses, isLoading]);
+            .reduce((sum, pos) => sum + (pos.headcount || 0), 0);
+    }, [positions, positionStatuses]);
 
     const lookups = React.useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
