@@ -336,29 +336,17 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
-const OverviewTabContent = ({ employee }: { employee: Employee }) => {
+const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Ур чадвар</CardTitle>
-                    <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
-                    <CardDescription>Ажилтны хөдөлмөрийн гэрээтэй холбоотой бүх үйл явдлын түүх.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <EmploymentHistoryTimeline employeeId={employee.id} />
-                </CardContent>
-            </Card>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
+                <CardDescription>Ажилтны хөдөлмөрийн гэрээтэй холбоотой бүх үйл явдлын түүх.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <EmploymentHistoryTimeline employeeId={employeeId} />
+            </CardContent>
+        </Card>
     )
 }
 
@@ -543,16 +531,28 @@ export default function EmployeeProfilePage() {
                     <TabsList>
                         <TabsTrigger value="overview">Ерөнхий</TabsTrigger>
                         <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
+                        <TabsTrigger value="history">Түүх</TabsTrigger>
                         <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
                         <TabsTrigger value="performance">Гүйцэтгэл</TabsTrigger>
                         <TabsTrigger value="documents">Бичиг баримт</TabsTrigger>
                         <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview">
-                        <OverviewTabContent employee={employee} />
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Ур чадвар</CardTitle>
+                                <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                     <TabsContent value="onboarding">
                         <OnboardingProgramCard employee={employee} />
+                    </TabsContent>
+                    <TabsContent value="history">
+                        <HistoryTabContent employeeId={employeeId} />
                     </TabsContent>
                      <TabsContent value="time-off">
                         <Card>
