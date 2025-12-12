@@ -67,7 +67,7 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
-type Position = { id: string; title: string };
+type Position = { id: string; title: string; departmentId: string; };
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
 type EmployeeCodeConfig = {
@@ -146,6 +146,17 @@ export default function AddEmployeePage() {
     [firestore]
   );
   
+  const watchedDepartmentId = form.watch('departmentId');
+  const filteredPositions = React.useMemo(() => {
+    if (!positions) return [];
+    if (!watchedDepartmentId) return [];
+    return positions.filter(pos => pos.departmentId === watchedDepartmentId);
+  }, [positions, watchedDepartmentId]);
+
+  React.useEffect(() => {
+    form.resetField('positionId');
+  }, [watchedDepartmentId, form]);
+
   const generateEmployeeCode = async (): Promise<string> => {
     if (!firestore || !codeConfigRef || !codeConfig) {
       throw new Error("Кодчлолын тохиргоо олдсонгүй.");
@@ -367,7 +378,7 @@ export default function AddEmployeePage() {
                         <FormItem>
                             <FormLabel>Утасны дугаар</FormLabel>
                             <FormControl>
-                            <Input placeholder="+976 9911..." {...field} />
+                            <Input placeholder="+976 9911..." {...field} value={field.value || ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -403,14 +414,14 @@ export default function AddEmployeePage() {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Албан тушаал</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Албан тушаалыг сонгоно уу" />
+                                <SelectTrigger disabled={!watchedDepartmentId}>
+                                    <SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} />
                                 </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                {positions?.map((pos) => (
+                                {filteredPositions.map((pos) => (
                                     <SelectItem key={pos.id} value={pos.id}>
                                     {pos.title}
                                     </SelectItem>
