@@ -182,38 +182,31 @@ export default function AddEmployeePage() {
   const handleSave = async (values: EmployeeFormValues) => {
     if (!employeesCollection || !auth || !firestore) return;
     
-    // Store current admin's credentials if available
-    const currentAdmin = auth.currentUser;
-    if (!currentAdmin || !currentAdmin.email) {
-        toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгчийн мэдээлэл олдсонгүй." });
-        return;
-    }
-    const adminEmail = currentAdmin.email;
-    const adminPassword = prompt("Шинэ ажилтан үүсгэхийн тулд админ нууц үгээ дахин оруулна уу:");
-
-    if (!adminPassword) {
-        toast({ variant: "destructive", title: "Цуцлагдлаа", description: "Нууц үг оруулаагүй тул үйлдэл цуцлагдлаа." });
+    const originalUser = auth.currentUser;
+    if (!originalUser) {
+        toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгч нэвтрээгүй байна." });
         return;
     }
 
     setIsUploading(true);
     try {
-        const { createUserWithEmailAndPassword, signInWithEmailAndPassword } = await import('firebase/auth');
+        const { createUserWithEmailAndPassword, signOut: firebaseSignOut, signInWithCredential, EmailAuthProvider } = await import('firebase/auth');
         
         const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
 
+        // Create the new user. This will sign in the new user and sign out the admin.
         const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.phoneNumber);
-        const user = userCredential.user;
+        const newUser = userCredential.user;
 
-        if (!user) {
+        if (!newUser) {
           throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
         }
 
         let photoURL = '';
         if (photoFile) {
             const storage = getStorage();
-            const storageRef = ref(storage, `employee-photos/${user.uid}/${photoFile.name}`);
+            const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
             await uploadBytes(storageRef, photoFile);
             photoURL = await getDownloadURL(storageRef);
         }
@@ -221,7 +214,7 @@ export default function AddEmployeePage() {
         const position = positions?.find(p => p.id === values.positionId);
         
         const employeeData = {
-            id: user.uid,
+            id: newUser.uid,
             employeeCode: employeeCode,
             role: 'employee',
             firstName: values.firstName,
@@ -237,38 +230,40 @@ export default function AddEmployeePage() {
             photoURL: photoURL,
         };
         
-        const docRef = doc(firestore, 'employees', user.uid);
-        setDocumentNonBlocking(docRef, employeeData, { merge: true });
-
-        // Re-authenticate the admin
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        const docRef = doc(firestore, 'employees', newUser.uid);
+        await setDocumentNonBlocking(docRef, employeeData, { merge: true });
         
+        // Sign out the newly created user and redirect. The admin will have to log back in.
+        await firebaseSignOut(auth);
+
         toast({
           title: 'Амжилттай хадгаллаа',
-          description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Ажилтны код: ${employeeCode}`,
+          description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
         });
         
-        router.push('/dashboard/employees');
+        // Redirect to login page as admin is now signed out.
+        router.push('/login');
 
     } catch(error: any) {
         console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
         
-        // If re-authentication fails, it's crucial to sign the admin back in
-        if (auth.currentUser?.email !== adminEmail) {
+        toast({
+            variant: "destructive",
+            title: "Алдаа гарлаа",
+            description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа."
+        });
+        
+        // Attempt to sign the admin back in if something went wrong
+        if (auth.currentUser?.uid !== originalUser.uid) {
             try {
-                const { signInWithEmailAndPassword } = await import('firebase/auth');
-                await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+                // This is a basic re-sign-in attempt; might not always work depending on auth state.
+                // A more robust solution might involve storing credentials securely or using custom tokens.
+                await auth.updateCurrentUser(originalUser);
             } catch (reauthError) {
                  console.error("Админыг буцаан нэвтрүүлэхэд ноцтой алдаа гарлаа: ", reauthError);
                  router.push('/login'); // Force logout if re-auth fails
             }
         }
-        
-        toast({
-            variant: "destructive",
-            title: "Алдаа гарлаа",
-            description: error.code === 'auth/wrong-password' ? 'Админ нууц үг буруу байна.' : (error.message || "Ажилтан үүсгэхэд алдаа гарлаа.")
-        });
     } finally {
         setIsUploading(false);
     }
@@ -503,3 +498,5 @@ export default function AddEmployeePage() {
     </div>
   );
 }
+
+    
