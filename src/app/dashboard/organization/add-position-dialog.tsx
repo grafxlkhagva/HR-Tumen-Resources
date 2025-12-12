@@ -147,6 +147,7 @@ export function AddPositionDialog({
     } : {
       ...data,
       filled: 0, // Default to 0 for new positions
+      createdAt: new Date().toISOString(),
     };
     
     if (isEditMode && editingPosition) {
@@ -330,3 +331,4 @@ export function AddPositionDialog({
   );
 }
 
+    

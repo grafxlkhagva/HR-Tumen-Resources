@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -87,6 +87,7 @@ type Position = {
   employmentTypeId?: string;
   jobCategoryId?: string;
   isActive?: boolean;
+  createdAt?: string;
 };
 
 type PositionLevel = {
@@ -595,9 +596,9 @@ const HeadcountTab = () => {
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
   
-    const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy } = React.useMemo(() => {
+    const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy, newPositionsInPeriod } = React.useMemo(() => {
         if (!positions || !employees || !departments) {
-            return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0 };
+            return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0, newPositionsInPeriod: 0 };
         }
     
         const startDate = date?.from;
@@ -617,7 +618,12 @@ const HeadcountTab = () => {
             }
             return acc;
         }, new Map<string, number>());
-    
+        
+        let newPositionsInPeriod = 0;
+        if(startDate && endDate) {
+            newPositionsInPeriod = positions.filter(p => p.createdAt && new Date(p.createdAt) >= startDate && new Date(p.createdAt) <= endDate).reduce((sum, p) => sum + p.headcount, 0);
+        }
+
         const departmentsData = departments.map(d => {
             const deptPositions = positions
                 .filter(p => p.departmentId === d.id)
@@ -645,6 +651,7 @@ const HeadcountTab = () => {
             totalApproved,
             totalFilled,
             totalVacancy: totalApproved - totalFilled,
+            newPositionsInPeriod
         };
     }, [positions, employees, departments, date]);
     
@@ -767,7 +774,7 @@ const HeadcountTab = () => {
                   </div>
               </CardHeader>
               <CardContent>
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
                       <Card>
                           <CardHeader>
                           <CardTitle>Батлагдсан орон тоо</CardTitle>
@@ -790,6 +797,17 @@ const HeadcountTab = () => {
                           </CardHeader>
                           <CardContent>
                           {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-primary">{totalVacancy}</div>}
+                          </CardContent>
+                      </Card>
+                       <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Briefcase className="h-5 w-5" />
+                                Шинээр нэмэгдсэн
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-green-600">+{newPositionsInPeriod}</div>}
                           </CardContent>
                       </Card>
                   </div>
@@ -921,3 +939,5 @@ export default function OrganizationPage() {
     </div>
   );
 }
+
+    
