@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Employee } from './data';
+import { useRouter } from 'next/navigation';
 
 const deleteSchema = z.object({
   reason: z.enum(['Ажлаас чөлөөлөгдсөн', 'Түр чөлөөлсөн', 'Алдаатай бүртгэл']),
@@ -55,6 +56,7 @@ export function DeleteEmployeeDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const router = useRouter();
 
   const form = useForm<DeleteFormValues>({
     resolver: zodResolver(deleteSchema),
@@ -87,8 +89,15 @@ export function DeleteEmployeeDialog({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to disable user account.');
+        let errorText = await response.text();
+        try {
+          // Try parsing as JSON, if it fails, use the raw text
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Failed to disable user account.');
+        } catch (e) {
+          // If parsing fails, the response was likely HTML or plain text
+          throw new Error(errorText || 'Failed to disable user account.');
+        }
       }
 
       // Step 2: Update Firestore document status
@@ -104,6 +113,9 @@ export function DeleteEmployeeDialog({
       });
       onOpenChange(false);
       form.reset();
+      // Force a refresh of the current route to reflect changes
+      router.refresh();
+
 
     } catch (error: any) {
       console.error("Error deactivating employee:", error);
