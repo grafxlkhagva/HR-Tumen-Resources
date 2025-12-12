@@ -67,8 +67,9 @@ type Department = {
   // Locally computed properties
   children?: Department[];
   headcount?: number;
-  filledCount?: number;
+  filled?: number;
   typeName?: string;
+  positions: Position[];
 };
 
 type DepartmentType = {
@@ -213,6 +214,7 @@ const StructureTab = () => {
     
     const deptsWithData: Department[] = departments.map(d => ({
       ...d,
+      positions: [],
       typeName: typeMap.get(d.typeId || ''),
       headcount: positionCountByDept.get(d.id) || 0,
       children: [],
@@ -621,7 +623,7 @@ const HeadcountTab = () => {
             return acc;
         }, new Map<string, number>());
     
-        const departmentMap = new Map(departments.map(d => {
+        const departmentsWithHeadcount: Department[] = departments.map(d => {
             const deptPositions = positions
                 .filter(p => p.departmentId === d.id)
                 .map(p => ({
@@ -632,15 +634,14 @@ const HeadcountTab = () => {
             const approved = deptPositions.reduce((sum, p) => sum + p.headcount, 0);
             const filled = deptPositions.reduce((sum, p) => sum + p.filled, 0);
     
-            return [d.id, {
+            return {
                 ...d,
                 approved,
                 filled,
                 positions: deptPositions,
-            }];
-        }));
+            };
+        });
     
-        const departmentsWithHeadcount = Array.from(departmentMap.values());
         const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
         const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
     
@@ -846,26 +847,28 @@ const HeadcountTab = () => {
                               const progress = dept.approved > 0 ? (dept.filled / dept.approved) * 100 : 0;
                               return (
                                   <Collapsible asChild key={dept.id}>
-                                      <>
-                                          <TableRow className="bg-muted/50 hover:bg-muted font-semibold" data-state>
-                                              <TableCell>
-                                                  <CollapsibleTrigger className="flex items-center gap-2 w-full">
-                                                     <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
-                                                     {dept.name}
-                                                  </CollapsibleTrigger>
-                                              </TableCell>
-                                              <TableCell className="text-right">{dept.approved}</TableCell>
-                                              <TableCell className="text-right">
-                                                  <Button variant="link" className="p-0 h-auto" onClick={() => handleShowEmployees(dept.id)}>{dept.filled}</Button>
-                                              </TableCell>
-                                              <TableCell className="text-right text-primary">{dept.approved - dept.filled}</TableCell>
-                                              <TableCell>
-                                                  <div className="flex items-center gap-2">
-                                                      <Progress value={progress} className="h-2" />
-                                                      <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-                                                  </div>
-                                              </TableCell>
-                                          </TableRow>
+                                      <tbody>
+                                          <CollapsibleTrigger asChild>
+                                              <TableRow className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer">
+                                                  <TableCell>
+                                                      <div className="flex items-center gap-2 w-full">
+                                                          <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
+                                                          {dept.name}
+                                                      </div>
+                                                  </TableCell>
+                                                  <TableCell className="text-right">{dept.approved}</TableCell>
+                                                  <TableCell className="text-right">
+                                                      <Button variant="link" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); handleShowEmployees(dept.id); }}>{dept.filled}</Button>
+                                                  </TableCell>
+                                                  <TableCell className="text-right text-primary">{dept.approved - dept.filled}</TableCell>
+                                                  <TableCell>
+                                                      <div className="flex items-center gap-2">
+                                                          <Progress value={progress} className="h-2" />
+                                                          <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                      </div>
+                                                  </TableCell>
+                                              </TableRow>
+                                          </CollapsibleTrigger>
                                           <CollapsibleContent asChild>
                                               <>
                                                {dept.positions.map((pos) => {
@@ -887,7 +890,7 @@ const HeadcountTab = () => {
                                                })}
                                               </>
                                           </CollapsibleContent>
-                                      </>
+                                      </tbody>
                                   </Collapsible>
                               )
                           })}
