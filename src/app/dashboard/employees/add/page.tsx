@@ -173,14 +173,27 @@ export default function AddEmployeePage() {
   const handleSave = async (values: EmployeeFormValues) => {
     if (!employeesCollection || !auth || !firestore) return;
     
+    // Store current admin's credentials if available
+    const currentAdmin = auth.currentUser;
+    if (!currentAdmin || !currentAdmin.email) {
+        toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгчийн мэдээлэл олдсонгүй." });
+        return;
+    }
+    const adminEmail = currentAdmin.email;
+    const adminPassword = prompt("Шинэ ажилтан үүсгэхийн тулд админ нууц үгээ дахин оруулна уу:");
+
+    if (!adminPassword) {
+        toast({ variant: "destructive", title: "Цуцлагдлаа", description: "Нууц үг оруулаагүй тул үйлдэл цуцлагдлаа." });
+        return;
+    }
+
     setIsUploading(true);
     try {
+        const { createUserWithEmailAndPassword, signInWithEmailAndPassword } = await import('firebase/auth');
+        
         const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
 
-        // We can't use initiateEmailSignUp because we need the user's UID immediately.
-        // This part needs to be awaited.
-        const { createUserWithEmailAndPassword } = await import('firebase/auth');
         const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.password);
         const user = userCredential.user;
 
@@ -217,6 +230,9 @@ export default function AddEmployeePage() {
         
         const docRef = doc(firestore, 'employees', user.uid);
         setDocumentNonBlocking(docRef, employeeData, { merge: true });
+
+        // Re-authenticate the admin
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
         toast({
           title: 'Амжилттай хадгаллаа',
@@ -227,10 +243,22 @@ export default function AddEmployeePage() {
 
     } catch(error: any) {
         console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
+        
+        // If re-authentication fails, it's crucial to sign the admin back in
+        if (auth.currentUser?.email !== adminEmail) {
+            try {
+                const { signInWithEmailAndPassword } = await import('firebase/auth');
+                await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+            } catch (reauthError) {
+                 console.error("Админыг буцаан нэвтрүүлэхэд ноцтой алдаа гарлаа: ", reauthError);
+                 router.push('/login'); // Force logout if re-auth fails
+            }
+        }
+        
         toast({
             variant: "destructive",
             title: "Алдаа гарлаа",
-            description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа. Имэйл бүртгэлтэй байж магадгүй."
+            description: error.code === 'auth/wrong-password' ? 'Админ нууц үг буруу байна.' : (error.message || "Ажилтан үүсгэхэд алдаа гарлаа.")
         });
     } finally {
         setIsUploading(false);
@@ -479,5 +507,3 @@ export default function AddEmployeePage() {
     </div>
   );
 }
-
-    
