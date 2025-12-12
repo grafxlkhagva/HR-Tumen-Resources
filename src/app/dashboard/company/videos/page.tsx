@@ -97,6 +97,10 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
     defaultValues: initialData,
   });
 
+  React.useEffect(() => {
+    form.reset(initialData);
+  }, [initialData, form]);
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "videos",
