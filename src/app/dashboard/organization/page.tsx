@@ -54,7 +54,6 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from '../employees/data';
-import * as XLSX from 'xlsx';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
@@ -674,28 +673,7 @@ const HeadcountTab = () => {
     };
   
     const handleExport = () => {
-      if (!departmentsWithHeadcount) return;
-  
-      const dataToExport = departmentsWithHeadcount.map(dept => ({
-          'Хэлтэс/Нэгж': dept.name,
-          'Батлагдсан орон тоо': dept.approved,
-          'Ажиллаж буй': dept.filled,
-          'Сул орон тоо': (dept.approved || 0) - (dept.filled || 0),
-          'Гүйцэтгэл (%)': (dept.approved || 0) > 0 ? Math.round(((dept.filled || 0) / (dept.approved || 0)) * 100) : 0,
-      }));
-      
-      dataToExport.push({
-          'Хэлтэс/Нэгж': 'Нийт',
-          'Батлагдсан орон тоо': totalApproved,
-          'Ажиллаж буй': totalFilled,
-          'Сул орон тоо': totalVacancy,
-          'Гүйцэтгэл (%)': totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0,
-      });
-  
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Орон тооны тайлан");
-      XLSX.writeFile(workbook, "oron_toonii_tailan.xlsx");
+      // This function is now empty as requested.
     };
   
     const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
