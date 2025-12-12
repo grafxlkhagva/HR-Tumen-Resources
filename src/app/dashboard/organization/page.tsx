@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase, Power, PowerOff } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -34,6 +34,7 @@ import {
   useMemoFirebase,
   deleteDocumentNonBlocking,
   useDoc,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,6 +57,7 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from '../employees/data';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Interfaces for Firestore data
@@ -200,12 +202,14 @@ const StructureTab = () => {
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
     
-    const positionCountByDept = positions.reduce((acc, pos) => {
-        if (!pos.departmentId || !pos.isActive) return acc;
-        const currentCount = acc.get(pos.departmentId) || 0;
-        acc.set(pos.departmentId, currentCount + pos.headcount);
-        return acc;
-    }, new Map<string, number>());
+    const positionCountByDept = positions
+        .filter(pos => pos.isActive)
+        .reduce((acc, pos) => {
+            if (!pos.departmentId) return acc;
+            const currentCount = acc.get(pos.departmentId) || 0;
+            acc.set(pos.departmentId, currentCount + pos.headcount);
+            return acc;
+        }, new Map<string, number>());
     
     const deptsWithData: Department[] = departments.map(d => ({
       ...d,
@@ -392,9 +396,89 @@ const StructureTab = () => {
   );
 };
 
+const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void }) => {
+    return (
+        <Table>
+        <TableHeader>
+            <TableRow>
+            <TableHead>Албан тушаалын нэр</TableHead>
+            <TableHead>Хэлтэс</TableHead>
+            <TableHead>Зэрэглэл</TableHead>
+            <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
+            <TableHead className="text-right">Орон тоо</TableHead>
+            <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
+            </TableRow>
+        </TableHeader>
+        <TableBody>
+            {isLoading &&
+            Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="ml-auto h-5 w-16" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
+                </TableRow>
+            ))}
+            {!isLoading && positions?.map((pos) => {
+                const isActive = pos.isActive === undefined ? true : pos.isActive;
+                return (
+                    <TableRow key={pos.id} className={cn(!isActive && 'text-muted-foreground')}>
+                        <TableCell className="font-medium">{pos.title}</TableCell>
+                        <TableCell>
+                        {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
+                        </TableCell>
+                        <TableCell>
+                            {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
+                        </TableCell>
+                        <TableCell>
+                            {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {pos.headcount}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => onEdit(pos)}>
+                                        <Pencil className="mr-2 h-4 w-4" /> Засах
+                                    </DropdownMenuItem>
+                                    {isActive ? (
+                                        <DropdownMenuItem onClick={() => onToggleActive(pos)} className="text-destructive">
+                                            <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600">
+                                            <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                )
+            })}
+            {!isLoading && !positions?.length && (
+                <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                        Ажлын байрны жагсаалт хоосон байна.
+                    </TableCell>
+                </TableRow>
+            )}
+        </TableBody>
+        </Table>
+    )
+}
 
 const PositionsTab = () => {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
     const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
@@ -412,13 +496,14 @@ const PositionsTab = () => {
 
     const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
-    const totalHeadcount = useMemo(() => {
+    const { activePositions, inactivePositions, totalHeadcount } = useMemo(() => {
         if (!positions) {
-            return 0;
+            return { activePositions: [], inactivePositions: [], totalHeadcount: 0 };
         }
-        return positions
-            .filter(pos => pos.isActive)
-            .reduce((sum, pos) => sum + (pos.headcount || 0), 0);
+        const active = positions.filter(p => p.isActive !== false);
+        const inactive = positions.filter(p => p.isActive === false);
+        const count = active.reduce((sum, pos) => sum + (pos.headcount || 0), 0);
+        return { activePositions: active, inactivePositions: inactive, totalHeadcount: count };
     }, [positions]);
 
     const lookups = React.useMemo(() => {
@@ -439,12 +524,25 @@ const PositionsTab = () => {
         setIsPositionDialogOpen(true);
     };
     
-    const handleDeletePosition = (posId: string) => {
+    const handleToggleActive = (pos: Position) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'positions', posId);
-        deleteDocumentNonBlocking(docRef);
+        const docRef = doc(firestore, 'positions', pos.id);
+        updateDocumentNonBlocking(docRef, { isActive: false });
+        toast({
+            title: 'Амжилттай идэвхгүй боллоо.',
+            description: `"${pos.title}" ажлын байр идэвхгүй төлөвт шилжлээ.`,
+        });
     };
 
+    const handleReactivate = (pos: Position) => {
+        if (!firestore) return;
+        const docRef = doc(firestore, 'positions', pos.id);
+        updateDocumentNonBlocking(docRef, { isActive: true });
+        toast({
+            title: 'Амжилттай идэвхжүүллээ.',
+            description: `"${pos.title}" ажлын байр идэвхтэй төлөвт шилжлээ.`,
+        });
+    }
 
     return (
         <>
@@ -460,7 +558,7 @@ const PositionsTab = () => {
         <Card>
         <CardHeader className="flex-row items-center justify-between">
             <div>
-            <CardTitle>Ажлын байрны жагсаалт (Нийт орон тоо: {isLoading ? <Skeleton className="h-6 w-8 inline-block" /> : totalHeadcount})</CardTitle>
+            <CardTitle>Ажлын байрны жагсаалт (Идэвхтэй орон тоо: {isLoading ? <Skeleton className="h-6 w-8 inline-block" /> : totalHeadcount})</CardTitle>
             <CardDescription>
                 Байгууллагад бүртгэлтэй бүх албан тушаал.
             </CardDescription>
@@ -473,103 +571,32 @@ const PositionsTab = () => {
             </Button>
         </CardHeader>
         <CardContent>
-            <Table>
-            <TableHeader>
-                <TableRow>
-                <TableHead>Албан тушаалын нэр</TableHead>
-                <TableHead>Хэлтэс</TableHead>
-                <TableHead>Зэрэглэл</TableHead>
-                <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
-                <TableHead>Төлөв</TableHead>
-                <TableHead className="text-right">Орон тоо</TableHead>
-                <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                    <TableCell>
-                        <Skeleton className="h-5 w-48" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-32" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-6 w-24" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-6 w-24" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-6 w-20" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <Skeleton className="ml-auto h-5 w-16" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <Skeleton className="ml-auto h-8 w-8" />
-                    </TableCell>
-                    </TableRow>
-                ))}
-                {!isLoading && positions?.map((pos) => {
-                    const isActive = pos.isActive === undefined ? true : pos.isActive;
-                    return (
-                        <TableRow key={pos.id}>
-                            <TableCell className="font-medium">{pos.title}</TableCell>
-                            <TableCell>
-                            {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
-                            </TableCell>
-                            <TableCell>
-                                {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
-                            </TableCell>
-                            <TableCell>
-                                {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant={isActive ? 'default' : 'secondary'} className={cn(isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
-                                    {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                {pos.headcount}
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleOpenEditDialog(pos)}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Засах
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleDeletePosition(pos.id)} className="text-destructive">
-                                            <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                    )
-                })}
-                {!isLoading && !positions?.length && (
-                    <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                            Ажлын байрны жагсаалт хоосон байна.
-                        </TableCell>
-                    </TableRow>
-                )}
-                 {(errorPos || errorDepts) && (
-                    <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center text-destructive">
-                            Мэдээлэл ачаалахад алдаа гарлаа.
-                        </TableCell>
-                    </TableRow>
-                 )}
-            </TableBody>
-            </Table>
+            <Tabs defaultValue="active">
+                <TabsList>
+                    <TabsTrigger value="active">Идэвхтэй ажлын байр</TabsTrigger>
+                    <TabsTrigger value="inactive">Идэвхгүй ажлын байр</TabsTrigger>
+                </TabsList>
+                <TabsContent value="active" className="mt-4">
+                     <PositionsList 
+                        positions={activePositions}
+                        lookups={lookups}
+                        isLoading={isLoading}
+                        onEdit={handleOpenEditDialog}
+                        onToggleActive={handleToggleActive}
+                        onReactivate={handleReactivate}
+                     />
+                </TabsContent>
+                <TabsContent value="inactive" className="mt-4">
+                     <PositionsList 
+                        positions={inactivePositions}
+                        lookups={lookups}
+                        isLoading={isLoading}
+                        onEdit={handleOpenEditDialog}
+                        onToggleActive={handleToggleActive}
+                        onReactivate={handleReactivate}
+                     />
+                </TabsContent>
+            </Tabs>
         </CardContent>
         </Card>
         </>
@@ -604,33 +631,25 @@ const HeadcountTab = () => {
         const periodStart = date?.from ? startOfDay(date.from) : null;
         const periodEnd = date?.to ? endOfDay(date.to) : null;
         
-        // 1. Calculate filled positions count based on employees active within the period
         const employeeCountByPosition = new Map<string, number>();
         employees.forEach(emp => {
             if (!emp.positionId) return;
-
             const hireDate = new Date(emp.hireDate);
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
-
-            // An employee is considered "filled" if their employment overlaps with the selected period
             const isActiveInPeriod =
-                (!periodStart || !termDate || termDate >= periodStart) && // Not terminated before the period started
-                (!periodEnd || hireDate <= periodEnd); // Hired before the period ended
+                (!periodStart || !termDate || termDate >= periodStart) &&
+                (!periodEnd || hireDate <= periodEnd); 
             
             if (isActiveInPeriod) {
                 employeeCountByPosition.set(emp.positionId, (employeeCountByPosition.get(emp.positionId) || 0) + 1);
             }
         });
 
-        // 2. Filter for positions that were active at the end of the period
         const activePositions = positions.filter(p => {
-             const isPosActive = p.isActive === true;
-             const createdAt = p.createdAt ? new Date(p.createdAt) : null;
-             // Position is considered for headcount if it was created before the end of the period
-             return isPosActive && (!periodEnd || !createdAt || createdAt <= periodEnd);
+             const createdAt = p.createdAt ? new Date(p.createdAt) : new Date(0);
+             return p.isActive && (!periodEnd || createdAt <= periodEnd);
         });
 
-        // 3. Calculate new positions created within the period
         const newPositionsInPeriod = positions
             .filter(p => {
                 const createdAt = p.createdAt ? new Date(p.createdAt) : null;
@@ -638,7 +657,6 @@ const HeadcountTab = () => {
             })
             .reduce((sum, p) => sum + p.headcount, 0);
 
-        // 4. Aggregate data by department
         const departmentsData = departments.map(d => {
             const deptPositions = activePositions
                 .filter(p => p.departmentId === d.id)
