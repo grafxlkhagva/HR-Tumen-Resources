@@ -79,26 +79,20 @@ export function DeleteEmployeeDialog({
     }
 
     try {
-      // Step 1: Disable Firebase Auth user
-      const response = await fetch('/api/update-user-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ uid: employee.id, disabled: true }),
-      });
+      // NOTE: Temporarily disabling auth user update due to missing server config.
+      // This will only update the Firestore record. The user can still log in.
+      // const response = await fetch('/api/update-user-status', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify({ uid: employee.id, disabled: true }),
+      // });
 
-      if (!response.ok) {
-        let errorText = await response.text();
-        try {
-          // Try parsing as JSON, if it fails, use the raw text
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.error || 'Failed to disable user account.');
-        } catch (e) {
-          // If parsing fails, the response was likely HTML or plain text
-          throw new Error(errorText || 'Failed to disable user account.');
-        }
-      }
+      // if (!response.ok) {
+      //   const errorData = await response.json();
+      //   throw new Error(errorData.error || 'Failed to disable user account.');
+      // }
 
       // Step 2: Update Firestore document status
       const employeeDocRef = doc(firestore, 'employees', employee.id);
@@ -109,7 +103,7 @@ export function DeleteEmployeeDialog({
 
       toast({
         title: 'Ажилтан идэвхгүйжлээ',
-        description: `${employee.firstName} ${employee.lastName}-н нэвтрэх эрхийг хаалаа.`,
+        description: `${employee.firstName} ${employee.lastName}-н төлөв шинэчлэгдлээ.`,
       });
       onOpenChange(false);
       form.reset();
