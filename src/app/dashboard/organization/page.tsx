@@ -424,7 +424,7 @@ const PositionsTab = () => {
         }
         const openStatus = positionStatuses.find(s => s.name === 'Нээлттэй');
         if (!openStatus) {
-            return 0;
+            return positions.reduce((sum, pos) => sum + (pos.headcount || 0), 0);
         }
         return positions
             .filter(pos => pos.statusId === openStatus.id)
@@ -524,43 +524,50 @@ const PositionsTab = () => {
                     </TableCell>
                     </TableRow>
                 ))}
-                {!isLoading && positions?.map((pos) => (
-                <TableRow key={pos.id}>
-                    <TableCell className="font-medium">{pos.title}</TableCell>
-                    <TableCell>
-                    {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
-                    </TableCell>
-                    <TableCell>
-                        {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
-                    </TableCell>
-                    <TableCell>
-                        {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
-                    </TableCell>
-                    <TableCell>
-                        {pos.statusId ? <Badge variant="default">{lookups.statusMap[pos.statusId] || 'Тодорхойгүй'}</Badge> : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        {pos.headcount}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenEditDialog(pos)}>
-                                    <Pencil className="mr-2 h-4 w-4" /> Засах
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeletePosition(pos.id)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </TableCell>
-                </TableRow>
-                ))}
+                {!isLoading && positions?.map((pos) => {
+                    const statusName = pos.statusId ? lookups.statusMap[pos.statusId] : 'Тодорхойгүй';
+                    const isStatusOpen = statusName === 'Нээлттэй';
+
+                    return (
+                        <TableRow key={pos.id}>
+                            <TableCell className="font-medium">{pos.title}</TableCell>
+                            <TableCell>
+                            {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
+                            </TableCell>
+                            <TableCell>
+                                {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
+                            </TableCell>
+                            <TableCell>
+                                {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant={isStatusOpen ? 'default' : 'secondary'} className={cn(isStatusOpen && 'bg-green-500/80')}>
+                                    {statusName}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {pos.headcount}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleOpenEditDialog(pos)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Засах
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDeletePosition(pos.id)} className="text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })}
                 {!isLoading && !positions?.length && (
                     <TableRow>
                         <TableCell colSpan={7} className="h-24 text-center">

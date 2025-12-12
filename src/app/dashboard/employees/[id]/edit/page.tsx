@@ -67,9 +67,11 @@ const editEmployeeSchema = z.object({
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
-type Position = { id: string; title: string; departmentId: string; };
+type Position = { id: string; title: string; departmentId: string; statusId: string; };
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
+type PositionStatus = { id: string; name: string; };
+
 const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан"];
 
 function EditEmployeeFormSkeleton() {
@@ -112,11 +114,14 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const positionStatusesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]);
 
 
     const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
     const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
+    const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(positionStatusesQuery);
+
 
     const form = useForm<EditEmployeeFormValues>({
         resolver: zodResolver(editEmployeeSchema),
@@ -130,11 +135,21 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const { isSubmitting } = form.formState;
 
     const watchedDepartmentId = form.watch('departmentId');
+    
     const filteredPositions = React.useMemo(() => {
-        if (!positions) return [];
-        if (!watchedDepartmentId) return positions; // or empty array if you want to force selection
-        return positions.filter(pos => pos.departmentId === watchedDepartmentId);
-    }, [positions, watchedDepartmentId]);
+        if (!positions || !positionStatuses) return [];
+        const openStatusId = positionStatuses.find(s => s.name === 'Нээлттэй')?.id;
+        if (!openStatusId) return [];
+
+        let departmentPositions = positions.filter(pos => pos.statusId === openStatusId);
+
+        if (watchedDepartmentId) {
+            departmentPositions = departmentPositions.filter(pos => pos.departmentId === watchedDepartmentId);
+        }
+        
+        return departmentPositions;
+    }, [positions, watchedDepartmentId, positionStatuses]);
+
 
     React.useEffect(() => {
         // Reset position if department changes and the current position is not in the new list
@@ -192,7 +207,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         router.push(`/dashboard/employees/${employeeData.id}`);
     };
 
-    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
+    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules || isLoadingStatuses;
 
     if (isLoading) {
         return <EditEmployeeFormSkeleton />;
@@ -230,9 +245,9 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                         </Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Жишээ нь: Дорж" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Жишээ нь: Бат" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Имэйл</FormLabel><FormControl><Input type="email" placeholder="dorj.bat@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Жишээ нь: Дорж" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Жишээ нь: Бат" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Имэйл</FormLabel><FormControl><Input type="email" placeholder="dorj.bat@example.com" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="phoneNumber" render={({ field }) => ( <FormItem><FormLabel>Утасны дугаар</FormLabel><FormControl><Input placeholder="+976 9911..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Хэлтэс</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{departments?.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={!watchedDepartmentId}><SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} /></SelectTrigger></FormControl><SelectContent>{filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
