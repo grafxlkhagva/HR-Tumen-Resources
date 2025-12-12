@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import {
   useFirebase,
   updateDocumentNonBlocking,
+  addDocumentNonBlocking,
   useCollection,
   useDoc,
   useMemoFirebase,
@@ -71,7 +72,7 @@ type Position = { id: string; title: string; departmentId: string; isActive: boo
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
 
-const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан"];
+const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан", "Түр түдгэлзүүлсэн"];
 
 function EditEmployeeFormSkeleton() {
     return (
@@ -135,27 +136,21 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     
     const filteredPositions = React.useMemo(() => {
         if (!positions) return [];
-        
-        let departmentPositions = positions.filter(pos => pos.isActive);
-        
+        let departmentPositions = positions.filter(p => p.isActive);
         if (watchedDepartmentId) {
-            departmentPositions = departmentPositions.filter(pos => pos.departmentId === watchedDepartmentId);
+            departmentPositions = departmentPositions.filter(p => p.departmentId === watchedDepartmentId);
         }
-        
-        // Always include the employee's current position in the list, even if it's not "active"
         const currentPosition = positions.find(p => p.id === employeeData.positionId);
         if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
              if (!watchedDepartmentId || currentPosition.departmentId === watchedDepartmentId) {
                 departmentPositions.push(currentPosition);
              }
         }
-        
         return departmentPositions;
     }, [positions, watchedDepartmentId, employeeData.positionId]);
 
 
     React.useEffect(() => {
-        // Reset position if department changes and the current position is not in the new list
         const currentPositionId = form.getValues('positionId');
         if (currentPositionId && !filteredPositions.some(p => p.id === currentPositionId)) {
             form.setValue('positionId', '');
@@ -188,9 +183,43 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
             setIsUploading(false);
         }
     };
+    
+    const historyCollectionRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, `employees/${employeeData.id}/employmentHistory`) : null),
+        [firestore, employeeData.id]
+    );
+    
+    const logHistoryEvent = (note: string) => {
+        if (!historyCollectionRef) return;
+        addDocumentNonBlocking(historyCollectionRef, {
+            eventType: 'Мэдээлэл шинэчлэгдсэн',
+            eventDate: new Date().toISOString(),
+            notes: note,
+            createdAt: new Date().toISOString(),
+        });
+    };
 
     const handleSave = (values: EditEmployeeFormValues) => {
         if (!employeeDocRef || !firestore) return;
+
+        const departmentMap = new Map(departments?.map(d => [d.id, d.name]));
+        const positionMap = new Map(positions?.map(p => [p.id, p.title]));
+        const scheduleMap = new Map(workSchedules?.map(s => [s.id, s.name]));
+
+        // Log changes
+        if (values.departmentId !== employeeData.departmentId) {
+            logHistoryEvent(`Хэлтэс '${departmentMap.get(employeeData.departmentId) || 'Тодорхойгүй'}' -> '${departmentMap.get(values.departmentId) || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+        }
+        if (values.positionId !== employeeData.positionId) {
+            logHistoryEvent(`Албан тушаал '${positionMap.get(employeeData.positionId) || 'Тодорхойгүй'}' -> '${positionMap.get(values.positionId) || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+        }
+        if (values.workScheduleId !== employeeData.workScheduleId) {
+            logHistoryEvent(`Ажлын хуваарь '${scheduleMap.get(employeeData.workScheduleId || '') || 'Тодорхойгүй'}' -> '${scheduleMap.get(values.workScheduleId || '') || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+        }
+        if (values.status !== employeeData.status) {
+            logHistoryEvent(`Төлөв '${employeeData.status}' -> '${values.status}' болж өөрчлөгдөв.`);
+        }
+
 
         const position = positions?.find(p => p.id === values.positionId);
 
@@ -322,4 +351,3 @@ export default function EditEmployeePage() {
         </div>
     )
 }
-
