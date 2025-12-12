@@ -1,7 +1,8 @@
+// src/app/dashboard/employees/[id]/page.tsx
 'use client';
 
 import * as React from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, orderBy, where } from 'firebase/firestore';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -60,6 +61,7 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
     "Хүүхэд асрах чөлөөтэй": { variant: 'secondary', className: 'bg-purple-500 hover:bg-purple-600 text-white', label: 'Хүүхэд асрах' },
     "Урт хугацааны чөлөөтэй": { variant: 'outline', className: 'border-yellow-500 text-yellow-600', label: 'Чөлөөтэй' },
     "Ажлаас гарсан": { variant: 'destructive', className: '', label: 'Гарсан' },
+    "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-yellow-600 hover:bg-yellow-700', label: 'Түдгэлзүүлсэн' },
 };
 
 
@@ -362,8 +364,10 @@ const OverviewTabContent = ({ employee }: { employee: Employee }) => {
 
 export default function EmployeeProfilePage() {
     const { id } = useParams();
+    const router = useRouter();
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
+    const { toast } = useToast();
 
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
@@ -402,6 +406,40 @@ export default function EmployeeProfilePage() {
         }, new Map<string, string>());
     }, [workSchedules]);
     
+    const handleReactivate = async () => {
+        if (!employee || !firestore) return;
+
+        try {
+             // Step 1: Enable Firebase Auth user
+            const response = await fetch('/api/update-user-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: employee.id, disabled: false }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to enable user account.');
+            }
+            // Step 2: Update Firestore document status
+            await updateDocumentNonBlocking(employeeDocRef!, { status: 'Идэвхтэй' });
+            
+            toast({
+                title: 'Ажилтан идэвхжлээ',
+                description: `${employee.firstName}-н нэвтрэх эрхийг сэргээлээ.`,
+            });
+            router.refresh();
+
+        } catch (error: any) {
+            console.error("Error reactivating employee:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа гарлаа',
+                description: error.message || 'Ажилтныг идэвхжүүлэхэд алдаа гарлаа.',
+            });
+        }
+    }
+
     if (isLoading) {
         return (
             <div className="py-8">
@@ -425,6 +463,7 @@ export default function EmployeeProfilePage() {
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
     const workScheduleName = employee.workScheduleId ? workScheduleMap.get(employee.workScheduleId) : 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
+    const isActive = employee.status === 'Идэвхтэй';
 
     return (
         <div className="py-8">
@@ -439,6 +478,21 @@ export default function EmployeeProfilePage() {
             </div>
 
             <div className="space-y-6">
+                 {!isActive && (
+                    <Card className="bg-yellow-50 border-yellow-200">
+                        <CardHeader className="flex-row items-center gap-4">
+                            <AlertTriangle className="w-6 h-6 text-yellow-600"/>
+                            <div>
+                                <CardTitle className="text-yellow-800">Анхаар!</CardTitle>
+                                <CardDescription className="text-yellow-700">Энэ ажилтан одоогоор {statusInfo.label.toLowerCase()} төлөвтэй байна.</CardDescription>
+                            </div>
+                            <Button onClick={handleReactivate} size="sm" className="ml-auto bg-yellow-600 hover:bg-yellow-700 text-white">
+                                <CheckCircle className="mr-2 h-4 w-4"/>
+                                Идэвхжүүлэх
+                            </Button>
+                        </CardHeader>
+                    </Card>
+                 )}
                 <Card>
                     <CardHeader>
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -522,5 +576,3 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
-
-    

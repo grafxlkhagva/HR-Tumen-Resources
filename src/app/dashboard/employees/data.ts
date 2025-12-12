@@ -10,7 +10,7 @@ export type Employee = {
   workScheduleId?: string;
   email: string;
   phoneNumber?: string;
-  status: 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан';
+  status: 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан' | 'Түр түдгэлзүүлсэн';
   hireDate: string;
   terminationDate?: string;
   skills?: string[];
