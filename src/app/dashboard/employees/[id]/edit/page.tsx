@@ -139,23 +139,34 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const filteredPositions = React.useMemo(() => {
         if (!positions || !positionStatuses) return [];
         const openStatusId = positionStatuses.find(s => s.name === 'Нээлттэй')?.id;
-        if (!openStatusId) return [];
-
-        let departmentPositions = positions.filter(pos => pos.statusId === openStatusId);
+        
+        let departmentPositions = positions;
+        
+        if (openStatusId) {
+            departmentPositions = departmentPositions.filter(pos => pos.statusId === openStatusId);
+        }
 
         if (watchedDepartmentId) {
             departmentPositions = departmentPositions.filter(pos => pos.departmentId === watchedDepartmentId);
         }
         
+        // Always include the employee's current position in the list, even if it's not "Open"
+        const currentPosition = positions.find(p => p.id === employeeData.positionId);
+        if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
+             if (!watchedDepartmentId || currentPosition.departmentId === watchedDepartmentId) {
+                departmentPositions.push(currentPosition);
+             }
+        }
+        
         return departmentPositions;
-    }, [positions, watchedDepartmentId, positionStatuses]);
+    }, [positions, watchedDepartmentId, positionStatuses, employeeData.positionId]);
 
 
     React.useEffect(() => {
         // Reset position if department changes and the current position is not in the new list
-        const currentPosition = form.getValues('positionId');
-        if (currentPosition && !filteredPositions.find(p => p.id === currentPosition)) {
-            form.resetField('positionId');
+        const currentPositionId = form.getValues('positionId');
+        if (currentPositionId && !filteredPositions.some(p => p.id === currentPositionId)) {
+            form.setValue('positionId', '');
         }
     }, [watchedDepartmentId, filteredPositions, form]);
 

@@ -527,6 +527,7 @@ const PositionsTab = () => {
                 {!isLoading && positions?.map((pos) => {
                     const statusName = pos.statusId ? lookups.statusMap[pos.statusId] : 'Тодорхойгүй';
                     const isStatusOpen = statusName === 'Нээлттэй';
+                    const isStatusClosed = statusName === 'Хаалттай';
 
                     return (
                         <TableRow key={pos.id}>
@@ -541,7 +542,10 @@ const PositionsTab = () => {
                                 {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                             </TableCell>
                             <TableCell>
-                                <Badge variant={isStatusOpen ? 'default' : 'secondary'} className={cn(isStatusOpen && 'bg-green-500/80')}>
+                                <Badge 
+                                    variant={isStatusOpen ? 'default' : isStatusClosed ? 'destructive' : 'secondary'}
+                                    className={cn(isStatusOpen && 'bg-green-500/80')}
+                                >
                                     {statusName}
                                 </Badge>
                             </TableCell>
