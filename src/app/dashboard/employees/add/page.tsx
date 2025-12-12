@@ -54,8 +54,7 @@ const employeeSchema = z.object({
   firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
   lastName: z.string().min(1, 'Овог хоосон байж болохгүй.'),
   email: z.string().email('Имэйл хаяг буруу байна.'),
-  password: z.string().min(6, 'Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой.'),
-  phoneNumber: z.string().optional(),
+  phoneNumber: z.string().min(6, 'Утасны дугаар дор хаяж 6 оронтой байх ёстой.'),
   positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
   workScheduleId: z.string().min(1, 'Ажлын цагийн хуваарь сонгоно уу.'),
@@ -134,7 +133,6 @@ export default function AddEmployeePage() {
       lastName: '',
       email: '',
       phoneNumber: '',
-      password: 'password123',
       status: 'Идэвхтэй',
     }
   });
@@ -205,7 +203,7 @@ export default function AddEmployeePage() {
         const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
 
-        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.phoneNumber);
         const user = userCredential.user;
 
         if (!user) {
@@ -358,27 +356,14 @@ export default function AddEmployeePage() {
                         </FormItem>
                         )}
                     />
-                     <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Нэвтрэх нууц үг</FormLabel>
-                            <FormControl>
-                            <Input type="password" {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
                     <FormField
                         control={form.control}
                         name="phoneNumber"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Утасны дугаар</FormLabel>
+                            <FormLabel>Утасны дугаар (Нууц үг болно)</FormLabel>
                             <FormControl>
-                            <Input placeholder="+976 9911..." {...field} value={field.value || ''} />
+                            <Input placeholder="+976 9911..." {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
