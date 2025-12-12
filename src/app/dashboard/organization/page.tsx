@@ -200,7 +200,7 @@ const StructureTab = () => {
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
     
     const positionCountByDept = positions.reduce((acc, pos) => {
-        if (!pos.departmentId) return acc;
+        if (!pos.departmentId || !pos.isActive) return acc;
         const currentCount = acc.get(pos.departmentId) || 0;
         acc.set(pos.departmentId, currentCount + pos.headcount);
         return acc;
@@ -526,7 +526,7 @@ const PositionsTab = () => {
                                 {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                             </TableCell>
                             <TableCell>
-                                <Badge variant={isActive ? 'default' : 'destructive'} className={cn(isActive && 'bg-green-500/80')}>
+                                <Badge variant={isActive ? 'default' : 'secondary'} className={cn(isActive && 'bg-green-100 text-green-800')}>
                                     {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
                                 </Badge>
                             </TableCell>
@@ -921,4 +921,3 @@ export default function OrganizationPage() {
     </div>
   );
 }
-
