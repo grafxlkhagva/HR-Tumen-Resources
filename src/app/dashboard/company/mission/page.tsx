@@ -86,6 +86,10 @@ function EditMissionVisionForm({ initialData }: { initialData: MissionVisionForm
     resolver: zodResolver(missionVisionSchema),
     defaultValues: initialData,
   });
+  
+  React.useEffect(() => {
+    form.reset(initialData);
+  }, [initialData, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
