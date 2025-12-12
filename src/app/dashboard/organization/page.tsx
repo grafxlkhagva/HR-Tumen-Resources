@@ -600,56 +600,56 @@ const HeadcountTab = () => {
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
   
     const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy } = React.useMemo(() => {
-      if (!positions || !employees || !departments) {
-        return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0 };
-      }
-  
-      const startDate = date?.from;
-      const endDate = date?.to;
-  
-      const departmentMap = new Map(departments.map(d => ({ ...d, approved: 0, filled: 0, positions: new Map<string, Position & {filled: number}>() })));
-  
-      positions.forEach(pos => {
-          const dept = departmentMap.get(pos.departmentId);
-          if(dept) {
-              dept.approved += pos.headcount;
-              dept.positions.set(pos.id, {...pos, filled: 0});
-          }
-      });
-  
-      employees.forEach(emp => {
-        const hireDate = new Date(emp.hireDate);
-        const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
-        
-        const isActiveInPeriod = 
-          (!startDate || hireDate <= endDate!) && 
-          (!endDate || !termDate || termDate >= startDate!);
-  
-        if (isActiveInPeriod) {
-          const dept = departmentMap.get(emp.departmentId);
-          if (dept) {
-            dept.filled += 1;
-            const pos = dept.positions.get(emp.positionId);
-            if (pos) {
-                pos.filled += 1;
-            }
-          }
+        if (!positions || !employees || !departments) {
+            return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0 };
         }
-      });
-  
-      const departmentsWithHeadcount = Array.from(departmentMap.values()).map(dept => ({
-          ...dept,
-          positions: Array.from(dept.positions.values())
-      }));
-      const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
-      const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
-  
-      return { 
-          departmentsWithHeadcount,
-          totalApproved,
-          totalFilled,
-          totalVacancy: totalApproved - totalFilled,
-      };
+    
+        const startDate = date?.from;
+        const endDate = date?.to;
+    
+        const employeeCountByPosition = employees.reduce((acc, emp) => {
+            const hireDate = new Date(emp.hireDate);
+            const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
+    
+            const isActiveInPeriod =
+                (!startDate || hireDate <= endDate!) &&
+                (!endDate || !termDate || termDate >= startDate!);
+    
+            if (isActiveInPeriod) {
+                acc.set(emp.positionId, (acc.get(emp.positionId) || 0) + 1);
+            }
+            return acc;
+        }, new Map<string, number>());
+    
+        const departmentMap = new Map(departments.map(d => {
+            const deptPositions = positions
+                .filter(p => p.departmentId === d.id)
+                .map(p => ({
+                    ...p,
+                    filled: employeeCountByPosition.get(p.id) || 0,
+                }));
+    
+            const approved = deptPositions.reduce((sum, p) => sum + p.headcount, 0);
+            const filled = deptPositions.reduce((sum, p) => sum + p.filled, 0);
+    
+            return [d.id, {
+                ...d,
+                approved,
+                filled,
+                positions: deptPositions,
+            }];
+        }));
+    
+        const departmentsWithHeadcount = Array.from(departmentMap.values());
+        const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
+        const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
+    
+        return { 
+            departmentsWithHeadcount,
+            totalApproved,
+            totalFilled,
+            totalVacancy: totalApproved - totalFilled,
+        };
     }, [positions, employees, departments, date]);
     
     const handleShowEmployees = (departmentId: string) => {
@@ -847,7 +847,7 @@ const HeadcountTab = () => {
                               return (
                                   <Collapsible asChild key={dept.id}>
                                       <>
-                                          <TableRow className="bg-muted/50 hover:bg-muted font-semibold">
+                                          <TableRow className="bg-muted/50 hover:bg-muted font-semibold" data-state>
                                               <TableCell>
                                                   <CollapsibleTrigger className="flex items-center gap-2 w-full">
                                                      <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
