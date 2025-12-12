@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -296,10 +296,6 @@ const StructureTab = () => {
               <Button variant="default" size="sm" onClick={handleOpenAddDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Нэгж нэмэх
-              </Button>
-               <Button variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Хэвлэх
               </Button>
             </div>
           </div>
@@ -823,58 +819,65 @@ const HeadcountTab = () => {
                           {isLoading && Array.from({length: 4}).map((_, i) => (
                               <TableRow key={i}>
                                   <TableCell><Skeleton className="h-5 w-32"/></TableCell>
-                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
                                   <TableCell><Skeleton className="h-4 w-full"/></TableCell>
                               </TableRow>
                           ))}
-                          {!isLoading && departmentsWithHeadcount.map(dept => {
-                            const isRowOpen = openRows.has(dept.id);
-                            return (
+                          {!isLoading && departmentsWithHeadcount.map(dept => (
                                 <React.Fragment key={dept.id}>
-                                    <TableRow
-                                        className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer"
-                                        onClick={() => toggleRow(dept.id)}
-                                    >
-                                        <TableCell>
-                                            <div className="flex items-center gap-2 w-full">
-                                                <ChevronRight className={cn("h-4 w-4 transition-transform", isRowOpen && "rotate-90")} />
-                                                {dept.name}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">{dept.approved}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="link" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); handleShowEmployees(dept.id); }}>{dept.filled}</Button>
-                                        </TableCell>
-                                        <TableCell className="text-right text-primary">{(dept.approved || 0) - (dept.filled || 0)}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Progress value={(dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0} className="h-2" />
-                                                <span className="text-xs text-muted-foreground">{Math.round((dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0)}%</span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                    {isRowOpen && dept.positions.map((pos) => {
-                                        const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
-                                        return (
-                                        <TableRow key={pos.id} className="text-sm bg-background hover:bg-muted/30">
-                                            <TableCell className="pl-12">{pos.title}</TableCell>
-                                            <TableCell className="text-right">{pos.headcount}</TableCell>
-                                            <TableCell className="text-right">{pos.filled}</TableCell>
-                                            <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Progress value={posProgress} className="h-2 bg-slate-200" />
-                                                    <span className="text-xs text-muted-foreground">{Math.round(posProgress)}%</span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                        )
-                                    })}
+                                    <Collapsible asChild>
+                                        <>
+                                            <CollapsibleTrigger asChild>
+                                                <TableRow
+                                                    className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer"
+                                                    onClick={() => toggleRow(dept.id)}
+                                                >
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2 w-full">
+                                                            <ChevronRight className={cn("h-4 w-4 transition-transform", openRows.has(dept.id) && "rotate-90")} />
+                                                            {dept.name}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">{dept.approved}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="link" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); handleShowEmployees(dept.id); }}>{dept.filled}</Button>
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-primary">{(dept.approved || 0) - (dept.filled || 0)}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Progress value={(dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0} className="h-2" />
+                                                            <span className="text-xs text-muted-foreground">{Math.round((dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0)}%</span>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent asChild>
+                                               <>
+                                                {openRows.has(dept.id) && dept.positions.map((pos) => {
+                                                    const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
+                                                    return (
+                                                    <TableRow key={pos.id} className="text-sm bg-background hover:bg-muted/30">
+                                                        <TableCell className="pl-12">{pos.title}</TableCell>
+                                                        <TableCell className="text-right">{pos.headcount}</TableCell>
+                                                        <TableCell className="text-right">{pos.filled}</TableCell>
+                                                        <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <Progress value={posProgress} className="h-2 bg-slate-200" />
+                                                                <span className="text-xs text-muted-foreground">{Math.round(posProgress)}%</span>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    )
+                                                })}
+                                               </>
+                                            </CollapsibleContent>
+                                        </>
+                                    </Collapsible>
                                 </React.Fragment>
-                            );
-                          })}
+                            ))}
                            {!isLoading && departmentsWithHeadcount.length === 0 && (
                               <TableRow>
                                   <TableCell colSpan={5} className="h-24 text-center">
