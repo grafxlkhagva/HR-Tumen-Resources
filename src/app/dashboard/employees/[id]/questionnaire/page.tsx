@@ -130,28 +130,32 @@ type ReferenceItem = { id: string; name: string };
 
 // Helper for date transformation
 const transformDates = (data: any) => {
+  if (!data) return data;
+  const transformedData = { ...data };
   const dateFields = ['birthDate', 'disabilityDate'];
   const arrayDateFields = ['entryDate', 'gradDate', 'startDate', 'endDate'];
   
   for (const field of dateFields) {
-    if (data[field] && typeof data[field] === 'object' && 'seconds' in data[field]) {
-      data[field] = data[field].toDate();
+    if (transformedData[field] && typeof transformedData[field] === 'object' && 'seconds' in transformedData[field]) {
+      transformedData[field] = transformedData[field].toDate();
     }
   }
 
   ['education', 'trainings', 'experiences'].forEach(arrayKey => {
-    if (data[arrayKey]) {
-      data[arrayKey].forEach((item: any) => {
+    if (transformedData[arrayKey]) {
+      transformedData[arrayKey] = transformedData[arrayKey].map((item: any) => {
+        const newItem = { ...item };
         for (const field of arrayDateFields) {
-          if (item[field] && typeof item[field] === 'object' && 'seconds' in item[field]) {
-            item[field] = item[field].toDate();
+          if (newItem[field] && typeof newItem[field] === 'object' && 'seconds' in newItem[field]) {
+            newItem[field] = newItem[field].toDate();
           }
         }
+        return newItem;
       });
     }
   });
 
-  return data;
+  return transformedData;
 }
 
 
@@ -173,6 +177,12 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, sch
         defaultValues,
     });
     
+    React.useEffect(() => {
+        if(defaultValues) {
+            form.reset(defaultValues);
+        }
+    }, [defaultValues, form]);
+
     const { isSubmitting } = form.formState;
 
     const onSubmit = (data: z.infer<T>) => {
@@ -554,22 +564,24 @@ export default function QuestionnairePage() {
 
     
     const defaultValues = React.useMemo(() => {
-        const initialData: Partial<FullQuestionnaireValues> = {
-            emergencyContacts: [], education: [], languages: [], trainings: [], familyMembers: [], experiences: []
+        const initialData = {
+          // Fields from Employee document
+          ...employeeData,
+          workEmail: employeeData?.email,
+          personalPhone: employeeData?.phoneNumber,
+          // Fields from Questionnaire document (will overwrite if present)
+          ...questionnaireData,
         };
-        
-        if (employeeData) {
-            initialData.firstName = employeeData.firstName;
-            initialData.lastName = employeeData.lastName;
-            initialData.workEmail = employeeData.email;
-            initialData.personalPhone = employeeData.phoneNumber;
-        }
-
-        if (questionnaireData) {
-            return transformDates({ ...initialData, ...questionnaireData });
-        }
-        return initialData;
-    }, [questionnaireData, employeeData]);
+        // Ensure arrays are initialized if they are undefined
+        initialData.emergencyContacts = initialData.emergencyContacts || [];
+        initialData.education = initialData.education || [];
+        initialData.languages = initialData.languages || [];
+        initialData.trainings = initialData.trainings || [];
+        initialData.familyMembers = initialData.familyMembers || [];
+        initialData.experiences = initialData.experiences || [];
+      
+        return transformDates(initialData);
+      }, [employeeData, questionnaireData]);
 
     const references = {
         countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships,
