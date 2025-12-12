@@ -26,6 +26,7 @@ import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { type Employee } from '../../../data';
 
 
 // Schemas
@@ -528,11 +529,17 @@ export default function QuestionnairePage() {
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
 
+    const employeeDocRef = useMemoFirebase(
+        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
+        [firestore, employeeId]
+    );
+
     const questionnaireDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null),
         [firestore, employeeId]
     );
 
+    const { data: employeeData, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);
 
     // Questionnaire references
@@ -547,25 +554,29 @@ export default function QuestionnairePage() {
 
     
     const defaultValues = React.useMemo(() => {
-        const initialData = {
-            lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '',
-            hasDisability: false, disabilityPercentage: '', disabilityDate: null, hasDriversLicense: false, driverLicenseCategories: [],
-            workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
+        const initialData: Partial<FullQuestionnaireValues> = {
             emergencyContacts: [], education: [], languages: [], trainings: [], familyMembers: [], experiences: []
         };
+        
+        if (employeeData) {
+            initialData.firstName = employeeData.firstName;
+            initialData.lastName = employeeData.lastName;
+            initialData.workEmail = employeeData.email;
+            initialData.personalPhone = employeeData.phoneNumber;
+        }
 
         if (questionnaireData) {
             return transformDates({ ...initialData, ...questionnaireData });
         }
         return initialData;
-    }, [questionnaireData]);
+    }, [questionnaireData, employeeData]);
 
     const references = {
         countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships,
         employmentTypes: questionnaireEmploymentTypes,
     };
 
-    const isLoading = isLoadingQuestionnaire || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR || isLoadingEmpTypes;
+    const isLoading = isLoadingEmployee || isLoadingQuestionnaire || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR || isLoadingEmpTypes;
 
 
     if (isLoading) {
