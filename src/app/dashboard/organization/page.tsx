@@ -787,9 +787,9 @@ const HeadcountTab = () => {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Хэлтэс/Нэгж</TableHead>
-                            <TableHead className="text-right">Батлагдсан</TableHead>
+                            <TableHead className="text-right">Батлагдсан орон тоо</TableHead>
                             <TableHead className="text-right">Ажиллаж буй</TableHead>
-                            <TableHead className="text-right">Сул</TableHead>
+                            <TableHead className="text-right">Сул орон тоо</TableHead>
                             <TableHead className="w-[200px]">Гүйцэтгэл</TableHead>
                         </TableRow>
                     </TableHeader>
