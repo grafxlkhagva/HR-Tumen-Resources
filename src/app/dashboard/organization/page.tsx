@@ -50,7 +50,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -527,7 +527,7 @@ const PositionsTab = () => {
                                 {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                             </TableCell>
                             <TableCell>
-                                <Badge variant={isActive ? 'default' : 'secondary'} className={cn(isActive && 'bg-green-100 text-green-800')}>
+                                <Badge variant={isActive ? 'default' : 'secondary'} className={cn(isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
                                     {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
                                 </Badge>
                             </TableCell>
@@ -601,31 +601,46 @@ const HeadcountTab = () => {
             return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0, newPositionsInPeriod: 0 };
         }
     
-        const startDate = date?.from;
-        const endDate = date?.to;
-    
-        const employeeCountByPosition = employees.reduce((acc, emp) => {
-            if (!emp.positionId) return acc;
+        const periodStart = date?.from ? startOfDay(date.from) : null;
+        const periodEnd = date?.to ? endOfDay(date.to) : null;
+        
+        // 1. Calculate filled positions count based on employees active within the period
+        const employeeCountByPosition = new Map<string, number>();
+        employees.forEach(emp => {
+            if (!emp.positionId) return;
+
             const hireDate = new Date(emp.hireDate);
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
-    
-            const isActiveInPeriod =
-                (!startDate || hireDate <= endDate!) &&
-                (!endDate || !termDate || termDate >= startDate!);
-    
-            if (isActiveInPeriod) {
-                acc.set(emp.positionId, (acc.get(emp.positionId) || 0) + 1);
-            }
-            return acc;
-        }, new Map<string, number>());
-        
-        let newPositionsInPeriod = 0;
-        if(startDate && endDate) {
-            newPositionsInPeriod = positions.filter(p => p.createdAt && new Date(p.createdAt) >= startDate && new Date(p.createdAt) <= endDate).reduce((sum, p) => sum + p.headcount, 0);
-        }
 
+            // An employee is considered "filled" if their employment overlaps with the selected period
+            const isActiveInPeriod =
+                (!periodStart || !termDate || termDate >= periodStart) && // Not terminated before the period started
+                (!periodEnd || hireDate <= periodEnd); // Hired before the period ended
+            
+            if (isActiveInPeriod) {
+                employeeCountByPosition.set(emp.positionId, (employeeCountByPosition.get(emp.positionId) || 0) + 1);
+            }
+        });
+
+        // 2. Filter for positions that were active at the end of the period
+        const activePositions = positions.filter(p => {
+             const isPosActive = p.isActive === true;
+             const createdAt = p.createdAt ? new Date(p.createdAt) : null;
+             // Position is considered for headcount if it was created before the end of the period
+             return isPosActive && (!periodEnd || !createdAt || createdAt <= periodEnd);
+        });
+
+        // 3. Calculate new positions created within the period
+        const newPositionsInPeriod = positions
+            .filter(p => {
+                const createdAt = p.createdAt ? new Date(p.createdAt) : null;
+                return createdAt && (!periodStart || createdAt >= periodStart) && (!periodEnd || createdAt <= periodEnd);
+            })
+            .reduce((sum, p) => sum + p.headcount, 0);
+
+        // 4. Aggregate data by department
         const departmentsData = departments.map(d => {
-            const deptPositions = positions
+            const deptPositions = activePositions
                 .filter(p => p.departmentId === d.id)
                 .map(p => ({
                     ...p,
@@ -659,8 +674,8 @@ const HeadcountTab = () => {
       const dept = departments?.find(d => d.id === departmentId);
       if (!dept || !employees) return;
   
-      const startDate = date?.from;
-      const endDate = date?.to;
+      const startDate = date?.from ? startOfDay(date.from) : null;
+      const endDate = date?.to ? endOfDay(date.to) : null;
   
       const filteredEmployees = employees.filter(emp => {
           if (emp.departmentId !== departmentId) return false;
@@ -669,8 +684,8 @@ const HeadcountTab = () => {
           const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
         
           const isActiveInPeriod = 
-              (!startDate || hireDate <= endDate!) && 
-              (!endDate || !termDate || termDate >= startDate!);
+              (!startDate || !termDate || termDate >= startDate) && 
+              (!endDate || hireDate <= endDate);
               
           return isActiveInPeriod;
       });
