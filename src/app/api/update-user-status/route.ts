@@ -3,15 +3,34 @@ import { NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
-// Ensure Firebase Admin is initialized
+// Ensure Firebase Admin is initialized only once
 if (getApps().length === 0) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string);
-    initializeApp({
-        credential: cert(serviceAccount),
-    });
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+        try {
+            const serviceAccount = JSON.parse(serviceAccountKey);
+            initializeApp({
+                credential: cert(serviceAccount),
+            });
+        } catch (e) {
+            console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', e);
+        }
+    } else {
+        console.warn('FIREBASE_SERVICE_ACCOUNT_KEY is not set. Admin SDK features will not be available.');
+    }
+}
+
+function isAdminSDKInitialized() {
+    return getApps().some(app => app.name === '[DEFAULT]');
 }
 
 export async function POST(request: Request) {
+    if (!isAdminSDKInitialized()) {
+        const errorMessage = 'Firebase Admin SDK is not initialized. Please configure the service account key.';
+        console.error(errorMessage);
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
+    }
+
     try {
         const { uid, disabled } = await request.json();
 
