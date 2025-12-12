@@ -25,13 +25,12 @@ import { Input } from '@/components/ui/input';
 import {
   useFirebase,
   setDocumentNonBlocking,
-  updateDocumentNonBlocking,
   useCollection,
   useMemoFirebase,
   useAuth,
   useDoc,
 } from '@/firebase';
-import { collection, getDocs, query, where, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -110,7 +109,7 @@ export default function AddEmployeePage() {
   const { toast } = useToast();
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
   const [photoFile, setPhotoFile] = React.useState<File | null>(null);
-  const [isUploading, setIsUploading] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
 
@@ -137,8 +136,6 @@ export default function AddEmployeePage() {
     }
   });
   
-  const { isSubmitting } = form.formState;
-
   const employeesCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'employees') : null),
     [firestore]
@@ -164,8 +161,7 @@ export default function AddEmployeePage() {
     const codeNumber = nextNumber.toString().padStart(digitCount, '0');
     const newCode = `${prefix}${codeNumber}`;
   
-    // Increment the number for the next user
-    updateDocumentNonBlocking(codeConfigRef, { nextNumber: nextNumber + 1 });
+    await setDoc(codeConfigRef, { nextNumber: nextNumber + 1 }, { merge: true });
   
     return newCode;
   };
@@ -188,9 +184,10 @@ export default function AddEmployeePage() {
         return;
     }
 
-    setIsUploading(true);
+    setIsSubmitting(true);
+
     try {
-        const { createUserWithEmailAndPassword, signOut: firebaseSignOut, signInWithCredential, EmailAuthProvider } = await import('firebase/auth');
+        const { createUserWithEmailAndPassword, signOut, reauthenticateWithCredential, EmailAuthProvider } = await import('firebase/auth');
         
         const employeeCode = await generateEmployeeCode();
         const authEmail = `${employeeCode}@example.com`;
@@ -231,18 +228,32 @@ export default function AddEmployeePage() {
         };
         
         const docRef = doc(firestore, 'employees', newUser.uid);
-        await setDocumentNonBlocking(docRef, employeeData, { merge: true });
-        
-        // Sign out the newly created user and redirect. The admin will have to log back in.
-        await firebaseSignOut(auth);
+        await setDoc(docRef, employeeData);
+
+        // Re-authenticate as admin. This is a crucial step.
+        // We'll use the original user object to sign back in.
+        // For security reasons, directly handling passwords on the client is risky.
+        // A better long-term solution involves Cloud Functions or custom tokens.
+        // But for now, we'll try to restore session.
+        if (auth.currentUser?.uid !== originalUser.uid) {
+            await signOut(auth); // Sign out the new user
+            // This is a simplification. A real app would need a more robust way
+            // to re-authenticate the admin, likely involving a prompt or a secure token.
+            // For now, we redirect to login, which is safer.
+             toast({
+              title: 'Амжилттай хадгаллаа',
+              description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
+            });
+            router.push('/login'); // Redirect to login for admin to sign back in
+            return;
+        }
 
         toast({
           title: 'Амжилттай хадгаллаа',
           description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
         });
         
-        // Redirect to login page as admin is now signed out.
-        router.push('/login');
+        router.push('/dashboard/employees');
 
     } catch(error: any) {
         console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
@@ -252,20 +263,8 @@ export default function AddEmployeePage() {
             title: "Алдаа гарлаа",
             description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа."
         });
-        
-        // Attempt to sign the admin back in if something went wrong
-        if (auth.currentUser?.uid !== originalUser.uid) {
-            try {
-                // This is a basic re-sign-in attempt; might not always work depending on auth state.
-                // A more robust solution might involve storing credentials securely or using custom tokens.
-                await auth.updateCurrentUser(originalUser);
-            } catch (reauthError) {
-                 console.error("Админыг буцаан нэвтрүүлэхэд ноцтой алдаа гарлаа: ", reauthError);
-                 router.push('/login'); // Force logout if re-auth fails
-            }
-        }
     } finally {
-        setIsUploading(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -307,8 +306,8 @@ export default function AddEmployeePage() {
                             onChange={handlePhotoSelect}
                             className="hidden"
                         />
-                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                             Зураг хуулах
                         </Button>
                     </div>
@@ -482,11 +481,11 @@ export default function AddEmployeePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting || isUploading}>
-                        {isSubmitting || isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Хадгалах
                     </Button>
-                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting || isUploading}>
+                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting}>
                         <X className="mr-2 h-4 w-4" />
                         Цуцлах
                     </Button>
@@ -498,5 +497,3 @@ export default function AddEmployeePage() {
     </div>
   );
 }
-
-    
