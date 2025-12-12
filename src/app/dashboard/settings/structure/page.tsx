@@ -13,11 +13,9 @@ type SimpleReferenceItem = ReferenceItem & { name: string };
 
 export default function StructureSettingsPage() {
   const employmentTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'employmentTypes') : null, []);
-  const positionStatusesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positionStatuses') : null, []);
   const positionLevelsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positionLevels') : null, []);
 
   const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(employmentTypesQuery);
-  const { data: positionStatuses, isLoading: loadingStatuses } = useCollection<SimpleReferenceItem>(positionStatusesQuery);
   const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(positionLevelsQuery);
 
   return (
@@ -68,23 +66,8 @@ export default function StructureSettingsPage() {
             />
         </CardContent>
         </Card>
-
-        <Card>
-        <CardHeader>
-            <CardTitle>Ажлын байрны төлөв</CardTitle>
-            <CardDescription>Нээлттэй, хаалттай гэх мэт төлвүүдийг удирдах.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <ReferenceTable 
-            collectionName="positionStatuses"
-            columns={[{ key: 'name', header: 'Нэр' }]}
-            itemData={positionStatuses}
-            isLoading={loadingStatuses}
-            dialogTitle="Ажлын байрны төлөв"
-            />
-        </CardContent>
-        </Card>
       </div>
     </div>
   );
 }
+

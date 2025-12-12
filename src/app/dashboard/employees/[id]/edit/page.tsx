@@ -67,10 +67,9 @@ const editEmployeeSchema = z.object({
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
-type Position = { id: string; title: string; departmentId: string; statusId: string; };
+type Position = { id: string; title: string; departmentId: string; isActive: boolean; };
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
-type PositionStatus = { id: string; name: string; };
 
 const employeeStatuses = ["Идэвхтэй", "Жирэмсний амралттай", "Хүүхэд асрах чөлөөтэй", "Урт хугацааны чөлөөтэй", "Ажлаас гарсан"];
 
@@ -114,13 +113,11 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const positionStatusesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positionStatuses') : null, [firestore]);
 
 
     const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
     const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
-    const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(positionStatusesQuery);
 
 
     const form = useForm<EditEmployeeFormValues>({
@@ -137,20 +134,15 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const watchedDepartmentId = form.watch('departmentId');
     
     const filteredPositions = React.useMemo(() => {
-        if (!positions || !positionStatuses) return [];
-        const openStatusId = positionStatuses.find(s => s.name === 'Нээлттэй')?.id;
+        if (!positions) return [];
         
-        let departmentPositions = positions;
+        let departmentPositions = positions.filter(pos => pos.isActive);
         
-        if (openStatusId) {
-            departmentPositions = departmentPositions.filter(pos => pos.statusId === openStatusId);
-        }
-
         if (watchedDepartmentId) {
             departmentPositions = departmentPositions.filter(pos => pos.departmentId === watchedDepartmentId);
         }
         
-        // Always include the employee's current position in the list, even if it's not "Open"
+        // Always include the employee's current position in the list, even if it's not "active"
         const currentPosition = positions.find(p => p.id === employeeData.positionId);
         if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
              if (!watchedDepartmentId || currentPosition.departmentId === watchedDepartmentId) {
@@ -159,7 +151,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         }
         
         return departmentPositions;
-    }, [positions, watchedDepartmentId, positionStatuses, employeeData.positionId]);
+    }, [positions, watchedDepartmentId, employeeData.positionId]);
 
 
     React.useEffect(() => {
@@ -218,7 +210,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         router.push(`/dashboard/employees/${employeeData.id}`);
     };
 
-    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules || isLoadingStatuses;
+    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
 
     if (isLoading) {
         return <EditEmployeeFormSkeleton />;
@@ -330,3 +322,4 @@ export default function EditEmployeePage() {
         </div>
     )
 }
+

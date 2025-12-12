@@ -86,7 +86,7 @@ type Position = {
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
-  statusId?: string;
+  isActive?: boolean;
 };
 
 type PositionLevel = {
@@ -95,11 +95,6 @@ type PositionLevel = {
 };
 
 type EmploymentType = {
-  id: string;
-  name: string;
-};
-
-type PositionStatus = {
   id: string;
   name: string;
 };
@@ -406,39 +401,32 @@ const PositionsTab = () => {
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const statusesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionStatuses') : null), [firestore]);
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<PositionLevel>(levelsQuery);
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<EmploymentType>(empTypesQuery);
-    const { data: positionStatuses, isLoading: isLoadingStatuses } = useCollection<PositionStatus>(statusesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
 
-    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses || isLoadingJobCategories;
+    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
     const totalHeadcount = useMemo(() => {
-        if (!positions || !positionStatuses) {
+        if (!positions) {
             return 0;
         }
-        const openStatus = positionStatuses.find(s => s.name === 'Нээлттэй');
-        if (!openStatus) {
-            return positions.reduce((sum, pos) => sum + (pos.headcount || 0), 0);
-        }
         return positions
-            .filter(pos => pos.statusId === openStatus.id)
+            .filter(pos => pos.isActive)
             .reduce((sum, pos) => sum + (pos.headcount || 0), 0);
-    }, [positions, positionStatuses]);
+    }, [positions]);
 
     const lookups = React.useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
         const levelMap = positionLevels?.reduce((acc, level) => { acc[level.id] = level.name; return acc; }, {} as Record<string, string>) || {};
         const empTypeMap = employmentTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
-        const statusMap = positionStatuses?.reduce((acc, status) => { acc[status.id] = status.name; return acc; }, {} as Record<string, string>) || {};
         const jobCategoryMap = jobCategories?.reduce((acc, cat) => { acc[cat.id] = `${cat.code} - ${cat.name}`; return acc; }, {} as Record<string, string>) || {};
-        return { departmentMap, levelMap, empTypeMap, statusMap, jobCategoryMap };
-    }, [departments, positionLevels, employmentTypes, positionStatuses, jobCategories]);
+        return { departmentMap, levelMap, empTypeMap, jobCategoryMap };
+    }, [departments, positionLevels, employmentTypes, jobCategories]);
     
     const handleOpenAddDialog = () => {
         setEditingPosition(null);
@@ -465,7 +453,6 @@ const PositionsTab = () => {
             departments={departments || []}
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
-            positionStatuses={positionStatuses || []}
             jobCategories={jobCategories || []}
             editingPosition={editingPosition}
         />
@@ -525,10 +512,7 @@ const PositionsTab = () => {
                     </TableRow>
                 ))}
                 {!isLoading && positions?.map((pos) => {
-                    const statusName = pos.statusId ? lookups.statusMap[pos.statusId] : 'Тодорхойгүй';
-                    const isStatusOpen = statusName === 'Нээлттэй';
-                    const isStatusClosed = statusName === 'Хаалттай';
-
+                    const isActive = pos.isActive === undefined ? true : pos.isActive;
                     return (
                         <TableRow key={pos.id}>
                             <TableCell className="font-medium">{pos.title}</TableCell>
@@ -542,11 +526,8 @@ const PositionsTab = () => {
                                 {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                             </TableCell>
                             <TableCell>
-                                <Badge 
-                                    variant={isStatusOpen ? 'default' : isStatusClosed ? 'destructive' : 'secondary'}
-                                    className={cn(isStatusOpen && 'bg-green-500/80')}
-                                >
-                                    {statusName}
+                                <Badge variant={isActive ? 'default' : 'destructive'} className={cn(isActive && 'bg-green-500/80')}>
+                                    {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-right">
@@ -940,3 +921,4 @@ export default function OrganizationPage() {
     </div>
   );
 }
+

@@ -38,13 +38,14 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
-  statusId: z.string().min(1, 'Төлөв сонгоно уу.'),
+  isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
 });
@@ -69,7 +70,7 @@ interface Position {
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
-  statusId?: string;
+  isActive?: boolean;
 }
 
 interface AddPositionDialogProps {
@@ -78,7 +79,6 @@ interface AddPositionDialogProps {
   departments: Reference[];
   positionLevels: Reference[];
   employmentTypes: Reference[];
-  positionStatuses: Reference[];
   jobCategories: JobCategoryReference[];
   editingPosition?: Position | null;
 }
@@ -89,7 +89,6 @@ export function AddPositionDialog({
   departments,
   positionLevels,
   employmentTypes,
-  positionStatuses,
   jobCategories,
   editingPosition,
 }: AddPositionDialogProps) {
@@ -104,7 +103,7 @@ export function AddPositionDialog({
       departmentId: '',
       levelId: '',
       employmentTypeId: '',
-      statusId: '',
+      isActive: true,
       headcount: 1,
       jobCategoryId: '',
     },
@@ -117,7 +116,7 @@ export function AddPositionDialog({
         headcount: editingPosition.headcount || 1,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
-        statusId: editingPosition.statusId || '',
+        isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
       });
     } else {
@@ -126,8 +125,8 @@ export function AddPositionDialog({
         departmentId: '',
         levelId: '',
         employmentTypeId: '',
-        statusId: '',
         jobCategoryId: '',
+        isActive: true,
         headcount: 1,
       });
     }
@@ -286,30 +285,6 @@ export function AddPositionDialog({
               />
               <FormField
                 control={form.control}
-                name="statusId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Төлөв</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Төлөв сонгох" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {positionStatuses.map((status) => (
-                            <SelectItem key={status.id} value={status.id}>
-                                {status.name}
-                            </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="headcount"
                 render={({ field }) => (
                   <FormItem>
@@ -318,6 +293,23 @@ export function AddPositionDialog({
                       <Input type="number" {...field} />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />
@@ -337,3 +329,4 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
+
