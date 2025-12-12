@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, Calendar as CalendarIcon, Users2, Download, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -49,7 +49,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -420,8 +420,14 @@ const PositionsTab = () => {
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
 
     const totalHeadcount = useMemo(() => {
-        return positions?.reduce((acc, pos) => acc + (pos.headcount || 0), 0) || 0;
-    }, [positions]);
+        if (!positions || !positionStatuses) return 0;
+        const openStatus = positionStatuses.find(s => s.name === 'Нээлттэй');
+        if (!openStatus) return 0;
+        
+        return positions
+            .filter(pos => pos.statusId === openStatus.id)
+            .reduce((acc, pos) => acc + (pos.headcount || 0), 0) || 0;
+    }, [positions, positionStatuses]);
 
     const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingStatuses || isLoadingJobCategories;
 
@@ -740,7 +746,7 @@ const HeadcountTab = () => {
                               variant={"outline"}
                               className={cn("w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
                               >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <ChevronRight className="mr-2 h-4 w-4" />
                               {date?.from ? (
                                   date.to ? (
                                   <>
