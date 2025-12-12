@@ -137,23 +137,15 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const filteredPositions = React.useMemo(() => {
         if (!positions) return [];
         
-        // Start with active positions for the selected department
-        let departmentPositions = positions.filter(p => p.isActive && p.departmentId === watchedDepartmentId);
+        // Get active positions for the selected department
+        const departmentPositions = positions.filter(p => p.isActive && p.departmentId === watchedDepartmentId);
         
-        // Ensure the employee's current position is always in the list,
-        // even if it's inactive or doesn't match the current department filter initially.
+        // Find the employee's current position
         const currentPosition = positions.find(p => p.id === employeeData.positionId);
         
+        // If the current position exists and is NOT in the list already (e.g., it's inactive), add it.
         if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
-            // If the current position is in the selected department, add it.
-            if (currentPosition.departmentId === watchedDepartmentId) {
-                departmentPositions.push(currentPosition);
-            }
-        }
-        
-        // If no department is selected yet, the list should still include the current position
-        if (!watchedDepartmentId && currentPosition) {
-             return [currentPosition];
+            departmentPositions.push(currentPosition);
         }
 
         return departmentPositions;
@@ -162,13 +154,9 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
     React.useEffect(() => {
         const currentPositionId = form.getValues('positionId');
-        // This effect will run when the department changes.
-        // If the previously selected position is not in the new list of filtered positions,
-        // reset the positionId field.
         if (currentPositionId && !filteredPositions.some(p => p.id === currentPositionId)) {
-            form.setValue('positionId', '');
+             form.setValue('positionId', '');
         }
-    // We only want this to run when watchedDepartmentId changes, not when the form's positionId changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watchedDepartmentId]);
 
