@@ -37,8 +37,12 @@ import {
   useMemoFirebase,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
@@ -48,6 +52,9 @@ const positionSchema = z.object({
   isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
+  createdAt: z.date({
+    required_error: 'Батлагдсан огноог сонгоно уу.',
+  }),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -71,6 +78,7 @@ interface Position {
   employmentTypeId?: string;
   jobCategoryId?: string;
   isActive?: boolean;
+  createdAt?: string;
 }
 
 interface AddPositionDialogProps {
@@ -106,6 +114,7 @@ export function AddPositionDialog({
       isActive: true,
       headcount: 1,
       jobCategoryId: '',
+      createdAt: new Date(),
     },
   });
 
@@ -118,6 +127,7 @@ export function AddPositionDialog({
         employmentTypeId: editingPosition.employmentTypeId || '',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
+        createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
       });
     } else {
       form.reset({
@@ -128,6 +138,7 @@ export function AddPositionDialog({
         jobCategoryId: '',
         isActive: true,
         headcount: 1,
+        createdAt: new Date(),
       });
     }
   }, [editingPosition, open, form]);
@@ -141,13 +152,17 @@ export function AddPositionDialog({
 
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
+    
+    const dataWithISOStringDate = {
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+    };
 
     const finalData = isEditMode && editingPosition ? {
-      ...data,
+      ...dataWithISOStringDate,
     } : {
-      ...data,
+      ...dataWithISOStringDate,
       filled: 0, // Default to 0 for new positions
-      createdAt: new Date().toISOString(),
     };
     
     if (isEditMode && editingPosition) {
@@ -299,9 +314,50 @@ export function AddPositionDialog({
               />
                <FormField
                 control={form.control}
+                name="createdAt"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Батлагдсан огноо</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "yyyy-MM-dd")
+                            ) : (
+                              <span>Огноо сонгох</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date()
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
                 name="isActive"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 sm:col-span-2">
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
                     </div>
@@ -330,5 +386,3 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
-
-    
