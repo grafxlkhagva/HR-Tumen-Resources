@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, Calendar as CalendarIcon, Users2, Download } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, Calendar as CalendarIcon, Users2, Download, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -55,6 +55,7 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from '../employees/data';
 import * as XLSX from 'xlsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 // Interfaces for Firestore data
@@ -580,306 +581,344 @@ const PositionsTab = () => {
 };
 
 const HeadcountTab = () => {
-  const { firestore } = useFirebase();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: endOfMonth(new Date()),
-  });
-  const [selectedDeptEmployees, setSelectedDeptEmployees] = React.useState<Employee[]>([]);
-  const [isEmployeeListOpen, setIsEmployeeListOpen] = React.useState(false);
-  const [selectedDeptName, setSelectedDeptName] = React.useState("");
-
-
-  const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-  const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-  const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-  
-  const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-  const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
-  const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
-
-  const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy } = React.useMemo(() => {
-    if (!positions || !employees || !departments) {
-      return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0 };
-    }
-
-    const startDate = date?.from;
-    const endDate = date?.to;
-
-    const departmentMap = new Map(departments.map(d => [d.id, { ...d, approved: 0, filled: 0 }]));
-
-    positions.forEach(pos => {
-        const dept = departmentMap.get(pos.departmentId);
-        if(dept) {
-            dept.approved += pos.headcount;
-        }
+    const { firestore } = useFirebase();
+    const [date, setDate] = React.useState<DateRange | undefined>({
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date()),
     });
-
-    employees.forEach(emp => {
-      const hireDate = new Date(emp.hireDate);
-      const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
-      
-      const isActiveInPeriod = 
-        (!startDate || hireDate <= endDate!) && 
-        (!endDate || !termDate || termDate >= startDate!);
-
-      if (isActiveInPeriod) {
-        const dept = departmentMap.get(emp.departmentId);
-        if (dept) {
-          dept.filled += 1;
-        }
+    const [selectedDeptEmployees, setSelectedDeptEmployees] = React.useState<Employee[]>([]);
+    const [isEmployeeListOpen, setIsEmployeeListOpen] = React.useState(false);
+    const [selectedDeptName, setSelectedDeptName] = React.useState("");
+  
+  
+    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    
+    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+  
+    const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy } = React.useMemo(() => {
+      if (!positions || !employees || !departments) {
+        return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0 };
       }
-    });
-
-    const departmentsWithHeadcount = Array.from(departmentMap.values());
-    const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
-    const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
-
-    return { 
-        departmentsWithHeadcount,
-        totalApproved,
-        totalFilled,
-        totalVacancy: totalApproved - totalFilled,
-    };
-  }, [positions, employees, departments, date]);
   
-  const handleShowEmployees = (departmentId: string) => {
-    const dept = departments?.find(d => d.id === departmentId);
-    if (!dept || !employees) return;
-
-    const startDate = date?.from;
-    const endDate = date?.to;
-
-    const filteredEmployees = employees.filter(emp => {
-        if (emp.departmentId !== departmentId) return false;
-        
+      const startDate = date?.from;
+      const endDate = date?.to;
+  
+      const departmentMap = new Map(departments.map(d => ({ ...d, approved: 0, filled: 0, positions: new Map<string, Position & {filled: number}>() })));
+  
+      positions.forEach(pos => {
+          const dept = departmentMap.get(pos.departmentId);
+          if(dept) {
+              dept.approved += pos.headcount;
+              dept.positions.set(pos.id, {...pos, filled: 0});
+          }
+      });
+  
+      employees.forEach(emp => {
         const hireDate = new Date(emp.hireDate);
         const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
-      
+        
         const isActiveInPeriod = 
-            (!startDate || hireDate <= endDate!) && 
-            (!endDate || !termDate || termDate >= startDate!);
-            
-        return isActiveInPeriod;
-    });
-
-    setSelectedDeptEmployees(filteredEmployees);
-    setSelectedDeptName(dept.name);
-    setIsEmployeeListOpen(true);
-  };
-
-  const handleExport = () => {
-    if (!departmentsWithHeadcount) return;
-
-    const dataToExport = departmentsWithHeadcount.map(dept => ({
-        'Хэлтэс/Нэгж': dept.name,
-        'Батлагдсан орон тоо': dept.approved,
-        'Ажиллаж буй': dept.filled,
-        'Сул орон тоо': dept.approved - dept.filled,
-        'Гүйцэтгэл (%)': dept.approved > 0 ? Math.round((dept.filled / dept.approved) * 100) : 0,
-    }));
+          (!startDate || hireDate <= endDate!) && 
+          (!endDate || !termDate || termDate >= startDate!);
+  
+        if (isActiveInPeriod) {
+          const dept = departmentMap.get(emp.departmentId);
+          if (dept) {
+            dept.filled += 1;
+            const pos = dept.positions.get(emp.positionId);
+            if (pos) {
+                pos.filled += 1;
+            }
+          }
+        }
+      });
+  
+      const departmentsWithHeadcount = Array.from(departmentMap.values()).map(dept => ({
+          ...dept,
+          positions: Array.from(dept.positions.values())
+      }));
+      const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
+      const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
+  
+      return { 
+          departmentsWithHeadcount,
+          totalApproved,
+          totalFilled,
+          totalVacancy: totalApproved - totalFilled,
+      };
+    }, [positions, employees, departments, date]);
     
-    dataToExport.push({
-        'Хэлтэс/Нэгж': 'Нийт',
-        'Батлагдсан орон тоо': totalApproved,
-        'Ажиллаж буй': totalFilled,
-        'Сул орон тоо': totalVacancy,
-        'Гүйцэтгэл (%)': totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0,
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Орон тооны тайлан");
-    XLSX.writeFile(workbook, "oron_toonii_tailan.xlsx");
+    const handleShowEmployees = (departmentId: string) => {
+      const dept = departments?.find(d => d.id === departmentId);
+      if (!dept || !employees) return;
+  
+      const startDate = date?.from;
+      const endDate = date?.to;
+  
+      const filteredEmployees = employees.filter(emp => {
+          if (emp.departmentId !== departmentId) return false;
+          
+          const hireDate = new Date(emp.hireDate);
+          const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
+        
+          const isActiveInPeriod = 
+              (!startDate || hireDate <= endDate!) && 
+              (!endDate || !termDate || termDate >= startDate!);
+              
+          return isActiveInPeriod;
+      });
+  
+      setSelectedDeptEmployees(filteredEmployees);
+      setSelectedDeptName(dept.name);
+      setIsEmployeeListOpen(true);
+    };
+  
+    const handleExport = () => {
+      if (!departmentsWithHeadcount) return;
+  
+      const dataToExport = departmentsWithHeadcount.map(dept => ({
+          'Хэлтэс/Нэгж': dept.name,
+          'Батлагдсан орон тоо': dept.approved,
+          'Ажиллаж буй': dept.filled,
+          'Сул орон тоо': dept.approved - dept.filled,
+          'Гүйцэтгэл (%)': dept.approved > 0 ? Math.round((dept.filled / dept.approved) * 100) : 0,
+      }));
+      
+      dataToExport.push({
+          'Хэлтэс/Нэгж': 'Нийт',
+          'Батлагдсан орон тоо': totalApproved,
+          'Ажиллаж буй': totalFilled,
+          'Сул орон тоо': totalVacancy,
+          'Гүйцэтгэл (%)': totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0,
+      });
+  
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Орон тооны тайлан");
+      XLSX.writeFile(workbook, "oron_toonii_tailan.xlsx");
+    };
+  
+    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
+  
+    return (
+      <div className="space-y-6">
+          <Dialog open={isEmployeeListOpen} onOpenChange={setIsEmployeeListOpen}>
+              <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                      <DialogTitle>{selectedDeptName} хэлтсийн ажилтнууд</DialogTitle>
+                      <DialogDescription>
+                          {date?.from && date.to && `${format(date.from, "yyyy/MM/dd")} - ${format(date.to, "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
+                      </DialogDescription>
+                  </DialogHeader>
+                  <div className="max-h-[60vh] overflow-y-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Ажилтан</TableHead>
+                                  <TableHead>Албан тушаал</TableHead>
+                                  <TableHead>Ажилд орсон</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {selectedDeptEmployees.map(emp => (
+                                  <TableRow key={emp.id}>
+                                      <TableCell>
+                                          <div className="flex items-center gap-3">
+                                              <Avatar className="h-9 w-9">
+                                                  <AvatarImage src={emp.photoURL} />
+                                                  <AvatarFallback>{emp.firstName.charAt(0)}</AvatarFallback>
+                                              </Avatar>
+                                              <div className="font-medium">{emp.firstName} {emp.lastName}</div>
+                                          </div>
+                                      </TableCell>
+                                      <TableCell>{emp.jobTitle}</TableCell>
+                                      <TableCell>{format(new Date(emp.hireDate), 'yyyy-MM-dd')}</TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+              </DialogContent>
+          </Dialog>
+          <Card>
+              <CardHeader>
+                  <CardTitle>Орон тооны ерөнхий тайлан</CardTitle>
+                  <div className="flex justify-end gap-2">
+                      <Popover>
+                          <PopoverTrigger asChild>
+                              <Button
+                              id="date"
+                              variant={"outline"}
+                              className={cn("w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                              >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {date?.from ? (
+                                  date.to ? (
+                                  <>
+                                      {format(date.from, "yyyy/MM/dd")} -{" "}
+                                      {format(date.to, "yyyy/MM/dd")}
+                                  </>
+                                  ) : (
+                                  format(date.from, "yyyy/MM/dd")
+                                  )
+                              ) : (
+                                  <span>Огноо сонгох</span>
+                              )}
+                              </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="end">
+                              <Calendar
+                              initialFocus
+                              mode="range"
+                              defaultMonth={date?.from}
+                              selected={date}
+                              onSelect={setDate}
+                              numberOfMonths={2}
+                              />
+                          </PopoverContent>
+                      </Popover>
+                      <Button onClick={handleExport} variant="outline">
+                          <Download className="mr-2 h-4 w-4" />
+                          Экспорт
+                      </Button>
+                  </div>
+              </CardHeader>
+              <CardContent>
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                      <Card>
+                          <CardHeader>
+                          <CardTitle>Батлагдсан орон тоо</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalApproved}</div>}
+                          </CardContent>
+                      </Card>
+                      <Card>
+                          <CardHeader>
+                          <CardTitle>Ажиллаж буй</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalFilled}</div>}
+                          </CardContent>
+                      </Card>
+                      <Card>
+                          <CardHeader>
+                          <CardTitle>Сул орон тоо</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-primary">{totalVacancy}</div>}
+                          </CardContent>
+                      </Card>
+                  </div>
+              </CardContent>
+          </Card>
+  
+          <Card>
+              <CardHeader>
+                  <CardTitle>Орон тооны дэлгэрэнгүй тайлан</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                              <TableHead className="w-[250px]">Хэлтэс/Ажлын байр</TableHead>
+                              <TableHead className="text-right">Батлагдсан орон тоо</TableHead>
+                              <TableHead className="text-right">Ажиллаж буй</TableHead>
+                              <TableHead className="text-right">Сул орон тоо</TableHead>
+                              <TableHead className="w-[200px]">Гүйцэтгэл</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {isLoading && Array.from({length: 4}).map((_, i) => (
+                              <TableRow key={i}>
+                                  <TableCell><Skeleton className="h-5 w-32"/></TableCell>
+                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
+                                  <TableCell><Skeleton className="h-4 w-full"/></TableCell>
+                              </TableRow>
+                          ))}
+                          {!isLoading && departmentsWithHeadcount.map(dept => {
+                              const progress = dept.approved > 0 ? (dept.filled / dept.approved) * 100 : 0;
+                              return (
+                                  <Collapsible asChild key={dept.id}>
+                                      <>
+                                          <TableRow className="bg-muted/50 hover:bg-muted font-semibold">
+                                              <TableCell>
+                                                  <CollapsibleTrigger className="flex items-center gap-2 w-full">
+                                                     <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
+                                                     {dept.name}
+                                                  </CollapsibleTrigger>
+                                              </TableCell>
+                                              <TableCell className="text-right">{dept.approved}</TableCell>
+                                              <TableCell className="text-right">
+                                                  <Button variant="link" className="p-0 h-auto" onClick={() => handleShowEmployees(dept.id)}>{dept.filled}</Button>
+                                              </TableCell>
+                                              <TableCell className="text-right text-primary">{dept.approved - dept.filled}</TableCell>
+                                              <TableCell>
+                                                  <div className="flex items-center gap-2">
+                                                      <Progress value={progress} className="h-2" />
+                                                      <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                  </div>
+                                              </TableCell>
+                                          </TableRow>
+                                          <CollapsibleContent asChild>
+                                              <>
+                                               {dept.positions.map((pos) => {
+                                                   const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
+                                                   return (
+                                                       <TableRow key={pos.id} className="text-sm">
+                                                          <TableCell className="pl-12">{pos.title}</TableCell>
+                                                          <TableCell className="text-right">{pos.headcount}</TableCell>
+                                                          <TableCell className="text-right">{pos.filled}</TableCell>
+                                                          <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
+                                                          <TableCell>
+                                                               <div className="flex items-center gap-2">
+                                                                    <Progress value={posProgress} className="h-2 bg-slate-200" />
+                                                                    <span className="text-xs text-muted-foreground">{Math.round(posProgress)}%</span>
+                                                                </div>
+                                                          </TableCell>
+                                                       </TableRow>
+                                                   )
+                                               })}
+                                              </>
+                                          </CollapsibleContent>
+                                      </>
+                                  </Collapsible>
+                              )
+                          })}
+                           {!isLoading && departmentsWithHeadcount.length === 0 && (
+                              <TableRow>
+                                  <TableCell colSpan={5} className="h-24 text-center">
+                                      Мэдээлэл байхгүй.
+                                  </TableCell>
+                              </TableRow>
+                          )}
+                      </TableBody>
+                       <TableFooter>
+                          <TableRow>
+                              <TableCell className="font-bold">Нийт</TableCell>
+                              <TableCell className="text-right font-bold">{totalApproved}</TableCell>
+                              <TableCell className="text-right font-bold">{totalFilled}</TableCell>
+                              <TableCell className="text-right font-bold text-primary">{totalVacancy}</TableCell>
+                              <TableCell>
+                                  <div className="flex items-center gap-2">
+                                      <Progress value={totalApproved > 0 ? (totalFilled / totalApproved) * 100 : 0} className="h-2" />
+                                      <span className="text-xs text-muted-foreground">{totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0}%</span>
+                                  </div>
+                              </TableCell>
+                          </TableRow>
+                      </TableFooter>
+                  </Table>
+              </CardContent>
+          </Card>
+      </div>
+    );
   };
-
-  const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
-
-  return (
-    <div className="space-y-6">
-        <Dialog open={isEmployeeListOpen} onOpenChange={setIsEmployeeListOpen}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>{selectedDeptName} хэлтсийн ажилтнууд</DialogTitle>
-                    <DialogDescription>
-                        {date?.from && date.to && `${format(date.from, "yyyy/MM/dd")} - ${format(date.to, "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Ажилтан</TableHead>
-                                <TableHead>Албан тушаал</TableHead>
-                                <TableHead>Ажилд орсон</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {selectedDeptEmployees.map(emp => (
-                                <TableRow key={emp.id}>
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-9 w-9">
-                                                <AvatarImage src={emp.photoURL} />
-                                                <AvatarFallback>{emp.firstName.charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="font-medium">{emp.firstName} {emp.lastName}</div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{emp.jobTitle}</TableCell>
-                                    <TableCell>{format(new Date(emp.hireDate), 'yyyy-MM-dd')}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </DialogContent>
-        </Dialog>
-        <Card>
-            <CardHeader>
-                <CardTitle>Орон тооны ерөнхий тайлан</CardTitle>
-                <div className="flex justify-end gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn("w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date?.from ? (
-                                date.to ? (
-                                <>
-                                    {format(date.from, "yyyy/MM/dd")} -{" "}
-                                    {format(date.to, "yyyy/MM/dd")}
-                                </>
-                                ) : (
-                                format(date.from, "yyyy/MM/dd")
-                                )
-                            ) : (
-                                <span>Огноо сонгох</span>
-                            )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
-                            numberOfMonths={2}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleExport} variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Экспорт
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                        <CardTitle>Батлагдсан орон тоо</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                        {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalApproved}</div>}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                        <CardTitle>Ажиллаж буй</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                        {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalFilled}</div>}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                        <CardTitle>Сул орон тоо</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                        {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-primary">{totalVacancy}</div>}
-                        </CardContent>
-                    </Card>
-                </div>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Орон тооны дэлгэрэнгүй тайлан</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Хэлтэс/Нэгж</TableHead>
-                            <TableHead className="text-right">Батлагдсан орон тоо</TableHead>
-                            <TableHead className="text-right">Ажиллаж буй</TableHead>
-                            <TableHead className="text-right">Сул орон тоо</TableHead>
-                            <TableHead className="w-[200px]">Гүйцэтгэл</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading && Array.from({length: 4}).map((_, i) => (
-                            <TableRow key={i}>
-                                <TableCell><Skeleton className="h-5 w-32"/></TableCell>
-                                <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                <TableCell><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                <TableCell><Skeleton className="h-4 w-full"/></TableCell>
-                            </TableRow>
-                        ))}
-                        {!isLoading && departmentsWithHeadcount.map(dept => {
-                            const progress = dept.approved > 0 ? (dept.filled / dept.approved) * 100 : 0;
-                            return (
-                                <TableRow key={dept.id}>
-                                    <TableCell className="font-medium">{dept.name}</TableCell>
-                                    <TableCell className="text-right">{dept.approved}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="link" className="p-0 h-auto" onClick={() => handleShowEmployees(dept.id)}>{dept.filled}</Button>
-                                    </TableCell>
-                                    <TableCell className="text-right text-primary font-medium">{dept.approved - dept.filled}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Progress value={progress} className="h-2" />
-                                            <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )
-                        })}
-                         {!isLoading && departmentsWithHeadcount.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    Мэдээлэл байхгүй.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                     <TableFooter>
-                        <TableRow>
-                            <TableCell className="font-bold">Нийт</TableCell>
-                            <TableCell className="text-right font-bold">{totalApproved}</TableCell>
-                            <TableCell className="text-right font-bold">{totalFilled}</TableCell>
-                            <TableCell className="text-right font-bold text-primary">{totalVacancy}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <Progress value={totalApproved > 0 ? (totalFilled / totalApproved) * 100 : 0} className="h-2" />
-                                    <span className="text-xs text-muted-foreground">{totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0}%</span>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    </TableFooter>
-                </Table>
-            </CardContent>
-        </Card>
-    </div>
-  );
-};
 
 export default function OrganizationPage() {
   return (
