@@ -674,10 +674,6 @@ const HeadcountTab = () => {
       setIsEmployeeListOpen(true);
     };
   
-    const handleExport = () => {
-      // This function is now empty as requested.
-    };
-  
     const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
   
     return (
@@ -757,10 +753,6 @@ const HeadcountTab = () => {
                               />
                           </PopoverContent>
                       </Popover>
-                      <Button onClick={handleExport} variant="outline">
-                          <Download className="mr-2 h-4 w-4" />
-                          Экспорт
-                      </Button>
                   </div>
               </CardHeader>
               <CardContent>
@@ -818,12 +810,10 @@ const HeadcountTab = () => {
                                   <TableCell><Skeleton className="h-4 w-full"/></TableCell>
                               </TableRow>
                           ))}
-                          {!isLoading && departmentsWithHeadcount.map(dept => {
-                              const progress = (dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0;
-                              return (
-                                  <Collapsible asChild key={dept.id}>
-                                    <React.Fragment>
-                                      <CollapsibleTrigger asChild>
+                          {!isLoading && departmentsWithHeadcount.map(dept => (
+                                <Collapsible asChild key={dept.id}>
+                                    <>
+                                    <CollapsibleTrigger asChild>
                                         <TableRow className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer">
                                             <TableCell>
                                                 <div className="flex items-center gap-2 w-full">
@@ -838,35 +828,36 @@ const HeadcountTab = () => {
                                             <TableCell className="text-right text-primary">{(dept.approved || 0) - (dept.filled || 0)}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <Progress value={progress} className="h-2" />
-                                                    <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                    <Progress value={(dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0} className="h-2" />
+                                                    <span className="text-xs text-muted-foreground">{Math.round((dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0)}%</span>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                      </CollapsibleTrigger>
-                                      {dept.positions.map((pos) => {
-                                           const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
-                                           return (
-                                             <CollapsibleContent asChild key={pos.id}>
-                                               <TableRow className="text-sm">
-                                                  <TableCell className="pl-12">{pos.title}</TableCell>
-                                                  <TableCell className="text-right">{pos.headcount}</TableCell>
-                                                  <TableCell className="text-right">{pos.filled}</TableCell>
-                                                  <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
-                                                  <TableCell>
-                                                       <div className="flex items-center gap-2">
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent asChild>
+                                        <>
+                                            {dept.positions.map((pos) => {
+                                                const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
+                                                return (
+                                                <TableRow key={pos.id} className="text-sm">
+                                                    <TableCell className="pl-12">{pos.title}</TableCell>
+                                                    <TableCell className="text-right">{pos.headcount}</TableCell>
+                                                    <TableCell className="text-right">{pos.filled}</TableCell>
+                                                    <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
                                                             <Progress value={posProgress} className="h-2 bg-slate-200" />
                                                             <span className="text-xs text-muted-foreground">{Math.round(posProgress)}%</span>
                                                         </div>
-                                                  </TableCell>
-                                               </TableRow>
-                                             </CollapsibleContent>
-                                           )
-                                       })}
-                                    </React.Fragment>
-                                  </Collapsible>
-                              )
-                          })}
+                                                    </TableCell>
+                                                </TableRow>
+                                                )
+                                            })}
+                                        </>
+                                    </CollapsibleContent>
+                                    </>
+                                </Collapsible>
+                          ))}
                            {!isLoading && departmentsWithHeadcount.length === 0 && (
                               <TableRow>
                                   <TableCell colSpan={5} className="h-24 text-center">
