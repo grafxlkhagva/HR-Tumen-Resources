@@ -18,6 +18,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table';
 import {
     Dialog,
@@ -829,6 +830,20 @@ const HeadcountTab = () => {
                             </TableRow>
                         )}
                     </TableBody>
+                     <TableFooter>
+                        <TableRow>
+                            <TableCell className="font-bold">Нийт</TableCell>
+                            <TableCell className="text-right font-bold">{totalApproved}</TableCell>
+                            <TableCell className="text-right font-bold">{totalFilled}</TableCell>
+                            <TableCell className="text-right font-bold text-primary">{totalVacancy}</TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={totalApproved > 0 ? (totalFilled / totalApproved) * 100 : 0} className="h-2" />
+                                    <span className="text-xs text-muted-foreground">{totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0}%</span>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    </TableFooter>
                 </Table>
             </CardContent>
         </Card>
