@@ -23,9 +23,9 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import {
   useCollection,
@@ -66,7 +66,7 @@ type Department = {
   parentId?: string;
   // Locally computed properties
   children?: Department[];
-  headcount?: number;
+  approved?: number; // Changed from headcount to approved
   filled?: number;
   typeName?: string;
   positions: Position[];
@@ -127,7 +127,7 @@ const OrgChartNode = ({ node }: { node: Department }) => {
           <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
           <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{node.headcount || 0}</span>
+            <span>{node.approved || 0}</span>
           </div>
         </div>
         
@@ -154,7 +154,7 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
         <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
         <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />
-        <span>{node.headcount || 0}</span>
+        <span>{node.approved || 0}</span>
         </div>
     </div>
     {node.children && node.children.length > 0 && (
@@ -190,7 +190,6 @@ const StructureTab = () => {
   const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
   const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
   
-  // Note: We are fetching all positions here to calculate headcount. This might be inefficient for very large datasets.
   const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
   
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
@@ -216,7 +215,7 @@ const StructureTab = () => {
       ...d,
       positions: [],
       typeName: typeMap.get(d.typeId || ''),
-      headcount: positionCountByDept.get(d.id) || 0,
+      approved: positionCountByDept.get(d.id) || 0,
       children: [],
     }));
 
@@ -226,7 +225,6 @@ const StructureTab = () => {
     deptsWithData.forEach(dept => {
       if (dept.parentId && deptMap.has(dept.parentId)) {
         const parent = deptMap.get(dept.parentId);
-        // Ensure children array exists before pushing
         if (parent) {
             if (!parent.children) {
                 parent.children = [];
@@ -262,9 +260,6 @@ const StructureTab = () => {
   
   const handleDeleteDepartment = (deptId: string) => {
     if (!firestore) return;
-    // You might want to add a confirmation dialog here
-    // Also, need to handle what happens to children departments.
-    // For now, we'll just delete the department.
     const docRef = doc(firestore, 'departments', deptId);
     deleteDocumentNonBlocking(docRef);
   }
@@ -366,7 +361,7 @@ const StructureTab = () => {
                             <TableCell className="font-medium">{dept.name}</TableCell>
                             <TableCell>{dept.typeName || 'Тодорхойгүй'}</TableCell>
                             <TableCell>{dept.parentId ? departmentNameMap.get(dept.parentId) : '-'}</TableCell>
-                            <TableCell className="text-right">{dept.headcount}</TableCell>
+                            <TableCell className="text-right">{dept.approved}</TableCell>
                             <TableCell className="text-right">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -642,8 +637,8 @@ const HeadcountTab = () => {
             };
         });
     
-        const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.approved, 0);
-        const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + dept.filled, 0);
+        const totalApproved = departmentsWithHeadcount.reduce((sum, dept) => sum + (dept.approved || 0), 0);
+        const totalFilled = departmentsWithHeadcount.reduce((sum, dept) => sum + (dept.filled || 0), 0);
     
         return { 
             departmentsWithHeadcount,
@@ -685,8 +680,8 @@ const HeadcountTab = () => {
           'Хэлтэс/Нэгж': dept.name,
           'Батлагдсан орон тоо': dept.approved,
           'Ажиллаж буй': dept.filled,
-          'Сул орон тоо': dept.approved - dept.filled,
-          'Гүйцэтгэл (%)': dept.approved > 0 ? Math.round((dept.filled / dept.approved) * 100) : 0,
+          'Сул орон тоо': (dept.approved || 0) - (dept.filled || 0),
+          'Гүйцэтгэл (%)': (dept.approved || 0) > 0 ? Math.round(((dept.filled || 0) / (dept.approved || 0)) * 100) : 0,
       }));
       
       dataToExport.push({
@@ -844,10 +839,10 @@ const HeadcountTab = () => {
                               </TableRow>
                           ))}
                           {!isLoading && departmentsWithHeadcount.map(dept => {
-                              const progress = dept.approved > 0 ? (dept.filled / dept.approved) * 100 : 0;
+                              const progress = (dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0;
                               return (
                                   <Collapsible asChild key={dept.id}>
-                                      <tbody>
+                                      <>
                                           <CollapsibleTrigger asChild>
                                               <TableRow className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer">
                                                   <TableCell>
@@ -860,7 +855,7 @@ const HeadcountTab = () => {
                                                   <TableCell className="text-right">
                                                       <Button variant="link" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); handleShowEmployees(dept.id); }}>{dept.filled}</Button>
                                                   </TableCell>
-                                                  <TableCell className="text-right text-primary">{dept.approved - dept.filled}</TableCell>
+                                                  <TableCell className="text-right text-primary">{(dept.approved || 0) - (dept.filled || 0)}</TableCell>
                                                   <TableCell>
                                                       <div className="flex items-center gap-2">
                                                           <Progress value={progress} className="h-2" />
@@ -890,7 +885,7 @@ const HeadcountTab = () => {
                                                })}
                                               </>
                                           </CollapsibleContent>
-                                      </tbody>
+                                      </>
                                   </Collapsible>
                               )
                           })}
