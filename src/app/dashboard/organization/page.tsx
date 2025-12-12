@@ -780,7 +780,7 @@ const HeadcountTab = () => {
 
         <Card>
             <CardHeader>
-                <CardTitle>Хэлтэс нэгжээрх орон тооны задаргаа</CardTitle>
+                <CardTitle>Орон тооны дэлгэрэнгүй тайлан</CardTitle>
             </CardHeader>
             <CardContent>
                 <Table>
