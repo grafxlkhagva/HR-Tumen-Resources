@@ -64,13 +64,17 @@ const contactInfoSchema = z.object({
 
 const educationSchema = z.object({
   country: z.string().min(1, "Улс сонгоно уу."),
-  school: z.string().min(1, 'Төгссөн сургуулиа сонгоно уу.'),
+  school: z.string().optional(),
+  schoolCustom: z.string().optional(),
   degree: z.string().optional(),
   diplomaNumber: z.string().optional(),
   academicRank: z.string().optional(),
   entryDate: z.date().nullable(),
   gradDate: z.date().nullable(),
   isCurrent: z.boolean().default(false),
+}).refine(data => data.school || data.schoolCustom, {
+    message: "Төгссөн сургуулиа сонгох эсвэл бичнэ үү.",
+    path: ["school"],
 });
 
 const educationHistorySchema = z.object({ education: z.array(educationSchema) });
@@ -225,9 +229,9 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Ажилтны овог" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Ажилтны бүтэн нэр" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="registrationNumber" render={({ field }) => ( <FormItem><FormLabel>Регистрийн дугаар</FormLabel><FormControl><Input placeholder="АА00112233" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Ажилтны овог" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Ажилтны бүтэн нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="registrationNumber" render={({ field }) => ( <FormItem><FormLabel>Регистрийн дугаар</FormLabel><FormControl><Input placeholder="АА00112233" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="birthDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Төрсөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(new Date(field.value), "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1960} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem><FormLabel>Хүйс</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хүйс сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="male">Эрэгтэй</SelectItem><SelectItem value="female">Эмэгтэй</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="idCardNumber" render={({ field }) => ( <FormItem><FormLabel>ТТД</FormLabel><FormControl><Input placeholder="ТТД дугаар" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
@@ -255,26 +259,26 @@ function ContactInfoForm({ form, isSubmitting, references }: { form: any, isSubm
                 <CardHeader><CardTitle>Үндсэн мэдээлэл</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="workPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Албан)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="8811****" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="personalPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Хувийн)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="workEmail" render={({ field }) => ( <FormItem><FormLabel>Албан ёсны и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="name@example.com" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="personalEmail" render={({ field }) => ( <FormItem><FormLabel>Хувийн и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="personal@example.com" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="homeAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel><FormControl><Textarea placeholder="Сүхбаатар дүүрэг, 8-р хороо..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="temporaryAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Түр)</FormLabel><FormControl><Textarea placeholder="Түр оршин суугаа хаяг..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="workPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Албан)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="8811****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="personalPhone" render={({ field }) => ( <FormItem><FormLabel>Гар утас (Хувийн)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="workEmail" render={({ field }) => ( <FormItem><FormLabel>Албан ёсны и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="name@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="personalEmail" render={({ field }) => ( <FormItem><FormLabel>Хувийн и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="personal@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="homeAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel><FormControl><Textarea placeholder="Сүхбаатар дүүрэг, 8-р хороо..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="temporaryAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Түр)</FormLabel><FormControl><Textarea placeholder="Түр оршин суугаа хаяг..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                     </div>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader><CardTitle>Сошиал медиа</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="facebook" render={({ field }) => ( <FormItem><FormLabel>Facebook</FormLabel><FormControl><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://facebook.com/username" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="instagram" render={({ field }) => ( <FormItem><FormLabel>Instagram</FormLabel><FormControl><div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://instagram.com/username" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="facebook" render={({ field }) => ( <FormItem><FormLabel>Facebook</FormLabel><FormControl><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://facebook.com/username" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="instagram" render={({ field }) => ( <FormItem><FormLabel>Instagram</FormLabel><FormControl><div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://instagram.com/username" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} />
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader><CardTitle>Яаралтай үед холбоо барих</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    {fields.map((field, index) => ( <Card key={field.id} className="p-4 relative"><Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button><CardContent className="space-y-4 pt-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={form.control} name={`emergencyContacts.${index}.fullName`} render={({ field }) => ( <FormItem><FormLabel>Овог, нэр</FormLabel><FormControl><Input placeholder="Яаралтай үед холбоо барих хүний нэр" {...field} /></FormControl><FormMessage /></FormItem> )} /><FormField control={form.control} name={`emergencyContacts.${index}.relationship`} render={({ field }) => ( <FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{references.emergencyRelationships?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} /></div><FormField control={form.control} name={`emergencyContacts.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Утас</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} /></CardContent></Card> ))}
+                    {fields.map((field, index) => ( <Card key={field.id} className="p-4 relative"><Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button><CardContent className="space-y-4 pt-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={form.control} name={`emergencyContacts.${index}.fullName`} render={({ field }) => ( <FormItem><FormLabel>Овог, нэр</FormLabel><FormControl><Input placeholder="Яаралтай үед холбоо барих хүний нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} /><FormField control={form.control} name={`emergencyContacts.${index}.relationship`} render={({ field }) => ( <FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{references.emergencyRelationships?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} /></div><FormField control={form.control} name={`emergencyContacts.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Утас</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem> )} /></CardContent></Card> ))}
                     <Button type="button" variant="outline" onClick={() => append({ fullName: '', relationship: '', phone: '' })}><PlusCircle className="mr-2 h-4 w-4" />Яаралтай үед холбоо барих хүн нэмэх</Button>
                 </CardContent>
             </Card>
@@ -394,7 +398,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                             </div>
                             <FormField control={form.control} name={`education.${index}.isCurrent`} render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-sm font-normal">Одоо сурч байгаа</FormLabel></FormItem> )} />
                             <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => ( <FormItem><FormLabel>Эзэмшсэн мэргэжил</FormLabel><Select onValueChange={(value) => { if(value === '__add_new__') { setCurrentFieldIndex(index); setIsAddDegreeOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Мэргэжил сонгох" /></SelectTrigger></FormControl><SelectContent>{references.degrees?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-bold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => ( <FormItem><FormLabel>Диплом, үнэмлэхний дугаар</FormLabel><FormControl><Input placeholder="Дипломын дугаарыг оруулна уу" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => ( <FormItem><FormLabel>Диплом, үнэмлэхний дугаар</FormLabel><FormControl><Input placeholder="Дипломын дугаарыг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name={`education.${index}.academicRank`} render={({ field }) => ( <FormItem><FormLabel>Зэрэг, цол</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Зэрэг, цол сонгох" /></SelectTrigger></FormControl><SelectContent>{references.academicRanks?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             {fields.length > 1 && ( <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button> )}
                         </CardContent>
@@ -428,7 +432,7 @@ function LanguageForm({ form, isSubmitting, references }: { form: any, isSubmitt
                                 <FormField control={form.control} name={`languages.${index}.speaking`} render={({ field }) => ( <FormItem><FormLabel>Ярих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`languages.${index}.writing`} render={({ field }) => ( <FormItem><FormLabel>Бичих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             </div>
-                            <FormField control={form.control} name={`languages.${index}.testScore`} render={({ field }) => ( <FormItem><FormLabel>Шалгалтын оноо</FormLabel><FormControl><Input placeholder="TOEFL-ийн оноо..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`languages.${index}.testScore`} render={({ field }) => ( <FormItem><FormLabel>Шалгалтын оноо</FormLabel><FormControl><Input placeholder="TOEFL-ийн оноо..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                             {fields.length > 1 && ( <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button> )}
                         </CardContent>
                     </Card>
@@ -453,13 +457,13 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-4">
                         <CardContent className="space-y-4 pt-4">
-                            <FormField control={form.control} name={`trainings.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Сургалтын нэр</FormLabel><FormControl><Input placeholder="Сургалтын нэрийг оруулна уу" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name={`trainings.${index}.organization`} render={({ field }) => ( <FormItem><FormLabel>Сургалт явуулсан байгууллага</FormLabel><FormControl><Input placeholder="Байгууллагын нэрийг оруулна уу" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Сургалтын нэр</FormLabel><FormControl><Input placeholder="Сургалтын нэрийг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.organization`} render={({ field }) => ( <FormItem><FormLabel>Сургалт явуулсан байгууллага</FormLabel><FormControl><Input placeholder="Байгууллагын нэрийг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`trainings.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`trainings.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                             </div>
-                            <FormField control={form.control} name={`trainings.${index}.certificateNumber`} render={({ field }) => ( <FormItem><FormLabel>Үнэмлэх, сертификатын дугаар</FormLabel><FormControl><Input placeholder="Дугаарыг оруулна уу" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`trainings.${index}.certificateNumber`} render={({ field }) => ( <FormItem><FormLabel>Үнэмлэх, сертификатын дугаар</FormLabel><FormControl><Input placeholder="Дугаарыг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                             {fields.length > 1 && ( <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button> )}
                         </CardContent>
                     </Card>
@@ -486,9 +490,9 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
                             <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name={`familyMembers.${index}.relationship`} render={({ field }) => ( <FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{references.familyRelationships?.map((opt: ReferenceItem) => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`familyMembers.${index}.lastName`} render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Овог" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`familyMembers.${index}.firstName`} render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Нэр" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Холбоо барих утас</FormLabel><FormControl><Input placeholder="Утасны дугаар" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`familyMembers.${index}.lastName`} render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Овог" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`familyMembers.${index}.firstName`} render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Холбоо барих утас</FormLabel><FormControl><Input placeholder="Утасны дугаар" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                             </div>
                         </CardContent>
                     </Card>
@@ -514,13 +518,13 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                         <CardContent className="space-y-4 pt-6">
                             <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`experiences.${index}.company`} render={({ field }) => ( <FormItem><FormLabel>Компани</FormLabel><FormControl><Input placeholder="Ажиллаж байсан компани" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => ( <FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`experiences.${index}.company`} render={({ field }) => ( <FormItem><FormLabel>Компани</FormLabel><FormControl><Input placeholder="Ажиллаж байсан компани" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => ( <FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => ( <FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                             </div>
-                            <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )} />
                         </CardContent>
                     </Card>
                 ))}
@@ -561,24 +565,29 @@ export default function QuestionnairePage() {
     const { data: familyRelationships, isLoading: isLoadingFamilyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
     const { data: emergencyRelationships, isLoading: isLoadingEmergencyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
     const { data: questionnaireEmploymentTypes, isLoading: isLoadingEmpTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
+    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
 
     
     const defaultValues = React.useMemo(() => {
+        // Start with all possible fields from the full schema, initialized to prevent 'undefined'
+        const baseValues: Partial<FullQuestionnaireValues> = {
+            lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '',
+            hasDisability: false, disabilityPercentage: '', disabilityDate: null, hasDriversLicense: false, driverLicenseCategories: [],
+            workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
+            emergencyContacts: [], education: [], languages: [], trainings: [], familyMembers: [], experiences: []
+        };
+        
+        const employeeInfo = {
+            ...employeeData,
+            workEmail: employeeData?.email,
+            personalPhone: employeeData?.phoneNumber,
+        };
+
         const initialData = {
-          // Fields from Employee document
-          ...employeeData,
-          workEmail: employeeData?.email,
-          personalPhone: employeeData?.phoneNumber,
-          // Fields from Questionnaire document (will overwrite if present)
+          ...baseValues,
+          ...employeeInfo,
           ...questionnaireData,
         };
-        // Ensure arrays are initialized if they are undefined
-        initialData.emergencyContacts = initialData.emergencyContacts || [];
-        initialData.education = initialData.education || [];
-        initialData.languages = initialData.languages || [];
-        initialData.trainings = initialData.trainings || [];
-        initialData.familyMembers = initialData.familyMembers || [];
-        initialData.experiences = initialData.experiences || [];
       
         return transformDates(initialData);
       }, [employeeData, questionnaireData]);
@@ -661,5 +670,3 @@ export default function QuestionnairePage() {
         </div>
     );
 }
-
-    
