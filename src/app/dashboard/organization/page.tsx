@@ -65,8 +65,8 @@ type Department = {
   parentId?: string;
   // Locally computed properties
   children?: Department[];
-  approved?: number; // Changed from headcount to approved
-  filled?: number;
+  approved: number; 
+  filled: number;
   typeName?: string;
   positions: Position[];
 };
@@ -215,6 +215,7 @@ const StructureTab = () => {
       positions: [],
       typeName: typeMap.get(d.typeId || ''),
       approved: positionCountByDept.get(d.id) || 0,
+      filled: 0, // Will be calculated later
       children: [],
     }));
 
@@ -611,7 +612,7 @@ const HeadcountTab = () => {
                 (!startDate || hireDate <= endDate!) &&
                 (!endDate || !termDate || termDate >= startDate!);
     
-            if (isActiveInPeriod) {
+            if (isActiveInPeriod && emp.positionId) {
                 acc.set(emp.positionId, (acc.get(emp.positionId) || 0) + 1);
             }
             return acc;
@@ -820,7 +821,7 @@ const HeadcountTab = () => {
                               const progress = (dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0;
                               return (
                                   <Collapsible asChild key={dept.id}>
-                                      <>
+                                      <tbody>
                                           <CollapsibleTrigger asChild>
                                               <TableRow className="bg-muted/50 hover:bg-muted font-semibold cursor-pointer">
                                                   <TableCell>
@@ -863,7 +864,7 @@ const HeadcountTab = () => {
                                                })}
                                               </>
                                           </CollapsibleContent>
-                                      </>
+                                      </tbody>
                                   </Collapsible>
                               )
                           })}
