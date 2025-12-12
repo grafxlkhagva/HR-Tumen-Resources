@@ -116,6 +116,11 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
     defaultValues: initialData,
   });
 
+  React.useEffect(() => {
+    form.reset(initialData);
+    setLogoPreview(initialData.logoUrl || null);
+  }, [initialData, form]);
+
   const { isSubmitting } = form.formState;
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
