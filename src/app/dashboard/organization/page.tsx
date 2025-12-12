@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, Calendar as CalendarIcon, Users2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, Printer, Calendar as CalendarIcon, Users2, Download } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from '../employees/data';
+import * as XLSX from 'xlsx';
 
 
 // Interfaces for Firestore data
@@ -667,6 +668,31 @@ const HeadcountTab = () => {
     setIsEmployeeListOpen(true);
   };
 
+  const handleExport = () => {
+    if (!departmentsWithHeadcount) return;
+
+    const dataToExport = departmentsWithHeadcount.map(dept => ({
+        'Хэлтэс/Нэгж': dept.name,
+        'Батлагдсан орон тоо': dept.approved,
+        'Ажиллаж буй': dept.filled,
+        'Сул орон тоо': dept.approved - dept.filled,
+        'Гүйцэтгэл (%)': dept.approved > 0 ? Math.round((dept.filled / dept.approved) * 100) : 0,
+    }));
+    
+    dataToExport.push({
+        'Хэлтэс/Нэгж': 'Нийт',
+        'Батлагдсан орон тоо': totalApproved,
+        'Ажиллаж буй': totalFilled,
+        'Сул орон тоо': totalVacancy,
+        'Гүйцэтгэл (%)': totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0,
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Орон тооны тайлан");
+    XLSX.writeFile(workbook, "oron_toonii_tailan.xlsx");
+  };
+
   const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
 
   return (
@@ -712,7 +738,7 @@ const HeadcountTab = () => {
         <Card>
             <CardHeader>
                 <CardTitle>Орон тооны ерөнхий тайлан</CardTitle>
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -746,6 +772,10 @@ const HeadcountTab = () => {
                             />
                         </PopoverContent>
                     </Popover>
+                    <Button onClick={handleExport} variant="outline">
+                        <Download className="mr-2 h-4 w-4" />
+                        Экспорт
+                    </Button>
                 </div>
             </CardHeader>
             <CardContent>
