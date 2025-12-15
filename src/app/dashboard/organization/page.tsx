@@ -85,6 +85,7 @@ type Position = {
   departmentId: string;
   headcount: number;
   filled: number;
+  reportsTo?: string;
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
@@ -454,7 +455,7 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
                                             <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
                                         </DropdownMenuItem>
                                     ) : (
-                                        <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600">
+                                        <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600 focus:text-green-700">
                                             <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
                                         </DropdownMenuItem>
                                     )}
@@ -550,6 +551,7 @@ const PositionsTab = () => {
             open={isPositionDialogOpen}
             onOpenChange={setIsPositionDialogOpen}
             departments={departments || []}
+            allPositions={positions || []}
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
             jobCategories={jobCategories || []}

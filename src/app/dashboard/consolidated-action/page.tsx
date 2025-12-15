@@ -26,8 +26,15 @@ import {
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Briefcase } from 'lucide-react';
+import { Users, Briefcase, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // --- Type Definitions ---
 type Position = {
@@ -58,6 +65,8 @@ type PositionNodeData = {
     headcount: number;
     filled: number;
     color: string;
+    onEdit: () => void;
+    onDelete: () => void;
 };
 
 
@@ -154,7 +163,24 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         <Card className="w-[240px] h-[100px] rounded-lg shadow-lg" style={cardStyle}>
             <Handle type="target" position={Position.Top} className="!bg-primary" />
             <CardHeader className="p-3">
-                <CardTitle className="text-base truncate">{data.label}</CardTitle>
+                <div className="flex items-start justify-between">
+                    <CardTitle className="text-base truncate">{data.label}</CardTitle>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2 -mt-1">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={data.onEdit}>
+                                <Pencil className="mr-2 h-4 w-4" /> Засах
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={data.onDelete} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </CardHeader>
             <CardContent className="p-3 pt-0 grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-1.5">
