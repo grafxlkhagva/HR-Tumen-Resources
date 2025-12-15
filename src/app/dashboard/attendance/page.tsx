@@ -28,14 +28,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import type { Employee } from '../employees/data';
-
+import type { WorkSchedule } from '../settings/time-off/add-work-schedule-dialog';
+import type { Department } from '../organization/page';
 
 // --- Type Definitions ---
 type AttendanceRecord = {
@@ -436,6 +437,140 @@ function AttendanceRequestsTable() {
     )
 }
 
+function TimeReportTab() {
+    const { firestore } = useFirebase();
+    const [month, setMonth] = React.useState<Date>(new Date());
+    
+    // Data fetching
+    const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
+    const workSchedulesQuery = useMemoFirebase(() => collection(firestore, 'workSchedules'), [firestore]);
+
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+    const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
+    
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+
+    const attendanceQuery = useMemoFirebase(() => query(
+        collection(firestore, 'attendance'),
+        where('date', '>=', format(monthStart, 'yyyy-MM-dd')),
+        where('date', '<=', format(monthEnd, 'yyyy-MM-dd'))
+    ), [firestore, monthStart, monthEnd]);
+    const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+    
+    const isLoading = isLoadingEmployees || isLoadingDepartments || isLoadingSchedules || isLoadingAttendance;
+    
+    // Data processing
+    const { departmentMap, workScheduleMap } = React.useMemo(() => {
+        const dMap = new Map(departments?.map(d => [d.id, d.name]));
+        const wsMap = new Map(workSchedules?.map(ws => [ws.id, ws]));
+        return { departmentMap: dMap, workScheduleMap: wsMap };
+    }, [departments, workSchedules]);
+
+    const reportData = React.useMemo(() => {
+        if (!employees) return [];
+        
+        return employees.map(emp => {
+            const workedHours = attendanceRecords
+                ?.filter(r => r.employeeId === emp.id)
+                .reduce((total, record) => {
+                    if (record.checkInTime && record.checkOutTime) {
+                        return total + differenceInMinutes(new Date(record.checkOutTime), new Date(record.checkInTime));
+                    }
+                    return total;
+                }, 0) || 0;
+            
+            return {
+                ...emp,
+                departmentName: departmentMap.get(emp.departmentId) || 'Тодорхойгүй',
+                workedHours: Math.floor(workedHours / 60),
+            }
+        });
+
+    }, [employees, departmentMap, attendanceRecords]);
+
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                 <div>
+                    <CardTitle>Цагийн тайлан</CardTitle>
+                    <CardDescription>Сонгосон сарын ажилтнуудын цагийн нэгдсэн тайлан.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button id="month" variant={"outline"} className={cn("w-[240px] justify-start text-left font-normal")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(month, "yyyy - MMMM")}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                            initialFocus
+                            mode="single"
+                            selected={month}
+                            onSelect={(day) => day && setMonth(day)}
+                            captionLayout="dropdown-nav"
+                            fromYear={2020}
+                            toYear={new Date().getFullYear() + 1}
+                         />
+                        </PopoverContent>
+                    </Popover>
+                    <Button size="sm" variant="outline">
+                        <Download className="mr-2 h-4 w-4" />
+                        Экспорт
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Ажилтны код</TableHead>
+                            <TableHead>Овог/нэр</TableHead>
+                            <TableHead>Хэлтэс</TableHead>
+                            <TableHead>Албан тушаал</TableHead>
+                            <TableHead>Ажиллах цаг</TableHead>
+                            <TableHead>Ажилласан цаг</TableHead>
+                            <TableHead>Цалинтай цаг</TableHead>
+                            <TableHead>Цалингүй цаг</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading && Array.from({length: 5}).map((_, i) => (
+                            <TableRow key={i}>
+                                {Array.from({length: 8}).map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-24"/></TableCell>)}
+                            </TableRow>
+                        ))}
+                        {!isLoading && reportData.map(emp => (
+                             <TableRow key={emp.id}>
+                                <TableCell>{emp.employeeCode}</TableCell>
+                                <TableCell>{emp.firstName} {emp.lastName}</TableCell>
+                                <TableCell>{emp.departmentName}</TableCell>
+                                <TableCell>{emp.jobTitle}</TableCell>
+                                <TableCell>Тооцоолоогүй</TableCell>
+                                <TableCell>{emp.workedHours} цаг</TableCell>
+                                <TableCell>Тооцоолоогүй</TableCell>
+                                <TableCell>Тооцоолоогүй</TableCell>
+                             </TableRow>
+                        ))}
+                         {!isLoading && reportData.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={8} className="h-24 text-center">
+                                    Ажилтны мэдээлэл олдсонгүй.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
+
 // --- Main Page Component ---
 export default function AttendanceAndRequestsPage() {
   return (
@@ -449,11 +584,15 @@ export default function AttendanceAndRequestsPage() {
         <Tabs defaultValue="history">
             <TabsList>
                 <TabsTrigger value="history">Цагийн бүртгэлийн түүх</TabsTrigger>
+                <TabsTrigger value="report">Цагийн тайлан</TabsTrigger>
                 <TabsTrigger value="time-off">Чөлөөний хүсэлт</TabsTrigger>
                 <TabsTrigger value="attendance">Ирцийн хүсэлт</TabsTrigger>
             </TabsList>
             <TabsContent value="history" className="mt-4">
                 <AttendanceHistoryTab />
+            </TabsContent>
+            <TabsContent value="report" className="mt-4">
+                <TimeReportTab />
             </TabsContent>
             <TabsContent value="time-off" className="mt-4">
                 <TimeOffRequestsTable />
