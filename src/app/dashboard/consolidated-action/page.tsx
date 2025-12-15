@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -114,23 +115,25 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     return { nodes: [], edges: [] };
   }
   
-  const positionNodes = nodes.filter(n => n.type === 'position');
+  const positionNodesList = nodes.filter(n => n.type === 'position');
   const employeeNodes = nodes.filter(n => n.type === 'employee');
 
   const graph = new Map<string, string[]>();
   const nodeMap = new Map<string, Node>();
   const roots: string[] = [];
 
-  positionNodes.forEach((node) => {
+  positionNodesList.forEach((node) => {
     graph.set(node.id, []);
     nodeMap.set(node.id, node);
   });
 
   edges.forEach((edge) => {
-    graph.get(edge.source)?.push(edge.target);
+    if (graph.has(edge.source)) {
+      graph.get(edge.source)!.push(edge.target);
+    }
   });
 
-  positionNodes.forEach(node => {
+  positionNodesList.forEach(node => {
       const isChild = edges.some(edge => edge.target === node.id);
       if(!isChild) {
           roots.push(node.id);
@@ -148,7 +151,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     return Math.max(nodeWidth, childrenWidth + (children.length - 1) * horizontalSpacing);
   }
   
-  function positionNodes(nodeId: string, x: number, y: number) {
+  function positionNodesLayout(nodeId: string, x: number, y: number) {
     const node = nodeMap.get(nodeId);
     if (!node) return;
 
@@ -158,19 +161,19 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     const children = graph.get(nodeId) || [];
     let currentX = x;
     children.forEach((childId) => {
-      positionNodes(childId, currentX, y + nodeHeight + verticalSpacing);
+      positionNodesLayout(childId, currentX, y + nodeHeight + verticalSpacing);
       currentX += (layout.get(childId)?.width || 0) + horizontalSpacing;
     });
   }
   
-  positionNodes.forEach(node => {
+  positionNodesList.forEach(node => {
     layout.set(node.id, { x: 0, y: 0, width: calculateWidth(node.id) });
   });
 
   let currentX = 0;
   let maxY = 0;
   roots.forEach(rootId => {
-      positionNodes(rootId, currentX, 0);
+      positionNodesLayout(rootId, currentX, 0);
       const rootLayout = layout.get(rootId);
       if(rootLayout) {
         currentX += rootLayout.width + horizontalSpacing * 2;
