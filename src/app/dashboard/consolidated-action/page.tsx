@@ -54,6 +54,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { AddEmployeeDialog } from '../employees/add/page';
+import Link from 'next/link';
 
 
 // --- Type Definitions ---
@@ -280,10 +281,12 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             ) : (
                 // Filled State
                 <div className="flex flex-col items-center gap-2">
-                    <Avatar className="w-16 h-16 border-2 border-background">
-                        <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                        <AvatarFallback>{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/dashboard/employees/${employee.id}`}>
+                        <Avatar className="w-16 h-16 border-2 border-background">
+                            <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                            <AvatarFallback>{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                    </Link>
                      <p className="text-sm font-semibold leading-tight line-clamp-1">{employee.firstName} {employee.lastName}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{data.label}</p>
                      {data.headcount > 1 && (
