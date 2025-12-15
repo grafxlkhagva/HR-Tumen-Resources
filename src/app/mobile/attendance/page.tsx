@@ -398,7 +398,6 @@ function AttendanceLogHistory({ employeeId }: { employeeId: string }) {
     const attendanceLogQuery = useMemoFirebase(() => employeeId ? query(
         collection(firestore, 'attendance'),
         where('employeeId', '==', employeeId),
-        orderBy('date', 'desc'),
         limit(30)
     ) : null, [firestore, employeeId]);
     
