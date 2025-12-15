@@ -7,8 +7,10 @@ import ReactFlow, {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
-  type Node,
-  type Edge,
+  addEdge,
+  Connection,
+  Edge,
+  Node,
   Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -20,11 +22,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Briefcase } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 // --- Type Definitions ---
 type Department = {
@@ -175,6 +177,7 @@ const nodeTypes = {
 // --- Main Chart Component ---
 const OrganizationChart = () => {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -189,6 +192,42 @@ const OrganizationChart = () => {
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
 
     const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos || isLoadingEmp;
+    
+    const onConnect = React.useCallback(
+        (connection: Connection) => {
+          if (!firestore || !connection.source || !connection.target) return;
+    
+          const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
+          setEdges((eds) => addEdge(newEdge, eds));
+          
+          // Update parentId in Firestore
+          const childDocRef = doc(firestore, 'departments', connection.target);
+          updateDocumentNonBlocking(childDocRef, { parentId: connection.source });
+
+          toast({
+            title: 'Холбоос үүслээ',
+            description: 'Бүтцийн хамаарал амжилттай шинэчлэгдлээ.',
+          });
+        },
+        [firestore, setEdges, toast]
+    );
+
+    const onEdgesDelete = React.useCallback(
+        (edgesToDelete: Edge[]) => {
+            if(!firestore) return;
+            
+            edgesToDelete.forEach(edge => {
+                const childDocRef = doc(firestore, 'departments', edge.target);
+                updateDocumentNonBlocking(childDocRef, { parentId: '' });
+            });
+
+            toast({
+                title: 'Холбоос устлаа',
+                variant: 'destructive',
+            });
+        },
+        [firestore]
+    );
 
     React.useEffect(() => {
         if (isLoading || !departments || !departmentTypes || !positions || !employees) return;
@@ -251,9 +290,14 @@ const OrganizationChart = () => {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onEdgesDelete={onEdgesDelete}
                 nodeTypes={nodeTypes}
                 fitView
                 className="bg-background"
+                proOptions={{ hideAttribution: true }}
+                connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
+                deleteKeyCode={['Backspace', 'Delete']}
             >
                 <Controls />
                 <Background gap={16} />
@@ -270,7 +314,7 @@ export default function ConsolidatedActionPage() {
         <CardHeader>
           <CardTitle>Байгууллагын бүтэц</CardTitle>
           <CardDescription>
-            Байгууллагын бүтцийг хязгааргүй canvas дээр харах.
+            Байгууллагын бүтцийг хязгааргүй canvas дээр харах, удирдах. Нэгжээс нөгөө рүү чирч холбоос үүсгээрэй.
           </CardDescription>
         </CardHeader>
         <CardContent>
