@@ -26,7 +26,7 @@ import {
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Briefcase, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,7 +59,7 @@ type Employee = {
     status: 'Идэвхтэй';
 }
 
-type Department = {
+export type Department = {
     id: string;
     name: string;
     color?: string;
@@ -248,6 +248,11 @@ const OrganizationChart = () => {
     const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
     // --- Dialog and CRUD Handlers ---
+    const handleOpenAddDialog = () => {
+        setEditingPosition(null);
+        setIsPositionDialogOpen(true);
+    };
+    
     const handleOpenEditDialog = (posId: string) => {
         const positionToEdit = positions?.find(p => p.id === posId);
         if (positionToEdit) {
@@ -351,7 +356,7 @@ const OrganizationChart = () => {
     }
 
     return (
-        <div style={{ width: '100%', height: 'calc(100vh - 200px)' }}>
+        <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
             <AddPositionDialog
                 open={isPositionDialogOpen}
                 onOpenChange={setIsPositionDialogOpen}
@@ -379,6 +384,14 @@ const OrganizationChart = () => {
                 <Controls />
                 <Background gap={16} />
             </ReactFlow>
+            <Button
+                size="icon"
+                className="absolute bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+                onClick={handleOpenAddDialog}
+            >
+                <PlusCircle className="h-6 w-6" />
+                <span className="sr-only">Шинэ албан тушаал нэмэх</span>
+            </Button>
         </div>
     );
 };
