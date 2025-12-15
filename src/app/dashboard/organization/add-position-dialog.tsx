@@ -248,7 +248,7 @@ export function AddPositionDialog({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="">(Шууд удирдлагагүй)</SelectItem>
-                        {allPositions.filter(p => p.id !== editingPosition?.id).map((pos) => (
+                        {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
                           <SelectItem key={pos.id} value={pos.id}>
                             {pos.title}
                           </SelectItem>
