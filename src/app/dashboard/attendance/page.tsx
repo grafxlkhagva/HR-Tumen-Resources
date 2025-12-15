@@ -225,7 +225,7 @@ function TimeOffRequestsTable() {
     const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, []);
+    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
     const { data: requests, isLoading } = useCollection<TimeOffRequest>(requestsQuery);
 
     const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);

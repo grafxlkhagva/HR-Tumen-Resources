@@ -31,6 +31,9 @@ export function useCollection<T = DocumentData>(
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
+  // Use path and type to create a stable dependency for the effect
+  const dependency = target ? `${target.type}:${(target as any).path}` : null;
+
   useEffect(() => {
     // 🔒 target бэлэн биш үед: ямар ч асуулга явуулахгүй
     if (!target) {
@@ -54,6 +57,7 @@ export function useCollection<T = DocumentData>(
         );
         setData(docs);
         setLoading(false);
+        setError(null);
       },
       (err: FirestoreError) => {
         console.error("[useCollection] Firestore error:", err);
@@ -64,7 +68,8 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [target]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dependency]); // Depend on the stable string representation
 
   return { data, loading, error };
 }
