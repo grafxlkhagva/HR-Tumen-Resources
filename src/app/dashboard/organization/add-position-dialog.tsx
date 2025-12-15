@@ -87,7 +87,7 @@ interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: Reference[];
-  allPositions: Position[];
+  allPositions: Position[] | null;
   positionLevels: Reference[];
   employmentTypes: Reference[];
   jobCategories: JobCategoryReference[];
@@ -113,7 +113,7 @@ export function AddPositionDialog({
     defaultValues: {
       title: '',
       departmentId: '',
-      reportsTo: '',
+      reportsTo: '(none)',
       levelId: '',
       employmentTypeId: '',
       isActive: true,
@@ -160,25 +160,30 @@ export function AddPositionDialog({
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
     
-    const dataWithISOStringDate = {
-        ...data,
-        createdAt: data.createdAt.toISOString(),
-        reportsTo: data.reportsTo === '(none)' ? undefined : data.reportsTo,
+    // Create the base data object
+    const baseData: any = {
+      title: data.title,
+      departmentId: data.departmentId,
+      levelId: data.levelId,
+      employmentTypeId: data.employmentTypeId,
+      isActive: data.isActive,
+      jobCategoryId: data.jobCategoryId,
+      headcount: data.headcount,
+      createdAt: data.createdAt.toISOString(),
     };
 
-    const finalData = isEditMode && editingPosition ? {
-      ...dataWithISOStringDate,
-    } : {
-      ...dataWithISOStringDate,
-      filled: 0, // Default to 0 for new positions
-    };
+    // Only include reportsTo if it has a meaningful value
+    if (data.reportsTo && data.reportsTo !== '(none)') {
+      baseData.reportsTo = data.reportsTo;
+    }
     
     if (isEditMode && editingPosition) {
         const docRef = doc(firestore, 'positions', editingPosition.id);
-        updateDocumentNonBlocking(docRef, finalData);
+        updateDocumentNonBlocking(docRef, baseData);
         toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {
         if (!positionsCollection) return;
+        const finalData = { ...baseData, filled: 0 };
         addDocumentNonBlocking(positionsCollection, finalData);
         toast({ title: 'Амжилттай нэмэгдлээ' });
     }
