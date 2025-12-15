@@ -122,15 +122,28 @@ export function AddDepartmentDialog({
       });
       return;
     }
-    
-    const finalData = {
-        ...data,
-        parentId: data.parentId === '(none)' ? undefined : data.parentId,
+
+    const finalData: Omit<DepartmentFormValues, 'parentId'> & { parentId?: string } = {
+        name: data.name,
+        typeId: data.typeId,
+        color: data.color,
     };
+    
+    if (data.parentId && data.parentId !== '(none)') {
+        finalData.parentId = data.parentId;
+    }
 
     if (isEditMode && editingDepartment) {
       const docRef = doc(firestore, 'departments', editingDepartment.id);
-      updateDocumentNonBlocking(docRef, finalData);
+      // Ensure parentId is either a valid string or not present at all.
+      const updateData: any = { ...finalData };
+      if (!updateData.parentId) {
+        // Firestore deletes fields when set to undefined.
+        // Or if you want to explicitly remove it, you can use deleteField() from 'firebase/firestore'
+        // But for this case, not including it in the update object is sufficient.
+        delete updateData.parentId;
+      }
+      updateDocumentNonBlocking(docRef, updateData);
       toast({
         title: 'Амжилттай шинэчлэгдлээ',
         description: `"${data.name}" нэгжийн мэдээлэл шинэчлэгдлээ.`,
@@ -232,7 +245,7 @@ export function AddDepartmentDialog({
                     <FormControl>
                         <div className="flex items-center gap-2">
                             <Input type="color" {...field} className="w-12 h-10 p-1" />
-                            <Input placeholder="#RRGGBB" value={field.value} onChange={field.onChange} />
+                            <Input placeholder="#RRGGBB" value={field.value || ''} onChange={field.onChange} />
                         </div>
                     </FormControl>
                     <FormMessage />
