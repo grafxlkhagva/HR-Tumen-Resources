@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -96,6 +96,12 @@ type PositionNodeData = {
     onAddEmployee: () => void;
 };
 
+type EmployeeNodeData = {
+    label: string;
+    photoURL?: string;
+    jobTitle?: string;
+};
+
 
 // --- Helper Functions for Layout ---
 const nodeWidth = 160;
@@ -107,12 +113,15 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   if (nodes.length === 0) {
     return { nodes: [], edges: [] };
   }
+  
+  const positionNodes = nodes.filter(n => n.type === 'position');
+  const employeeNodes = nodes.filter(n => n.type === 'employee');
 
   const graph = new Map<string, string[]>();
   const nodeMap = new Map<string, Node>();
   const roots: string[] = [];
 
-  nodes.forEach((node) => {
+  positionNodes.forEach((node) => {
     graph.set(node.id, []);
     nodeMap.set(node.id, node);
   });
@@ -121,7 +130,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     graph.get(edge.source)?.push(edge.target);
   });
 
-  nodes.forEach(node => {
+  positionNodes.forEach(node => {
       const isChild = edges.some(edge => edge.target === node.id);
       if(!isChild) {
           roots.push(node.id);
@@ -154,15 +163,27 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     });
   }
   
-  nodes.forEach(node => {
+  positionNodes.forEach(node => {
     layout.set(node.id, { x: 0, y: 0, width: calculateWidth(node.id) });
   });
 
   let currentX = 0;
+  let maxY = 0;
   roots.forEach(rootId => {
       positionNodes(rootId, currentX, 0);
-      currentX += (layout.get(rootId)?.width || 0) + horizontalSpacing * 2;
+      const rootLayout = layout.get(rootId);
+      if(rootLayout) {
+        currentX += rootLayout.width + horizontalSpacing * 2;
+        // This is a rough estimation of the max Y to position employees below
+        const depth = (nodeId: string): number => 1 + Math.max(0, ...(graph.get(nodeId) || []).map(depth));
+        maxY = Math.max(maxY, depth(rootId) * (nodeHeight + verticalSpacing));
+      }
   })
+
+  // Position unassigned employees
+  employeeNodes.forEach((node, index) => {
+      layout.set(node.id, { x: -300, y: index * (100 + 20), width: 100 });
+  });
 
 
   const layoutedNodes = nodes.map((node) => {
@@ -177,7 +198,20 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 };
 
 
-// --- Custom Node Component ---
+// --- Custom Node Components ---
+const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
+    return (
+        <div className="w-[80px] h-[80px] rounded-full shadow-lg flex flex-col items-center justify-center p-2 text-center bg-card border-2 border-primary/50">
+            <Handle type="source" position={Position.Right} id="a" className="!bg-primary" />
+             <Avatar className="w-12 h-12">
+                <AvatarImage src={data.photoURL} alt={data.label} />
+                <AvatarFallback>{data.label?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <p className="text-xs font-semibold leading-tight line-clamp-1 mt-1">{data.label}</p>
+        </div>
+    );
+};
+
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
     const isFilled = data.filled > 0;
     const employee = data.employees[0];
@@ -194,7 +228,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} className="!bg-primary !opacity-0" />
+            <Handle type="target" position={Position.Top} id="b" className="!bg-primary" />
              <div className="absolute top-2 right-2">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -246,13 +280,14 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                      )}
                 </div>
             )}
-             <Handle type="source" position={Position.Bottom} className="!bg-primary !opacity-0" />
+             <Handle type="source" position={Position.Bottom} id="a" className="!bg-primary" />
         </div>
     );
 };
 
 const nodeTypes = {
   position: PositionNode,
+  employee: EmployeeNode
 };
 
 // --- Main Chart Component ---
@@ -330,7 +365,18 @@ const OrganizationChart = () => {
     const onConnect = React.useCallback(
         (connection: Connection) => {
           if (!firestore || !connection.source || !connection.target) return;
-    
+
+          const sourceNode = nodes.find(n => n.id === connection.source);
+          const targetNode = nodes.find(n => n.id === connection.target);
+
+          // Connection between employee and position for assignment
+          if (sourceNode?.type === 'employee' && targetNode?.type === 'position') {
+            console.log(`Assign employee ${sourceNode.id} to position ${targetNode.id}`);
+            // TODO: Open confirmation dialog here
+            return;
+          }
+
+          // Connection between two positions for hierarchy
           const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
           setEdges((eds) => addEdge(newEdge, eds));
           
@@ -342,7 +388,7 @@ const OrganizationChart = () => {
             description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
           });
         },
-        [firestore, setEdges, toast]
+        [firestore, setEdges, toast, nodes]
     );
 
     const onEdgesDelete = React.useCallback(
@@ -378,8 +424,9 @@ const OrganizationChart = () => {
         const departmentColorMap = new Map(departments.map(d => [d.id, d.color]));
         
         const activePositions = positions.filter(p => p.isActive);
+        const unassignedEmployees = employees.filter(emp => emp.status === 'Идэвхтэй' && !emp.positionId);
 
-        const initialNodes: Node[] = activePositions.map(pos => {
+        const positionNodes: Node[] = activePositions.map(pos => {
             const assignedEmployees = employeesByPosition.get(pos.id) || [];
             return {
                 id: pos.id,
@@ -398,6 +445,18 @@ const OrganizationChart = () => {
                 position: { x: 0, y: 0 },
             }
         });
+        
+        const employeeNodes: Node[] = unassignedEmployees.map(emp => ({
+            id: emp.id,
+            type: 'employee',
+            data: {
+                label: `${emp.firstName} ${emp.lastName}`,
+                photoURL: emp.photoURL,
+            },
+            position: { x: 0, y: 0 },
+        }));
+
+        const initialNodes = [...positionNodes, ...employeeNodes];
 
         const initialEdges: Edge[] = activePositions
             .filter(pos => pos.reportsTo)
