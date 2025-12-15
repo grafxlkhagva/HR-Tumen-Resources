@@ -26,7 +26,7 @@ import {
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +36,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddPositionDialog } from '../organization/add-position-dialog';
+import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
+
 
 // --- Type Definitions ---
 type PositionData = {
@@ -81,6 +83,7 @@ type PositionNodeData = {
     color: string;
     onEdit: () => void;
     onDelete: () => void;
+    onAssign: () => void;
 };
 
 
@@ -186,6 +189,9 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
+                            <DropdownMenuItem onClick={data.onAssign}>
+                                <UserPlus className="mr-2 h-4 w-4" /> Ажилтан томилох
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={data.onEdit}>
                                 <Pencil className="mr-2 h-4 w-4" /> Засах
                             </DropdownMenuItem>
@@ -229,6 +235,9 @@ const OrganizationChart = () => {
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [isPositionDialogOpen, setIsPositionDialogOpen] = React.useState(false);
     const [editingPosition, setEditingPosition] = React.useState<PositionData | null>(null);
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
+    const [assigningPosition, setAssigningPosition] = React.useState<PositionData | null>(null);
+
 
     // Data queries
     const positionsQuery = useMemoFirebase(() => collection(firestore, 'positions'), [firestore]);
@@ -258,6 +267,14 @@ const OrganizationChart = () => {
         if (positionToEdit) {
             setEditingPosition(positionToEdit);
             setIsPositionDialogOpen(true);
+        }
+    };
+
+    const handleOpenAssignDialog = (posId: string) => {
+        const positionToAssign = positions?.find(p => p.id === posId);
+        if(positionToAssign) {
+            setAssigningPosition(positionToAssign);
+            setIsAssignDialogOpen(true);
         }
     };
     
@@ -330,6 +347,7 @@ const OrganizationChart = () => {
                 color: departmentColorMap.get(pos.departmentId) || '#ffffff',
                 onEdit: () => handleOpenEditDialog(pos.id),
                 onDelete: () => handleDeletePosition(pos.id),
+                onAssign: () => handleOpenAssignDialog(pos.id),
             },
             position: { x: 0, y: 0 },
         }));
@@ -366,6 +384,12 @@ const OrganizationChart = () => {
                 employmentTypes={employmentTypes || []}
                 jobCategories={jobCategories || []}
                 editingPosition={editingPosition}
+            />
+            <AssignEmployeeDialog 
+                open={isAssignDialogOpen}
+                onOpenChange={setIsAssignDialogOpen}
+                position={assigningPosition}
+                employees={employees || []}
             />
             <ReactFlow
                 nodes={nodes}

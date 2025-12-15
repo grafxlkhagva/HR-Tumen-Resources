@@ -58,6 +58,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Employee } from '../employees/data';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
+import { AssignEmployeeDialog } from './assign-employee-dialog';
 
 
 // Interfaces for Firestore data
