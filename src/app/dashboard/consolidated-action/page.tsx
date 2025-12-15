@@ -313,7 +313,7 @@ const OrganizationChart = () => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     const [assigningPosition, setAssigningPosition] = React.useState<PositionData | null>(null);
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
-    const [assignmentConfirmation, setAssignmentConfirmation] = React.useState<{ employee: Employee, position: PositionData, connection: Connection } | null>(null);
+    const [assignmentConfirmation, setAssignmentConfirmation] = React.useState<{ employee: Employee, position: PositionData } | null>(null);
 
 
     // Data queries
@@ -399,45 +399,45 @@ const OrganizationChart = () => {
         setAssignmentConfirmation(null);
     };
     
-    const onConnect = React.useCallback(
+     const onConnect = React.useCallback(
         (connection: Connection) => {
-          if (!firestore || !connection.source || !connection.target) return;
-    
-          const sourceNode = nodes.find(n => n.id === connection.source);
-          const targetNode = nodes.find(n => n.id === connection.target);
-    
-          // Connecting an employee to a position
-          if (sourceNode?.type === 'employee' && targetNode?.type === 'position') {
-            const employeeToAssign = employees?.find(e => e.id === sourceNode.id);
-            const positionToAssign = positions?.find(p => p.id === targetNode.id);
-    
-            if (employeeToAssign && positionToAssign) {
-                if ((positionToAssign.headcount || 0) <= (positionToAssign.filled || 0)) {
-                    toast({
-                        variant: "destructive",
-                        title: "Орон тоо дүүрсэн",
-                        description: `"${positionToAssign.title}" ажлын байрны орон тоо дүүрсэн байна.`,
-                    });
-                    return;
-                }
-                setAssignmentConfirmation({ employee: employeeToAssign, position: positionToAssign, connection });
-            }
-            return;
-          }
-    
-          // Connecting a position to another position (reportsTo)
-          if (sourceNode?.type === 'position' && targetNode?.type === 'position') {
-            const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
-            setEdges((eds) => addEdge(newEdge, eds));
+            if (!firestore || !connection.source || !connection.target) return;
             
-            const childDocRef = doc(firestore, 'positions', connection.target);
-            updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
-    
-            toast({
-              title: 'Холбоос үүслээ',
-              description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
-            });
-          }
+            const sourceNode = nodes.find(n => n.id === connection.source);
+            const targetNode = nodes.find(n => n.id === connection.target);
+
+            // Connecting an employee to a position
+            if (sourceNode?.type === 'employee' && targetNode?.type === 'position') {
+                const employeeToAssign = employees?.find(e => e.id === sourceNode.id);
+                const positionToAssign = positions?.find(p => p.id === targetNode.id);
+
+                if (employeeToAssign && positionToAssign) {
+                    if ((positionToAssign.headcount || 0) <= (positionToAssign.filled || 0)) {
+                        toast({
+                            variant: "destructive",
+                            title: "Орон тоо дүүрсэн",
+                            description: `"${positionToAssign.title}" ажлын байрны орон тоо дүүрсэн байна.`,
+                        });
+                        return;
+                    }
+                    setAssignmentConfirmation({ employee: employeeToAssign, position: positionToAssign });
+                }
+                return;
+            }
+
+            // Connecting a position to another position (reportsTo)
+            if (sourceNode?.type === 'position' && targetNode?.type === 'position') {
+                const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
+                setEdges((eds) => addEdge(newEdge, eds));
+                
+                const childDocRef = doc(firestore, 'positions', connection.target);
+                updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
+
+                toast({
+                    title: 'Холбоос үүслээ',
+                    description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
+                });
+            }
         },
         [firestore, setEdges, toast, nodes, employees, positions]
     );
@@ -620,6 +620,7 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+
 
 
 
