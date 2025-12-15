@@ -29,7 +29,7 @@ import {
   useDoc,
   useMemoFirebase,
 } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Calendar as CalendarIcon, ArrowLeft, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -390,3 +390,5 @@ export default function EditEmployeePage() {
         </div>
     )
 }
+
+    
