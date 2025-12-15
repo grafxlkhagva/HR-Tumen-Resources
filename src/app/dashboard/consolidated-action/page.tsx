@@ -215,7 +215,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
     return (
         <div className="w-[80px] h-[80px] rounded-full shadow-lg flex flex-col items-center justify-center p-2 text-center bg-card border-2 border-primary/50">
-            <Handle type="source" position={Position.Right} id="a" className="!bg-primary" />
+            <Handle type="source" position={Position.Right} id="a" />
              <Avatar className="w-12 h-12">
                 <AvatarImage src={data.photoURL} alt={data.label} />
                 <AvatarFallback>{data.label?.charAt(0)}</AvatarFallback>
@@ -240,7 +240,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} id="b" className="!bg-primary" />
+            <Handle type="target" position={Position.Top} id="b" />
              <div className="absolute top-2 right-2">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -292,7 +292,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                      )}
                 </div>
             )}
-             <Handle type="source" position={Position.Bottom} id="a" className="!bg-primary" />
+             <Handle type="source" position={Position.Bottom} id="a" />
         </div>
     );
 };
@@ -620,6 +620,7 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+
 
 
 
