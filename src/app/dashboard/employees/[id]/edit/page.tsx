@@ -24,13 +24,12 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   useFirebase,
-  updateDocumentNonBlocking,
   addDocumentNonBlocking,
   useCollection,
   useDoc,
   useMemoFirebase,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Calendar as CalendarIcon, ArrowLeft, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -56,7 +55,7 @@ const editEmployeeSchema = z.object({
   lastName: z.string().min(1, 'Овог хоосон байж болохгүй.'),
   email: z.string().email('Имэйл хаяг буруу байна.'),
   phoneNumber: z.string().optional(),
-  positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
+  positionId: z.string().optional(),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
   workScheduleId: z.string().optional(),
   hireDate: z.date({
@@ -125,6 +124,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
             ...employeeData,
+            positionId: employeeData.positionId || '(none)',
             hireDate: employeeData.hireDate ? new Date(employeeData.hireDate) : new Date(),
             workScheduleId: employeeData.workScheduleId || '',
         },
@@ -154,16 +154,11 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
     React.useEffect(() => {
         const currentPositionId = form.getValues('positionId');
-        if (currentPositionId && !filteredPositions.some(p => p.id === currentPositionId)) {
-             form.setValue('positionId', '');
+        if (currentPositionId && currentPositionId !== '(none)' && !filteredPositions.some(p => p.id === currentPositionId)) {
+             form.setValue('positionId', '(none)');
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [watchedDepartmentId]);
-
-    const employeeDocRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'employees', employeeData.id) : null),
-        [firestore, employeeData.id]
-    );
 
     const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -192,9 +187,10 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         [firestore, employeeData.id]
     );
     
-    const logHistoryEvent = (note: string) => {
+    const logHistoryEvent = (note: string, batch: any) => {
         if (!historyCollectionRef) return;
-        addDocumentNonBlocking(historyCollectionRef, {
+        const historyDocRef = doc(historyCollectionRef);
+        batch.set(historyDocRef, {
             eventType: 'Мэдээлэл шинэчлэгдсэн',
             eventDate: new Date().toISOString(),
             notes: note,
@@ -202,8 +198,35 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         });
     };
 
-    const handleSave = (values: EditEmployeeFormValues) => {
-        if (!employeeDocRef || !firestore) return;
+    const handleSave = async (values: EditEmployeeFormValues) => {
+        if (!firestore) return;
+
+        const oldPositionId = employeeData.positionId;
+        const newPositionId = values.positionId === '(none)' ? null : values.positionId;
+
+        const batch = writeBatch(firestore);
+
+        // Update position filled counts if position changed
+        if (oldPositionId !== newPositionId) {
+            // Decrement old position's filled count if it existed
+            if (oldPositionId) {
+                const oldPosRef = doc(firestore, 'positions', oldPositionId);
+                const oldPosSnap = await getDoc(oldPosRef);
+                if (oldPosSnap.exists()) {
+                    const currentFilled = oldPosSnap.data().filled || 0;
+                    batch.update(oldPosRef, { filled: Math.max(0, currentFilled - 1) });
+                }
+            }
+            // Increment new position's filled count if a new one is assigned
+            if (newPositionId) {
+                const newPosRef = doc(firestore, 'positions', newPositionId);
+                 const newPosSnap = await getDoc(newPosRef);
+                 if (newPosSnap.exists()) {
+                    const currentFilled = newPosSnap.data().filled || 0;
+                    batch.update(newPosRef, { filled: currentFilled + 1 });
+                 }
+            }
+        }
 
         const departmentMap = new Map(departments?.map(d => [d.id, d.name]));
         const positionMap = new Map(positions?.map(p => [p.id, p.title]));
@@ -211,35 +234,45 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
         // Log changes
         if (values.departmentId !== employeeData.departmentId) {
-            logHistoryEvent(`Хэлтэс '${departmentMap.get(employeeData.departmentId) || 'Тодорхойгүй'}' -> '${departmentMap.get(values.departmentId) || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+            logHistoryEvent(`Хэлтэс '${departmentMap.get(employeeData.departmentId) || 'Тодорхойгүй'}' -> '${departmentMap.get(values.departmentId) || 'Тодорхойгүй'}' болж өөрчлөгдөв.`, batch);
         }
-        if (values.positionId !== employeeData.positionId) {
-            logHistoryEvent(`Албан тушаал '${positionMap.get(employeeData.positionId) || 'Тодорхойгүй'}' -> '${positionMap.get(values.positionId) || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+        if (newPositionId !== oldPositionId) {
+            logHistoryEvent(`Албан тушаал '${positionMap.get(oldPositionId || '') || 'Томилгоогүй'}' -> '${positionMap.get(newPositionId || '') || 'Томилгоогүй'}' болж өөрчлөгдөв.`, batch);
         }
         if (values.workScheduleId !== employeeData.workScheduleId) {
-            logHistoryEvent(`Ажлын хуваарь '${scheduleMap.get(employeeData.workScheduleId || '') || 'Тодорхойгүй'}' -> '${scheduleMap.get(values.workScheduleId || '') || 'Тодорхойгүй'}' болж өөрчлөгдөв.`);
+            logHistoryEvent(`Ажлын хуваарь '${scheduleMap.get(employeeData.workScheduleId || '') || 'Тодорхойгүй'}' -> '${scheduleMap.get(values.workScheduleId || '') || 'Тодорхойгүй'}' болж өөрчлөгдөв.`, batch);
         }
         if (values.status !== employeeData.status) {
-            logHistoryEvent(`Төлөв '${employeeData.status}' -> '${values.status}' болж өөрчлөгдөв.`);
+            logHistoryEvent(`Төлөв '${employeeData.status}' -> '${values.status}' болж өөрчлөгдөв.`, batch);
         }
-
-
-        const position = positions?.find(p => p.id === values.positionId);
-
-        const updatedData = {
+        
+        const position = newPositionId ? positions?.find(p => p.id === newPositionId) : null;
+        
+        const updatedData: any = {
             ...values,
             hireDate: values.hireDate.toISOString(),
-            jobTitle: position?.title || 'Тодорхойгүй',
+            jobTitle: position?.title || 'Томилгоогүй',
+            positionId: newPositionId,
         };
 
-        updateDocumentNonBlocking(employeeDocRef, updatedData);
+        const employeeDocRef = doc(firestore, 'employees', employeeData.id);
+        batch.update(employeeDocRef, updatedData);
 
-        toast({
-          title: 'Амжилттай хадгаллаа',
-          description: `${values.firstName} ${values.lastName}-н мэдээлэл шинэчлэгдлээ.`,
-        });
-        
-        router.push(`/dashboard/employees/${employeeData.id}`);
+        try {
+            await batch.commit();
+            toast({
+              title: 'Амжилттай хадгаллаа',
+              description: `${values.firstName} ${values.lastName}-н мэдээлэл шинэчлэгдлээ.`,
+            });
+            router.push(`/dashboard/employees/${employeeData.id}`);
+        } catch (error) {
+            console.error("Error updating employee and positions: ", error);
+             toast({
+                variant: "destructive",
+                title: "Алдаа гарлаа",
+                description: "Мэдээлэл шинэчлэхэд алдаа гарлаа.",
+            });
+        }
     };
 
     const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
@@ -285,7 +318,10 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                         <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Имэйл</FormLabel><FormControl><Input type="email" placeholder="dorj.bat@example.com" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="phoneNumber" render={({ field }) => ( <FormItem><FormLabel>Утасны дугаар</FormLabel><FormControl><Input placeholder="+976 9911..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Хэлтэс</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{departments?.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={!watchedDepartmentId}><SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} /></SelectTrigger></FormControl><SelectContent>{filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={!watchedDepartmentId}><SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} /></SelectTrigger></FormControl><SelectContent>
+                            <SelectItem value="(none)">Томилгоогүй</SelectItem>
+                            {filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}
+                            </SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="workScheduleId" render={({ field }) => ( <FormItem><FormLabel>Ажлын цагийн хуваарь</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хуваарь сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{workSchedules?.map((schedule) => (<SelectItem key={schedule.id} value={schedule.id}>{schedule.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
