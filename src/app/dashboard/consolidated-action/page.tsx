@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -14,6 +15,7 @@ import ReactFlow, {
   Node,
   Position,
   Handle,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -223,9 +225,10 @@ const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
     );
 };
 
-const PositionNode = ({ data }: { data: PositionNodeData }) => {
+const PositionNode = ({ data, isConnectable }: { data: PositionNodeData, isConnectable: boolean }) => {
     const isFilled = data.filled > 0;
     const employee = data.employees[0];
+    const { setNodes } = useReactFlow();
     
     const cardStyle = {
         backgroundColor: data.color || 'hsl(var(--card))',
@@ -239,7 +242,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} id="b" className="!bg-primary" />
+            <Handle type="target" position={Position.Top} id="b" className="!bg-primary" isConnectable={isConnectable} />
              <div className="absolute top-2 right-2">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -616,3 +619,4 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+
