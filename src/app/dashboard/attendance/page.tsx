@@ -60,19 +60,6 @@ type TimeOffRequest = {
     createdAt: string;
 };
 
-type AttendanceRequest = {
-    id: string;
-    employeeId: string;
-    type: 'OVERTIME' | 'LATE_ARRIVAL' | 'REMOTE_WORK';
-    date: string;
-    startTime?: string;
-    endTime?: string;
-    hours?: number;
-    reason: string;
-    status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
-    createdAt: string;
-}
-
 const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
   "Хүлээгдэж буй": { variant: 'secondary', className: 'bg-yellow-500/80 text-yellow-foreground', label: 'Хүлээгдэж буй' },
   "Зөвшөөрсөн": { variant: 'default', className: 'bg-green-500/80 text-green-foreground', label: 'Зөвшөөрсөн' },
@@ -332,111 +319,6 @@ function TimeOffRequestsTable() {
     )
 }
 
-function AttendanceRequestsTable() {
-    const { firestore } = useFirebase();
-
-    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
-    const { data: employees } = useCollection<Employee>(employeesQuery);
-
-    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, []);
-    const { data: requests, isLoading } = useCollection<AttendanceRequest>(requestsQuery);
-
-    const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
-
-    const requestsWithEmployeeData = React.useMemo(() => {
-        if (!requests || !employees) return [];
-        return requests.map(req => {
-            const employee = employeeMap.get(req.employeeId);
-            return {
-                ...req,
-                employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Тодорхойгүй',
-                employeeAvatar: employee?.photoURL
-            };
-        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [requests, employees, employeeMap]);
-    
-    const requestTypeLabels = {
-        'OVERTIME': 'Илүү цаг',
-        'LATE_ARRIVAL': 'Хоцролт',
-        'REMOTE_WORK': 'Гадуур ажиллах'
-    }
-    
-    const handleUpdateStatus = (request: AttendanceRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
-        if (!firestore || !request.employeeId) return;
-        const docRef = doc(firestore, `employees/${request.employeeId}/attendanceRequests`, request.id);
-        updateDocumentNonBlocking(docRef, { status });
-    };
-
-    return (
-         <Card>
-            <CardHeader>
-                <CardTitle>Ирцийн хүсэлтүүд</CardTitle>
-                <CardDescription>Илүү цаг, хоцролт, гадуур ажиллах зэрэг хүсэлтүүд.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Ажилтан</TableHead>
-                            <TableHead>Төрөл</TableHead>
-                            <TableHead>Огноо</TableHead>
-                            <TableHead>Дэлгэрэнгүй</TableHead>
-                            <TableHead>Статус</TableHead>
-                            <TableHead className="text-right">Үйлдэл</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading && Array.from({length: 3}).map((_, i) => <RequestRowSkeleton key={i} />)}
-                        {!isLoading && requestsWithEmployeeData.map(req => {
-                            const status = statusConfig[req.status];
-                            return(
-                            <TableRow key={req.id}>
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="hidden h-9 w-9 sm:flex">
-                                            <AvatarImage src={req.employeeAvatar} alt="Avatar" />
-                                            <AvatarFallback>{req.employeeName.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>{req.employeeName}</div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{requestTypeLabels[req.type] || req.type}</TableCell>
-                                <TableCell>{format(new Date(req.date), 'yyyy.MM.dd')}</TableCell>
-                                <TableCell className="max-w-xs truncate">{req.reason}</TableCell>
-                                <TableCell><Badge variant={status.variant} className={status.className}>{status.label}</Badge></TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" disabled={req.status !== 'Хүлээгдэж буй'}>
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Зөвшөөрсөн')}>
-                                                <Check className="mr-2 h-4 w-4 text-green-500"/> Зөвшөөрөх
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'Татгалзсан')}>
-                                                <X className="mr-2 h-4 w-4 text-red-500" /> Татгалзах
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        )})}
-                        {!isLoading && requestsWithEmployeeData.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                Ирцийн хүсэлт одоогоор байхгүй байна.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    )
-}
-
 function TimeReportTab() {
     const { firestore } = useFirebase();
     const [month, setMonth] = React.useState<Date>(new Date());
@@ -584,8 +466,6 @@ export default function AttendanceAndRequestsPage() {
         <AttendanceHistoryTab />
         <TimeReportTab />
         <TimeOffRequestsTable />
-        <AttendanceRequestsTable />
     </div>
   );
 }
-
