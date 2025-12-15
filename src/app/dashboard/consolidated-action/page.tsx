@@ -36,6 +36,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -63,7 +73,7 @@ type PositionData = {
 
 type Employee = {
     id: string;
-    positionId: string;
+    positionId?: string;
     status: 'Идэвхтэй';
     firstName: string;
     lastName: string;
@@ -177,13 +187,11 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       const rootLayout = layout.get(rootId);
       if(rootLayout) {
         currentX += rootLayout.width + horizontalSpacing * 2;
-        // This is a rough estimation of the max Y to position employees below
         const depth = (nodeId: string): number => 1 + Math.max(0, ...(graph.get(nodeId) || []).map(depth));
         maxY = Math.max(maxY, depth(rootId) * (nodeHeight + verticalSpacing));
       }
   })
 
-  // Position unassigned employees
   employeeNodes.forEach((node, index) => {
       layout.set(node.id, { x: -300, y: index * (100 + 20), width: 100 });
   });
@@ -304,6 +312,7 @@ const OrganizationChart = () => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     const [assigningPosition, setAssigningPosition] = React.useState<PositionData | null>(null);
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
+    const [assignmentConfirmation, setAssignmentConfirmation] = React.useState<{ employee: Employee, position: PositionData, connection: Connection } | null>(null);
 
 
     // Data queries
@@ -364,6 +373,30 @@ const OrganizationChart = () => {
             variant: 'destructive',
         });
     };
+
+    const handleConfirmAssignment = () => {
+        if (!assignmentConfirmation || !firestore) return;
+
+        const { employee, position } = assignmentConfirmation;
+
+        const employeeDocRef = doc(firestore, 'employees', employee.id);
+        updateDocumentNonBlocking(employeeDocRef, {
+            positionId: position.id,
+            jobTitle: position.title,
+        });
+
+        const positionDocRef = doc(firestore, 'positions', position.id);
+        updateDocumentNonBlocking(positionDocRef, {
+            filled: increment(1)
+        });
+
+        toast({
+            title: 'Ажилтан амжилттай томилогдлоо',
+            description: `${employee.firstName}-г ${position.title} албан тушаалд томиллоо.`,
+        });
+
+        setAssignmentConfirmation(null);
+    };
     
     const onConnect = React.useCallback(
         (connection: Connection) => {
@@ -372,26 +405,37 @@ const OrganizationChart = () => {
           const sourceNode = nodes.find(n => n.id === connection.source);
           const targetNode = nodes.find(n => n.id === connection.target);
 
-          // Connection between employee and position for assignment
           if (sourceNode?.type === 'employee' && targetNode?.type === 'position') {
-            console.log(`Assign employee ${sourceNode.id} to position ${targetNode.id}`);
-            // TODO: Open confirmation dialog here
+            const employeeToAssign = employees?.find(e => e.id === sourceNode.id);
+            const positionToAssign = positions?.find(p => p.id === targetNode.id);
+            if (employeeToAssign && positionToAssign) {
+                if ((positionToAssign.headcount || 0) <= (positionToAssign.filled || 0)) {
+                    toast({
+                        variant: "destructive",
+                        title: "Орон тоо дүүрсэн",
+                        description: `"${positionToAssign.title}" ажлын байрны орон тоо дүүрсэн байна.`,
+                    });
+                    return;
+                }
+                setAssignmentConfirmation({ employee: employeeToAssign, position: positionToAssign, connection });
+            }
             return;
           }
 
-          // Connection between two positions for hierarchy
-          const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
-          setEdges((eds) => addEdge(newEdge, eds));
-          
-          const childDocRef = doc(firestore, 'positions', connection.target);
-          updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
+          if (sourceNode?.type === 'position' && targetNode?.type === 'position') {
+            const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
+            setEdges((eds) => addEdge(newEdge, eds));
+            
+            const childDocRef = doc(firestore, 'positions', connection.target);
+            updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
 
-          toast({
-            title: 'Холбоос үүслээ',
-            description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
-          });
+            toast({
+              title: 'Холбоос үүслээ',
+              description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
+            });
+          }
         },
-        [firestore, setEdges, toast, nodes]
+        [firestore, setEdges, toast, nodes, employees, positions]
     );
 
     const onEdgesDelete = React.useCallback(
@@ -419,7 +463,7 @@ const OrganizationChart = () => {
                 if (!acc.has(emp.positionId)) {
                     acc.set(emp.positionId, []);
                 }
-                acc.get(emp.positionId)!.push(emp);
+                acc.get(emp.positionId)!.push(emp as Employee);
             }
             return acc;
         }, new Map<string, Employee[]>());
@@ -484,6 +528,20 @@ const OrganizationChart = () => {
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
+            <AlertDialog open={!!assignmentConfirmation} onOpenChange={(open) => !open && setAssignmentConfirmation(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Та <strong>{assignmentConfirmation?.employee.firstName}</strong>-г <strong>{assignmentConfirmation?.position.title}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setAssignmentConfirmation(null)}>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAssignment}>Тийм, томилох</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             <AddPositionDialog
                 open={isPositionDialogOpen}
                 onOpenChange={setIsPositionDialogOpen}
