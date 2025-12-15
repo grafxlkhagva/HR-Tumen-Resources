@@ -128,10 +128,9 @@ function AttendanceTableSkeleton() {
 }
 
 function AttendanceHistoryTab() {
-  const { firestore } = useFirebase();
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   
-  const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+  const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
 
   const employeeMap = React.useMemo(() => {
@@ -140,8 +139,8 @@ function AttendanceHistoryTab() {
   }, [employees]);
 
   const attendanceQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'attendance'), orderBy('checkInTime', 'desc')) : null,
-    [firestore]
+    ({ firestore }) => firestore ? query(collection(firestore, 'attendance'), orderBy('checkInTime', 'desc')) : null,
+    []
   );
   const { data: attendanceRecords, isLoading: isLoadingAttendance, error: errorAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   
@@ -235,10 +234,10 @@ function RequestRowSkeleton() {
 function TimeOffRequestsTable() {
     const { firestore } = useFirebase();
 
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const requestsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
+    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, []);
     const { data: requests, isLoading } = useCollection<TimeOffRequest>(requestsQuery);
 
     const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
@@ -335,10 +334,10 @@ function TimeOffRequestsTable() {
 function AttendanceRequestsTable() {
     const { firestore } = useFirebase();
 
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const requestsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, [firestore]);
+    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, []);
     const { data: requests, isLoading } = useCollection<AttendanceRequest>(requestsQuery);
 
     const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
@@ -442,9 +441,9 @@ function TimeReportTab() {
     const [month, setMonth] = React.useState<Date>(new Date());
     
     // Data fetching
-    const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
-    const departmentsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
-    const workSchedulesQuery = useMemoFirebase(() => collection(firestore, 'workSchedules'), [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
+    const departmentsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'departments') : null, []);
+    const workSchedulesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'workSchedules') : null, []);
 
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
@@ -453,7 +452,7 @@ function TimeReportTab() {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
 
-    const attendanceQuery = useMemoFirebase(() => query(
+    const attendanceQuery = useMemoFirebase(({ firestore }) => query(
         collection(firestore, 'attendance'),
         where('date', '>=', format(monthStart, 'yyyy-MM-dd')),
         where('date', '<=', format(monthEnd, 'yyyy-MM-dd'))
