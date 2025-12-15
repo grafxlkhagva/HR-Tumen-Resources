@@ -463,9 +463,22 @@ export default function AttendanceAndRequestsPage() {
                 <p className="text-muted-foreground">Ажилтнуудын ирцийн түүх болон холбогдох хүсэлтүүдийг удирдах.</p>
             </div>
         </div>
-        <AttendanceHistoryTab />
-        <TimeReportTab />
-        <TimeOffRequestsTable />
+        <Tabs defaultValue="history">
+            <TabsList>
+                <TabsTrigger value="history">Ирцийн түүх</TabsTrigger>
+                <TabsTrigger value="report">Цагийн тайлан</TabsTrigger>
+                <TabsTrigger value="requests">Чөлөөний хүсэлт</TabsTrigger>
+            </TabsList>
+            <TabsContent value="history" className="mt-6">
+                <AttendanceHistoryTab />
+            </TabsContent>
+            <TabsContent value="report" className="mt-6">
+                <TimeReportTab />
+            </TabsContent>
+            <TabsContent value="requests" className="mt-6">
+                <TimeOffRequestsTable />
+            </TabsContent>
+        </Tabs>
     </div>
   );
 }
