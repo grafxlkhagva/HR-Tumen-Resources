@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
+  reportsTo: z.string().optional(),
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
   isActive: z.boolean().default(true),
@@ -74,6 +75,7 @@ interface Position {
   departmentId: string;
   headcount: number;
   filled: number;
+  reportsTo?: string;
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
@@ -85,6 +87,7 @@ interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: Reference[];
+  allPositions: Position[];
   positionLevels: Reference[];
   employmentTypes: Reference[];
   jobCategories: JobCategoryReference[];
@@ -95,6 +98,7 @@ export function AddPositionDialog({
   open,
   onOpenChange,
   departments,
+  allPositions,
   positionLevels,
   employmentTypes,
   jobCategories,
@@ -109,6 +113,7 @@ export function AddPositionDialog({
     defaultValues: {
       title: '',
       departmentId: '',
+      reportsTo: '',
       levelId: '',
       employmentTypeId: '',
       isActive: true,
@@ -125,6 +130,7 @@ export function AddPositionDialog({
         headcount: editingPosition.headcount || 1,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
+        reportsTo: editingPosition.reportsTo || '',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
         createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
@@ -133,6 +139,7 @@ export function AddPositionDialog({
       form.reset({
         title: '',
         departmentId: '',
+        reportsTo: '',
         levelId: '',
         employmentTypeId: '',
         jobCategoryId: '',
@@ -219,6 +226,31 @@ export function AddPositionDialog({
                         {departments.map((dept) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="reportsTo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Удирдах албан тушаал сонгох" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">(Шууд удирдлагагүй)</SelectItem>
+                        {allPositions.filter(p => p.id !== editingPosition?.id).map((pos) => (
+                          <SelectItem key={pos.id} value={pos.id}>
+                            {pos.title}
                           </SelectItem>
                         ))}
                       </SelectContent>

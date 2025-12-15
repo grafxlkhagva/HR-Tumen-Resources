@@ -480,49 +480,19 @@
       "type": "object",
       "description": "Байгууллага доторх албан тушаал, орон тоог илэрхийлнэ.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Албан тушаалын давтагдашгүй танигч."
-        },
-        "title": {
-          "type": "string",
-          "description": "Албан тушаалын нэр."
-        },
-        "departmentId": {
-          "type": "string",
-          "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)"
-        },
-        "levelId": {
-          "type": "string",
-          "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)"
-        },
-        "employmentTypeId": {
-          "type": "string",
-          "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)"
-        },
-        "jobCategoryId": {
-          "type": "string",
-          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)"
-        },
-        "headcount": {
-          "type": "number",
-          "description": "Энэ албан тушаалын батлагдсан орон тооны тоо."
-        },
-        "filled": {
-          "type": "number",
-          "description": "Одоо ажиллаж буй ажилтны тоо."
-        },
-        "statusId": {
-          "type": "string",
-          "description": "Ажлын байрны төлвийн танигч. (Хамаарал: PositionStatus 1:N Position)"
-        }
+        "id": { "type": "string", "description": "Албан тушаалын давтагдашгүй танигч." },
+        "title": { "type": "string", "description": "Албан тушаалын нэр." },
+        "departmentId": { "type": "string", "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)" },
+        "reportsTo": { "type": "string", "description": "Энэ албан тушаалын шууд удирдах албан тушаалын танигч. (Хамаарал: Position 1:N Position)" },
+        "levelId": { "type": "string", "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)" },
+        "employmentTypeId": { "type": "string", "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)" },
+        "jobCategoryId": { "type": "string", "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)" },
+        "headcount": { "type": "number", "description": "Энэ албан тушаалын батлагдсан орон тооны тоо." },
+        "filled": { "type": "number", "description": "Одоо ажиллаж буй ажилтны тоо." },
+        "isActive": { "type": "boolean", "description": "Ажлын байрны төлөв (Идэвхтэй/Идэвхгүй)." },
+        "createdAt": { "type": "string", "description": "Ажлын байр батлагдсан огноо.", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "title",
-        "departmentId",
-        "headcount"
-      ]
+      "required": [ "id", "title", "departmentId", "headcount", "isActive", "createdAt" ]
     },
     "EmploymentType": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -536,25 +506,6 @@
         "name": {
           "type": "string",
           "description": "Төрлийн нэр."
-        }
-      },
-      "required": [
-        "id",
-        "name"
-      ]
-    },
-    "PositionStatus": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Ажлын байрны төлөв",
-      "description": "Ажлын байрны төлвийг тодорхойлно (жишээ нь: Нээлттэй, Хаалттай).",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "description": "Төлвийн нэр."
         }
       },
       "required": [
@@ -1234,22 +1185,6 @@
             {
               "name": "employmentTypeId",
               "description": "Төрлийн танигч."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/positionStatuses/{positionStatusId}",
-        "definition": {
-          "entityName": "PositionStatus",
-          "schema": {
-            "$ref": "#/backend/entities/PositionStatus"
-          },
-          "description": "Ажлын байрны төлвийн лавлах сан.",
-          "params": [
-            {
-              "name": "positionStatusId",
-              "description": "Төлвийн танигч."
             }
           ]
         }

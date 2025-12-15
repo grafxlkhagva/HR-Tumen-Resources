@@ -30,23 +30,15 @@ import { Users, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // --- Type Definitions ---
-type Department = {
-  id: string;
-  name: string;
-  typeId?: string;
-  parentId?: string;
-};
-
-type DepartmentType = {
-  id: string;
-  name: string;
-};
-
 type Position = {
   id: string;
+  title: string;
   departmentId: string;
   headcount: number;
   isActive: boolean;
+  reportsTo?: string;
+  // Locally computed
+  filled: number;
 };
 
 type Employee = {
@@ -55,9 +47,8 @@ type Employee = {
     status: 'Идэвхтэй';
 }
 
-type DepartmentNodeData = {
+type PositionNodeData = {
     label: string;
-    type: string;
     headcount: number;
     filled: number;
 };
@@ -65,7 +56,7 @@ type DepartmentNodeData = {
 
 // --- Helper Functions for Layout ---
 const nodeWidth = 240;
-const nodeHeight = 120;
+const nodeHeight = 100;
 const horizontalSpacing = 60;
 const verticalSpacing = 100;
 
@@ -144,13 +135,12 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
 
 // --- Custom Node Component ---
-const DepartmentNode = ({ data }: { data: DepartmentNodeData }) => {
+const PositionNode = ({ data }: { data: PositionNodeData }) => {
     return (
-        <Card className="w-[240px] h-[120px] rounded-lg border-2 border-primary shadow-lg bg-card text-card-foreground">
+        <Card className="w-[240px] h-[100px] rounded-lg border-2 border-primary shadow-lg bg-card text-card-foreground">
             <Handle type="target" position={Position.Top} className="!bg-primary" />
             <CardHeader className="p-3">
                 <CardTitle className="text-base truncate">{data.label}</CardTitle>
-                <CardDescription>{data.type}</CardDescription>
             </CardHeader>
             <CardContent className="p-3 pt-0 grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-1.5">
@@ -174,7 +164,7 @@ const DepartmentNode = ({ data }: { data: DepartmentNodeData }) => {
 };
 
 const nodeTypes = {
-  department: DepartmentNode,
+  position: PositionNode,
 };
 
 // --- Main Chart Component ---
@@ -184,17 +174,13 @@ const OrganizationChart = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-    const deptsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
-    const deptTypesQuery = useMemoFirebase(() => collection(firestore, 'departmentTypes'), [firestore]);
     const positionsQuery = useMemoFirebase(() => collection(firestore, 'positions'), [firestore]);
     const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
 
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
-    const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
 
-    const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos || isLoadingEmp;
+    const isLoading = isLoadingPos || isLoadingEmp;
     
     const onConnect = React.useCallback(
         (connection: Connection) => {
@@ -203,13 +189,12 @@ const OrganizationChart = () => {
           const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
           setEdges((eds) => addEdge(newEdge, eds));
           
-          // Update parentId in Firestore
-          const childDocRef = doc(firestore, 'departments', connection.target);
-          updateDocumentNonBlocking(childDocRef, { parentId: connection.source });
+          const childDocRef = doc(firestore, 'positions', connection.target);
+          updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
 
           toast({
             title: 'Холбоос үүслээ',
-            description: 'Бүтцийн хамаарал амжилттай шинэчлэгдлээ.',
+            description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
           });
         },
         [firestore, setEdges, toast]
@@ -220,8 +205,8 @@ const OrganizationChart = () => {
             if(!firestore) return;
             
             edgesToDelete.forEach(edge => {
-                const childDocRef = doc(firestore, 'departments', edge.target);
-                updateDocumentNonBlocking(childDocRef, { parentId: '' });
+                const childDocRef = doc(firestore, 'positions', edge.target);
+                updateDocumentNonBlocking(childDocRef, { reportsTo: '' });
             });
 
             toast({
@@ -233,44 +218,34 @@ const OrganizationChart = () => {
     );
 
     React.useEffect(() => {
-        if (isLoading || !departments || !departmentTypes || !positions || !employees) return;
+        if (isLoading || !positions || !employees) return;
 
-        const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
-        
-        const filledCountByDept = employees.reduce((acc, emp) => {
-            const pos = positions.find(p => p.id === emp.positionId);
-            if (pos && emp.status === 'Идэвхтэй') {
-                acc.set(pos.departmentId, (acc.get(pos.departmentId) || 0) + 1);
+        const filledCountByPosition = employees.reduce((acc, emp) => {
+            if (emp.positionId && emp.status === 'Идэвхтэй') {
+                acc.set(emp.positionId, (acc.get(emp.positionId) || 0) + 1);
             }
             return acc;
         }, new Map<string, number>());
         
-        const headcountByDept = positions.reduce((acc, pos) => {
-            if (pos.isActive) {
-                acc.set(pos.departmentId, (acc.get(pos.departmentId) || 0) + pos.headcount);
-            }
-            return acc;
-        }, new Map<string, number>());
+        const activePositions = positions.filter(p => p.isActive);
 
-
-        const initialNodes: Node[] = departments.map(dept => ({
-            id: dept.id,
-            type: 'department',
+        const initialNodes: Node[] = activePositions.map(pos => ({
+            id: pos.id,
+            type: 'position',
             data: { 
-                label: dept.name,
-                type: typeMap.get(dept.typeId || '') || 'Тодорхойгүй',
-                headcount: headcountByDept.get(dept.id) || 0,
-                filled: filledCountByDept.get(dept.id) || 0
+                label: pos.title,
+                headcount: pos.headcount || 0,
+                filled: filledCountByPosition.get(pos.id) || 0
             },
             position: { x: 0, y: 0 },
         }));
 
-        const initialEdges: Edge[] = departments
-            .filter(dept => dept.parentId)
-            .map(dept => ({
-                id: `${dept.parentId}-${dept.id}`,
-                source: dept.parentId!,
-                target: dept.id,
+        const initialEdges: Edge[] = activePositions
+            .filter(pos => pos.reportsTo)
+            .map(pos => ({
+                id: `${pos.reportsTo}-${pos.id}`,
+                source: pos.reportsTo!,
+                target: pos.id,
                 animated: true,
                 style: { strokeWidth: 2 },
             }));
@@ -280,7 +255,7 @@ const OrganizationChart = () => {
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [isLoading, departments, departmentTypes, positions, employees, setNodes, setEdges]);
+    }, [isLoading, positions, employees, setNodes, setEdges]);
     
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;
@@ -315,9 +290,9 @@ export default function ConsolidatedActionPage() {
     <div className="py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Байгууллагын бүтэц</CardTitle>
+          <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
           <CardDescription>
-            Байгууллагын бүтцийг хязгааргүй canvas дээр харах, удирдах. Нэгжээс нөгөө рүү чирч холбоос үүсгээрэй.
+            Байгууллагын бүтцийг албан тушаалын шатлалаар харах, удирдах. Нэгжээс нөгөө рүү чирч холбоос үүсгээрэй.
           </CardDescription>
         </CardHeader>
         <CardContent>
