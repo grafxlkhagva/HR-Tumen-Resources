@@ -37,6 +37,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 
 // --- Type Definitions ---
@@ -53,12 +55,16 @@ type PositionData = {
   createdAt?: string;
   // Locally computed
   filled: number;
+  employees: Employee[];
 };
 
 type Employee = {
     id: string;
     positionId: string;
     status: 'Идэвхтэй';
+    firstName: string;
+    lastName: string;
+    photoURL?: string;
 }
 
 export type Department = {
@@ -80,6 +86,7 @@ type PositionNodeData = {
     label: string;
     headcount: number;
     filled: number;
+    employees: Employee[];
     color: string;
     onEdit: () => void;
     onDelete: () => void;
@@ -88,10 +95,10 @@ type PositionNodeData = {
 
 
 // --- Helper Functions for Layout ---
-const nodeWidth = 240;
-const nodeHeight = 100;
-const horizontalSpacing = 60;
-const verticalSpacing = 100;
+const nodeWidth = 160;
+const nodeHeight = 160;
+const horizontalSpacing = 80;
+const verticalSpacing = 120;
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   if (nodes.length === 0) {
@@ -169,57 +176,69 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
 // --- Custom Node Component ---
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
+    const isFilled = data.filled > 0;
+    const employee = data.employees[0];
+    
     const cardStyle = {
         backgroundColor: data.color || 'hsl(var(--card))',
-        borderColor: data.color || 'hsl(var(--primary))',
-        borderWidth: data.color ? '2px' : '1px',
+        borderColor: isFilled ? (data.color || 'hsl(var(--primary))') : 'hsl(var(--border))',
+        borderWidth: '2px',
         color: 'hsl(var(--card-foreground))',
     };
 
     return (
-        <Card className="w-[240px] h-[100px] rounded-lg shadow-lg" style={cardStyle}>
-            <Handle type="target" position={Position.Top} className="!bg-primary" />
-            <CardHeader className="p-3">
-                <div className="flex items-start justify-between">
-                    <CardTitle className="text-base truncate">{data.label}</CardTitle>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2 -mt-1">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={data.onAssign}>
-                                <UserPlus className="mr-2 h-4 w-4" /> Ажилтан томилох
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={data.onEdit}>
-                                <Pencil className="mr-2 h-4 w-4" /> Засах
-                            </DropdownMenuItem>
-                             <DropdownMenuItem onClick={data.onDelete} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+        <div 
+            className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center" 
+            style={cardStyle}
+        >
+            <Handle type="target" position={Position.Top} className="!bg-primary !opacity-0" />
+             <div className="absolute top-2 right-2">
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-background/50 backdrop-blur-sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={data.onAssign}>
+                            <UserPlus className="mr-2 h-4 w-4" /> Ажилтан томилох
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={data.onEdit}>
+                            <Pencil className="mr-2 h-4 w-4" /> Засах
+                        </DropdownMenuItem>
+                            <DropdownMenuItem onClick={data.onDelete} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+             </div>
+
+            {!isFilled ? (
+                // Unfilled State
+                <div className="flex flex-col items-center gap-2">
+                    <UserPlus className="h-8 w-8 text-muted-foreground opacity-70" />
+                    <p className="text-sm font-semibold leading-tight line-clamp-2">{data.label}</p>
+                    <p className="text-xs text-muted-foreground">Сул ({data.headcount})</p>
+                    <Button size="xs" variant="secondary" onClick={data.onAssign} className="h-6 px-2 text-xs">Томилох</Button>
                 </div>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-1.5">
-                    <Briefcase className="h-4 w-4" />
-                    <div>
-                        <div className="text-xs">Батлагдсан</div>
-                        <div className="font-bold">{data.headcount}</div>
-                    </div>
+            ) : (
+                // Filled State
+                <div className="flex flex-col items-center gap-2">
+                    <Avatar className="w-16 h-16 border-2 border-background">
+                        <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                        <AvatarFallback>{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                     <p className="text-sm font-semibold leading-tight line-clamp-1">{employee.firstName} {employee.lastName}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{data.label}</p>
+                     {data.headcount > 1 && (
+                        <Badge variant="secondary" className="px-1.5 py-0">
+                            {data.filled}/{data.headcount}
+                        </Badge>
+                     )}
                 </div>
-                 <div className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4" />
-                     <div>
-                        <div className="text-xs">Ажиллаж буй</div>
-                        <div className="font-bold">{data.filled}</div>
-                    </div>
-                </div>
-            </CardContent>
-             <Handle type="source" position={Position.Bottom} className="!bg-primary" />
-        </Card>
+            )}
+             <Handle type="source" position={Position.Bottom} className="!bg-primary !opacity-0" />
+        </div>
     );
 };
 
@@ -325,32 +344,39 @@ const OrganizationChart = () => {
 
     React.useEffect(() => {
         if (isLoading || !positions || !employees || !departments) return;
-
-        const filledCountByPosition = employees.reduce((acc, emp) => {
+    
+        const employeesByPosition = employees.reduce((acc, emp) => {
             if (emp.positionId && emp.status === 'Идэвхтэй') {
-                acc.set(emp.positionId, (acc.get(emp.positionId) || 0) + 1);
+                if (!acc.has(emp.positionId)) {
+                    acc.set(emp.positionId, []);
+                }
+                acc.get(emp.positionId)!.push(emp);
             }
             return acc;
-        }, new Map<string, number>());
+        }, new Map<string, Employee[]>());
 
         const departmentColorMap = new Map(departments.map(d => [d.id, d.color]));
         
         const activePositions = positions.filter(p => p.isActive);
 
-        const initialNodes: Node[] = activePositions.map(pos => ({
-            id: pos.id,
-            type: 'position',
-            data: { 
-                label: pos.title,
-                headcount: pos.headcount || 0,
-                filled: filledCountByPosition.get(pos.id) || 0,
-                color: departmentColorMap.get(pos.departmentId) || '#ffffff',
-                onEdit: () => handleOpenEditDialog(pos.id),
-                onDelete: () => handleDeletePosition(pos.id),
-                onAssign: () => handleOpenAssignDialog(pos.id),
-            },
-            position: { x: 0, y: 0 },
-        }));
+        const initialNodes: Node[] = activePositions.map(pos => {
+            const assignedEmployees = employeesByPosition.get(pos.id) || [];
+            return {
+                id: pos.id,
+                type: 'position',
+                data: { 
+                    label: pos.title,
+                    headcount: pos.headcount || 0,
+                    filled: assignedEmployees.length,
+                    employees: assignedEmployees,
+                    color: departmentColorMap.get(pos.departmentId) || '#ffffff',
+                    onEdit: () => handleOpenEditDialog(pos.id),
+                    onDelete: () => handleDeletePosition(pos.id),
+                    onAssign: () => handleOpenAssignDialog(pos.id),
+                },
+                position: { x: 0, y: 0 },
+            }
+        });
 
         const initialEdges: Edge[] = activePositions
             .filter(pos => pos.reportsTo)
