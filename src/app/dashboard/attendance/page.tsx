@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -452,11 +453,11 @@ function TimeReportTab() {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
 
-    const attendanceQuery = useMemoFirebase(({ firestore }) => query(
+    const attendanceQuery = useMemoFirebase(({ firestore, ...rest }) => firestore ? query(
         collection(firestore, 'attendance'),
         where('date', '>=', format(monthStart, 'yyyy-MM-dd')),
         where('date', '<=', format(monthEnd, 'yyyy-MM-dd'))
-    ), [firestore, monthStart, monthEnd]);
+    ) : null, [firestore, monthStart, monthEnd]);
     const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
     
     const isLoading = isLoadingEmployees || isLoadingDepartments || isLoadingSchedules || isLoadingAttendance;
@@ -573,33 +574,18 @@ function TimeReportTab() {
 // --- Main Page Component ---
 export default function AttendanceAndRequestsPage() {
   return (
-    <div className="py-8">
-        <div className="flex justify-between items-center mb-4">
+    <div className="py-8 space-y-8">
+        <div className="flex justify-between items-center">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Цаг ба Ирц</h1>
                 <p className="text-muted-foreground">Ажилтнуудын ирцийн түүх болон холбогдох хүсэлтүүдийг удирдах.</p>
             </div>
         </div>
-        <Tabs defaultValue="history">
-            <TabsList>
-                <TabsTrigger value="history">Цагийн бүртгэлийн түүх</TabsTrigger>
-                <TabsTrigger value="report">Цагийн тайлан</TabsTrigger>
-                <TabsTrigger value="time-off">Чөлөөний хүсэлт</TabsTrigger>
-                <TabsTrigger value="attendance">Ирцийн хүсэлт</TabsTrigger>
-            </TabsList>
-            <TabsContent value="history" className="mt-4">
-                <AttendanceHistoryTab />
-            </TabsContent>
-            <TabsContent value="report" className="mt-4">
-                <TimeReportTab />
-            </TabsContent>
-            <TabsContent value="time-off" className="mt-4">
-                <TimeOffRequestsTable />
-            </TabsContent>
-            <TabsContent value="attendance" className="mt-4">
-                <AttendanceRequestsTable />
-            </TabsContent>
-        </Tabs>
+        <AttendanceHistoryTab />
+        <TimeReportTab />
+        <TimeOffRequestsTable />
+        <AttendanceRequestsTable />
     </div>
   );
 }
+
