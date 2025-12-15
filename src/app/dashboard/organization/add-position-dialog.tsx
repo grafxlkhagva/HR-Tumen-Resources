@@ -130,7 +130,7 @@ export function AddPositionDialog({
         headcount: editingPosition.headcount || 1,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
-        reportsTo: editingPosition.reportsTo || '',
+        reportsTo: editingPosition.reportsTo || '(none)',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
         createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
@@ -139,7 +139,7 @@ export function AddPositionDialog({
       form.reset({
         title: '',
         departmentId: '',
-        reportsTo: '',
+        reportsTo: '(none)',
         levelId: '',
         employmentTypeId: '',
         jobCategoryId: '',
@@ -163,6 +163,7 @@ export function AddPositionDialog({
     const dataWithISOStringDate = {
         ...data,
         createdAt: data.createdAt.toISOString(),
+        reportsTo: data.reportsTo === '(none)' ? undefined : data.reportsTo,
     };
 
     const finalData = isEditMode && editingPosition ? {
@@ -247,7 +248,7 @@ export function AddPositionDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">(Шууд удирдлагагүй)</SelectItem>
+                        <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
                         {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
                           <SelectItem key={pos.id} value={pos.id}>
                             {pos.title}
