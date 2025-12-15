@@ -233,7 +233,6 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         backgroundColor: data.color || 'hsl(var(--card))',
         borderColor: isFilled ? (data.color || 'hsl(var(--primary))') : 'hsl(var(--border))',
         borderWidth: '2px',
-        color: 'hsl(var(--card-foreground))',
     };
 
     return (
@@ -403,13 +402,15 @@ const OrganizationChart = () => {
     const onConnect = React.useCallback(
         (connection: Connection) => {
           if (!firestore || !connection.source || !connection.target) return;
-
+    
           const sourceNode = nodes.find(n => n.id === connection.source);
           const targetNode = nodes.find(n => n.id === connection.target);
-
+    
+          // Connecting an employee to a position
           if (sourceNode?.type === 'employee' && targetNode?.type === 'position') {
             const employeeToAssign = employees?.find(e => e.id === sourceNode.id);
             const positionToAssign = positions?.find(p => p.id === targetNode.id);
+    
             if (employeeToAssign && positionToAssign) {
                 if ((positionToAssign.headcount || 0) <= (positionToAssign.filled || 0)) {
                     toast({
@@ -423,14 +424,15 @@ const OrganizationChart = () => {
             }
             return;
           }
-
+    
+          // Connecting a position to another position (reportsTo)
           if (sourceNode?.type === 'position' && targetNode?.type === 'position') {
             const newEdge = { ...connection, animated: true, style: { strokeWidth: 2 } };
             setEdges((eds) => addEdge(newEdge, eds));
             
             const childDocRef = doc(firestore, 'positions', connection.target);
             updateDocumentNonBlocking(childDocRef, { reportsTo: connection.source });
-
+    
             toast({
               title: 'Холбоос үүслээ',
               description: 'Албан тушаалын хамаарал амжилттай шинэчлэгдлээ.',
@@ -618,4 +620,6 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+
+
 
