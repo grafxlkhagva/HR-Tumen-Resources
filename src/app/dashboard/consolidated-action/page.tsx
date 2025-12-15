@@ -47,10 +47,17 @@ type Employee = {
     status: 'Идэвхтэй';
 }
 
+type Department = {
+    id: string;
+    name: string;
+    color?: string;
+};
+
 type PositionNodeData = {
     label: string;
     headcount: number;
     filled: number;
+    color: string;
 };
 
 
@@ -136,24 +143,31 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
 // --- Custom Node Component ---
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
+    const cardStyle = {
+        backgroundColor: data.color || 'hsl(var(--card))',
+        borderColor: data.color || 'hsl(var(--primary))',
+        borderWidth: data.color ? '2px' : '1px',
+        color: 'hsl(var(--card-foreground))',
+    };
+
     return (
-        <Card className="w-[240px] h-[100px] rounded-lg border-2 border-primary shadow-lg bg-card text-card-foreground">
+        <Card className="w-[240px] h-[100px] rounded-lg shadow-lg" style={cardStyle}>
             <Handle type="target" position={Position.Top} className="!bg-primary" />
             <CardHeader className="p-3">
                 <CardTitle className="text-base truncate">{data.label}</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0 grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-1.5">
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <Briefcase className="h-4 w-4" />
                     <div>
-                        <div className="text-xs text-muted-foreground">Батлагдсан</div>
+                        <div className="text-xs">Батлагдсан</div>
                         <div className="font-bold">{data.headcount}</div>
                     </div>
                 </div>
                  <div className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <Users className="h-4 w-4" />
                      <div>
-                        <div className="text-xs text-muted-foreground">Ажиллаж буй</div>
+                        <div className="text-xs">Ажиллаж буй</div>
                         <div className="font-bold">{data.filled}</div>
                     </div>
                 </div>
@@ -176,11 +190,13 @@ const OrganizationChart = () => {
 
     const positionsQuery = useMemoFirebase(() => collection(firestore, 'positions'), [firestore]);
     const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
 
-    const isLoading = isLoadingPos || isLoadingEmp;
+    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
     
     const onConnect = React.useCallback(
         (connection: Connection) => {
@@ -206,7 +222,7 @@ const OrganizationChart = () => {
             
             edgesToDelete.forEach(edge => {
                 const childDocRef = doc(firestore, 'positions', edge.target);
-                updateDocumentNonBlocking(childDocRef, { reportsTo: '' });
+                updateDocumentNonBlocking(childDocRef, { reportsTo: null });
             });
 
             toast({
@@ -214,11 +230,11 @@ const OrganizationChart = () => {
                 variant: 'destructive',
             });
         },
-        [firestore]
+        [firestore, toast]
     );
 
     React.useEffect(() => {
-        if (isLoading || !positions || !employees) return;
+        if (isLoading || !positions || !employees || !departments) return;
 
         const filledCountByPosition = employees.reduce((acc, emp) => {
             if (emp.positionId && emp.status === 'Идэвхтэй') {
@@ -226,6 +242,8 @@ const OrganizationChart = () => {
             }
             return acc;
         }, new Map<string, number>());
+
+        const departmentColorMap = new Map(departments.map(d => [d.id, d.color]));
         
         const activePositions = positions.filter(p => p.isActive);
 
@@ -235,7 +253,8 @@ const OrganizationChart = () => {
             data: { 
                 label: pos.title,
                 headcount: pos.headcount || 0,
-                filled: filledCountByPosition.get(pos.id) || 0
+                filled: filledCountByPosition.get(pos.id) || 0,
+                color: departmentColorMap.get(pos.departmentId) || '#ffffff',
             },
             position: { x: 0, y: 0 },
         }));
@@ -255,7 +274,7 @@ const OrganizationChart = () => {
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [isLoading, positions, employees, setNodes, setEdges]);
+    }, [isLoading, positions, employees, departments, setNodes, setEdges]);
     
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;

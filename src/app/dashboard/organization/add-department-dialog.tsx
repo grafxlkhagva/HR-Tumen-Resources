@@ -45,6 +45,7 @@ const departmentSchema = z.object({
   }),
   typeId: z.string().min(1, 'Төрөл сонгоно уу.'),
   parentId: z.string().optional(),
+  color: z.string().optional(),
 });
 
 type DepartmentFormValues = z.infer<typeof departmentSchema>;
@@ -54,6 +55,7 @@ interface Department {
   name: string;
   typeId?: string;
   parentId?: string;
+  color?: string;
 }
 
 interface AddDepartmentDialogProps {
@@ -81,6 +83,7 @@ export function AddDepartmentDialog({
       name: '',
       typeId: '',
       parentId: '',
+      color: '#ffffff',
     },
   });
 
@@ -90,12 +93,14 @@ export function AddDepartmentDialog({
         name: editingDepartment.name,
         typeId: editingDepartment.typeId || '',
         parentId: editingDepartment.parentId || '(none)',
+        color: editingDepartment.color || '#ffffff',
       });
     } else {
       form.reset({
         name: '',
         typeId: '',
         parentId: '(none)',
+        color: '#ffffff',
       });
     }
   }, [editingDepartment, isEditMode, form, open]);
@@ -146,7 +151,7 @@ export function AddDepartmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -214,6 +219,22 @@ export function AddDepartmentDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+                <FormField
+                control={form.control}
+                name="color"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Өнгө</FormLabel>
+                    <FormControl>
+                        <div className="flex items-center gap-2">
+                            <Input type="color" {...field} className="w-12 h-10 p-1" />
+                            <Input placeholder="#RRGGBB" value={field.value} onChange={field.onChange} />
+                        </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

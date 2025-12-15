@@ -447,6 +447,10 @@
         "parentId": {
           "type": "string",
           "description": "Энэ нэгжийн харьяалагдах дээд нэгжийн танигч. (Хамаарал: Department 1:N Department)"
+        },
+        "color": {
+          "type": "string",
+          "description": "Хэлтсийг диаграм дээр ялгах өнгө. (жишээ нь: #FF5733)"
         }
       },
       "required": [
