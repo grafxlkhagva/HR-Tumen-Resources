@@ -39,6 +39,8 @@ import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { AddEmployeeDialog } from '../employees/add/page';
 
 
 // --- Type Definitions ---
@@ -91,6 +93,7 @@ type PositionNodeData = {
     onEdit: () => void;
     onDelete: () => void;
     onAssign: () => void;
+    onAddEmployee: () => void;
 };
 
 
@@ -203,6 +206,9 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                         <DropdownMenuItem onClick={data.onAssign}>
                             <UserPlus className="mr-2 h-4 w-4" /> Ажилтан томилох
                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={data.onAddEmployee}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ ажилтан нэмэх
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={data.onEdit}>
                             <Pencil className="mr-2 h-4 w-4" /> Засах
                         </DropdownMenuItem>
@@ -215,11 +221,14 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
             {!isFilled ? (
                 // Unfilled State
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-1.5">
                     <UserPlus className="h-8 w-8 text-muted-foreground opacity-70" />
                     <p className="text-sm font-semibold leading-tight line-clamp-2">{data.label}</p>
                     <p className="text-xs text-muted-foreground">Сул ({data.headcount})</p>
-                    <Button size="xs" variant="secondary" onClick={data.onAssign} className="h-6 px-2 text-xs">Томилох</Button>
+                    <div className="flex gap-2">
+                        <Button size="xs" variant="secondary" onClick={data.onAssign} className="h-6 px-2 text-xs">Томилох</Button>
+                        <Button size="xs" variant="outline" onClick={data.onAddEmployee} className="h-6 px-2 text-xs">Шинэ</Button>
+                    </div>
                 </div>
             ) : (
                 // Filled State
@@ -256,6 +265,7 @@ const OrganizationChart = () => {
     const [editingPosition, setEditingPosition] = React.useState<PositionData | null>(null);
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
     const [assigningPosition, setAssigningPosition] = React.useState<PositionData | null>(null);
+    const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
 
     // Data queries
@@ -265,6 +275,7 @@ const OrganizationChart = () => {
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
+    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos } = useCollection<PositionData>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
@@ -272,8 +283,9 @@ const OrganizationChart = () => {
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<Reference>(levelsQuery);
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<Reference>(empTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategoryReference>(jobCategoriesQuery);
+    const { data: workSchedules, isLoading: isLoadingWorkSchedules } = useCollection<Reference>(workSchedulesQuery);
 
-    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
+    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules;
 
     // --- Dialog and CRUD Handlers ---
     const handleOpenAddDialog = () => {
@@ -296,6 +308,14 @@ const OrganizationChart = () => {
             setIsAssignDialogOpen(true);
         }
     };
+
+    const handleOpenAddEmployeeDialog = (posId: string) => {
+        const position = positions?.find(p => p.id === posId);
+        if(position) {
+            setAssigningPosition(position);
+            setIsAddEmployeeDialogOpen(true);
+        }
+    }
     
     const handleDeletePosition = (posId: string) => {
         if (!firestore) return;
@@ -373,6 +393,7 @@ const OrganizationChart = () => {
                     onEdit: () => handleOpenEditDialog(pos.id),
                     onDelete: () => handleDeletePosition(pos.id),
                     onAssign: () => handleOpenAssignDialog(pos.id),
+                    onAddEmployee: () => handleOpenAddEmployeeDialog(pos.id),
                 },
                 position: { x: 0, y: 0 },
             }
@@ -416,6 +437,15 @@ const OrganizationChart = () => {
                 onOpenChange={setIsAssignDialogOpen}
                 position={assigningPosition}
                 employees={employees || []}
+            />
+            <AddEmployeeDialog 
+                open={isAddEmployeeDialogOpen}
+                onOpenChange={setIsAddEmployeeDialogOpen}
+                departments={departments || []}
+                positions={positions || []}
+                workSchedules={workSchedules || []}
+                preselectedDept={assigningPosition?.departmentId}
+                preselectedPos={assigningPosition?.id}
             />
             <ReactFlow
                 nodes={nodes}

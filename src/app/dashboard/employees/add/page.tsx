@@ -12,6 +12,14 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -102,398 +110,280 @@ function AddEmployeeFormSkeleton() {
     )
 }
 
-export default function AddEmployeePage() {
-  const router = useRouter();
-  const { firestore } = useFirebase();
-  const auth = useAuth();
-  const { toast } = useToast();
-  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
-  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+interface AddEmployeeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  departments: Department[];
+  positions: Position[];
+  workSchedules: WorkSchedule[];
+  preselectedDept?: string;
+  preselectedPos?: string;
+}
+
+export function AddEmployeeDialog({ 
+    open, 
+    onOpenChange, 
+    departments,
+    positions,
+    workSchedules,
+    preselectedDept,
+    preselectedPos
+}: AddEmployeeDialogProps) {
+    const router = useRouter();
+    const { firestore } = useFirebase();
+    const auth = useAuth();
+    const { toast } = useToast();
+    const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+    const [photoFile, setPhotoFile] = React.useState<File | null>(null);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
+    const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
 
 
-  const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-  const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-  const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-  const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
-
-
-  const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
-  const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
-  const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
-  const { data: codeConfig, isLoading: isLoadingCodeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-
-
-  const form = useForm<EmployeeFormValues>({
-    resolver: zodResolver(employeeSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phoneNumber: '',
-      status: 'Идэвхтэй',
-    }
-  });
-  
-  const employeesCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'employees') : null),
-    [firestore]
-  );
-  
-  const watchedDepartmentId = form.watch('departmentId');
-  const filteredPositions = React.useMemo(() => {
-    if (!positions) return [];
-    if (!watchedDepartmentId) return [];
-    return positions.filter(pos => pos.departmentId === watchedDepartmentId);
-  }, [positions, watchedDepartmentId]);
-
-  React.useEffect(() => {
-    form.resetField('positionId');
-  }, [watchedDepartmentId, form]);
-
-  const generateEmployeeCode = async (): Promise<string> => {
-    if (!firestore || !codeConfigRef || !codeConfig) {
-      throw new Error("Кодчлолын тохиргоо олдсонгүй.");
-    }
-  
-    const { prefix, digitCount, nextNumber } = codeConfig;
-    const codeNumber = nextNumber.toString().padStart(digitCount, '0');
-    const newCode = `${prefix}${codeNumber}`;
-  
-    await setDoc(codeConfigRef, { nextNumber: nextNumber + 1 }, { merge: true });
-  
-    return newCode;
-  };
-  
-  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  };
-
-
-  const handleSave = async (values: EmployeeFormValues) => {
-    if (!employeesCollection || !auth || !firestore) return;
-    
-    const originalUser = auth.currentUser;
-    if (!originalUser) {
-        toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгч нэвтрээгүй байна." });
-        return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-        const { createUserWithEmailAndPassword, signOut, reauthenticateWithCredential, EmailAuthProvider } = await import('firebase/auth');
-        
-        const employeeCode = await generateEmployeeCode();
-        const authEmail = `${employeeCode}@example.com`;
-
-        // Create the new user. This will sign in the new user and sign out the admin.
-        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.phoneNumber);
-        const newUser = userCredential.user;
-
-        if (!newUser) {
-          throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
+    const form = useForm<EmployeeFormValues>({
+        resolver: zodResolver(employeeSchema),
+        defaultValues: {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phoneNumber: '',
+        status: 'Идэвхтэй',
+        departmentId: preselectedDept || '',
+        positionId: preselectedPos || ''
         }
+    });
 
-        let photoURL = '';
-        if (photoFile) {
-            const storage = getStorage();
-            const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
-            await uploadBytes(storageRef, photoFile);
-            photoURL = await getDownloadURL(storageRef);
-        }
-
-        const position = positions?.find(p => p.id === values.positionId);
-        
-        const employeeData = {
-            id: newUser.uid,
-            employeeCode: employeeCode,
-            role: 'employee',
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            status: values.status,
-            phoneNumber: values.phoneNumber,
-            departmentId: values.departmentId,
-            positionId: values.positionId,
-            workScheduleId: values.workScheduleId,
-            hireDate: values.hireDate.toISOString(),
-            jobTitle: position?.title || 'Тодорхойгүй', // Denormalize job title
-            photoURL: photoURL,
-        };
-        
-        const docRef = doc(firestore, 'employees', newUser.uid);
-        await setDoc(docRef, employeeData);
-
-        // Re-authenticate as admin. This is a crucial step.
-        // We'll use the original user object to sign back in.
-        // For security reasons, directly handling passwords on the client is risky.
-        // A better long-term solution involves Cloud Functions or custom tokens.
-        // But for now, we'll try to restore session.
-        if (auth.currentUser?.uid !== originalUser.uid) {
-            await signOut(auth); // Sign out the new user
-            // This is a simplification. A real app would need a more robust way
-            // to re-authenticate the admin, likely involving a prompt or a secure token.
-            // For now, we redirect to login, which is safer.
-             toast({
-              title: 'Амжилттай хадгаллаа',
-              description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
+    React.useEffect(() => {
+        if (open) {
+            form.reset({
+                firstName: '',
+                lastName: '',
+                email: '',
+                phoneNumber: '',
+                status: 'Идэвхтэй',
+                departmentId: preselectedDept || '',
+                positionId: preselectedPos || ''
             });
-            router.push('/login'); // Redirect to login for admin to sign back in
+            setPhotoFile(null);
+            setPhotoPreview(null);
+        }
+    }, [open, preselectedDept, preselectedPos, form]);
+    
+    const employeesCollection = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'employees') : null),
+        [firestore]
+    );
+    
+    const watchedDepartmentId = form.watch('departmentId');
+    const filteredPositions = React.useMemo(() => {
+        if (!positions) return [];
+        if (!watchedDepartmentId) return [];
+        return positions.filter(pos => pos.departmentId === watchedDepartmentId);
+    }, [positions, watchedDepartmentId]);
+
+    React.useEffect(() => {
+        if(preselectedDept) {
+            form.setValue('departmentId', preselectedDept);
+        }
+    }, [preselectedDept, form]);
+
+    React.useEffect(() => {
+        form.resetField('positionId', { defaultValue: preselectedPos || ''});
+    }, [watchedDepartmentId, form, preselectedPos]);
+
+    const generateEmployeeCode = async (): Promise<string> => {
+        if (!firestore || !codeConfigRef || !codeConfig) {
+        throw new Error("Кодчлолын тохиргоо олдсонгүй.");
+        }
+    
+        const { prefix, digitCount, nextNumber } = codeConfig;
+        const codeNumber = nextNumber.toString().padStart(digitCount, '0');
+        const newCode = `${prefix}${codeNumber}`;
+    
+        await setDoc(codeConfigRef, { nextNumber: nextNumber + 1 }, { merge: true });
+    
+        return newCode;
+    };
+    
+    const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setPhotoFile(file);
+        setPhotoPreview(URL.createObjectURL(file));
+    };
+
+
+    const handleSave = async (values: EmployeeFormValues) => {
+        if (!employeesCollection || !auth || !firestore) return;
+        
+        const originalUser = auth.currentUser;
+        if (!originalUser) {
+            toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгч нэвтрээгүй байна." });
             return;
         }
 
-        toast({
-          title: 'Амжилттай хадгаллаа',
-          description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
-        });
-        
-        router.push('/dashboard/employees');
+        setIsSubmitting(true);
 
-    } catch(error: any) {
-        console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
-        
-        toast({
-            variant: "destructive",
-            title: "Алдаа гарлаа",
-            description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа."
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
+        try {
+            const { createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
+            
+            const employeeCode = await generateEmployeeCode();
+            const authEmail = `${employeeCode}@example.com`;
 
-  const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingCodeConfig || isLoadingSchedules;
+            const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.phoneNumber);
+            const newUser = userCredential.user;
 
-  if (isLoading) {
-      return (
-          <div className="py-8">
-              <AddEmployeeFormSkeleton />
-          </div>
-      )
-  }
+            if (!newUser) {
+                throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
+            }
+
+            let photoURL = '';
+            if (photoFile) {
+                const storage = getStorage();
+                const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
+                await uploadBytes(storageRef, photoFile);
+                photoURL = await getDownloadURL(storageRef);
+            }
+
+            const position = positions?.find(p => p.id === values.positionId);
+            
+            const employeeData = {
+                id: newUser.uid,
+                employeeCode: employeeCode,
+                role: 'employee',
+                firstName: values.firstName,
+                lastName: values.lastName,
+                email: values.email,
+                status: values.status,
+                phoneNumber: values.phoneNumber,
+                departmentId: values.departmentId,
+                positionId: values.positionId,
+                workScheduleId: values.workScheduleId,
+                hireDate: values.hireDate.toISOString(),
+                jobTitle: position?.title || 'Тодорхойгүй',
+                photoURL: photoURL,
+            };
+            
+            const docRef = doc(firestore, 'employees', newUser.uid);
+            await setDoc(docRef, employeeData);
+
+            if (auth.currentUser?.uid !== originalUser.uid) {
+                await signOut(auth); 
+                toast({
+                    title: 'Амжилттай хадгаллаа',
+                    description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
+                });
+                router.push('/login'); 
+                return;
+            }
+
+            toast({
+                title: 'Амжилттай хадгаллаа',
+                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
+            });
+            
+            onOpenChange(false);
+
+        } catch(error: any) {
+            console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
+            
+            toast({
+                variant: "destructive",
+                title: "Алдаа гарлаа",
+                description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа."
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-4xl">
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSave)}>
+                         <DialogHeader>
+                            <DialogTitle>Шинэ ажилтан нэмэх</DialogTitle>
+                            <DialogDescription>
+                                Та ажилтны ерөнхий мэдээллийг бүртгэж, системд нэвтрэх эрхийг олгоно.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-6 max-h-[70vh] overflow-y-auto pr-4">
+                            <div className="md:col-span-2 flex flex-col items-center gap-4">
+                                <Avatar className="h-24 w-24">
+                                    <AvatarImage src={photoPreview || undefined} />
+                                    <AvatarFallback>
+                                        {form.getValues('firstName')?.charAt(0)}
+                                        {form.getValues('lastName')?.charAt(0)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    onChange={handlePhotoSelect}
+                                    className="hidden"
+                                />
+                                <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                    Зураг хуулах
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Жишээ нь: Дорж" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Жишээ нь: Бат" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Имэйл</FormLabel><FormControl><Input type="email" placeholder="dorj.bat@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="phoneNumber" render={({ field }) => ( <FormItem><FormLabel>Утасны дугаар (Нууц үг болно)</FormLabel><FormControl><Input placeholder="+976 9911..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Хэлтэс</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{departments?.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={!watchedDepartmentId}><SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} /></SelectTrigger></FormControl><SelectContent>{filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="workScheduleId" render={({ field }) => ( <FormItem><FormLabel>Ажлын цагийн хуваарь</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажлын хуваарь сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{workSchedules?.map((schedule) => (<SelectItem key={schedule.id} value={schedule.id}>{schedule.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) =>date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                                <X className="mr-2 h-4 w-4" />
+                                Цуцлах
+                            </Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Хадгалах
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+export default function AddEmployeePage() {
+    const { firestore } = useFirebase();
+    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+
+    const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
+    const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
+
+    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
 
   return (
     <div className="py-8">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSave)}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Шинэ ажилтан нэмэх</CardTitle>
-              <CardDescription>
-                Та ажилтны ерөнхий мэдээллийг бүртгэж, системд нэвтрэх эрхийг олгоно.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-2 flex flex-col items-center gap-4">
-                        <Avatar className="h-24 w-24">
-                            <AvatarImage src={photoPreview || undefined} />
-                            <AvatarFallback>
-                                {form.getValues('firstName')?.charAt(0)}
-                                {form.getValues('lastName')?.charAt(0)}
-                            </AvatarFallback>
-                        </Avatar>
-                        <input 
-                            type="file" 
-                            accept="image/*"
-                            ref={fileInputRef}
-                            onChange={handlePhotoSelect}
-                            className="hidden"
-                        />
-                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                            Зураг хуулах
-                        </Button>
-                    </div>
-                    <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Нэр</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Жишээ нь: Дорж" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Овог</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Жишээ нь: Бат" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Имэйл</FormLabel>
-                            <FormControl>
-                            <Input type="email" placeholder="dorj.bat@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="phoneNumber"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Утасны дугаар (Нууц үг болно)</FormLabel>
-                            <FormControl>
-                            <Input placeholder="+976 9911..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="departmentId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Хэлтэс</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {departments?.map((dept) => (
-                                    <SelectItem key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="positionId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Албан тушаал</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                <SelectTrigger disabled={!watchedDepartmentId}>
-                                    <SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {filteredPositions.map((pos) => (
-                                    <SelectItem key={pos.id} value={pos.id}>
-                                    {pos.title}
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="workScheduleId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Ажлын цагийн хуваарь</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Ажлын хуваарь сонгоно уу" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {workSchedules?.map((schedule) => (
-                                    <SelectItem key={schedule.id} value={schedule.id}>
-                                    {schedule.name}
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="hireDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Ажилд орсон огноо</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                    )}
-                                    >
-                                    {field.value ? (
-                                        format(field.value, "yyyy-MM-dd")
-                                    ) : (
-                                        <span>Огноо сонгох</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                    date > new Date() || date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                     />
-                    <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Хадгалах
-                    </Button>
-                    <Button variant="outline" type="button" onClick={() => router.push('/dashboard/employees')} disabled={isSubmitting}>
-                        <X className="mr-2 h-4 w-4" />
-                        Цуцлах
-                    </Button>
-                </div>
-            </CardContent>
-          </Card>
-        </form>
-      </Form>
+      {isLoading ? <AddEmployeeFormSkeleton /> : (
+          <AddEmployeeDialog 
+            open={true}
+            onOpenChange={() => {}}
+            departments={departments || []}
+            positions={positions || []}
+            workSchedules={workSchedules || []}
+          />
+      )}
     </div>
   );
 }
