@@ -12,6 +12,7 @@ import ReactFlow, {
   Edge,
   Node,
   Position,
+  Handle,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -146,6 +147,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 const DepartmentNode = ({ data }: { data: DepartmentNodeData }) => {
     return (
         <Card className="w-[240px] h-[120px] rounded-lg border-2 border-primary shadow-lg bg-card text-card-foreground">
+            <Handle type="target" position={Position.Top} className="!bg-primary" />
             <CardHeader className="p-3">
                 <CardTitle className="text-base truncate">{data.label}</CardTitle>
                 <CardDescription>{data.type}</CardDescription>
@@ -166,6 +168,7 @@ const DepartmentNode = ({ data }: { data: DepartmentNodeData }) => {
                     </div>
                 </div>
             </CardContent>
+             <Handle type="source" position={Position.Bottom} className="!bg-primary" />
         </Card>
     );
 };
