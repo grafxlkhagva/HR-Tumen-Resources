@@ -13,6 +13,7 @@ import {
   Clock,
   ClipboardList,
   Newspaper,
+  Activity,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -58,6 +59,11 @@ const mainLinks = [
     href: '/dashboard/attendance',
     label: 'Цаг ба Ирц',
     icon: Clock,
+  },
+  {
+    href: '/dashboard/consolidated-action',
+    label: 'Нэгдсэн үйлдэл',
+    icon: Activity,
   },
   {
     href: '/dashboard/documents',
