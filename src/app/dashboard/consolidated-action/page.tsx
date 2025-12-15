@@ -23,7 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Briefcase, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
@@ -35,15 +35,20 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddPositionDialog } from '../organization/add-position-dialog';
 
 // --- Type Definitions ---
-type Position = {
+type PositionData = {
   id: string;
   title: string;
   departmentId: string;
   headcount: number;
   isActive: boolean;
   reportsTo?: string;
+  levelId?: string;
+  employmentTypeId?: string;
+  jobCategoryId?: string;
+  createdAt?: string;
   // Locally computed
   filled: number;
 };
@@ -59,6 +64,15 @@ type Department = {
     name: string;
     color?: string;
 };
+
+type Reference = {
+    id: string;
+    name: string;
+}
+
+type JobCategoryReference = Reference & {
+    code: string;
+}
 
 type PositionNodeData = {
     label: string;
@@ -213,16 +227,44 @@ const OrganizationChart = () => {
     const { toast } = useToast();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [isPositionDialogOpen, setIsPositionDialogOpen] = React.useState(false);
+    const [editingPosition, setEditingPosition] = React.useState<PositionData | null>(null);
 
+    // Data queries
     const positionsQuery = useMemoFirebase(() => collection(firestore, 'positions'), [firestore]);
     const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
     const departmentsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
+    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
+    const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
 
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<PositionData>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<Reference>(levelsQuery);
+    const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<Reference>(empTypesQuery);
+    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategoryReference>(jobCategoriesQuery);
 
-    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts;
+    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
+
+    // --- Dialog and CRUD Handlers ---
+    const handleOpenEditDialog = (posId: string) => {
+        const positionToEdit = positions?.find(p => p.id === posId);
+        if (positionToEdit) {
+            setEditingPosition(positionToEdit);
+            setIsPositionDialogOpen(true);
+        }
+    };
+    
+    const handleDeletePosition = (posId: string) => {
+        if (!firestore) return;
+        const docRef = doc(firestore, 'positions', posId);
+        deleteDocumentNonBlocking(docRef);
+        toast({
+            title: 'Амжилттай устгагдлаа',
+            variant: 'destructive',
+        });
+    };
     
     const onConnect = React.useCallback(
         (connection: Connection) => {
@@ -281,6 +323,8 @@ const OrganizationChart = () => {
                 headcount: pos.headcount || 0,
                 filled: filledCountByPosition.get(pos.id) || 0,
                 color: departmentColorMap.get(pos.departmentId) || '#ffffff',
+                onEdit: () => handleOpenEditDialog(pos.id),
+                onDelete: () => handleDeletePosition(pos.id),
             },
             position: { x: 0, y: 0 },
         }));
@@ -308,6 +352,16 @@ const OrganizationChart = () => {
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 200px)' }}>
+            <AddPositionDialog
+                open={isPositionDialogOpen}
+                onOpenChange={setIsPositionDialogOpen}
+                departments={departments || []}
+                allPositions={positions || []}
+                positionLevels={positionLevels || []}
+                employmentTypes={employmentTypes || []}
+                jobCategories={jobCategories || []}
+                editingPosition={editingPosition}
+            />
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
