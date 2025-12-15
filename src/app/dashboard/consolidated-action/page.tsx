@@ -237,11 +237,15 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
     return (
         <div 
-            className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center" 
+            className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center relative" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} id="b" />
-             <div className="absolute top-2 right-2">
+             {/* This handle is for incoming connections (from manager or employee assignment) */}
+            <Handle type="target" position={Position.Top} id="b" className="!w-full !h-full !transform-none !top-0 !left-0 !border-0 !opacity-0" />
+            {/* This handle is for outgoing connections (to subordinates) */}
+            <Handle type="source" position={Position.Bottom} id="a" />
+
+             <div className="absolute top-2 right-2 z-10">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-background/50 backdrop-blur-sm">
@@ -292,7 +296,6 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                      )}
                 </div>
             )}
-             <Handle type="source" position={Position.Bottom} id="a" />
         </div>
     );
 };
@@ -620,6 +623,7 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+
 
 
 
