@@ -64,7 +64,6 @@ const employeeSchema = z.object({
   phoneNumber: z.string().min(6, 'Утасны дугаар дор хаяж 6 оронтой байх ёстой.'),
   positionId: z.string().min(1, 'Албан тушаал сонгоно уу.'),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
-  workScheduleId: z.string().min(1, 'Ажлын цагийн хуваарь сонгоно уу.'),
   status: z.string().min(1, 'Төлөв сонгоно уу.'),
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
@@ -115,7 +114,6 @@ interface AddEmployeeDialogProps {
   onOpenChange: (open: boolean) => void;
   departments: Department[];
   positions: Position[];
-  workSchedules: WorkSchedule[];
   preselectedDept?: string;
   preselectedPos?: string;
 }
@@ -125,7 +123,6 @@ export function AddEmployeeDialog({
     onOpenChange, 
     departments,
     positions,
-    workSchedules,
     preselectedDept,
     preselectedPos
 }: AddEmployeeDialogProps) {
@@ -261,7 +258,6 @@ export function AddEmployeeDialog({
                 phoneNumber: values.phoneNumber,
                 departmentId: values.departmentId,
                 positionId: values.positionId,
-                workScheduleId: values.workScheduleId,
                 hireDate: values.hireDate.toISOString(),
                 jobTitle: position?.title || 'Тодорхойгүй',
                 photoURL: photoURL,
@@ -339,7 +335,6 @@ export function AddEmployeeDialog({
                                 <FormField control={form.control} name="phoneNumber" render={({ field }) => ( <FormItem><FormLabel>Утасны дугаар (Нууц үг болно)</FormLabel><FormControl><Input placeholder="+976 9911..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Хэлтэс</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Харьяалагдах хэлтсийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{departments?.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="positionId" render={({ field }) => ( <FormItem><FormLabel>Албан тушаал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={!watchedDepartmentId}><SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Албан тушаалыг сонгоно уу"} /></SelectTrigger></FormControl><SelectContent>{filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="workScheduleId" render={({ field }) => ( <FormItem><FormLabel>Ажлын цагийн хуваарь</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажлын хуваарь сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{workSchedules?.map((schedule) => (<SelectItem key={schedule.id} value={schedule.id}>{schedule.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) =>date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                             </div>
@@ -365,13 +360,11 @@ export default function AddEmployeePage() {
     const { firestore } = useFirebase();
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
-    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
-    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
+    const isLoading = isLoadingPositions || isLoadingDepartments;
 
   return (
     <div className="py-8">
@@ -381,7 +374,6 @@ export default function AddEmployeePage() {
             onOpenChange={() => {}}
             departments={departments || []}
             positions={positions || []}
-            workSchedules={workSchedules || []}
           />
       )}
     </div>

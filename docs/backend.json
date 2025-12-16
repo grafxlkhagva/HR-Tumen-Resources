@@ -91,6 +91,10 @@
           "type": "string",
           "description": "Ажилтны харьяалагдах хэлтэс."
         },
+        "positionId": {
+            "type": "string",
+            "description": "Ажилтны хашдаг албан тушаалын танигч."
+        },
         "hireDate": {
           "type": "string",
           "description": "Ажилтныг ажилд авсан огноо.",
@@ -105,9 +109,9 @@
             "type": "string",
             "description": "Цаг бүртгүүлэхээр бүртгэгдсэн төхөөрөмжийн давтагдашгүй танигч."
         },
-        "workScheduleId": {
-            "type": "string",
-            "description": "Хамаарах ажлын цагийн хуваарийн танигч. (Хамаарал: WorkSchedule 1:N Employee)"
+        "questionnaireCompletion": {
+            "type": "number",
+            "description": "Анкетын бөглөлтийн хувь (0-100)."
         }
       },
       "required": [
@@ -447,6 +451,10 @@
         "parentId": {
           "type": "string",
           "description": "Энэ нэгжийн харьяалагдах дээд нэгжийн танигч. (Хамаарал: Department 1:N Department)"
+        },
+        "color": {
+          "type": "string",
+          "description": "Хэлтсийг диаграм дээр ялгах өнгө. (жишээ нь: #FF5733)"
         }
       },
       "required": [
@@ -480,54 +488,20 @@
       "type": "object",
       "description": "Байгууллага доторх албан тушаал, орон тоог илэрхийлнэ.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Албан тушаалын давтагдашгүй танигч."
-        },
-        "title": {
-          "type": "string",
-          "description": "Албан тушаалын нэр."
-        },
-        "departmentId": {
-          "type": "string",
-          "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)"
-        },
-        "levelId": {
-          "type": "string",
-          "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)"
-        },
-        "employmentTypeId": {
-          "type": "string",
-          "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)"
-        },
-        "jobCategoryId": {
-          "type": "string",
-          "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)"
-        },
-        "headcount": {
-          "type": "number",
-          "description": "Энэ албан тушаалын батлагдсан орон тооны тоо."
-        },
-        "filled": {
-          "type": "number",
-          "description": "Одоо ажиллаж буй ажилтны тоо."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Ажлын байрны төлөв (Идэвхтэй/Идэвхгүй)."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Ажлын байр батлагдсан огноо.",
-          "format": "date-time"
-        }
+        "id": { "type": "string", "description": "Албан тушаалын давтагдашгүй танигч." },
+        "title": { "type": "string", "description": "Албан тушаалын нэр." },
+        "departmentId": { "type": "string", "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)" },
+        "workScheduleId": { "type": "string", "description": "Энэ албан тушаалын ажлын цагийн хуваарь. (Хамаарал: WorkSchedule 1:N Position)" },
+        "reportsTo": { "type": "string", "description": "Энэ албан тушаалын шууд удирдах албан тушаалын танигч. (Хамаарал: Position 1:N Position)" },
+        "levelId": { "type": "string", "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)" },
+        "employmentTypeId": { "type": "string", "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)" },
+        "jobCategoryId": { "type": "string", "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)" },
+        "headcount": { "type": "number", "description": "Энэ албан тушаалын батлагдсан орон тооны тоо." },
+        "filled": { "type": "number", "description": "Одоо ажиллаж буй ажилтны тоо." },
+        "isActive": { "type": "boolean", "description": "Ажлын байрны төлөв (Идэвхтэй/Идэвхгүй)." },
+        "createdAt": { "type": "string", "description": "Ажлын байр батлагдсан огноо.", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "title",
-        "departmentId",
-        "headcount"
-      ]
+      "required": [ "id", "title", "departmentId", "headcount", "isActive", "createdAt" ]
     },
     "EmploymentType": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -731,6 +705,7 @@
             "required": ["country"]
           }
         },
+        "educationNotApplicable": { "type": "boolean", "description": "Боловсролын мэдээлэл байхгүй эсэхийг заана." },
         "languages": {
           "type": "array",
           "items": {
@@ -746,6 +721,7 @@
             "required": ["language", "listening", "reading", "speaking", "writing"]
           }
         },
+        "languagesNotApplicable": { "type": "boolean", "description": "Хэлний мэдлэг байхгүй эсэхийг заана." },
         "trainings": {
           "type": "array",
           "items": {
@@ -760,6 +736,7 @@
             "required": ["name", "organization"]
           }
         },
+        "trainingsNotApplicable": { "type": "boolean", "description": "Мэргэшлийн бэлтгэлийн мэдээлэл байхгүй эсэхийг заана." },
         "familyMembers": {
           "type": "array",
           "items": {
@@ -773,6 +750,7 @@
             "required": ["relationship", "lastName", "firstName"]
           }
         },
+        "familyMembersNotApplicable": { "type": "boolean", "description": "Гэр бүлийн мэдээлэл байхгүй эсэхийг заана." },
         "experiences": {
           "type": "array",
           "items": {
@@ -787,7 +765,8 @@
             },
             "required": ["company", "position", "employmentType"]
           }
-        }
+        },
+        "experienceNotApplicable": { "type": "boolean", "description": "Ажлын туршлагын мэдээлэл байхгүй эсэхийг заана." }
       }
     },
     "ReferenceData": {

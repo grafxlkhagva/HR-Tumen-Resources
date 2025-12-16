@@ -90,6 +90,7 @@ type Position = {
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
+  workScheduleId?: string;
   isActive?: boolean;
   createdAt?: string;
 };
@@ -113,6 +114,11 @@ type JobCategory = {
 type CompanyProfile = {
   name: string;
   legalName?: string;
+}
+
+type WorkSchedule = {
+  id: string;
+  name: string;
 }
 
 
@@ -489,14 +495,16 @@ const PositionsTab = () => {
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
+    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
 
     const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<PositionLevel>(levelsQuery);
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
+    const { data: workSchedules, isLoading: isLoadingWorkSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
-    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
+    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules;
 
     const { activePositions, inactivePositions, totalHeadcount } = useMemo(() => {
         if (!positions) {
@@ -556,6 +564,7 @@ const PositionsTab = () => {
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
             jobCategories={jobCategories || []}
+            workSchedules={workSchedules || []}
             editingPosition={editingPosition}
         />
         <Card>

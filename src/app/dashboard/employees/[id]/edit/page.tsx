@@ -57,7 +57,6 @@ const editEmployeeSchema = z.object({
   phoneNumber: z.string().optional(),
   positionId: z.string().optional(),
   departmentId: z.string().min(1, 'Хэлтэс сонгоно уу.'),
-  workScheduleId: z.string().optional(),
   hireDate: z.date({
     required_error: 'Ажилд орсон огноог сонгоно уу.',
   }),
@@ -112,12 +111,10 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
 
 
     const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
-    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
 
     const form = useForm<EditEmployeeFormValues>({
@@ -126,7 +123,6 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
             ...employeeData,
             positionId: employeeData.positionId || '(none)',
             hireDate: employeeData.hireDate ? new Date(employeeData.hireDate) : new Date(),
-            workScheduleId: employeeData.workScheduleId || '',
         },
     });
 
@@ -230,7 +226,6 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
         const departmentMap = new Map(departments?.map(d => [d.id, d.name]));
         const positionMap = new Map(positions?.map(p => [p.id, p.title]));
-        const scheduleMap = new Map(workSchedules?.map(s => [s.id, s.name]));
 
         // Log changes
         if (values.departmentId !== employeeData.departmentId) {
@@ -238,9 +233,6 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         }
         if (newPositionId !== oldPositionId) {
             logHistoryEvent(`Албан тушаал '${positionMap.get(oldPositionId || '') || 'Томилгоогүй'}' -> '${positionMap.get(newPositionId || '') || 'Томилгоогүй'}' болж өөрчлөгдөв.`, batch);
-        }
-        if (values.workScheduleId !== employeeData.workScheduleId) {
-            logHistoryEvent(`Ажлын хуваарь '${scheduleMap.get(employeeData.workScheduleId || '') || 'Тодорхойгүй'}' -> '${scheduleMap.get(values.workScheduleId || '') || 'Тодорхойгүй'}' болж өөрчлөгдөв.`, batch);
         }
         if (values.status !== employeeData.status) {
             logHistoryEvent(`Төлөв '${employeeData.status}' -> '${values.status}' болж өөрчлөгдөв.`, batch);
@@ -275,7 +267,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         }
     };
 
-    const isLoading = isLoadingPositions || isLoadingDepartments || isLoadingSchedules;
+    const isLoading = isLoadingPositions || isLoadingDepartments;
 
     if (isLoading) {
         return <EditEmployeeFormSkeleton />;
@@ -322,7 +314,6 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                             <SelectItem value="(none)">Томилгоогүй</SelectItem>
                             {filteredPositions.map((pos) => (<SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>))}
                             </SelectContent></Select><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="workScheduleId" render={({ field }) => ( <FormItem><FormLabel>Ажлын цагийн хуваарь</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хуваарь сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{workSchedules?.map((schedule) => (<SelectItem key={schedule.id} value={schedule.id}>{schedule.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="hireDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Ажилд орсон огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Ажилтны төлөв</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Ажилтны төлөвийг сонгоно уу" /></SelectTrigger></FormControl><SelectContent>{employeeStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     </div>
@@ -389,5 +380,3 @@ export default function EditEmployeePage() {
         </div>
     )
 }
-
-    

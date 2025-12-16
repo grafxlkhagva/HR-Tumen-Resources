@@ -40,6 +40,11 @@ type Department = {
     name: string;
 };
 
+type Position = {
+    id: string;
+    workScheduleId?: string;
+}
+
 type WorkSchedule = {
     id: string;
     name: string;
@@ -451,16 +456,26 @@ export default function EmployeeProfilePage() {
         [firestore]
     );
     
-    const workSchedulesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'workSchedules') : null),
-        [firestore]
+    const positionDocRef = useMemoFirebase(
+        ({firestore, user}) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [employeeId]
     );
+    
+    const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef);
+
+    const workScheduleDocRef = useMemoFirebase(
+        ({firestore, user}) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [position?.id]
+    );
+    
+    const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef);
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
-    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
-    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingSchedules;
+    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule;
 
     const departmentMap = React.useMemo(() => {
         if (!departments) return new Map<string, string>();
@@ -469,14 +484,6 @@ export default function EmployeeProfilePage() {
             return map;
         }, new Map<string, string>());
     }, [departments]);
-    
-    const workScheduleMap = React.useMemo(() => {
-        if (!workSchedules) return new Map<string, string>();
-        return workSchedules.reduce((map, schedule) => {
-            map.set(schedule.id, schedule.name);
-            return map;
-        }, new Map<string, string>());
-    }, [workSchedules]);
     
     const handleReactivate = async () => {
         if (!employee || !firestore) return;
@@ -533,7 +540,7 @@ export default function EmployeeProfilePage() {
     
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
-    const workScheduleName = employee.workScheduleId ? workScheduleMap.get(employee.workScheduleId) : 'Тодорхойгүй';
+    const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
     const isActive = employee.status === 'Идэвхтэй';
 

@@ -65,6 +65,11 @@ type AttendanceConfig = {
     radius: number;
 }
 
+type Position = {
+    id: string;
+    workScheduleId?: string;
+}
+
 type ReferenceItem = {
     id: string;
     name: string;
@@ -589,12 +594,22 @@ export default function AttendancePage() {
     const attendanceQuery = useMemoFirebase(() => employeeProfile ? query(collection(firestore, 'attendance'), where('employeeId', '==', employeeProfile.id), where('date', '==', todayString)) : null, [firestore, employeeProfile, todayString]);
     const configQuery = useMemoFirebase(() => doc(firestore, 'company', 'attendanceConfig'), [firestore]);
     const timeOffConfigQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), [firestore]);
-    const workScheduleQuery = useMemoFirebase(() => (employeeProfile?.workScheduleId ? doc(firestore, 'workSchedules', employeeProfile.workScheduleId) : null), [employeeProfile?.workScheduleId]);
+    
+    const positionDocRef = useMemoFirebase(
+        ({firestore}) => (firestore && employeeProfile?.positionId ? doc(firestore, 'positions', employeeProfile.positionId) : null),
+        [employeeProfile?.positionId]
+    );
+    const { data: position, isLoading: isPositionLoading } = useDoc<Position>(positionDocRef);
+
+    const workScheduleDocRef = useMemoFirebase(
+        ({firestore}) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
+        [position?.workScheduleId]
+    );
 
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
     const { data: config, isLoading: isConfigLoading } = useDoc<AttendanceConfig>(configQuery);
     const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
-    const { data: workSchedule, isLoading: isWorkScheduleLoading } = useDoc<WorkSchedule>(workScheduleQuery);
+    const { data: workSchedule, isLoading: isWorkScheduleLoading } = useDoc<WorkSchedule>(workScheduleDocRef);
 
     const todaysRecord = attendanceRecords?.[0];
 
@@ -682,7 +697,7 @@ export default function AttendancePage() {
         }
     };
     
-    const isLoading = isProfileLoading || isAttendanceLoading || isConfigLoading || isTimeOffConfigLoading || isWorkScheduleLoading;
+    const isLoading = isProfileLoading || isAttendanceLoading || isConfigLoading || isTimeOffConfigLoading || isWorkScheduleLoading || isPositionLoading;
 
     if(isLoading) {
         return <AttendanceSkeleton />;

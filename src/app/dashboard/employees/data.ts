@@ -7,7 +7,7 @@ export type Employee = {
   photoURL?: string;
   jobTitle: string;
   departmentId: string;
-  workScheduleId?: string;
+  positionId?: string;
   email: string;
   phoneNumber?: string;
   status: 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан' | 'Түр түдгэлзүүлсэн';

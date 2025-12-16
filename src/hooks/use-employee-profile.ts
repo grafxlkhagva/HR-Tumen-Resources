@@ -14,6 +14,7 @@ export type EmployeeProfile = {
   avatarId?: string;
   photoURL?: string;
   deviceId?: string;
+  positionId?: string;
   // Add other fields as needed
 };
 
