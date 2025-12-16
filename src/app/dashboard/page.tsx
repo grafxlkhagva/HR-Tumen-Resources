@@ -111,8 +111,8 @@ function RecentRequestsTable() {
     const { firestore } = useFirebase();
 
     const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-    const timeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests')) : null, [firestore]);
-    const attendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests')) : null, [firestore]);
+    const timeOffQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
+    const attendanceQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, [firestore]);
 
     const { data: employees, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
     const { data: timeOffRequests, isLoading: loadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
@@ -219,8 +219,8 @@ export default function DashboardPage() {
     const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
     const posStatusesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positionStatuses'), where('name', '==', 'Нээлттэй')) : null, [firestore]);
     const newHiresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'employees'), where('hireDate', '>=', startOfMonth(new Date()).toISOString())) : null, [firestore]);
-    const pendingTimeOffQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'timeOffRequests')) : null, [firestore]);
-    const pendingAttendanceQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'attendanceRequests')) : null, [firestore]);
+    const pendingTimeOffQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
+    const pendingAttendanceQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'attendanceRequests') : null, [firestore]);
 
     const { data: activeEmployees, isLoading: loadingEmployees } = useCollection(employeesQuery);
     const { data: positions, isLoading: loadingPositions } = useCollection<Position>(positionsQuery);

@@ -443,7 +443,7 @@ const OrganizationChart = () => {
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
     const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayString)) : null), [firestore, todayString]);
-    const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
+    const timeOffQuery = useMemoFirebase(() => (firestore ? collectionGroup(firestore, 'timeOffRequests') : null), [firestore]);
 
 
     const { data: positions, isLoading: isLoadingPos } = useCollection<PositionData>(positionsQuery);
@@ -590,7 +590,9 @@ const OrganizationChart = () => {
         const attendanceMap = new Map<string, AttendanceStatus>();
         
         // Process time-off records first
-        timeOffRecords.forEach(req => {
+        const approvedTimeOffs = timeOffRecords.filter(r => r.status === 'Зөвшөөрсөн');
+
+        approvedTimeOffs.forEach(req => {
             const start = new Date(req.startDate);
             const end = new Date(req.endDate);
             if (isWithinInterval(today, { start, end })) {
