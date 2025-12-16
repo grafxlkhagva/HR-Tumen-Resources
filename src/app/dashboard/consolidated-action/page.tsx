@@ -122,23 +122,9 @@ const Y_GAP = 300;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 // --- Helper Functions ---
-function hexToRgba(hex: string, alpha: number): string {
-    if (!hex || !hex.startsWith('#')) return `rgba(241, 245, 249, ${alpha})`; // fallback to a light gray
-    let c: any;
-    if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
-        c= hex.substring(1).split('');
-        if(c.length== 3){
-            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
-        }
-        c= '0x'+c.join('');
-        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+`,${alpha})`;
-    }
-    return `rgba(241, 245, 249, ${alpha})`;
-}
-
 function isColorDark(hex: string): boolean {
     if (!hex) return false;
-    const color = hex.substring(1); // strip #
+    const color = hex.startsWith('#') ? hex.substring(1) : hex;
     const rgb = parseInt(color, 16); // convert rrggbb to decimal
     const r = (rgb >> 16) & 0xff; // extract red
     const g = (rgb >> 8) & 0xff; // extract green
@@ -150,7 +136,6 @@ function isColorDark(hex: string): boolean {
 // --- Node Components ---
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
   const employee = data.employees[0];
-  const cardBgColor = data.departmentColor ? hexToRgba(data.departmentColor, 0.2) : undefined;
   const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
   const textColor = isDarkBg ? 'text-white' : 'text-foreground';
   const mutedTextColor = isDarkBg ? 'text-gray-300' : 'text-muted-foreground';
@@ -159,7 +144,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
   return (
     <Card 
         className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
-        style={{ backgroundColor: cardBgColor }}
+        style={{ backgroundColor: data.departmentColor || undefined }}
     >
       <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
       <DropdownMenu>
@@ -565,5 +550,6 @@ export default OrganizationChart;
     
 
     
+
 
 
