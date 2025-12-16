@@ -119,70 +119,55 @@ const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 // --- Node Components ---
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
-  const vacancy = data.headcount - data.filled;
-  const isVacant = vacancy > 0;
-
-  const getAttendanceContent = () => {
-    if (!data.attendanceStatus) return null;
-    const { status, checkInTime, checkOutTime } = data.attendanceStatus;
-    
-    switch(status) {
-        case 'on-leave': return <div className="flex items-center gap-1 text-yellow-600"><CalendarCheck2 className="h-3 w-3" /><span>Чөлөөтэй</span></div>
-        case 'checked-in': return <div className="flex items-center gap-1 text-green-600"><LogIn className="h-3 w-3" /><span>Ирсэн: {checkInTime}</span></div>
-        case 'checked-out': return <div className="flex flex-col text-xs"><div className="flex items-center gap-1 text-green-600"><LogIn className="h-3 w-3" /><span>{checkInTime}</span></div><div className="flex items-center gap-1 text-red-600"><LogOut className="h-3 w-3" /><span>{checkOutTime}</span></div></div>
-        case 'absent': return <div className="text-muted-foreground">Ирц бүртгүүлээгүй</div>
-        default: return null;
-    }
-  }
+  const employee = data.employees[0]; // Assuming one employee per position for this view
 
   return (
-    <Card className="w-64 border-2 border-primary/50 shadow-lg">
-      <Handle type="target" position={Position.Top} className="!bg-primary" />
-      <CardHeader className="pb-2 flex-row items-start justify-between">
-        <div>
-            <CardTitle className="text-base">{data.title}</CardTitle>
-            <CardDescription>{data.department}</CardDescription>
-        </div>
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1"><Users className="h-3 w-3" /><span>Орон тоо: {data.headcount}</span></div>
-            <div className="flex items-center gap-1"><User className="h-3 w-3" /><span>Томилсон: {data.filled}</span></div>
-        </div>
-        {data.employees.map(emp => (
-            <div key={emp.id} className="flex items-center gap-2 rounded-md bg-muted/50 p-2 text-sm">
-                 <Avatar className="h-7 w-7"><AvatarImage src={emp.photoURL} alt={emp.firstName} /><AvatarFallback>{emp.firstName?.charAt(0)}</AvatarFallback></Avatar>
-                <span>{emp.firstName} {emp.lastName}</span>
-            </div>
-        ))}
-         {isVacant && (
-            <Button variant="outline" size="sm" className="w-full h-8" onClick={() => data.onAddEmployee(data as any)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Ажилтан томилох
-            </Button>
+    <Card className="w-64 rounded-xl border-2 border-primary/20 shadow-lg relative group">
+      <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <CardContent className="p-4 text-center">
+        <Avatar className="h-20 w-20 mx-auto mb-3">
+          <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
+          <AvatarFallback className="text-3xl bg-muted">
+            {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
+          </AvatarFallback>
+        </Avatar>
+        
+        {employee ? (
+            <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
+        ) : (
+            <p className="font-semibold text-base text-muted-foreground">Сул орон тоо</p>
         )}
+        <p className="text-sm text-muted-foreground">{data.title}</p>
+        
+        <div className="mt-4 pt-4 border-t space-y-1 text-xs text-left">
+            <div className="flex justify-between">
+                <span className="text-muted-foreground">Хэлтэс:</span>
+                <span className="font-medium">{data.department}</span>
+            </div>
+             <div className="flex justify-between">
+                <span className="text-muted-foreground">Орон тоо:</span>
+                <span className="font-medium">{data.filled} / {data.headcount}</span>
+            </div>
+        </div>
+        
       </CardContent>
-       {data.employees.length > 0 && (
-         <CardContent className="py-2 border-t text-xs flex justify-between items-center">
-            <Badge variant="outline">{data.workScheduleName || 'Хуваарьгүй'}</Badge>
-            {getAttendanceContent()}
-         </CardContent>
-      )}
-      <Handle type="source" position={Position.Bottom} className="!bg-primary" />
+      <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
     </Card>
   );
 };
+
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
     <Card className="w-64 bg-amber-50 border-amber-200 shadow-md">
@@ -202,45 +187,57 @@ const SkeletonChart = () => <div className="relative h-[80vh] w-full"><Skeleton 
 
 // --- Layouting Logic ---
 function calculateLayout(positions: Position[]) {
-  const positionMap = new Map(positions.map(p => [p.id, p]));
-  const childrenMap = new Map<string, string[]>();
-  positions.forEach(p => {
-    if (p.reportsTo) {
-      if (!childrenMap.has(p.reportsTo)) childrenMap.set(p.reportsTo, []);
-      childrenMap.get(p.reportsTo)!.push(p.id);
-    }
-  });
-
-  const rootNodes = positions.filter(p => !p.reportsTo);
-  rootNodes.sort((a,b) => a.title.localeCompare(b.title));
-
-  const nodePositions: Record<string, { x: number, y: number }> = {};
-  let currentX = 0;
-
-  function positionNode(nodeId: string, level: number, parentX: number) {
-    const children = childrenMap.get(nodeId) || [];
-    children.sort((a, b) => (positionMap.get(a)?.title || '').localeCompare(positionMap.get(b)?.title || ''));
-
-    const totalWidth = children.length > 1 ? (children.length - 1) * X_GAP : 0;
-    let startX = parentX - totalWidth / 2;
-    
-    children.forEach((childId, index) => {
-      const x = startX + index * X_GAP;
-      nodePositions[childId] = { x, y: level * Y_GAP };
-      positionNode(childId, level + 1, x);
+    const positionMap = new Map(positions.map((p) => [p.id, p]));
+    const childrenMap = new Map<string, string[]>();
+    positions.forEach((p) => {
+        if (p.reportsTo) {
+            if (!childrenMap.has(p.reportsTo)) childrenMap.set(p.reportsTo, []);
+            childrenMap.get(p.reportsTo)!.push(p.id);
+        }
     });
-  }
 
-  rootNodes.forEach(rootNode => {
-    nodePositions[rootNode.id] = { x: currentX, y: 0 };
-    positionNode(rootNode.id, 1, currentX);
+    const nodePositions: Record<string, { x: number; y: number }> = {};
+    const processedNodes = new Set<string>();
+
+    const calculateSubtreeWidth = (nodeId: string): number => {
+        const children = childrenMap.get(nodeId) || [];
+        if (children.length === 0) {
+            return X_GAP;
+        }
+        return children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId), 0);
+    };
     
-    const childrenCount = childrenMap.get(rootNode.id)?.length || 1;
-    const branchWidth = childrenCount * X_GAP;
-    currentX += branchWidth + X_GAP;
-  });
+    function positionNodes(nodeId: string, x: number, y: number) {
+        if (processedNodes.has(nodeId)) return;
+        nodePositions[nodeId] = { x, y };
+        processedNodes.add(nodeId);
 
-  return nodePositions;
+        const children = childrenMap.get(nodeId) || [];
+        children.sort((a,b) => (positionMap.get(a)?.title || '').localeCompare(positionMap.get(b)?.title || ''));
+        
+        if (children.length === 0) return;
+        
+        const totalWidth = children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId), 0);
+        let currentX = x - totalWidth / 2;
+
+        children.forEach((childId) => {
+            const subtreeWidth = calculateSubtreeWidth(childId);
+            positionNodes(childId, currentX + subtreeWidth / 2, y + Y_GAP);
+            currentX += subtreeWidth;
+        });
+    }
+
+    const rootNodes = positions.filter((p) => !p.reportsTo);
+    rootNodes.sort((a,b) => (a.title || '').localeCompare(b.title || ''));
+    
+    let currentX = 0;
+    rootNodes.forEach(rootNode => {
+        const rootWidth = calculateSubtreeWidth(rootNode.id);
+        positionNodes(rootNode.id, currentX + rootWidth / 2, 0);
+        currentX += rootWidth;
+    });
+
+    return nodePositions;
 }
 
 
