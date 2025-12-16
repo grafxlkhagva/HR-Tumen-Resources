@@ -474,12 +474,6 @@ const OrganizationChart = () => {
                 <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
                 <CardDescription>Ажилтныг сул ажлын байранд чирж томилох эсвэл, ажлын байрны мэдээллийг засах.</CardDescription>
             </div>
-            <Button size="sm" className="gap-1" onClick={handleOpenAddDialog}>
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Ажлын байр нэмэх
-                </span>
-            </Button>
         </div>
       </CardHeader>
       <div className="relative w-full h-full">
