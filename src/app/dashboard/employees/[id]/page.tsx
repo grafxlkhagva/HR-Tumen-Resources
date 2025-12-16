@@ -34,6 +34,7 @@ import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type Department = {
     id: string;
@@ -81,6 +82,65 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label:
         </div>
     );
 }
+
+const AvatarWithProgress = ({ employee, size = 96 }: { employee?: Employee; size?: number; }) => {
+    const progress = employee?.questionnaireCompletion || 0;
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (progress / 100) * circumference;
+
+    const progressColor = progress < 50 ? 'text-red-500' : progress < 90 ? 'text-yellow-500' : 'text-green-500';
+
+    const avatarContent = (
+         <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
+            <Avatar className="h-full w-full">
+                <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
+                <AvatarFallback className="text-3xl bg-muted">
+                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8 text-muted-foreground"/>}
+                </AvatarFallback>
+            </Avatar>
+            {employee && (
+                 <svg
+                    className="absolute top-0 left-0"
+                    width={size}
+                    height={size}
+                    viewBox={`0 0 ${size} ${size}`}
+                >
+                    <circle
+                        className="text-muted/30"
+                        stroke="currentColor"
+                        strokeWidth={strokeWidth}
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                    />
+                    <circle
+                        className={cn("transition-all duration-500 ease-in-out", progressColor)}
+                        stroke="currentColor"
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                        transform={`rotate(-90 ${size/2} ${size/2})`}
+                    />
+                </svg>
+            )}
+        </div>
+    );
+    
+    if (employee) {
+        return <Link href={`/dashboard/employees/${employee.id}/questionnaire`}>{avatarContent}</Link>
+    }
+
+    return avatarContent;
+};
+
 
 function ProfileSkeleton() {
     return (
@@ -573,10 +633,7 @@ export default function EmployeeProfilePage() {
                 <Card>
                     <CardHeader>
                         <div className="flex flex-col items-center gap-4 sm:flex-row">
-                            <Avatar className="h-24 w-24">
-                                <AvatarImage src={employee.photoURL} alt={fullName} />
-                                <AvatarFallback className="text-3xl">{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
-                            </Avatar>
+                            <AvatarWithProgress employee={employee} size={96} />
                             <div className="flex-1 text-center sm:text-left">
                                 <CardTitle className="text-2xl">{fullName}</CardTitle>
                                 <CardDescription>{employee.jobTitle}</CardDescription>
