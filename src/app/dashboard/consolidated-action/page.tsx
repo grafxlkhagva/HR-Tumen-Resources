@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -37,6 +38,7 @@ import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { isWithinInterval, format } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 // --- Types ---
 interface Department {
@@ -119,19 +121,50 @@ const X_GAP = 350;
 const Y_GAP = 300;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
+// --- Helper Functions ---
+function hexToRgba(hex: string, alpha: number): string {
+    if (!hex || !hex.startsWith('#')) return `rgba(241, 245, 249, ${alpha})`; // fallback to a light gray
+    let c: any;
+    if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+        c= hex.substring(1).split('');
+        if(c.length== 3){
+            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c= '0x'+c.join('');
+        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+`,${alpha})`;
+    }
+    return `rgba(241, 245, 249, ${alpha})`;
+}
+
+function isColorDark(hex: string): boolean {
+    if (!hex) return false;
+    const color = hex.substring(1); // strip #
+    const rgb = parseInt(color, 16); // convert rrggbb to decimal
+    const r = (rgb >> 16) & 0xff; // extract red
+    const g = (rgb >> 8) & 0xff; // extract green
+    const b = (rgb >> 0) & 0xff; // extract blue
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b; // per ITU-R BT.709
+    return luma < 128;
+}
+
 // --- Node Components ---
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
-  const employee = data.employees[0]; // Assuming one employee per position for this view
+  const employee = data.employees[0];
+  const cardBgColor = data.departmentColor ? hexToRgba(data.departmentColor, 0.2) : undefined;
+  const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
+  const textColor = isDarkBg ? 'text-white' : 'text-foreground';
+  const mutedTextColor = isDarkBg ? 'text-gray-300' : 'text-muted-foreground';
+
 
   return (
     <Card 
-        className="w-64 rounded-xl border-2 shadow-lg relative group"
-        style={{ borderColor: data.departmentColor || undefined }}
+        className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
+        style={{ backgroundColor: cardBgColor }}
     >
       <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="icon" className={cn("h-7 w-7 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -152,17 +185,17 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         {employee ? (
             <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
         ) : (
-            <p className="font-semibold text-base text-muted-foreground">Сул орон тоо</p>
+            <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
         )}
-        <p className="text-sm text-muted-foreground">{data.title}</p>
+        <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
         
-        <div className="mt-4 pt-4 border-t space-y-1 text-xs text-left">
+        <div className={cn("mt-4 pt-4 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500' : 'border-border')}>
             <div className="flex justify-between">
-                <span className="text-muted-foreground">Хэлтэс:</span>
+                <span className={mutedTextColor}>Хэлтэс:</span>
                 <span className="font-medium">{data.department}</span>
             </div>
              <div className="flex justify-between">
-                <span className="text-muted-foreground">Орон тоо:</span>
+                <span className={mutedTextColor}>Орон тоо:</span>
                 <span className="font-medium">{data.filled} / {data.headcount}</span>
             </div>
         </div>
@@ -532,4 +565,5 @@ export default OrganizationChart;
     
 
     
+
 
