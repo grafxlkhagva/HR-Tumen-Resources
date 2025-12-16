@@ -32,11 +32,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2 } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
-import { isWithinInterval, format } from 'date-fns';
+import { isWithinInterval, format, startOfToday, endOfToday, isToday } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { Employee as BaseEmployee } from '../employees/data';
@@ -78,6 +78,30 @@ interface Position {
   isActive?: boolean;
 }
 
+interface AttendanceRecord {
+    id: string;
+    employeeId: string;
+    date: string;
+    checkInTime: string;
+    checkOutTime?: string;
+    status: 'PRESENT' | 'LEFT';
+}
+
+interface TimeOffRequest {
+    id: string;
+    employeeId: string;
+    status: 'Зөвшөөрсөн' | 'Хүлээгдэж буй' | 'Татгалзсан';
+    startDate: string;
+    endDate: string;
+}
+
+type AttendanceStatus = {
+    status: 'on-leave' | 'checked-in' | 'checked-out' | 'absent';
+    checkInTime?: string;
+    checkOutTime?: string;
+}
+
+
 interface PositionNodeData {
   label: string;
   title: string;
@@ -89,11 +113,7 @@ interface PositionNodeData {
   workScheduleName?: string;
   onAddEmployee: (position: Position) => void;
   onEditPosition: (position: Position) => void;
-  attendanceStatus?: {
-    status: 'on-leave' | 'checked-in' | 'checked-out' | 'absent';
-    checkInTime?: string;
-    checkOutTime?: string;
-  }
+  attendanceStatus?: AttendanceStatus;
 }
 
 interface EmployeeNodeData {
@@ -185,6 +205,27 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     return avatarContent;
 };
 
+const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) => {
+    if (!status) return null;
+
+    const config = {
+        'checked-in': { icon: LogIn, text: 'Ирсэн', color: 'text-green-500', time: status.checkInTime ? format(new Date(status.checkInTime), 'HH:mm') : '' },
+        'checked-out': { icon: LogOut, text: 'Явсан', color: 'text-red-500', time: status.checkOutTime ? format(new Date(status.checkOutTime), 'HH:mm') : '' },
+        'on-leave': { icon: CalendarCheck2, text: 'Чөлөөтэй', color: 'text-blue-500', time: '' },
+        'absent': { icon: MinusCircle, text: 'Ирээгүй', color: 'text-muted-foreground', time: '' },
+    }[status.status];
+    
+    if (!config) return null;
+
+    const Icon = config.icon;
+
+    return (
+        <div className={cn("flex items-center justify-center gap-1.5 text-xs font-medium mt-1", config.color)}>
+            <Icon className="h-3.5 w-3.5" />
+            <span>{config.text} {config.time}</span>
+        </div>
+    )
+}
 
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
   const employee = data.employees[0];
@@ -221,11 +262,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         )}
         <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
         
-        {employee && (
-            <p className={cn("text-xs font-bold", mutedTextColor)}>
-                Анкет: {Math.round(employee.questionnaireCompletion || 0)}%
-            </p>
-        )}
+        <AttendanceStatusIndicator status={data.attendanceStatus} />
 
         <div className={cn("mt-4 pt-4 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500' : 'border-border')}>
             <div className="flex justify-between">
@@ -384,6 +421,10 @@ const OrganizationChart = () => {
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
   const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
   const questionnaireQuery = useMemoFirebase(() => (firestore ? collectionGroup(firestore, 'questionnaire') : null), [firestore]);
+  
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
+  const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
 
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
@@ -393,6 +434,8 @@ const OrganizationChart = () => {
   const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
   const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useCollection<any>(questionnaireQuery);
+  const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
@@ -407,7 +450,7 @@ const OrganizationChart = () => {
     }));
   }, [employeesData, questionnaireData]);
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingQuestionnaire;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingQuestionnaire || isLoadingAttendance || isLoadingTimeOff;
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
@@ -439,12 +482,35 @@ const OrganizationChart = () => {
         }
     });
 
+    const today = new Date();
+    const employeeAttendanceStatus = new Map<string, AttendanceStatus>();
+    employees.forEach(emp => {
+        const onLeaveRequest = timeOffData?.find(req => req.employeeId === emp.id && isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) }));
+        if (onLeaveRequest) {
+            employeeAttendanceStatus.set(emp.id, { status: 'on-leave' });
+            return;
+        }
+
+        const attendanceRecord = attendanceData?.find(rec => rec.employeeId === emp.id);
+        if (attendanceRecord) {
+            if(attendanceRecord.checkOutTime) {
+                employeeAttendanceStatus.set(emp.id, { status: 'checked-out', checkInTime: attendanceRecord.checkInTime, checkOutTime: attendanceRecord.checkOutTime });
+            } else {
+                employeeAttendanceStatus.set(emp.id, { status: 'checked-in', checkInTime: attendanceRecord.checkInTime });
+            }
+        } else {
+            employeeAttendanceStatus.set(emp.id, { status: 'absent' });
+        }
+    });
+
+
     const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
 
     positions.forEach(pos => {
         const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
         const department = deptMap.get(pos.departmentId);
+        const employee = assignedEmployees[0];
 
         const node: Node<PositionNodeData> = {
             id: pos.id,
@@ -460,6 +526,7 @@ const OrganizationChart = () => {
                 onAddEmployee: handleAddEmployeeClick,
                 onEditPosition: handleEditPositionClick,
                 workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
+                attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
             },
         };
         newNodes.push(node);
@@ -479,7 +546,7 @@ const OrganizationChart = () => {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, questionnaireData]);
+  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, questionnaireData, attendanceData, timeOffData]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
