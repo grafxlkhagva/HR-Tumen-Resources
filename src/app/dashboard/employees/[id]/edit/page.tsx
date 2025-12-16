@@ -332,7 +332,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Хадгалах
                         </Button>
-                        <Button variant="outline" type="button" onClick={() => router.push(`/dashboard/employees/${employeeData.id}`)} disabled={isSubmitting || isUploading}>
+                        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting || isUploading}>
                             <X className="mr-2 h-4 w-4" />
                             Цуцлах
                         </Button>
@@ -346,6 +346,7 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
 export default function EditEmployeePage() {
     const { id } = useParams();
+    const router = useRouter();
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
 
@@ -378,11 +379,9 @@ export default function EditEmployeePage() {
     return (
         <div className="py-8">
             <div className="mb-4 flex items-center gap-4">
-                <Button asChild variant="outline" size="icon">
-                    <Link href={`/dashboard/employees/${employeeId}`}>
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="sr-only">Буцах</span>
-                    </Link>
+                <Button variant="outline" size="icon" onClick={() => router.back()}>
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Буцах</span>
                 </Button>
                 <h1 className="text-xl font-semibold tracking-tight">Мэдээлэл засах</h1>
             </div>

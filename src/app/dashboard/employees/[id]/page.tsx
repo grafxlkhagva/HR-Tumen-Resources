@@ -456,11 +456,9 @@ export default function EmployeeProfilePage() {
     return (
         <div className="py-8">
             <div className="mb-4 flex items-center gap-4">
-                <Button asChild variant="outline" size="icon">
-                    <Link href="/dashboard/employees">
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="sr-only">Буцах</span>
-                    </Link>
+                <Button variant="outline" size="icon" onClick={() => router.back()}>
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Буцах</span>
                 </Button>
                 <h1 className="text-xl font-semibold tracking-tight">Ажилтны хувийн хэрэг</h1>
             </div>
