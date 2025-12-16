@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -40,6 +38,7 @@ import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { isWithinInterval, format } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import type { Employee } from '../employees/data';
 
 // --- Types ---
 interface Department {
@@ -61,35 +60,6 @@ interface Position {
   workScheduleId?: string;
   isActive?: boolean;
 }
-
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  photoURL?: string;
-  jobTitle: string;
-  positionId?: string;
-  status: string;
-  hireDate: string;
-  questionnaireCompletion?: number;
-}
-
-type AttendanceRecord = {
-    id: string;
-    employeeId: string;
-    date: string; // yyyy-MM-dd
-    checkInTime: string;
-    checkOutTime?: string;
-    status: 'PRESENT' | 'LEFT';
-}
-
-type TimeOffRequest = {
-    id: string;
-    employeeId: string;
-    startDate: string;
-    endDate: string;
-    status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
-};
 
 interface PositionNodeData {
   label: string;
@@ -385,9 +355,6 @@ const OrganizationChart = () => {
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
   const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
   
-  const todaysAttendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', format(new Date(), 'yyyy-MM-dd'))) : null), [firestore]);
-  const timeOffQuery = useMemoFirebase(() => (firestore ? collectionGroup(firestore, 'timeOffRequests') : null), [firestore]);
-
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
   const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
@@ -395,12 +362,10 @@ const OrganizationChart = () => {
   const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
   const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
-  const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(todaysAttendanceQuery);
-  const { data: timeOffRequests, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingAttendance || isLoadingTimeOff || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
@@ -432,29 +397,11 @@ const OrganizationChart = () => {
         }
     });
 
-    const attendanceMap = new Map(todaysAttendance?.map(a => [a.employeeId, a]));
-    const today = new Date();
-    const onLeaveEmployeeIds = new Set(timeOffRequests?.filter(req => req.status === 'Зөвшөөрсөн' && isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) })).map(req => req.employeeId));
-
     const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
 
     positions.forEach(pos => {
         const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
-        const employee = assignedEmployees[0];
-        let attendanceStatus;
-
-        if (employee) {
-             if (onLeaveEmployeeIds.has(employee.id)) attendanceStatus = { status: 'on-leave' };
-             else {
-                 const attendance = attendanceMap.get(employee.id);
-                 if (attendance) {
-                     if (attendance.checkOutTime) attendanceStatus = { status: 'checked-out', checkInTime: format(new Date(attendance.checkInTime), 'HH:mm'), checkOutTime: format(new Date(attendance.checkOutTime), 'HH:mm') };
-                     else attendanceStatus = { status: 'checked-in', checkInTime: format(new Date(attendance.checkInTime), 'HH:mm') };
-                 } else attendanceStatus = { status: 'absent' };
-             }
-        }
-        
         const department = deptMap.get(pos.departmentId);
 
         const node: Node<PositionNodeData> = {
@@ -471,7 +418,6 @@ const OrganizationChart = () => {
                 onAddEmployee: handleAddEmployeeClick,
                 onEditPosition: handleEditPositionClick,
                 workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
-                attendanceStatus
             },
         };
         newNodes.push(node);
@@ -491,7 +437,7 @@ const OrganizationChart = () => {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, todaysAttendance, timeOffRequests, nodePositions]);
+  }, [isLoading, departments, positions, employees, workSchedules, nodePositions]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -603,15 +549,3 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
-
-    
-
-    
-
-
-
-
-
-
-
-
