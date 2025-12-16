@@ -81,6 +81,7 @@ type Employee = {
     firstName: string;
     lastName: string;
     photoURL?: string;
+    questionnaireCompletion?: number;
 }
 
 export type Department = {
@@ -114,6 +115,7 @@ type EmployeeNodeData = {
     label: string;
     photoURL?: string;
     jobTitle?: string;
+    questionnaireCompletion?: number;
 };
 
 
@@ -184,21 +186,13 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   });
 
   let currentX = 0;
-  let maxY = 0;
   roots.forEach(rootId => {
       positionNodesLayout(rootId, currentX, 0);
       const rootLayout = layout.get(rootId);
       if(rootLayout) {
         currentX += rootLayout.width + horizontalSpacing * 2;
-        const depth = (nodeId: string): number => 1 + Math.max(0, ...(graph.get(nodeId) || []).map(depth));
-        maxY = Math.max(maxY, depth(rootId) * (nodeHeight + verticalSpacing));
       }
   })
-
-  employeeNodes.forEach((node, index) => {
-      layout.set(node.id, { x: -300, y: index * (100 + 20), width: 100 });
-  });
-
 
   const layoutedNodes = nodes.map((node) => {
     const pos = layout.get(node.id);
@@ -213,18 +207,73 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
 
 // --- Custom Node Components ---
+const CircularProgressAvatar = ({
+  photoURL,
+  label,
+  completion,
+}: {
+  photoURL?: string;
+  label: string;
+  completion?: number;
+}) => {
+  const percentage = completion || 0;
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="relative w-20 h-20">
+      <svg className="w-full h-full" viewBox="0 0 100 100">
+        {/* Background Circle */}
+        <circle
+          className="text-muted/30"
+          strokeWidth="8"
+          stroke="currentColor"
+          fill="transparent"
+          r="40"
+          cx="50"
+          cy="50"
+        />
+        {/* Progress Circle */}
+        <circle
+          className="text-primary"
+          strokeWidth="8"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          stroke="currentColor"
+          fill="transparent"
+          r="40"
+          cx="50"
+          cy="50"
+          transform="rotate(-90 50 50)"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Avatar className="w-16 h-16">
+          <AvatarImage src={photoURL} alt={label} />
+          <AvatarFallback>{label?.charAt(0)}</AvatarFallback>
+        </Avatar>
+      </div>
+    </div>
+  );
+};
+
+
 const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
     return (
-        <div className="w-[80px] h-[80px] rounded-full shadow-lg flex flex-col items-center justify-center p-2 text-center bg-card border-2 border-primary/50">
+        <div className="w-[120px] h-[120px] rounded-lg shadow-md flex flex-col items-center justify-center p-2 text-center bg-card border-2 border-primary/50 relative">
             <Handle type="source" position={Position.Right} id="a" />
-             <Avatar className="w-12 h-12">
-                <AvatarImage src={data.photoURL} alt={data.label} />
-                <AvatarFallback>{data.label?.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <p className="text-[11px] font-semibold leading-tight line-clamp-1 mt-1">{data.label}</p>
+            <CircularProgressAvatar
+                photoURL={data.photoURL}
+                label={data.label}
+                completion={data.questionnaireCompletion}
+            />
+            <p className="text-[11px] font-semibold leading-tight line-clamp-2 mt-1">{data.label}</p>
         </div>
     );
 };
+
 
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
     const isFilled = data.filled > 0;
@@ -238,10 +287,10 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
     return (
         <div 
-            className="w-[160px] h-[160px] rounded-full shadow-lg flex flex-col items-center justify-center p-3 text-center relative" 
+            className="w-[160px] h-[160px] rounded-lg shadow-lg flex flex-col items-center justify-center p-3 text-center relative" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} id="b" />
+            <Handle type="target" position={Position.Top} id="b" className="!bg-transparent !border-0 !w-full !h-full !-top-1/2 !-z-10" />
             <Handle type="source" position={Position.Bottom} id="a" />
              <div className="absolute top-2 right-2 z-10">
                  <DropdownMenu>
@@ -280,17 +329,18 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                 </div>
             ) : (
                 // Filled State
-                <div className="flex flex-col items-center gap-2">
+                 <div className="flex flex-col items-center gap-1">
                     <Link href={`/dashboard/employees/${employee.id}`}>
-                        <Avatar className="w-16 h-16 border-2 border-background">
-                            <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                            <AvatarFallback>{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                        <CircularProgressAvatar
+                            photoURL={employee.photoURL}
+                            label={employee.firstName}
+                            completion={employee.questionnaireCompletion}
+                        />
                     </Link>
                      <p className="text-sm font-semibold leading-tight line-clamp-1">{employee.firstName} {employee.lastName}</p>
-                    <p className="text-[11px] text-muted-foreground line-clamp-2">{data.label}</p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-1">{data.label}</p>
                      {data.headcount > 1 && (
-                        <Badge variant="secondary" className="px-1.5 py-0">
+                        <Badge variant="secondary" className="px-1.5 py-0 text-xs">
                             {data.filled}/{data.headcount}
                         </Badge>
                      )}
@@ -478,7 +528,6 @@ const OrganizationChart = () => {
         const departmentColorMap = new Map(departments.map(d => [d.id, d.color]));
         
         const activePositions = positions.filter(p => p.isActive);
-        const unassignedEmployees = employees.filter(emp => emp.status === 'Идэвхтэй' && !emp.positionId);
 
         const positionNodes: Node[] = activePositions.map(pos => {
             const assignedEmployees = employeesByPosition.get(pos.id) || [];
@@ -500,14 +549,17 @@ const OrganizationChart = () => {
             }
         });
         
+        const unassignedEmployees = employees.filter(emp => emp.status === 'Идэвхтэй' && !emp.positionId);
         const employeeNodes: Node[] = unassignedEmployees.map(emp => ({
             id: emp.id,
             type: 'employee',
             data: {
                 label: `${emp.firstName} ${emp.lastName}`,
                 photoURL: emp.photoURL,
+                questionnaireCompletion: emp.questionnaireCompletion,
             },
             position: { x: 0, y: 0 },
+            draggable: true,
         }));
 
         const initialNodes = [...positionNodes, ...employeeNodes];
@@ -532,73 +584,89 @@ const OrganizationChart = () => {
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;
     }
+    
+    const unassignedEmployeeNodes = nodes.filter(n => n.type === 'employee');
+    const chartNodes = nodes.filter(n => n.type !== 'employee');
+
 
     return (
-        <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
-            <AlertDialog open={!!assignmentConfirmation} onOpenChange={(open) => !open && setAssignmentConfirmation(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Та <strong>{assignmentConfirmation?.employee.firstName}</strong>-г <strong>{assignmentConfirmation?.position.title}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setAssignmentConfirmation(null)}>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmAssignment}>Тийм, томилох</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <AddPositionDialog
-                open={isPositionDialogOpen}
-                onOpenChange={setIsPositionDialogOpen}
-                departments={departments || []}
-                allPositions={positions || []}
-                positionLevels={positionLevels || []}
-                employmentTypes={employmentTypes || []}
-                jobCategories={jobCategories || []}
-                editingPosition={editingPosition}
-            />
-            <AssignEmployeeDialog 
-                open={isAssignDialogOpen}
-                onOpenChange={setIsAssignDialogOpen}
-                position={assigningPosition}
-                employees={employees || []}
-            />
-            <AddEmployeeDialog 
-                open={isAddEmployeeDialogOpen}
-                onOpenChange={setIsAddEmployeeDialogOpen}
-                departments={departments || []}
-                positions={positions || []}
-                workSchedules={workSchedules || []}
-                preselectedDept={assigningPosition?.departmentId}
-                preselectedPos={assigningPosition?.id}
-            />
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onEdgesDelete={onEdgesDelete}
-                nodeTypes={nodeTypes}
-                fitView
-                className="bg-background"
-                proOptions={{ hideAttribution: true }}
-                connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
-                deleteKeyCode={['Backspace', 'Delete']}
-            >
-                <Controls />
-                <Background gap={16} />
-            </ReactFlow>
-            <Button
-                size="icon"
-                className="absolute bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
-                onClick={handleOpenAddDialog}
-            >
-                <PlusCircle className="h-6 w-6" />
-                <span className="sr-only">Шинэ албан тушаал нэмэх</span>
-            </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Сул ажилчид</CardTitle>
+                    <CardDescription>Эдгээр ажилтнуудыг чирч, ажлын байранд томилно уу.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {unassignedEmployeeNodes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Сул ажилтан байхгүй.</p>}
+                    {unassignedEmployeeNodes.map(node => <EmployeeNode key={node.id} data={node.data}/>)}
+                </CardContent>
+            </Card>
+            <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
+                <AlertDialog open={!!assignmentConfirmation} onOpenChange={(open) => !open && setAssignmentConfirmation(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Та <strong>{assignmentConfirmation?.employee.firstName}</strong>-г <strong>{assignmentConfirmation?.position.title}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setAssignmentConfirmation(null)}>Цуцлах</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmAssignment}>Тийм, томилох</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <AddPositionDialog
+                    open={isPositionDialogOpen}
+                    onOpenChange={setIsPositionDialogOpen}
+                    departments={departments || []}
+                    allPositions={positions || []}
+                    positionLevels={positionLevels || []}
+                    employmentTypes={employmentTypes || []}
+                    jobCategories={jobCategories || []}
+                    editingPosition={editingPosition}
+                />
+                <AssignEmployeeDialog 
+                    open={isAssignDialogOpen}
+                    onOpenChange={setIsAssignDialogOpen}
+                    position={assigningPosition}
+                    employees={employees || []}
+                />
+                <AddEmployeeDialog 
+                    open={isAddEmployeeDialogOpen}
+                    onOpenChange={setIsAddEmployeeDialogOpen}
+                    departments={departments || []}
+                    positions={positions || []}
+                    workSchedules={workSchedules || []}
+                    preselectedDept={assigningPosition?.departmentId}
+                    preselectedPos={assigningPosition?.id}
+                />
+                <ReactFlow
+                    nodes={chartNodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onEdgesDelete={onEdgesDelete}
+                    nodeTypes={nodeTypes}
+                    fitView
+                    className="bg-background"
+                    proOptions={{ hideAttribution: true }}
+                    connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
+                    deleteKeyCode={['Backspace', 'Delete']}
+                >
+                    <Controls />
+                    <Background gap={16} />
+                </ReactFlow>
+                <Button
+                    size="icon"
+                    className="absolute bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+                    onClick={handleOpenAddDialog}
+                >
+                    <PlusCircle className="h-6 w-6" />
+                    <span className="sr-only">Шинэ албан тушаал нэмэх</span>
+                </Button>
+            </div>
         </div>
     );
 };
@@ -607,19 +675,15 @@ const OrganizationChart = () => {
 export default function ConsolidatedActionPage() {
   return (
     <div className="py-8">
-      <Card>
-        <CardHeader>
+        <CardHeader className="px-0">
           <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
           <CardDescription>
             Байгууллагын бүтцийг албан тушаалын шатлалаар харах, удирдах. Нэгжээс нөгөө рүү чирч холбоос үүсгээрэй.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-            <ReactFlowProvider>
-                <OrganizationChart />
-            </ReactFlowProvider>
-        </CardContent>
-      </Card>
+        <ReactFlowProvider>
+            <OrganizationChart />
+        </ReactFlowProvider>
     </div>
   );
 }

@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -146,6 +146,46 @@ const fullQuestionnaireSchema = generalInfoSchema
 type FullQuestionnaireValues = z.infer<typeof fullQuestionnaireSchema>;
 type ReferenceItem = { id: string; name: string };
 
+const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>) => {
+    if (!data) return 0;
+    
+    const fields = [
+        'lastName', 'firstName', 'registrationNumber', 'birthDate', 'gender', 'idCardNumber',
+        'personalPhone', 'personalEmail', 'homeAddress',
+    ];
+    
+    const arrayFields = [
+        { name: 'emergencyContacts', notApplicableKey: null },
+        { name: 'education', notApplicableKey: 'educationNotApplicable' },
+        { name: 'languages', notApplicableKey: 'languagesNotApplicable' },
+        { name: 'trainings', notApplicableKey: 'trainingsNotApplicable' },
+        { name: 'familyMembers', notApplicableKey: 'familyMembersNotApplicable' },
+        { name: 'experiences', notApplicableKey: 'experienceNotApplicable' },
+    ];
+
+    let filled = 0;
+    const total = fields.length + arrayFields.length;
+
+    fields.forEach(field => {
+        if(data[field as keyof typeof data]) {
+            filled++;
+        }
+    });
+
+    arrayFields.forEach(fieldInfo => {
+        if (fieldInfo.notApplicableKey && data[fieldInfo.notApplicableKey as keyof typeof data] === true) {
+            filled++;
+        } else {
+            const arrayData = data[fieldInfo.name as keyof typeof data] as unknown[];
+            if (Array.isArray(arrayData) && arrayData.length > 0) {
+                filled++;
+            }
+        }
+    });
+
+    return total > 0 ? (filled / total) * 100 : 0;
+};
+
 
 // Helper for date transformation
 const transformDates = (data: any) => {
@@ -184,12 +224,13 @@ function FormSkeleton() {
 
 interface FormSectionProps<T extends z.ZodType<any, any>> {
     docRef: any;
+    employeeDocRef: any;
     defaultValues: z.infer<T> | undefined;
     schema: T;
     children: (form: any, isSubmitting: boolean) => React.ReactNode;
 }
 
-function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, schema, children }: FormSectionProps<T>) {
+function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, defaultValues, schema, children }: FormSectionProps<T>) {
     const { toast } = useToast();
     const form = useForm<z.infer<T>>({
         resolver: zodResolver(schema),
@@ -205,8 +246,13 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, sch
     const { isSubmitting } = form.formState;
 
     const onSubmit = (data: z.infer<T>) => {
-        if (!docRef) return;
+        if (!docRef || !employeeDocRef) return;
         setDocumentNonBlocking(docRef, data, { merge: true });
+
+        // Recalculate and update completion on the employee doc
+        const newCompletion = calculateCompletionPercentage({ ...defaultValues, ...data });
+        updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
+        
         toast({ title: 'Амжилттай хадгаллаа' });
     };
 
@@ -662,37 +708,37 @@ export default function QuestionnairePage() {
                 </TabsList>
                 
                 <TabsContent value="general">
-                    <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
+                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
                         {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} />}
                     </FormSection>
                 </TabsContent>
                 <TabsContent value="contact">
-                    <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={contactInfoSchema}>
+                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={contactInfoSchema}>
                         {(form, isSubmitting) => <ContactInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>
                  <TabsContent value="education">
-                    <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={educationHistorySchema}>
+                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={educationHistorySchema}>
                         {(form, isSubmitting) => <EducationForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>
                 <TabsContent value="language">
-                     <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
+                     <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
                         {(form, isSubmitting) => <LanguageForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>
                 <TabsContent value="training">
-                     <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
+                     <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
                         {(form, isSubmitting) => <TrainingForm form={form} isSubmitting={isSubmitting} />}
                     </FormSection>
                 </TabsContent>
                 <TabsContent value="family">
-                     <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
+                     <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
                         {(form, isSubmitting) => <FamilyInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>
                  <TabsContent value="experience">
-                     <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
+                     <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
                         {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
                     </FormSection>
                 </TabsContent>

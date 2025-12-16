@@ -16,6 +16,7 @@ export type Employee = {
   skills?: string[];
   jobHistory?: { title: string; company: string; duration: string }[];
   deviceId?: string;
+  questionnaireCompletion?: number;
 };
 
 export const employees: Employee[] = [];
