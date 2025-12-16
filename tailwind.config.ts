@@ -56,6 +56,9 @@ export default {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      stroke: {
+        progress: 'var(--progress-color)',
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

@@ -45,6 +45,7 @@ type Employee = BaseEmployee & {
   questionnaireCompletion?: number;
 };
 
+
 interface Department {
   id: string;
   name: string;
@@ -137,6 +138,7 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                     width={size}
                     height={size}
                     viewBox={`0 0 ${size} ${size}`}
+                    style={{ '--progress-color': progressColor } as React.CSSProperties}
                 >
                     <circle
                         className="text-muted/30"
@@ -148,8 +150,7 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                         cy={size / 2}
                     />
                     <circle
-                        className="transition-all duration-500 ease-in-out"
-                        stroke={progressColor}
+                        className="transition-all duration-500 ease-in-out stroke-progress"
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
