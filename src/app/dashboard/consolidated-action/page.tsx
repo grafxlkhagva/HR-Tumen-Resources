@@ -16,6 +16,7 @@ import ReactFlow, {
   Handle,
   Position,
   NodePositionChange,
+  Connection,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import Link from 'next/link';
@@ -31,7 +32,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
@@ -39,6 +40,17 @@ import { isWithinInterval, format } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { Employee as BaseEmployee } from '../employees/data';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 // --- Types ---
 type Employee = BaseEmployee & {
@@ -357,7 +369,10 @@ const OrganizationChart = () => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-
+  const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  
+  const { toast } = useToast();
   const { firestore } = useFirebase();
 
   // Data fetching
@@ -368,7 +383,8 @@ const OrganizationChart = () => {
   const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
   const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-  
+  const questionnaireQuery = useMemoFirebase(() => (firestore ? collectionGroup(firestore, 'questionnaire') : null), [firestore]);
+
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
   const { data: employeesData, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
@@ -376,11 +392,22 @@ const OrganizationChart = () => {
   const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
   const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
+  const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useCollection<any>(questionnaireQuery);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-  const employees = employeesData;
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
+  const employees = useMemo(() => {
+    if (!employeesData || !questionnaireData) return employeesData;
+
+    const questionnaireMap = new Map(questionnaireData.map(q => [q.id.split('/')[1], q.questionnaireCompletion]));
+
+    return employeesData.map(emp => ({
+      ...emp,
+      questionnaireCompletion: questionnaireMap.get(emp.id) || 0,
+    }));
+  }, [employeesData, questionnaireData]);
+
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingQuestionnaire;
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
@@ -452,7 +479,7 @@ const OrganizationChart = () => {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, nodePositions]);
+  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, questionnaireData]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -471,18 +498,24 @@ const OrganizationChart = () => {
   const onEdgesChange: OnEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
 
   const onConnect: OnConnect = useCallback(
-    async (connection) => {
-        if (!connection.source || !connection.target || !firestore) return;
-        
-        const employeeId = connection.source;
-        const newPositionId = connection.target;
-        
-        const employeeNode = nodes.find(n => n.id === employeeId);
-        const positionNode = nodes.find(n => n.id === newPositionId);
-        
+    (connection) => {
+        const employeeNode = nodes.find(n => n.id === connection.source);
+        const positionNode = nodes.find(n => n.id === connection.target);
         if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
-        
-        const oldPositionId = (employees?.find(e => e.id === employeeId) as Employee)?.positionId;
+        setPendingConnection(connection);
+    },
+    [nodes]
+  );
+
+  const confirmAssignment = async () => {
+    if (!pendingConnection || !firestore) return;
+    setIsConfirming(true);
+
+    const { source: employeeId, target: newPositionId } = pendingConnection;
+    if (!employeeId || !newPositionId) return;
+
+    try {
+        const oldPositionId = employees?.find(e => e.id === employeeId)?.positionId;
 
         const batch = writeBatch(firestore);
 
@@ -499,16 +532,63 @@ const OrganizationChart = () => {
         const employeeDocRef = doc(firestore, 'employees', employeeId);
         batch.update(employeeDocRef, {
             positionId: newPositionId,
-            jobTitle: (positions?.find(p => p.id === newPositionId))?.title || 'Тодорхойгүй',
+            jobTitle: positions?.find(p => p.id === newPositionId)?.title || 'Тодорхойгүй',
         });
 
         await batch.commit();
-    },
-    [firestore, nodes, positions, employees]
-  );
+
+        toast({
+            title: "Амжилттай томилогдлоо",
+            description: `${nodes.find(n => n.id === employeeId)?.data.name} ажилтныг ${nodes.find(n => n.id === newPositionId)?.data.title} албан тушаалд томиллоо.`
+        })
+    } catch(e) {
+        console.error(e);
+        toast({
+            title: "Алдаа гарлаа",
+            description: "Томилгоо хийхэд алдаа гарлаа.",
+            variant: "destructive"
+        })
+    } finally {
+        setIsConfirming(false);
+        setPendingConnection(null);
+    }
+  };
+
+  const cancelAssignment = () => {
+    setPendingConnection(null);
+  }
+
+  const getConfirmationDialogContent = () => {
+    if (!pendingConnection) return { employeeName: '', positionTitle: '' };
+    const employeeNode = nodes.find(n => n.id === pendingConnection.source);
+    const positionNode = nodes.find(n => n.id === pendingConnection.target);
+    return {
+        employeeName: employeeNode?.data.name,
+        positionTitle: positionNode?.data.title,
+    }
+  }
+  const { employeeName, positionTitle } = getConfirmationDialogContent();
 
   return (
     <div style={{ height: 'calc(100vh - 100px)' }}>
+      <AlertDialog open={!!pendingConnection} onOpenChange={(open) => !open && cancelAssignment()}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
+            <AlertDialogDescription>
+                Та <strong>{employeeName}</strong>-г(г) <strong>{positionTitle}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelAssignment} disabled={isConfirming}>Цуцлах</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAssignment} disabled={isConfirming}>
+                {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                Тийм, томилох
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
@@ -564,7 +644,3 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
-
-    
-
-    
