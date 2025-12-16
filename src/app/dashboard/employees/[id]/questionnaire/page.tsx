@@ -77,7 +77,10 @@ const educationSchema = z.object({
     path: ["school"],
 });
 
-const educationHistorySchema = z.object({ education: z.array(educationSchema) });
+const educationHistorySchema = z.object({ 
+    education: z.array(educationSchema),
+    educationNotApplicable: z.boolean().default(false),
+});
 
 const languageSchema = z.object({
     language: z.string().min(1, "Хэл сонгоно уу."),
@@ -88,7 +91,10 @@ const languageSchema = z.object({
     testScore: z.string().optional(),
 });
 
-const languageSkillsSchema = z.object({ languages: z.array(languageSchema) });
+const languageSkillsSchema = z.object({ 
+    languages: z.array(languageSchema),
+    languagesNotApplicable: z.boolean().default(false),
+});
 
 const trainingSchema = z.object({
   name: z.string().min(1, "Сургалтын нэр хоосон байж болохгүй."),
@@ -98,7 +104,10 @@ const trainingSchema = z.object({
   certificateNumber: z.string().optional(),
 });
 
-const professionalTrainingSchema = z.object({ trainings: z.array(trainingSchema) });
+const professionalTrainingSchema = z.object({ 
+    trainings: z.array(trainingSchema),
+    trainingsNotApplicable: z.boolean().default(false),
+});
 
 const familyMemberSchema = z.object({
   relationship: z.string().min(1, "Таны хэн болохыг сонгоно уу."),
@@ -107,7 +116,10 @@ const familyMemberSchema = z.object({
   phone: z.string().optional(),
 });
 
-const familyInfoSchema = z.object({ familyMembers: z.array(familyMemberSchema) });
+const familyInfoSchema = z.object({ 
+    familyMembers: z.array(familyMemberSchema),
+    familyMembersNotApplicable: z.boolean().default(false),
+});
 
 const workExperienceSchema = z.object({
   company: z.string().min(1, "Компанийн нэр хоосон байж болохгүй."),
@@ -118,7 +130,10 @@ const workExperienceSchema = z.object({
   description: z.string().optional(),
 });
 
-const workExperienceHistorySchema = z.object({ experiences: z.array(workExperienceSchema) });
+const workExperienceHistorySchema = z.object({ 
+    experiences: z.array(workExperienceSchema),
+    experienceNotApplicable: z.boolean().default(false),
+});
 
 const fullQuestionnaireSchema = generalInfoSchema
     .merge(contactInfoSchema)
@@ -301,6 +316,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
 
     const schoolsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]);
     const degreesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]);
+    const notApplicable = form.watch("educationNotApplicable");
 
     const handleAddSchool = async () => {
         if (!schoolsCollection || !newSchoolName.trim() || currentFieldIndex === null) return;
@@ -383,8 +399,9 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                 </DialogContent>
             </Dialog>
 
+            <FormField control={form.control} name="educationNotApplicable" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Боловсролын мэдээлэл байхгүй</FormLabel></FormItem> )} />
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Ерөнхий боловсролын сургуулиас эхлэн төгссөн дарааллын дагуу бичнэ үү.</AlertDescription></Alert>
-            <div className="space-y-6">
+            <fieldset disabled={notApplicable} className="space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-4">
                         <CardContent className="space-y-4 pt-4">
@@ -404,8 +421,8 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                         </CardContent>
                     </Card>
                 ))}
-            </div>
-            <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}><PlusCircle className="mr-2 h-4 w-4" />Боловсрол нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}><PlusCircle className="mr-2 h-4 w-4" />Боловсрол нэмэх</Button>
+            </fieldset>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -417,11 +434,13 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
 function LanguageForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "languages" });
     const proficiencyLevels = ['Анхан', 'Дунд', 'Ахисан', 'Мэргэжлийн'];
+    const notApplicable = form.watch("languagesNotApplicable");
 
     return (
         <>
+            <FormField control={form.control} name="languagesNotApplicable" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Гадаад хэлний мэдлэг байхгүй</FormLabel></FormItem> )} />
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Түвшин оруулах</AlertTitle><AlertDescription>*Олон улсад хүлээн зөвшөөрөгдөх түвшин тогтоох шалгалтын оноог оруулна уу.</AlertDescription></Alert>
-            <div className="space-y-6">
+            <fieldset disabled={notApplicable} className="space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-4">
                         <CardContent className="space-y-4 pt-4">
@@ -437,8 +456,8 @@ function LanguageForm({ form, isSubmitting, references }: { form: any, isSubmitt
                         </CardContent>
                     </Card>
                 ))}
-            </div>
-            <Button type="button" variant="outline" onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })}><PlusCircle className="mr-2 h-4 w-4" />Хэл нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })}><PlusCircle className="mr-2 h-4 w-4" />Хэл нэмэх</Button>
+            </fieldset>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -449,11 +468,13 @@ function LanguageForm({ form, isSubmitting, references }: { form: any, isSubmitt
 
 function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "trainings" });
+    const notApplicable = form.watch("trainingsNotApplicable");
 
     return (
         <>
+            <FormField control={form.control} name="trainingsNotApplicable" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Мэргэшлийн бэлтгэлийн мэдээлэл байхгүй</FormLabel></FormItem> )} />
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Мэргэжлээрээ болон бусад төрлөөр 1 сараас дээш хугацаагаар хамрагдаж байсан сургалт.</AlertDescription></Alert>
-            <div className="space-y-6">
+            <fieldset disabled={notApplicable} className="space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-4">
                         <CardContent className="space-y-4 pt-4">
@@ -468,8 +489,8 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
                         </CardContent>
                     </Card>
                 ))}
-            </div>
-            <Button type="button" variant="outline" onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })}><PlusCircle className="mr-2 h-4 w-4" />Мэргэшлийн бэлтгэл нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })}><PlusCircle className="mr-2 h-4 w-4" />Мэргэшлийн бэлтгэл нэмэх</Button>
+            </fieldset>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -480,10 +501,12 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
 
 function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "familyMembers" });
-    
+    const notApplicable = form.watch("familyMembersNotApplicable");
+
     return (
         <>
-            <div className="space-y-6">
+            <FormField control={form.control} name="familyMembersNotApplicable" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Гэр бүлийн мэдээлэл байхгүй</FormLabel></FormItem> )} />
+            <fieldset disabled={notApplicable} className="space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="relative p-4">
                         <CardContent className="space-y-4 pt-6">
@@ -497,8 +520,8 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
                         </CardContent>
                     </Card>
                 ))}
-            </div>
-            <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })}><PlusCircle className="mr-2 h-4 w-4" />Гэр бүлийн гишүүн нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })}><PlusCircle className="mr-2 h-4 w-4" />Гэр бүлийн гишүүн нэмэх</Button>
+            </fieldset>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -509,10 +532,12 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
 
 function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "experiences" });
+    const notApplicable = form.watch("experienceNotApplicable");
 
     return (
         <>
-            <div className="space-y-6">
+             <FormField control={form.control} name="experienceNotApplicable" render={({ field }) => ( <FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Ажлын туршлагын мэдээлэл байхгүй</FormLabel></FormItem> )} />
+            <fieldset disabled={notApplicable} className="space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="relative p-4">
                         <CardContent className="space-y-4 pt-6">
@@ -528,8 +553,8 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                         </CardContent>
                     </Card>
                 ))}
-            </div>
-            <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })}><PlusCircle className="mr-2 h-4 w-4" />Ажлын туршлага нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })}><PlusCircle className="mr-2 h-4 w-4" />Ажлын туршлага нэмэх</Button>
+            </fieldset>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
@@ -574,7 +599,12 @@ export default function QuestionnairePage() {
             lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '',
             hasDisability: false, disabilityPercentage: '', disabilityDate: null, hasDriversLicense: false, driverLicenseCategories: [],
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
-            emergencyContacts: [], education: [], languages: [], trainings: [], familyMembers: [], experiences: []
+            emergencyContacts: [], 
+            education: [], educationNotApplicable: false,
+            languages: [], languagesNotApplicable: false,
+            trainings: [], trainingsNotApplicable: false,
+            familyMembers: [], familyMembersNotApplicable: false,
+            experiences: [], experienceNotApplicable: false
         };
         
         const employeeInfo = {

@@ -350,6 +350,90 @@ const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
     )
 }
 
+const OverviewTabContent = ({ employeeId }: { employeeId: string }) => {
+    const questionnaireRef = useMemoFirebase(
+      ({ firestore }) =>
+        firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null,
+      [employeeId]
+    );
+
+    const { data: questionnaire, isLoading } = useDoc(questionnaireRef);
+    
+    const { completionPercentage, filledCount, totalCount } = React.useMemo(() => {
+        if (!questionnaire) return { completionPercentage: 0, filledCount: 0, totalCount: 0 };
+        
+        const fields = [
+            'lastName', 'firstName', 'registrationNumber', 'birthDate', 'gender', 'idCardNumber',
+            'personalPhone', 'personalEmail', 'homeAddress',
+        ];
+        
+        const arrayFields = [
+            { name: 'emergencyContacts', notApplicableKey: null }, // always applicable
+            { name: 'education', notApplicableKey: 'educationNotApplicable' },
+            { name: 'languages', notApplicableKey: 'languagesNotApplicable' },
+            { name: 'trainings', notApplicableKey: 'trainingsNotApplicable' },
+            { name: 'familyMembers', notApplicableKey: 'familyMembersNotApplicable' },
+            { name: 'experiences', notApplicableKey: 'experienceNotApplicable' },
+        ];
+
+        let filled = 0;
+        const total = fields.length + arrayFields.length;
+
+        fields.forEach(field => {
+            if(questionnaire[field]) {
+                filled++;
+            }
+        });
+
+        arrayFields.forEach(fieldInfo => {
+            if (fieldInfo.notApplicableKey && questionnaire[fieldInfo.notApplicableKey] === true) {
+                filled++;
+            } else if (Array.isArray(questionnaire[fieldInfo.name]) && questionnaire[fieldInfo.name].length > 0) {
+                filled++;
+            }
+        });
+
+        return {
+            completionPercentage: total > 0 ? (filled / total) * 100 : 0,
+            filledCount: filled,
+            totalCount: total,
+        }
+    }, [questionnaire]);
+
+    if (isLoading) {
+        return <Skeleton className="h-40" />
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Анкетын гүйцэтгэл</CardTitle>
+                    <CardDescription>Ажилтны анкетын мэдээллийн бөглөлт.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-4">
+                        <Progress value={completionPercentage} className="h-3 flex-1" />
+                        <span className="text-xl font-bold">{Math.round(completionPercentage)}%</span>
+                    </div>
+                     <p className="text-sm text-muted-foreground mt-2">
+                        Нийт {totalCount} талбараас {filledCount}-г бөглөсөн байна.
+                    </p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Ур чадвар</CardTitle>
+                    <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
 export default function EmployeeProfilePage() {
     const { id } = useParams();
     const router = useRouter();
@@ -536,15 +620,7 @@ export default function EmployeeProfilePage() {
                         <TabsTrigger value="cv">CV</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Ур чадвар</CardTitle>
-                                <CardDescription>Ажилтны эзэмшсэн ур чадварын жагсаалт.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground">Энд ур чадварын жагсаалт харагдах болно.</p>
-                            </CardContent>
-                        </Card>
+                       <OverviewTabContent employeeId={employeeId} />
                     </TabsContent>
                     <TabsContent value="onboarding">
                         <OnboardingProgramCard employee={employee} />
