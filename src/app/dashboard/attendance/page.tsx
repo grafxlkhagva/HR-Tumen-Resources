@@ -29,7 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, differenceInMinutes, startOfMonth, endOfMonth } from 'date-fns';
+import { format, differenceInMinutes, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -327,24 +327,19 @@ function TimeReportTab() {
     const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
     const departmentsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'departments') : null, []);
     const workSchedulesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'workSchedules') : null, []);
+    const attendanceQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'attendance') : null, []);
 
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
     const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
-    
-    const monthStart = startOfMonth(month);
-    const monthEnd = endOfMonth(month);
-
-    const attendanceQuery = useMemoFirebase(({ firestore, ...rest }) => firestore ? query(
-        collection(firestore, 'attendance'),
-        where('date', '>=', format(monthStart, 'yyyy-MM-dd')),
-        where('date', '<=', format(monthEnd, 'yyyy-MM-dd'))
-    ) : null, [firestore, monthStart, monthEnd]);
     const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
     
     const isLoading = isLoadingEmployees || isLoadingDepartments || isLoadingSchedules || isLoadingAttendance;
     
     // Data processing
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+
     const { departmentMap, workScheduleMap } = React.useMemo(() => {
         const dMap = new Map(departments?.map(d => [d.id, d.name]));
         const wsMap = new Map(workSchedules?.map(ws => [ws.id, ws]));
@@ -352,10 +347,15 @@ function TimeReportTab() {
     }, [departments, workSchedules]);
 
     const reportData = React.useMemo(() => {
-        if (!employees) return [];
+        if (!employees || !attendanceRecords) return [];
+        
+        const filteredAttendance = attendanceRecords.filter(r => {
+             const recordDate = new Date(r.date);
+             return isWithinInterval(recordDate, { start: monthStart, end: monthEnd });
+        });
         
         return employees.map(emp => {
-            const workedHours = attendanceRecords
+            const workedHours = filteredAttendance
                 ?.filter(r => r.employeeId === emp.id)
                 .reduce((total, record) => {
                     if (record.checkInTime && record.checkOutTime) {
@@ -371,7 +371,7 @@ function TimeReportTab() {
             }
         });
 
-    }, [employees, departmentMap, attendanceRecords]);
+    }, [employees, departmentMap, attendanceRecords, monthStart, monthEnd]);
 
 
     return (
