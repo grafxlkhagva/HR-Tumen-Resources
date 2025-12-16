@@ -150,7 +150,6 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
                         cy={size / 2}
                     />
                     <circle
-                        className="transition-all duration-500 ease-in-out"
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
@@ -160,7 +159,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
                         cx={size / 2}
                         cy={size / 2}
                         transform={`rotate(-90 ${size/2} ${size/2})`}
-                        style={{ stroke: progressColor }}
+                        style={{ stroke: progressColor, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
                     />
                 </svg>
             )}
@@ -372,7 +371,7 @@ const OrganizationChart = () => {
   
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-  const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
+  const { data: employeesData, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
   const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
   const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
   const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
@@ -380,6 +379,7 @@ const OrganizationChart = () => {
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
+  const employees = employeesData;
   const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
   const handleAddEmployeeClick = (position: Position) => {
@@ -564,5 +564,7 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
+    
 
     
