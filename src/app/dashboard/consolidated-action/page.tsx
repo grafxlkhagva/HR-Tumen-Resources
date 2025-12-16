@@ -229,6 +229,60 @@ const SkeletonChart = () => (
     </div>
 )
 
+// --- Layouting Logic ---
+const X_GAP = 300;
+const Y_GAP = 200;
+
+function calculatePositions(positions: Position[]) {
+    const positionMap = new Map(positions.map(p => [p.id, p]));
+    const childrenMap = new Map<string, string[]>();
+    positions.forEach(p => {
+        if (p.reportsTo) {
+            if (!childrenMap.has(p.reportsTo)) {
+                childrenMap.set(p.reportsTo, []);
+            }
+            childrenMap.get(p.reportsTo)!.push(p.id);
+        }
+    });
+
+    const rootNodes = positions.filter(p => !p.reportsTo);
+    
+    // Sort root nodes alphabetically by title for consistent starting layout
+    rootNodes.sort((a,b) => a.title.localeCompare(b.title));
+
+    const nodePositions: Record<string, { x: number, y: number }> = {};
+    let currentX = 0;
+
+    function positionNode(nodeId: string, level: number, parentX: number) {
+        const children = childrenMap.get(nodeId) || [];
+        // Sort children alphabetically by title
+        children.sort((a, b) => {
+            const posA = positionMap.get(a)?.title || '';
+            const posB = positionMap.get(b)?.title || '';
+            return posA.localeCompare(posB);
+        });
+
+        const totalWidth = children.length > 0 ? (children.length - 1) * X_GAP : 0;
+        let startX = parentX - totalWidth / 2;
+        
+        children.forEach((childId, index) => {
+            const x = startX + index * X_GAP;
+            nodePositions[childId] = { x, y: level * Y_GAP };
+            positionNode(childId, level + 1, x);
+        });
+    }
+
+    rootNodes.forEach(rootNode => {
+        nodePositions[rootNode.id] = { x: currentX, y: 0 };
+        positionNode(rootNode.id, 1, currentX);
+        const maxLevelWidth = positions.filter(p => p.reportsTo === rootNode.id).length;
+        currentX += (maxLevelWidth || 1) * X_GAP + 100;
+    });
+
+    return nodePositions;
+}
+
+
 // --- Main Component ---
 const OrganizationChart = () => {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -294,7 +348,6 @@ const OrganizationChart = () => {
     const deptMap = new Map(departments?.map(d => [d.id, d.name]));
     const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
 
-    const positionNodes = new Map<string, Node<PositionNodeData>>();
     const employeeMap = new Map<string, Employee>();
     const posToEmployeeMap = new Map<string, Employee[]>();
 
@@ -320,35 +373,9 @@ const OrganizationChart = () => {
 
     const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
-    const positionLayout: Record<string, { x: number, y: number }> = {};
-    const levelCounts: Record<number, number> = {};
-    const positionMap = new Map(positions.map(p => [p.id, p]));
+    const positionLayout = calculatePositions(positions);
 
-    function getLevel(posId: string, visited = new Set<string>()): number {
-        if (visited.has(posId)) return 100; // Cycle detection
-        visited.add(posId);
-        const pos = positionMap.get(posId);
-        if (!pos || !pos.reportsTo) return 0;
-        return 1 + getLevel(pos.reportsTo, visited);
-    }
-    
-    // Stable sort: by level, then by title
-    const sortedPositions = (positions || [])
-        .map(p => ({ ...p, level: getLevel(p.id) }))
-        .sort((a, b) => {
-            if (a.level !== b.level) {
-                return a.level - b.level;
-            }
-            return a.title.localeCompare(b.title);
-        });
-
-    sortedPositions.forEach(pos => {
-        const level = pos.level;
-        levelCounts[level] = (levelCounts[level] || 0) + 1;
-        const x = (levelCounts[level] * 350) - 175;
-        const y = level * 250;
-        positionLayout[pos.id] = { x, y };
-
+    positions.forEach(pos => {
          const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
          const employee = assignedEmployees[0]; // Assuming one employee per position for status
          let attendanceStatus;
@@ -373,7 +400,7 @@ const OrganizationChart = () => {
         const node: Node<PositionNodeData> = {
             id: pos.id,
             type: 'position',
-            position: { x, y },
+            position: positionLayout[pos.id] || { x: 0, y: 0 },
             data: {
                 ...pos,
                 label: pos.title,
@@ -388,10 +415,9 @@ const OrganizationChart = () => {
                 attendanceStatus
             },
         };
-        positionNodes.set(pos.id, node);
         newNodes.push(node);
 
-        if (pos.reportsTo && positionMap.has(pos.reportsTo)) {
+        if (pos.reportsTo) {
             newEdges.push({
                 id: `e-${pos.reportsTo}-${pos.id}`,
                 source: pos.reportsTo,
@@ -516,6 +542,3 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
-
-
-
