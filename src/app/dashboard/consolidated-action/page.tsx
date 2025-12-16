@@ -70,6 +70,7 @@ interface Employee {
   positionId?: string;
   status: string;
   hireDate: string;
+  questionnaireCompletion?: number;
 }
 
 type AttendanceRecord = {
@@ -134,6 +135,60 @@ function isColorDark(hex: string): boolean {
 }
 
 // --- Node Components ---
+
+const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size?: number; }) => {
+    const progress = employee?.questionnaireCompletion || 0;
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (progress / 100) * circumference;
+
+    const progressColor = progress < 50 ? 'text-red-500' : progress < 90 ? 'text-yellow-500' : 'text-green-500';
+
+    return (
+        <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
+            <Avatar className="h-full w-full">
+                <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
+                <AvatarFallback className="text-3xl bg-muted">
+                    {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
+                </AvatarFallback>
+            </Avatar>
+            {employee && (
+                 <svg
+                    className="absolute top-0 left-0"
+                    width={size}
+                    height={size}
+                    viewBox={`0 0 ${size} ${size}`}
+                >
+                    <circle
+                        className="text-muted"
+                        stroke="currentColor"
+                        strokeWidth={strokeWidth}
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                    />
+                    <circle
+                        className={cn("transition-all duration-500 ease-in-out", progressColor)}
+                        stroke="currentColor"
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                        transform={`rotate(-90 ${size/2} ${size/2})`}
+                    />
+                </svg>
+            )}
+        </div>
+    );
+};
+
+
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
   const employee = data.employees[0];
   const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
@@ -160,12 +215,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
       </DropdownMenu>
 
       <CardContent className="p-4 text-center">
-        <Avatar className="h-20 w-20 mx-auto mb-3">
-          <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
-          <AvatarFallback className="text-3xl bg-muted">
-            {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
-          </AvatarFallback>
-        </Avatar>
+        <AvatarWithProgress employee={employee} size={80} />
         
         {employee ? (
             <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
@@ -550,6 +600,7 @@ export default OrganizationChart;
     
 
     
+
 
 
 
