@@ -301,7 +301,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             className="w-[160px] h-[160px] rounded-lg shadow-lg flex flex-col items-center justify-center p-3 text-center relative" 
             style={cardStyle}
         >
-            <Handle type="target" position={Position.Top} id="b" className="!bg-transparent !border-0 !w-full !-z-10 !h-1/2 !top-0" />
+            <Handle type="target" position={Position.Top} id="b" />
             <Handle type="source" position={Position.Bottom} id="a" />
              <div className="absolute top-2 right-2 z-10">
                  <DropdownMenu>
@@ -491,7 +491,7 @@ const OrganizationChart = () => {
 
             // Connecting a position to another position (reportsTo)
             if (sourceNode?.type === 'position' && targetNode?.type === 'position') {
-                const newEdge = { ...connection, animated: false, style: { strokeWidth: 2, stroke: '#2563eb' } };
+                const newEdge = { ...connection, animated: true, style: { strokeWidth: 2, stroke: '#2563eb' } };
                 setEdges((eds) => addEdge(newEdge, eds));
                 
                 const childDocRef = doc(firestore, 'positions', connection.target);
@@ -581,7 +581,7 @@ const OrganizationChart = () => {
                 id: `${pos.reportsTo}-${pos.id}`,
                 source: pos.reportsTo!,
                 target: pos.id,
-                animated: false,
+                animated: true,
                 style: { strokeWidth: 2, stroke: '#2563eb' },
             }));
 
@@ -605,9 +605,9 @@ const OrganizationChart = () => {
                             stroke-dashoffset: 100;
                         }
                     }
-                    .react-flow__edge-path {
+                    .react-flow__edge.animated .react-flow__edge-path {
                         stroke-dasharray: 5;
-                        animation: dashdraw .5s linear infinite;
+                        animation: dashdraw 2s linear infinite;
                     }
                 `}
             </style>
