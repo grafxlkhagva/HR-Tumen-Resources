@@ -114,8 +114,6 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (progress / 100) * circumference;
 
-    const progressColor = progress < 50 ? 'text-red-500' : progress < 90 ? 'text-yellow-500' : 'text-green-500';
-
     const avatarContent = (
          <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
             <Avatar className="h-full w-full">
@@ -141,7 +139,11 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                         cy={size / 2}
                     />
                     <circle
-                        className={cn("transition-all duration-500 ease-in-out", progressColor)}
+                        className={cn(
+                            "transition-all duration-500 ease-in-out",
+                            progress < 50 ? 'text-red-500' : 
+                            progress < 90 ? 'text-yellow-500' : 'text-green-500'
+                        )}
                         stroke="currentColor"
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
@@ -176,7 +178,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
   return (
     <Card 
         className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
-        style={{ backgroundColor: data.departmentColor || undefined }}
+        style={{ backgroundColor: data.departmentColor }}
     >
       <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
       <DropdownMenu>
