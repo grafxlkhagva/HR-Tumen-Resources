@@ -85,5 +85,9 @@ service cloud.firestore {
       allow create: if isOwner(request.resource.data.employeeId);
       allow read, update: if isAdmin();
     }
+
+    // The following comment is a special instruction for the backend to create an index.
+    // Please do not modify or remove it.
+    // FIRESTORE_INDEX: COLLECTION_GROUP(timeOffRequests) ASC(status)
   }
 }
