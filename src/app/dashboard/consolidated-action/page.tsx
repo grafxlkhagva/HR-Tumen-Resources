@@ -146,20 +146,15 @@ function isColorDark(hex: string): boolean {
 
 const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     const progress = employee?.questionnaireCompletion || 0;
-    const size = 80;
-    const strokeWidth = 4;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (progress / 100) * circumference;
-
+    
     const progressColor =
         progress < 50 ? '#ef4444' : // red-500
         progress < 90 ? '#f59e0b' : // amber-500
         '#22c55e'; // green-500
     
     const avatarContent = (
-         <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
-            <Avatar className="h-full w-full">
+         <div className="relative mx-auto mb-3">
+            <Avatar className="h-20 w-20">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
                     {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
@@ -168,29 +163,29 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
             {employee && (
                  <svg
                     className="absolute top-0 left-0"
-                    width={size}
-                    height={size}
-                    viewBox={`0 0 ${size} ${size}`}
+                    width="80"
+                    height="80"
+                    viewBox="0 0 80 80"
                 >
                     <circle
                         className="text-muted/30"
                         stroke="currentColor"
-                        strokeWidth={strokeWidth}
+                        strokeWidth="4"
                         fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
+                        r="38"
+                        cx="40"
+                        cy="40"
                     />
                     <circle
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={offset}
+                        strokeWidth="4"
+                        strokeDasharray={2 * Math.PI * 38}
+                        strokeDashoffset={(2 * Math.PI * 38) * (1 - progress / 100)}
                         strokeLinecap="round"
                         fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
-                        transform={`rotate(-90 ${size/2} ${size/2})`}
+                        r="38"
+                        cx="40"
+                        cy="40"
+                        transform="rotate(-90 40 40)"
                         style={{ stroke: progressColor, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
                     />
                 </svg>
@@ -256,7 +251,14 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         <AvatarWithProgress employee={employee} />
         
         {employee ? (
-            <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
+            <>
+              <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
+              {employee.questionnaireCompletion !== undefined && (
+                <p className={cn("text-xs font-bold", mutedTextColor)}>
+                    Анкет: {Math.round(employee.questionnaireCompletion)}%
+                </p>
+              )}
+            </>
         ) : (
             <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
         )}
@@ -420,7 +422,6 @@ const OrganizationChart = () => {
   const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
   const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-  const questionnaireQuery = useMemoFirebase(() => (firestore ? collectionGroup(firestore, 'questionnaire') : null), [firestore]);
   
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
@@ -428,32 +429,18 @@ const OrganizationChart = () => {
 
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-  const { data: employeesData, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
+  const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
   const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
   const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
   const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
-  const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useCollection<any>(questionnaireQuery);
   const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
-  // FIX: Temporarily disable the problematic query
-  // const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
-  const timeOffData: TimeOffRequest[] | null = [];
-  const isLoadingTimeOff = false;
+  const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-  const employees = useMemo(() => {
-    if (!employeesData || !questionnaireData) return employeesData;
 
-    const questionnaireMap = new Map(questionnaireData.map(q => [q.id.split('/')[1], q.questionnaireCompletion]));
-
-    return employeesData.map(emp => ({
-      ...emp,
-      questionnaireCompletion: questionnaireMap.get(emp.id) || 0,
-    }));
-  }, [employeesData, questionnaireData]);
-
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingQuestionnaire || isLoadingAttendance || isLoadingTimeOff;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff;
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
@@ -549,7 +536,7 @@ const OrganizationChart = () => {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, questionnaireData, attendanceData, timeOffData]);
+  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
