@@ -124,6 +124,8 @@ const nodeWidth = 160;
 const nodeHeight = 160;
 const horizontalSpacing = 80;
 const verticalSpacing = 120;
+const unassignedEmployeeSpacing = 40;
+
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   if (nodes.length === 0) {
@@ -133,6 +135,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const positionNodesList = nodes.filter(n => n.type === 'position');
   const employeeNodes = nodes.filter(n => n.type === 'employee');
 
+  // --- Layout for Position Nodes (Tree structure) ---
   const graph = new Map<string, string[]>();
   const nodeMap = new Map<string, Node>();
   const roots: string[] = [];
@@ -193,6 +196,14 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
         currentX += rootLayout.width + horizontalSpacing * 2;
       }
   })
+
+  // --- Layout for Unassigned Employee Nodes ---
+  let employeeY = 0;
+  const employeeX = - (nodeWidth + horizontalSpacing * 2); // Position to the left of the chart
+  employeeNodes.forEach(node => {
+      layout.set(node.id, { x: employeeX, y: employeeY, width: nodeWidth });
+      employeeY += nodeHeight + unassignedEmployeeSpacing;
+  });
 
   const layoutedNodes = nodes.map((node) => {
     const pos = layout.get(node.id);
@@ -584,89 +595,73 @@ const OrganizationChart = () => {
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;
     }
-    
-    const unassignedEmployeeNodes = nodes.filter(n => n.type === 'employee');
-    const chartNodes = nodes.filter(n => n.type !== 'employee');
-
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Сул ажилчид</CardTitle>
-                    <CardDescription>Эдгээр ажилтнуудыг чирч, ажлын байранд томилно уу.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    {unassignedEmployeeNodes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Сул ажилтан байхгүй.</p>}
-                    {unassignedEmployeeNodes.map(node => <EmployeeNode key={node.id} data={node.data}/>)}
-                </CardContent>
-            </Card>
-            <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
-                <AlertDialog open={!!assignmentConfirmation} onOpenChange={(open) => !open && setAssignmentConfirmation(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Та <strong>{assignmentConfirmation?.employee.firstName}</strong>-г <strong>{assignmentConfirmation?.position.title}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setAssignmentConfirmation(null)}>Цуцлах</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleConfirmAssignment}>Тийм, томилох</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-                <AddPositionDialog
-                    open={isPositionDialogOpen}
-                    onOpenChange={setIsPositionDialogOpen}
-                    departments={departments || []}
-                    allPositions={positions || []}
-                    positionLevels={positionLevels || []}
-                    employmentTypes={employmentTypes || []}
-                    jobCategories={jobCategories || []}
-                    editingPosition={editingPosition}
-                />
-                <AssignEmployeeDialog 
-                    open={isAssignDialogOpen}
-                    onOpenChange={setIsAssignDialogOpen}
-                    position={assigningPosition}
-                    employees={employees || []}
-                />
-                <AddEmployeeDialog 
-                    open={isAddEmployeeDialogOpen}
-                    onOpenChange={setIsAddEmployeeDialogOpen}
-                    departments={departments || []}
-                    positions={positions || []}
-                    workSchedules={workSchedules || []}
-                    preselectedDept={assigningPosition?.departmentId}
-                    preselectedPos={assigningPosition?.id}
-                />
-                <ReactFlow
-                    nodes={chartNodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onEdgesDelete={onEdgesDelete}
-                    nodeTypes={nodeTypes}
-                    fitView
-                    className="bg-background"
-                    proOptions={{ hideAttribution: true }}
-                    connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
-                    deleteKeyCode={['Backspace', 'Delete']}
-                >
-                    <Controls />
-                    <Background gap={16} />
-                </ReactFlow>
-                <Button
-                    size="icon"
-                    className="absolute bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
-                    onClick={handleOpenAddDialog}
-                >
-                    <PlusCircle className="h-6 w-6" />
-                    <span className="sr-only">Шинэ албан тушаал нэмэх</span>
-                </Button>
-            </div>
+        <div style={{ width: '100%', height: 'calc(100vh - 200px)' }} className="relative">
+            <AlertDialog open={!!assignmentConfirmation} onOpenChange={(open) => !open && setAssignmentConfirmation(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Та <strong>{assignmentConfirmation?.employee.firstName}</strong>-г <strong>{assignmentConfirmation?.position.title}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setAssignmentConfirmation(null)}>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAssignment}>Тийм, томилох</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AddPositionDialog
+                open={isPositionDialogOpen}
+                onOpenChange={setIsPositionDialogOpen}
+                departments={departments || []}
+                allPositions={positions || []}
+                positionLevels={positionLevels || []}
+                employmentTypes={employmentTypes || []}
+                jobCategories={jobCategories || []}
+                editingPosition={editingPosition}
+            />
+            <AssignEmployeeDialog 
+                open={isAssignDialogOpen}
+                onOpenChange={setIsAssignDialogOpen}
+                position={assigningPosition}
+                employees={employees || []}
+            />
+            <AddEmployeeDialog 
+                open={isAddEmployeeDialogOpen}
+                onOpenChange={setIsAddEmployeeDialogOpen}
+                departments={departments || []}
+                positions={positions || []}
+                workSchedules={workSchedules || []}
+                preselectedDept={assigningPosition?.departmentId}
+                preselectedPos={assigningPosition?.id}
+            />
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onEdgesDelete={onEdgesDelete}
+                nodeTypes={nodeTypes}
+                fitView
+                className="bg-background"
+                proOptions={{ hideAttribution: true }}
+                connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
+                deleteKeyCode={['Backspace', 'Delete']}
+            >
+                <Controls />
+                <Background gap={16} />
+            </ReactFlow>
+            <Button
+                size="icon"
+                className="absolute bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+                onClick={handleOpenAddDialog}
+            >
+                <PlusCircle className="h-6 w-6" />
+                <span className="sr-only">Шинэ албан тушаал нэмэх</span>
+            </Button>
         </div>
     );
 };
