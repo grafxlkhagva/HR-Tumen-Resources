@@ -27,9 +27,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, increment } from 'firebase/firestore';
+import { collection, doc, increment, where, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus } from 'lucide-react';
+import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus, LogIn, LogOut, CalendarCheck2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { AddEmployeeDialog } from '../employees/add/page';
 import Link from 'next/link';
+import { format, isWithinInterval } from 'date-fns';
 
 
 // --- Type Definitions ---
@@ -99,11 +100,35 @@ type JobCategoryReference = Reference & {
     code: string;
 }
 
+type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    date: string; // yyyy-MM-dd
+    checkInTime: string;
+    checkOutTime?: string;
+    status: 'PRESENT' | 'LEFT';
+}
+
+type TimeOffRequest = {
+    id: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    status: 'Зөвшөөрсөн';
+}
+
+type AttendanceStatus = {
+    checkInTime?: string;
+    checkOutTime?: string;
+    onLeave?: boolean;
+}
+
 type PositionNodeData = {
     label: string;
     headcount: number;
     filled: number;
     employees: Employee[];
+    attendanceStatus?: AttendanceStatus;
     color: string;
     onEdit: () => void;
     onDelete: () => void;
@@ -121,7 +146,7 @@ type EmployeeNodeData = {
 
 // --- Helper Functions for Layout ---
 const nodeWidth = 160;
-const nodeHeight = 160;
+const nodeHeight = 184; // Increased height for attendance status
 const horizontalSpacing = 80;
 const verticalSpacing = 120;
 const unassignedEmployeeSpacing = 40;
@@ -289,6 +314,7 @@ const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
     const isFilled = data.filled > 0;
     const employee = data.employees[0];
+    const status = data.attendanceStatus;
     
     const cardStyle = {
         backgroundColor: data.color || 'hsl(var(--card))',
@@ -298,7 +324,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
     return (
         <div 
-            className="w-[160px] h-[160px] rounded-lg shadow-lg flex flex-col items-center justify-center p-3 text-center relative" 
+            className="w-[160px] h-[184px] rounded-lg shadow-lg flex flex-col items-center p-3 text-center relative" 
             style={cardStyle}
         >
             <Handle type="target" position={Position.Top} id="b" />
@@ -327,6 +353,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                 </DropdownMenu>
              </div>
 
+            <div className="flex-1 flex flex-col items-center justify-center">
             {!isFilled ? (
                 // Unfilled State
                 <div className="flex flex-col items-center gap-1.5">
@@ -357,6 +384,32 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                      )}
                 </div>
             )}
+            </div>
+
+            {isFilled && (
+                <div className="w-full pt-2 mt-2 border-t text-[11px] font-medium">
+                    {status?.onLeave ? (
+                        <div className="flex items-center justify-center gap-1.5 text-yellow-600">
+                           <CalendarCheck2 className="h-3.5 w-3.5" /> 
+                           <span>Чөлөөтэй</span>
+                        </div>
+                    ) : status?.checkInTime ? (
+                         <div className="flex items-center justify-center gap-1.5 text-green-600">
+                           <LogIn className="h-3.5 w-3.5" /> 
+                           <span>{format(new Date(status.checkInTime), 'HH:mm')}</span>
+                           {status.checkOutTime && (
+                                <>
+                                 <span className="text-muted-foreground">/</span>
+                                 <LogOut className="h-3.5 w-3.5" /> 
+                                 <span>{format(new Date(status.checkOutTime), 'HH:mm')}</span>
+                                </>
+                           )}
+                        </div>
+                    ) : (
+                        <div className="text-muted-foreground">Ирц бүртгүүлээгүй</div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -381,6 +434,7 @@ const OrganizationChart = () => {
 
 
     // Data queries
+    const todayString = format(new Date(), 'yyyy-MM-dd');
     const positionsQuery = useMemoFirebase(() => collection(firestore, 'positions'), [firestore]);
     const employeesQuery = useMemoFirebase(() => collection(firestore, 'employees'), [firestore]);
     const departmentsQuery = useMemoFirebase(() => collection(firestore, 'departments'), [firestore]);
@@ -388,6 +442,9 @@ const OrganizationChart = () => {
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayString)) : null), [firestore, todayString]);
+    const timeOffQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
+
 
     const { data: positions, isLoading: isLoadingPos } = useCollection<PositionData>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
@@ -396,8 +453,11 @@ const OrganizationChart = () => {
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<Reference>(empTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategoryReference>(jobCategoriesQuery);
     const { data: workSchedules, isLoading: isLoadingWorkSchedules } = useCollection<Reference>(workSchedulesQuery);
+    const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: timeOffRecords, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
 
-    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules;
+
+    const isLoading = isLoadingPos || isLoadingEmp || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules || isLoadingAttendance || isLoadingTimeOff;
 
     // --- Dialog and CRUD Handlers ---
     const handleOpenAddDialog = () => {
@@ -524,7 +584,29 @@ const OrganizationChart = () => {
     );
 
     React.useEffect(() => {
-        if (isLoading || !positions || !employees || !departments) return;
+        if (isLoading || !positions || !employees || !departments || !attendanceRecords || !timeOffRecords) return;
+
+        const today = new Date();
+        const attendanceMap = new Map<string, AttendanceStatus>();
+        
+        // Process time-off records first
+        timeOffRecords.forEach(req => {
+            const start = new Date(req.startDate);
+            const end = new Date(req.endDate);
+            if (isWithinInterval(today, { start, end })) {
+                attendanceMap.set(req.employeeId, { onLeave: true });
+            }
+        });
+
+        // Process attendance records, but don't overwrite on-leave status
+        attendanceRecords.forEach(rec => {
+            if (!attendanceMap.has(rec.employeeId)) {
+                attendanceMap.set(rec.employeeId, {
+                    checkInTime: rec.checkInTime,
+                    checkOutTime: rec.checkOutTime,
+                });
+            }
+        });
     
         const employeesByPosition = employees.reduce((acc, emp) => {
             if (emp.positionId && emp.status === 'Идэвхтэй') {
@@ -542,6 +624,7 @@ const OrganizationChart = () => {
 
         const positionNodes: Node[] = activePositions.map(pos => {
             const assignedEmployees = employeesByPosition.get(pos.id) || [];
+            const attendanceStatus = assignedEmployees[0] ? attendanceMap.get(assignedEmployees[0].id) : undefined;
             return {
                 id: pos.id,
                 type: 'position',
@@ -550,6 +633,7 @@ const OrganizationChart = () => {
                     headcount: pos.headcount || 0,
                     filled: assignedEmployees.length,
                     employees: assignedEmployees,
+                    attendanceStatus: attendanceStatus,
                     color: departmentColorMap.get(pos.departmentId) || '#ffffff',
                     onEdit: () => handleOpenEditDialog(pos.id),
                     onDelete: () => handleDeletePosition(pos.id),
@@ -590,7 +674,7 @@ const OrganizationChart = () => {
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [isLoading, positions, employees, departments, setNodes, setEdges]);
+    }, [isLoading, positions, employees, departments, attendanceRecords, timeOffRecords, setNodes, setEdges]);
     
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;
