@@ -14,6 +14,8 @@ import ReactFlow, {
   Background,
   Controls,
   MarkerType,
+  Handle,
+  Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -135,6 +137,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
   return (
     <Card className="w-64 border-2 border-primary/50 shadow-lg">
+      <Handle type="target" position={Position.Top} className="!bg-primary" />
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{data.title}</CardTitle>
         <CardDescription>{data.department}</CardDescription>
@@ -172,12 +175,14 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             {getAttendanceContent()}
          </CardContent>
       )}
+      <Handle type="source" position={Position.Bottom} className="!bg-primary" />
     </Card>
   );
 };
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
     <Card className="w-64 bg-amber-50 border-amber-200 shadow-md">
+        <Handle type="source" position={Position.Right} className="!bg-amber-500" />
         <CardContent className="p-3 flex items-center gap-3">
              <Avatar className="h-9 w-9">
                 <AvatarImage src={data.avatar} alt={data.name} />
@@ -246,7 +251,7 @@ const OrganizationChart = () => {
   };
 
   useMemo(() => {
-    if (isLoading) return;
+    if (isLoading || !positions) return;
 
     const deptMap = new Map(departments?.map(d => [d.id, d.name]));
     const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
@@ -442,5 +447,3 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
-
-    
