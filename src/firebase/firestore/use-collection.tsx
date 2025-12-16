@@ -60,7 +60,6 @@ export function useCollection<T = DocumentData>(
         setError(null);
       },
       (err: FirestoreError) => {
-        console.error("[useCollection] Firestore error:", err);
         setError(err);
         setLoading(false);
         // ❗ ЭНД ЯМАР Ч ЮМЫГ THROW ХИЙХГҮЙ.

@@ -435,7 +435,10 @@ const OrganizationChart = () => {
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
   const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useCollection<any>(questionnaireQuery);
   const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
-  const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
+  // FIX: Temporarily disable the problematic query
+  // const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
+  const timeOffData: TimeOffRequest[] | null = [];
+  const isLoadingTimeOff = false;
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
