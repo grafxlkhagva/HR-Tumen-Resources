@@ -23,7 +23,7 @@ import {
   useMemoFirebase,
   updateDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -225,7 +225,7 @@ const OrganizationChart = () => {
   );
   
   const timeOffQuery = useMemoFirebase(
-      () => (firestore ? collection(firestore, 'timeOffRequests') : null),
+      () => (firestore ? collectionGroup(firestore, 'timeOffRequests') : null),
       [firestore]
   );
 
@@ -443,4 +443,4 @@ const OrganizationChart = () => {
 
 export default OrganizationChart;
 
-
+    
