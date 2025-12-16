@@ -61,6 +61,7 @@ interface Employee {
   photoURL?: string;
   jobTitle: string;
   positionId?: string;
+  status: string;
 }
 
 type AttendanceRecord = {
@@ -224,7 +225,7 @@ const OrganizationChart = () => {
   );
   
   const timeOffQuery = useMemoFirebase(
-      () => (firestore ? query(collection(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null),
+      () => (firestore ? collection(firestore, 'timeOffRequests') : null),
       [firestore]
   );
 
@@ -258,7 +259,7 @@ const OrganizationChart = () => {
     const today = new Date();
     const onLeaveEmployeeIds = new Set(
         timeOffRequests
-            ?.filter(req => isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) }))
+            ?.filter(req => req.status === 'Зөвшөөрсөн' && isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) }))
             .map(req => req.employeeId)
     );
 
@@ -343,7 +344,7 @@ const OrganizationChart = () => {
                 source: pos.reportsTo,
                 target: pos.id,
                 type: 'smoothstep',
-                animated: false,
+                animated: true,
                 style: { stroke: '#2563eb', strokeWidth: 2 }
             });
         }
@@ -441,4 +442,5 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
 
