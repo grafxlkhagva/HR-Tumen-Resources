@@ -281,6 +281,11 @@ const OrganizationChart = () => {
     setEditingPosition(position);
     setIsPositionDialogOpen(true);
   };
+  
+  const handleOpenAddDialog = () => {
+    setEditingPosition(null);
+    setIsPositionDialogOpen(true);
+  };
 
   useMemo(() => {
     if (isLoading || !positions) return;
@@ -450,10 +455,18 @@ const OrganizationChart = () => {
         `}
       </style>
       <CardHeader>
-        <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
-        <CardDescription>
-            Ажилтныг сул ажлын байранд чирж томилох эсвэл, ажлын байрны мэдээллийг засах.
-        </CardDescription>
+        <div className="flex justify-between items-center">
+            <div>
+                <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
+                <CardDescription>
+                    Ажилтныг сул ажлын байранд чирж томилох эсвэл, ажлын байрны мэдээллийг засах.
+                </CardDescription>
+            </div>
+            <Button size="sm" onClick={handleOpenAddDialog}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Ажлын байр нэмэх
+            </Button>
+        </div>
       </CardHeader>
       {isLoading ? <SkeletonChart/> : (
         <ReactFlow
@@ -491,3 +504,4 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
