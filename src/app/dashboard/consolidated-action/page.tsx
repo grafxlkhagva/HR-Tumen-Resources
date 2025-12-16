@@ -42,6 +42,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 interface Department {
   id: string;
   name: string;
+  color?: string;
 }
 
 interface Position {
@@ -90,6 +91,7 @@ interface PositionNodeData {
   label: string;
   title: string;
   department: string;
+  departmentColor?: string;
   headcount: number;
   filled: number;
   employees: Employee[];
@@ -122,7 +124,10 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
   const employee = data.employees[0]; // Assuming one employee per position for this view
 
   return (
-    <Card className="w-64 rounded-xl border-2 border-primary/20 shadow-lg relative group">
+    <Card 
+        className="w-64 rounded-xl border-2 shadow-lg relative group"
+        style={{ borderColor: data.departmentColor || undefined }}
+    >
       <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -341,7 +346,7 @@ const OrganizationChart = () => {
   useEffect(() => {
     if (isLoading || !positions) return;
 
-    const deptMap = new Map(departments?.map(d => [d.id, d.name]));
+    const deptMap = new Map(departments?.map(d => [d.id, d]));
     const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
 
     const posToEmployeeMap = new Map<string, Employee[]>();
@@ -374,6 +379,8 @@ const OrganizationChart = () => {
                  } else attendanceStatus = { status: 'absent' };
              }
         }
+        
+        const department = deptMap.get(pos.departmentId);
 
         const node: Node<PositionNodeData> = {
             id: pos.id,
@@ -381,7 +388,8 @@ const OrganizationChart = () => {
             position: nodePositions[pos.id] || { x: 0, y: 0 },
             data: {
                 ...pos, label: pos.title, title: pos.title,
-                department: deptMap.get(pos.departmentId) || 'Unknown',
+                department: department?.name || 'Unknown',
+                departmentColor: department?.color,
                 headcount: pos.headcount,
                 filled: posToEmployeeMap.get(pos.id)?.length || 0,
                 employees: assignedEmployees,
@@ -524,3 +532,4 @@ export default OrganizationChart;
     
 
     
+
