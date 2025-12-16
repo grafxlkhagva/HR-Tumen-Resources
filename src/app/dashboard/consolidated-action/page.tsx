@@ -38,9 +38,13 @@ import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { isWithinInterval, format } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { Employee } from '../employees/data';
+import type { Employee as BaseEmployee } from '../employees/data';
 
 // --- Types ---
+type Employee = BaseEmployee & {
+  questionnaireCompletion?: number;
+};
+
 interface Department {
   id: string;
   name: string;
@@ -114,6 +118,11 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (progress / 100) * circumference;
 
+    const progressColor = 
+        progress < 50 ? '#ef4444' : // red-500
+        progress < 90 ? '#f59e0b' : // amber-500
+        '#22c55e'; // green-500
+    
     const avatarContent = (
          <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
             <Avatar className="h-full w-full">
@@ -139,12 +148,8 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                         cy={size / 2}
                     />
                     <circle
-                        className={cn(
-                            "transition-all duration-500 ease-in-out",
-                            progress < 50 ? 'text-red-500' : 
-                            progress < 90 ? 'text-yellow-500' : 'text-green-500'
-                        )}
-                        stroke="currentColor"
+                        className="transition-all duration-500 ease-in-out"
+                        stroke={progressColor}
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
