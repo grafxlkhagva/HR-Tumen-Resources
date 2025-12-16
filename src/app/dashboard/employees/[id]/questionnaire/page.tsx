@@ -146,44 +146,46 @@ const fullQuestionnaireSchema = generalInfoSchema
 type FullQuestionnaireValues = z.infer<typeof fullQuestionnaireSchema>;
 type ReferenceItem = { id: string; name: string };
 
-const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>) => {
+const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>): number => {
     if (!data) return 0;
-    
+  
     const fields = [
-        'lastName', 'firstName', 'registrationNumber', 'birthDate', 'gender', 'idCardNumber',
-        'personalPhone', 'personalEmail', 'homeAddress',
+      'lastName', 'firstName', 'registrationNumber', 'birthDate', 'gender',
+      'personalPhone', 'personalEmail', 'homeAddress',
     ];
-    
+  
     const arrayFields = [
-        { name: 'emergencyContacts', notApplicableKey: null },
-        { name: 'education', notApplicableKey: 'educationNotApplicable' },
-        { name: 'languages', notApplicableKey: 'languagesNotApplicable' },
-        { name: 'trainings', notApplicableKey: 'trainingsNotApplicable' },
-        { name: 'familyMembers', notApplicableKey: 'familyMembersNotApplicable' },
-        { name: 'experiences', notApplicableKey: 'experienceNotApplicable' },
+      { name: 'emergencyContacts', notApplicableKey: null },
+      { name: 'education', notApplicableKey: 'educationNotApplicable' },
+      { name: 'languages', notApplicableKey: 'languagesNotApplicable' },
+      { name: 'trainings', notApplicableKey: 'trainingsNotApplicable' },
+      { name: 'familyMembers', notApplicableKey: 'familyMembersNotApplicable' },
+      { name: 'experiences', notApplicableKey: 'experienceNotApplicable' },
     ];
-
-    let filled = 0;
-    const total = fields.length + arrayFields.length;
-
+  
+    const totalFields = fields.length + arrayFields.length;
+    let filledFields = 0;
+  
     fields.forEach(field => {
-        if(data[field as keyof typeof data]) {
-            filled++;
-        }
+      const value = data[field as keyof typeof data];
+      if (value !== null && value !== undefined && value !== '') {
+        filledFields++;
+      }
     });
-
+  
     arrayFields.forEach(fieldInfo => {
-        if (fieldInfo.notApplicableKey && data[fieldInfo.notApplicableKey as keyof typeof data] === true) {
-            filled++;
-        } else {
-            const arrayData = data[fieldInfo.name as keyof typeof data] as unknown[];
-            if (Array.isArray(arrayData) && arrayData.length > 0) {
-                filled++;
-            }
+      const notApplicable = fieldInfo.notApplicableKey ? data[fieldInfo.notApplicableKey as keyof typeof data] : false;
+      if (notApplicable) {
+        filledFields++;
+      } else {
+        const arrayData = data[fieldInfo.name as keyof typeof data] as unknown[] | undefined;
+        if (Array.isArray(arrayData) && arrayData.length > 0) {
+          filledFields++;
         }
+      }
     });
-
-    return total > 0 ? (filled / total) * 100 : 0;
+  
+    return totalFields > 0 ? (filledFields / totalFields) * 100 : 0;
 };
 
 
@@ -248,6 +250,7 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
     const onSubmit = (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
         
+        // Merge the submitted section data with the existing full set of default values
         const currentData = { ...defaultValues, ...data };
         setDocumentNonBlocking(docRef, currentData, { merge: true });
 
