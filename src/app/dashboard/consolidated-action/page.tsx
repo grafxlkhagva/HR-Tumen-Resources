@@ -113,8 +113,8 @@ interface EmployeeNodeData {
 type CustomNode = Node<PositionNodeData | EmployeeNodeData>;
 
 // --- Constants & Layout ---
-const X_GAP = 300;
-const Y_GAP = 250;
+const X_GAP = 350;
+const Y_GAP = 300;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 // --- Node Components ---
@@ -523,5 +523,7 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
+    
 
     
