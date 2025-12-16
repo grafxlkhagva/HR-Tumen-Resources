@@ -221,7 +221,7 @@ const EmployeeNode = ({ data }: { data: EmployeeNodeData }) => {
                 <AvatarImage src={data.photoURL} alt={data.label} />
                 <AvatarFallback>{data.label?.charAt(0)}</AvatarFallback>
             </Avatar>
-            <p className="text-xs font-semibold leading-tight line-clamp-1 mt-1">{data.label}</p>
+            <p className="text-[11px] font-semibold leading-tight line-clamp-1 mt-1">{data.label}</p>
         </div>
     );
 };
@@ -272,7 +272,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                 <div className="flex flex-col items-center gap-1.5">
                     <UserPlus className="h-8 w-8 text-muted-foreground opacity-70" />
                     <p className="text-sm font-semibold leading-tight line-clamp-2">{data.label}</p>
-                    <p className="text-xs text-muted-foreground">Сул ({data.headcount})</p>
+                    <p className="text-[11px] text-muted-foreground">Сул ({data.headcount})</p>
                     <div className="flex gap-2">
                         <Button size="xs" variant="secondary" onClick={data.onAssign} className="h-6 px-2 text-xs">Томилох</Button>
                         <Button size="xs" variant="outline" onClick={data.onAddEmployee} className="h-6 px-2 text-xs">Шинэ</Button>
@@ -288,7 +288,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                         </Avatar>
                     </Link>
                      <p className="text-sm font-semibold leading-tight line-clamp-1">{employee.firstName} {employee.lastName}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{data.label}</p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">{data.label}</p>
                      {data.headcount > 1 && (
                         <Badge variant="secondary" className="px-1.5 py-0">
                             {data.filled}/{data.headcount}
