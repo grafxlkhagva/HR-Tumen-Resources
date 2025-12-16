@@ -26,7 +26,7 @@ import {
   useMemoFirebase,
   updateDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, query, where, collectionGroup, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -112,14 +112,15 @@ function isColorDark(hex: string): boolean {
 
 // --- Node Components ---
 
-const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size?: number; }) => {
+const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     const progress = employee?.questionnaireCompletion || 0;
+    const size = 80;
     const strokeWidth = 4;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (progress / 100) * circumference;
 
-    const progressColor = 
+    const progressColor =
         progress < 50 ? '#ef4444' : // red-500
         progress < 90 ? '#f59e0b' : // amber-500
         '#22c55e'; // green-500
@@ -138,7 +139,6 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                     width={size}
                     height={size}
                     viewBox={`0 0 ${size} ${size}`}
-                    style={{ '--progress-color': progressColor } as React.CSSProperties}
                 >
                     <circle
                         className="text-muted/30"
@@ -150,7 +150,7 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                         cy={size / 2}
                     />
                     <circle
-                        className="transition-all duration-500 ease-in-out stroke-progress"
+                        className="transition-all duration-500 ease-in-out"
                         strokeWidth={strokeWidth}
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
@@ -160,6 +160,7 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                         cx={size / 2}
                         cy={size / 2}
                         transform={`rotate(-90 ${size/2} ${size/2})`}
+                        style={{ stroke: progressColor }}
                     />
                 </svg>
             )}
@@ -200,7 +201,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
       </DropdownMenu>
 
       <CardContent className="p-4 text-center">
-        <AvatarWithProgress employee={employee} size={80} />
+        <AvatarWithProgress employee={employee} />
         
         {employee ? (
             <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
@@ -209,6 +210,12 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         )}
         <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
         
+        {employee && (
+            <p className={cn("text-xs font-bold", mutedTextColor)}>
+                Анкет: {Math.round(employee.questionnaireCompletion || 0)}%
+            </p>
+        )}
+
         <div className={cn("mt-4 pt-4 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500' : 'border-border')}>
             <div className="flex justify-between">
                 <span className={mutedTextColor}>Хэлтэс:</span>
@@ -392,7 +399,7 @@ const OrganizationChart = () => {
   
   // Create nodes and edges based on data
   useEffect(() => {
-    if (isLoading || !positions) return;
+    if (isLoading || !positions || !employees) return;
 
     const deptMap = new Map(departments?.map(d => [d.id, d]));
     const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
@@ -557,3 +564,5 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
+    
