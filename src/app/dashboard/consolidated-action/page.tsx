@@ -490,7 +490,7 @@ const OrganizationChart = () => {
                 <Controls />
             </ReactFlow>
         )}
-        <div className="absolute bottom-4 right-4 z-10 flex gap-2">
+        <div className="absolute bottom-8 right-4 z-10 flex gap-2">
             <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
                 <RotateCcw className="h-6 w-6" />
                 <span className="sr-only">Байршлыг сэргээх</span>
