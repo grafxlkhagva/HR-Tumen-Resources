@@ -30,11 +30,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
 import { isWithinInterval, format } from 'date-fns';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // --- Types ---
 interface Department {
@@ -92,6 +93,7 @@ interface PositionNodeData {
   employees: Employee[];
   workScheduleName?: string;
   onAddEmployee: (position: Position) => void;
+  onEditPosition: (position: Position) => void;
   attendanceStatus?: {
     status: 'on-leave' | 'checked-in' | 'checked-out' | 'absent';
     checkInTime?: string;
@@ -138,9 +140,26 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
   return (
     <Card className="w-64 border-2 border-primary/50 shadow-lg">
       <Handle type="target" position={Position.Top} className="!bg-primary" />
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">{data.title}</CardTitle>
-        <CardDescription>{data.department}</CardDescription>
+      <CardHeader className="pb-2 flex-row items-start justify-between">
+        <div>
+            <CardTitle className="text-base">{data.title}</CardTitle>
+            <CardDescription>{data.department}</CardDescription>
+        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах
+                </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -215,6 +234,8 @@ const OrganizationChart = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+  const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
   const { firestore } = useFirebase();
 
@@ -223,6 +244,9 @@ const OrganizationChart = () => {
   const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
   const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
   const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+  const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+  const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
+  const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
   
   const todaysAttendanceQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', format(new Date(), 'yyyy-MM-dd'))) : null),
@@ -239,15 +263,23 @@ const OrganizationChart = () => {
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
   const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
   const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
+  const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
+  const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
+  const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
   const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(todaysAttendanceQuery);
   const { data: timeOffRequests, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
 
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingAttendance || isLoadingTimeOff;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingAttendance || isLoadingTimeOff || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories;
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
     setIsAssignDialogOpen(true);
+  };
+  
+  const handleEditPositionClick = (position: Position) => {
+    setEditingPosition(position);
+    setIsPositionDialogOpen(true);
   };
 
   useMemo(() => {
@@ -336,6 +368,7 @@ const OrganizationChart = () => {
                 filled: posToEmployeeMap.get(pos.id)?.length || 0,
                 employees: assignedEmployees,
                 onAddEmployee: handleAddEmployeeClick,
+                onEditPosition: handleEditPositionClick,
                 workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                 attendanceStatus
             },
@@ -343,7 +376,7 @@ const OrganizationChart = () => {
         positionNodes.set(pos.id, node);
         newNodes.push(node);
 
-        if (pos.reportsTo && positionLayout[pos.reportsTo]) {
+        if (pos.reportsTo && sortedPositions.find(p => p.id === pos.reportsTo)) {
             newEdges.push({
                 id: `e-${pos.reportsTo}-${pos.id}`,
                 source: pos.reportsTo,
@@ -441,6 +474,17 @@ const OrganizationChart = () => {
         onOpenChange={setIsAssignDialogOpen}
         position={selectedPosition}
         employees={employees?.filter(e => !e.positionId) || []}
+      />
+      <AddPositionDialog
+        open={isPositionDialogOpen}
+        onOpenChange={setIsPositionDialogOpen}
+        editingPosition={editingPosition}
+        allPositions={positions}
+        departments={departments || []}
+        positionLevels={positionLevels || []}
+        employmentTypes={employmentTypes || []}
+        jobCategories={jobCategories || []}
+        workSchedules={workSchedules || []}
       />
     </div>
   );
