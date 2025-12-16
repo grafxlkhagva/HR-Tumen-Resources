@@ -27,7 +27,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, increment, where, query } from 'firebase/firestore';
+import { collection, doc, increment, where, query, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus, LogIn, LogOut, CalendarCheck2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -443,7 +443,7 @@ const OrganizationChart = () => {
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
     const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayString)) : null), [firestore, todayString]);
-    const timeOffQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
+    const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
 
 
     const { data: positions, isLoading: isLoadingPos } = useCollection<PositionData>(positionsQuery);
