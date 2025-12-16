@@ -322,16 +322,25 @@ const OrganizationChart = () => {
     const newEdges: Edge[] = [];
     const positionLayout: Record<string, { x: number, y: number }> = {};
     const levelCounts: Record<number, number> = {};
+    const positionMap = new Map(positions.map(p => [p.id, p]));
 
     function getLevel(posId: string, visited = new Set<string>()): number {
         if (visited.has(posId)) return 100; // Cycle detection
         visited.add(posId);
-        const pos = positions?.find(p => p.id === posId);
+        const pos = positionMap.get(posId);
         if (!pos || !pos.reportsTo) return 0;
         return 1 + getLevel(pos.reportsTo, visited);
     }
-
-    const sortedPositions = (positions || []).map(p => ({ ...p, level: getLevel(p.id) })).sort((a, b) => a.level - b.level);
+    
+    // Stable sort: by level, then by title
+    const sortedPositions = (positions || [])
+        .map(p => ({ ...p, level: getLevel(p.id) }))
+        .sort((a, b) => {
+            if (a.level !== b.level) {
+                return a.level - b.level;
+            }
+            return a.title.localeCompare(b.title);
+        });
 
     sortedPositions.forEach(pos => {
         const level = pos.level;
@@ -382,7 +391,7 @@ const OrganizationChart = () => {
         positionNodes.set(pos.id, node);
         newNodes.push(node);
 
-        if (pos.reportsTo && sortedPositions.find(p => p.id === pos.reportsTo)) {
+        if (pos.reportsTo && positionMap.has(pos.reportsTo)) {
             newEdges.push({
                 id: `e-${pos.reportsTo}-${pos.id}`,
                 source: pos.reportsTo,
@@ -507,5 +516,6 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
 
 
