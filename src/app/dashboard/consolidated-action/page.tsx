@@ -69,6 +69,7 @@ type PositionData = {
   levelId?: string;
   employmentTypeId?: string;
   jobCategoryId?: string;
+  workScheduleId?: string;
   createdAt?: string;
   // Locally computed
   filled: number;
@@ -584,13 +585,13 @@ const OrganizationChart = () => {
     );
 
     React.useEffect(() => {
-        if (isLoading || !positions || !employees || !departments || !attendanceRecords || !timeOffRecords) return;
+        if (isLoading || !positions || !employees || !departments) return;
 
         const today = new Date();
         const attendanceMap = new Map<string, AttendanceStatus>();
         
         // Process time-off records first
-        const approvedTimeOffs = timeOffRecords.filter(r => r.status === 'Зөвшөөрсөн');
+        const approvedTimeOffs = timeOffRecords?.filter(r => r.status === 'Зөвшөөрсөн') || [];
 
         approvedTimeOffs.forEach(req => {
             const start = new Date(req.startDate);
@@ -601,7 +602,7 @@ const OrganizationChart = () => {
         });
 
         // Process attendance records, but don't overwrite on-leave status
-        attendanceRecords.forEach(rec => {
+        attendanceRecords?.forEach(rec => {
             if (!attendanceMap.has(rec.employeeId)) {
                 attendanceMap.set(rec.employeeId, {
                     checkInTime: rec.checkInTime,
@@ -719,6 +720,7 @@ const OrganizationChart = () => {
                 positionLevels={positionLevels || []}
                 employmentTypes={employmentTypes || []}
                 jobCategories={jobCategories || []}
+                workSchedules={workSchedules || []}
                 editingPosition={editingPosition}
             />
             <AssignEmployeeDialog 
@@ -732,7 +734,6 @@ const OrganizationChart = () => {
                 onOpenChange={setIsAddEmployeeDialogOpen}
                 departments={departments || []}
                 positions={positions || []}
-                workSchedules={workSchedules || []}
                 preselectedDept={assigningPosition?.departmentId}
                 preselectedPos={assigningPosition?.id}
             />
@@ -781,3 +782,4 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
+

@@ -50,6 +50,7 @@ const positionSchema = z.object({
   reportsTo: z.string().optional(),
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
+  workScheduleId: z.string().optional(),
   isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
   headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
@@ -78,6 +79,7 @@ interface Position {
   reportsTo?: string;
   levelId?: string;
   employmentTypeId?: string;
+  workScheduleId?: string;
   jobCategoryId?: string;
   isActive?: boolean;
   createdAt?: string;
@@ -91,6 +93,7 @@ interface AddPositionDialogProps {
   positionLevels: Reference[];
   employmentTypes: Reference[];
   jobCategories: JobCategoryReference[];
+  workSchedules: Reference[];
   editingPosition?: Position | null;
 }
 
@@ -102,6 +105,7 @@ export function AddPositionDialog({
   positionLevels,
   employmentTypes,
   jobCategories,
+  workSchedules,
   editingPosition,
 }: AddPositionDialogProps) {
   const { firestore } = useFirebase();
@@ -116,6 +120,7 @@ export function AddPositionDialog({
       reportsTo: '(none)',
       levelId: '',
       employmentTypeId: '',
+      workScheduleId: '',
       isActive: true,
       headcount: 1,
       jobCategoryId: '',
@@ -130,6 +135,7 @@ export function AddPositionDialog({
         headcount: editingPosition.headcount || 1,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
+        workScheduleId: editingPosition.workScheduleId || '',
         reportsTo: editingPosition.reportsTo || '(none)',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
@@ -142,6 +148,7 @@ export function AddPositionDialog({
         reportsTo: '(none)',
         levelId: '',
         employmentTypeId: '',
+        workScheduleId: '',
         jobCategoryId: '',
         isActive: true,
         headcount: 1,
@@ -166,6 +173,7 @@ export function AddPositionDialog({
       departmentId: data.departmentId,
       levelId: data.levelId,
       employmentTypeId: data.employmentTypeId,
+      workScheduleId: data.workScheduleId,
       isActive: data.isActive,
       jobCategoryId: data.jobCategoryId,
       headcount: data.headcount,
@@ -305,6 +313,30 @@ export function AddPositionDialog({
                          {employmentTypes.map((type) => (
                             <SelectItem key={type.id} value={type.id}>
                                 {type.name}
+                            </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="workScheduleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ажлын цагийн хуваарь</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Цагийн хуваарь сонгох" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                         {workSchedules.map((schedule) => (
+                            <SelectItem key={schedule.id} value={schedule.id}>
+                                {schedule.name}
                             </SelectItem>
                         ))}
                       </SelectContent>
