@@ -65,6 +65,7 @@ interface Employee {
   jobTitle: string;
   positionId?: string;
   status: string;
+  hireDate: string;
 }
 
 type AttendanceRecord = {
@@ -462,26 +463,28 @@ const OrganizationChart = () => {
                     Ажилтныг сул ажлын байранд чирж томилох эсвэл, ажлын байрны мэдээллийг засах.
                 </CardDescription>
             </div>
-            <Button size="sm" onClick={handleOpenAddDialog}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Ажлын байр нэмэх
-            </Button>
         </div>
       </CardHeader>
-      {isLoading ? <SkeletonChart/> : (
-        <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            fitView
-            >
-            <Background />
-            <Controls />
-        </ReactFlow>
-      )}
+      <div className="relative w-full h-full">
+        {isLoading ? <SkeletonChart/> : (
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                fitView
+                >
+                <Background />
+                <Controls />
+            </ReactFlow>
+        )}
+         <Button size="icon" onClick={handleOpenAddDialog} className="absolute bottom-4 right-4 z-10 rounded-full h-12 w-12 shadow-lg">
+            <PlusCircle className="h-6 w-6" />
+            <span className="sr-only">Ажлын байр нэмэх</span>
+        </Button>
+       </div>
        <AssignEmployeeDialog
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
@@ -504,4 +507,5 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
 
