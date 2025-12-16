@@ -29,7 +29,7 @@ import {
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, increment, where, query, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus, LogIn, LogOut, CalendarCheck2 } from 'lucide-react';
+import { Users, Briefcase, MoreHorizontal, Pencil, Trash2, PlusCircle, UserPlus, LogIn, LogOut, CalendarCheck2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -130,6 +130,7 @@ type PositionNodeData = {
     filled: number;
     employees: Employee[];
     attendanceStatus?: AttendanceStatus;
+    workScheduleName?: string;
     color: string;
     onEdit: () => void;
     onDelete: () => void;
@@ -225,10 +226,14 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   // --- Layout for Unassigned Employee Nodes ---
   let employeeY = 0;
-  const employeeX = - (nodeWidth + horizontalSpacing * 2); // Position to the left of the chart
+  let employeeX = 0;
+  let maxChartHeight = 0;
+  layout.forEach(l => { if(l.y > maxChartHeight) maxChartHeight = l.y; });
+  employeeY = maxChartHeight + nodeHeight + verticalSpacing * 2;
+
   employeeNodes.forEach(node => {
       layout.set(node.id, { x: employeeX, y: employeeY, width: nodeWidth });
-      employeeY += nodeHeight + unassignedEmployeeSpacing;
+      employeeX += nodeWidth + unassignedEmployeeSpacing;
   });
 
   const layoutedNodes = nodes.map((node) => {
@@ -388,14 +393,18 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             </div>
 
             {isFilled && (
-                <div className="w-full pt-2 mt-2 border-t text-[11px] font-medium">
+                <div className="w-full pt-2 mt-2 border-t text-[11px] font-medium flex justify-between items-center">
+                    <div className="flex items-center gap-1 truncate">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{data.workScheduleName || 'Хуваарьгүй'}</span>
+                    </div>
                     {status?.onLeave ? (
-                        <div className="flex items-center justify-center gap-1.5 text-yellow-600">
+                        <div className="flex items-center justify-center gap-1 text-yellow-600">
                            <CalendarCheck2 className="h-3.5 w-3.5" /> 
-                           <span>Чөлөөтэй</span>
+                           <span className="hidden">Чөлөөтэй</span>
                         </div>
                     ) : status?.checkInTime ? (
-                         <div className="flex items-center justify-center gap-1.5 text-green-600">
+                         <div className="flex items-center justify-center gap-1 text-green-600">
                            <LogIn className="h-3.5 w-3.5" /> 
                            <span>{format(new Date(status.checkInTime), 'HH:mm')}</span>
                            {status.checkOutTime && (
@@ -407,7 +416,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                            )}
                         </div>
                     ) : (
-                        <div className="text-muted-foreground">Ирц бүртгүүлээгүй</div>
+                        <div className="text-muted-foreground">Ирцгүй</div>
                     )}
                 </div>
             )}
@@ -622,6 +631,7 @@ const OrganizationChart = () => {
         }, new Map<string, Employee[]>());
 
         const departmentColorMap = new Map(departments.map(d => [d.id, d.color]));
+        const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
         
         const activePositions = positions.filter(p => p.isActive);
 
@@ -637,6 +647,7 @@ const OrganizationChart = () => {
                     filled: assignedEmployees.length,
                     employees: assignedEmployees,
                     attendanceStatus: attendanceStatus,
+                    workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     color: departmentColorMap.get(pos.departmentId) || '#ffffff',
                     onEdit: () => handleOpenEditDialog(pos.id),
                     onDelete: () => handleDeletePosition(pos.id),
@@ -677,7 +688,7 @@ const OrganizationChart = () => {
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [isLoading, positions, employees, departments, attendanceRecords, timeOffRecords, setNodes, setEdges]);
+    }, [isLoading, positions, employees, departments, attendanceRecords, timeOffRecords, workSchedules, setNodes, setEdges]);
     
     if (isLoading) {
         return <Skeleton className="w-full h-[600px]" />;
@@ -782,4 +793,3 @@ export default function ConsolidatedActionPage() {
     </div>
   );
 }
-
