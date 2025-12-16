@@ -456,23 +456,23 @@ export default function EmployeeProfilePage() {
         [firestore]
     );
     
+    const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
+
     const positionDocRef = useMemoFirebase(
-        ({firestore, user}) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [employeeId]
+        ({firestore}) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
+        [employee]
     );
     
     const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef);
 
     const workScheduleDocRef = useMemoFirebase(
-        ({firestore, user}) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [position?.id]
+        ({firestore}) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
+        [position]
     );
     
     const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef);
 
-    const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
+    
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
 
     const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule;
