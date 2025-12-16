@@ -231,7 +231,7 @@ const SkeletonChart = () => (
 
 // --- Layouting Logic ---
 const X_GAP = 300;
-const Y_GAP = 200;
+const Y_GAP = 250;
 
 function calculatePositions(positions: Position[]) {
     const positionMap = new Map(positions.map(p => [p.id, p]));
