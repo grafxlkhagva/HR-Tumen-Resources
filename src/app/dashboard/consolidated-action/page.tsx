@@ -20,6 +20,7 @@ import ReactFlow, {
   NodePositionChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import Link from 'next/link';
 
 import {
   useCollection,
@@ -145,8 +146,8 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
 
     const progressColor = progress < 50 ? 'text-red-500' : progress < 90 ? 'text-yellow-500' : 'text-green-500';
 
-    return (
-        <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
+    const avatarContent = (
+         <div className="relative mx-auto mb-3" style={{ width: size, height: size }}>
             <Avatar className="h-full w-full">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
@@ -161,7 +162,7 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
                     viewBox={`0 0 ${size} ${size}`}
                 >
                     <circle
-                        className="text-muted"
+                        className="text-muted/30"
                         stroke="currentColor"
                         strokeWidth={strokeWidth}
                         fill="transparent"
@@ -186,6 +187,12 @@ const AvatarWithProgress = ({ employee, size = 80 }: { employee?: Employee; size
             )}
         </div>
     );
+    
+    if (employee) {
+        return <Link href={`/dashboard/employees/${employee.id}`}>{avatarContent}</Link>
+    }
+
+    return avatarContent;
 };
 
 
@@ -600,6 +607,7 @@ export default OrganizationChart;
     
 
     
+
 
 
 
