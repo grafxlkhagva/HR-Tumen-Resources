@@ -247,10 +247,12 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
 
     const onSubmit = (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
-        setDocumentNonBlocking(docRef, data, { merge: true });
+        
+        const currentData = { ...defaultValues, ...data };
+        setDocumentNonBlocking(docRef, currentData, { merge: true });
 
         // Recalculate and update completion on the employee doc
-        const newCompletion = calculateCompletionPercentage({ ...defaultValues, ...data });
+        const newCompletion = calculateCompletionPercentage(currentData);
         updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
         
         toast({ title: 'Амжилттай хадгаллаа' });

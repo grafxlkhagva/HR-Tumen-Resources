@@ -62,6 +62,7 @@ const editEmployeeSchema = z.object({
   }),
   status: z.string().min(1, 'Төлөв сонгоно уу.'),
   photoURL: z.string().optional(),
+  questionnaireCompletion: z.number().optional(),
 });
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
