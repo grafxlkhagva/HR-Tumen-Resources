@@ -1,3 +1,4 @@
+
 // src/app/dashboard/employees/[id]/page.tsx
 'use client';
 
@@ -39,6 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 import { Progress } from '@/components/ui/progress';
