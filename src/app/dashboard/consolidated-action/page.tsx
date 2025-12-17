@@ -632,6 +632,8 @@ const OrganizationChart = () => {
   }
   const { employeeName, positionTitle } = getConfirmationDialogContent();
 
+  const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
+
   return (
     <div style={{ height: 'calc(100vh - 100px)' }}>
       <AlertDialog open={!!pendingConnection} onOpenChange={(open) => !open && cancelAssignment()}>
@@ -652,14 +654,20 @@ const OrganizationChart = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CardHeader>
-        <div className="flex justify-between items-center">
-            <div>
-                <CardTitle>Байгууллагын бүтэц (Албан тушаалаар)</CardTitle>
-                <CardDescription>Ажилтныг сул ажлын байранд чирж томилох эсвэл, ажлын байрны мэдээллийг засах.</CardDescription>
+        <CardHeader>
+            <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Нийт ажилчид</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
+                    </CardContent>
+                </Card>
+                {/* Add other stat cards here */}
             </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
       <div className="relative w-full h-full">
         {isLoading ? <SkeletonChart/> : (
             <ReactFlow
