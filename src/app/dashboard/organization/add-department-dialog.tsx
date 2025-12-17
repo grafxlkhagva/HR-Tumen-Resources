@@ -38,7 +38,6 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { AddTypeDialog } from './add-type-dialog';
 
 const departmentSchema = z.object({
   name: z.string().min(2, {
@@ -79,7 +78,6 @@ export function AddDepartmentDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingDepartment;
-  const [isAddTypeOpen, setIsAddTypeOpen] = React.useState(false);
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
@@ -116,15 +114,7 @@ export function AddDepartmentDialog({
     () => (firestore ? collection(firestore, 'departments') : null),
     [firestore]
   );
-
-  const handleTypeSelectChange = (value: string) => {
-    form.setValue('typeId', value);
-  }
   
-  const handleNewTypeAdded = (newTypeId: string) => {
-      form.setValue('typeId', newTypeId, { shouldValidate: true });
-  }
-
   const onSubmit = async (data: DepartmentFormValues) => {
     if (!firestore) {
       toast({
@@ -203,7 +193,7 @@ export function AddDepartmentDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Төрөл</FormLabel>
-                      <Select onValueChange={handleTypeSelectChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Төрөл сонгох" />
