@@ -108,6 +108,7 @@ interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: Reference[];
+  departmentTypes: Reference[];
   allPositions: Position[] | null;
   positionLevels: Reference[];
   employmentTypes: Reference[];
@@ -120,6 +121,7 @@ export function AddPositionDialog({
   open,
   onOpenChange,
   departments,
+  departmentTypes,
   allPositions,
   positionLevels,
   employmentTypes,
@@ -130,6 +132,7 @@ export function AddPositionDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingPosition;
+  const [isAddDeptOpen, setIsAddDeptOpen] = React.useState(false);
 
   const form = useForm<PositionFormValues>({
     resolver: zodResolver(positionSchema),
@@ -182,6 +185,18 @@ export function AddPositionDialog({
     () => (firestore ? collection(firestore, 'positions') : null),
     [firestore]
   );
+  
+  const handleDepartmentSelectChange = (value: string) => {
+    if (value === '__add_new__') {
+        setIsAddDeptOpen(true);
+    } else {
+        form.setValue('departmentId', value);
+    }
+  }
+
+  const handleNewDepartmentAdded = (newDeptId: string) => {
+      form.setValue('departmentId', newDeptId, { shouldValidate: true });
+  }
 
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
@@ -233,6 +248,14 @@ export function AddPositionDialog({
 
   return (
     <>
+    <AddDepartmentDialog
+        open={isAddDeptOpen}
+        onOpenChange={setIsAddDeptOpen}
+        departments={departments}
+        departmentTypes={departmentTypes}
+        editingDepartment={null}
+        onDepartmentAdded={handleNewDepartmentAdded}
+    />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
@@ -263,13 +286,13 @@ export function AddPositionDialog({
                             )}
                         />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField
+                             <FormField
                                 control={form.control}
                                 name="departmentId"
                                 render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Харьяалагдах хэлтэс</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={handleDepartmentSelectChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
                                         <SelectValue placeholder="Хэлтэс сонгох" />
@@ -281,6 +304,9 @@ export function AddPositionDialog({
                                             {dept.name}
                                         </SelectItem>
                                         ))}
+                                        <SelectItem value="__add_new__" className="font-bold text-primary mt-2">
+                                            + Шинэ нэгж нэмэх...
+                                        </SelectItem>
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />

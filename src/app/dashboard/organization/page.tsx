@@ -410,101 +410,6 @@ const StructureTab = () => {
   );
 };
 
-const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate, onDuplicate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void, onDuplicate: (pos: Position) => void }) => {
-    return (
-        <Table>
-        <TableHeader>
-            <TableRow>
-            <TableHead>Албан тушаалын нэр</TableHead>
-            <TableHead>Хэлтэс</TableHead>
-            <TableHead>Зэрэглэл</TableHead>
-            <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
-            <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
-            </TableRow>
-        </TableHeader>
-        <TableBody>
-            {isLoading &&
-            Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
-                </TableRow>
-            ))}
-            {!isLoading && positions?.map((pos) => {
-                const isActive = pos.isActive === undefined ? true : pos.isActive;
-                return (
-                    <TableRow key={pos.id} className={cn(!isActive && 'text-muted-foreground')}>
-                        <TableCell className="font-medium">{pos.title}</TableCell>
-                        <TableCell>
-                        {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
-                        </TableCell>
-                        <TableCell>
-                            {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
-                        </TableCell>
-                        <TableCell>
-                            {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <AlertDialog>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => onEdit(pos)}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Засах
-                                        </DropdownMenuItem>
-                                         <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                <Copy className="mr-2 h-4 w-4" /> Хувилах
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                        <DropdownMenuSeparator />
-                                        {isActive ? (
-                                            <DropdownMenuItem onClick={() => onToggleActive(pos)} className="text-destructive">
-                                                <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
-                                            </DropdownMenuItem>
-                                        ) : (
-                                            <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600 focus:text-green-700">
-                                                <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
-                                            </DropdownMenuItem>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Та "{pos.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу? Шинэ ажлын байр нь ижил мэдээлэлтэй боловч ажилтан томилогдоогүйгээр үүснэ.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => onDuplicate(pos)}>Тийм, хувилах</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </TableCell>
-                    </TableRow>
-                )
-            })}
-            {!isLoading && !positions?.length && (
-                <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                        Ажлын байрны жагсаалт хоосон байна.
-                    </TableCell>
-                </TableRow>
-            )}
-        </TableBody>
-        </Table>
-    )
-}
-
 const PositionsTab = ({ departmentTypes }: { departmentTypes: DepartmentType[] }) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -605,6 +510,7 @@ const PositionsTab = ({ departmentTypes }: { departmentTypes: DepartmentType[] }
             open={isPositionDialogOpen}
             onOpenChange={setIsPositionDialogOpen}
             departments={departments || []}
+            departmentTypes={departmentTypes || []}
             allPositions={positions || []}
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
@@ -661,6 +567,101 @@ const PositionsTab = ({ departmentTypes }: { departmentTypes: DepartmentType[] }
         </>
     );
 };
+
+const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate, onDuplicate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void, onDuplicate: (pos: Position) => void }) => {
+    return (
+        <Table>
+        <TableHeader>
+            <TableRow>
+            <TableHead>Албан тушаалын нэр</TableHead>
+            <TableHead>Хэлтэс</TableHead>
+            <TableHead>Зэрэглэл</TableHead>
+            <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
+            <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
+            </TableRow>
+        </TableHeader>
+        <TableBody>
+            {isLoading &&
+            Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
+                </TableRow>
+            ))}
+            {!isLoading && positions?.map((pos) => {
+                const isActive = pos.isActive === undefined ? true : pos.isActive;
+                return (
+                    <TableRow key={pos.id} className={cn(!isActive && 'text-muted-foreground')}>
+                        <TableCell className="font-medium">{pos.title}</TableCell>
+                        <TableCell>
+                        {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
+                        </TableCell>
+                        <TableCell>
+                            {pos.levelId ? <Badge variant="secondary">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
+                        </TableCell>
+                        <TableCell>
+                            {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <AlertDialog>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => onEdit(pos)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Засах
+                                        </DropdownMenuItem>
+                                         <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                <Copy className="mr-2 h-4 w-4" /> Хувилах
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <DropdownMenuSeparator />
+                                        {isActive ? (
+                                            <DropdownMenuItem onClick={() => onToggleActive(pos)} className="text-destructive">
+                                                <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600 focus:text-green-700">
+                                                <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
+                                            </DropdownMenuItem>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Та "{pos.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу? Шинэ ажлын байр нь ижил мэдээлэлтэй боловч ажилтан томилогдоогүйгээр үүснэ.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => onDuplicate(pos)}>Тийм, хувилах</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </TableCell>
+                    </TableRow>
+                )
+            })}
+            {!isLoading && !positions?.length && (
+                <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                        Ажлын байрны жагсаалт хоосон байна.
+                    </TableCell>
+                </TableRow>
+            )}
+        </TableBody>
+        </Table>
+    )
+}
 
 const HeadcountTab = () => {
     const { firestore } = useFirebase();
@@ -952,7 +953,7 @@ export default function OrganizationPage() {
     <div className="py-8">
       <div className="mb-4">
         <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard/company">
+            <Link href="/dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Буцах
             </Link>

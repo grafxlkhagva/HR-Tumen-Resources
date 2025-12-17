@@ -65,6 +65,7 @@ interface AddDepartmentDialogProps {
   departments: { id: string; name: string }[];
   departmentTypes: { id: string; name: string }[];
   editingDepartment?: Department | null;
+  onDepartmentAdded?: (newDeptId: string) => void;
 }
 
 export function AddDepartmentDialog({
@@ -73,6 +74,7 @@ export function AddDepartmentDialog({
   departments,
   departmentTypes,
   editingDepartment,
+  onDepartmentAdded,
 }: AddDepartmentDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -127,7 +129,7 @@ export function AddDepartmentDialog({
       form.setValue('typeId', newTypeId, { shouldValidate: true });
   }
 
-  const onSubmit = (data: DepartmentFormValues) => {
+  const onSubmit = async (data: DepartmentFormValues) => {
     if (!firestore) {
       toast({
         variant: 'destructive',
@@ -149,12 +151,8 @@ export function AddDepartmentDialog({
 
     if (isEditMode && editingDepartment) {
       const docRef = doc(firestore, 'departments', editingDepartment.id);
-      // Ensure parentId is either a valid string or not present at all.
       const updateData: any = { ...finalData };
       if (!updateData.parentId) {
-        // Firestore deletes fields when set to undefined.
-        // Or if you want to explicitly remove it, you can use deleteField() from 'firebase/firestore'
-        // But for this case, not including it in the update object is sufficient.
         delete updateData.parentId;
       }
       updateDocumentNonBlocking(docRef, updateData);
@@ -164,7 +162,10 @@ export function AddDepartmentDialog({
       });
     } else {
        if (!departmentsCollection) return;
-       addDocumentNonBlocking(departmentsCollection, finalData);
+       const newDocRef = await addDocumentNonBlocking(departmentsCollection, finalData);
+       if (newDocRef && onDepartmentAdded) {
+         onDepartmentAdded(newDocRef.id);
+       }
        toast({
          title: 'Амжилттай',
          description: `"${data.name}" нэгж амжилттай нэмэгдлээ.`,
