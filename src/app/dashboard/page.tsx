@@ -426,6 +426,7 @@ const OrganizationChart = () => {
   const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
+  const [showFullError, setShowFullError] = useState(false);
   
   const { toast } = useToast();
   const { firestore } = useFirebase();
@@ -611,17 +612,13 @@ const OrganizationChart = () => {
         
         const posData = positionNode.data as PositionNodeData;
         if(posData.filled >= posData.headcount) {
-             toast({
-                variant: "destructive",
-                title: "Орон тоо дүүрсэн",
-                description: "Энэ ажлын байр дүүрсэн байна. Та эхлээд өмнөх ажилтныг чөлөөлнө үү."
-            });
-            return;
+             setShowFullError(true);
+             return;
         }
 
         setPendingConnection(connection);
     },
-    [nodes, toast]
+    [nodes]
   );
 
   const confirmAssignment = async () => {
@@ -683,6 +680,18 @@ const OrganizationChart = () => {
 
   return (
     <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
+       <AlertDialog open={showFullError} onOpenChange={setShowFullError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Орон тоо дүүрсэн</AlertDialogTitle>
+            <AlertDialogDescription>
+              Энэ ажлын байр дүүрсэн байна. Та эхлээд өмнөх ажилтныг чөлөөлнө үү.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogAction onClick={() => setShowFullError(false)}>Хаах</AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <AlertDialog open={!!pendingConnection} onOpenChange={(open) => !open && cancelAssignment()}>
         <AlertDialogContent>
             <AlertDialogHeader>

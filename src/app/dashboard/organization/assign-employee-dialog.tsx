@@ -9,6 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   updateDocumentNonBlocking,
@@ -47,11 +55,15 @@ export function AssignEmployeeDialog({
   const { toast } = useToast();
   const [step, setStep] = React.useState(1);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showFullError, setShowFullError] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) {
       // Reset to step 1 when dialog is closed
-      setTimeout(() => setStep(1), 200);
+      setTimeout(() => {
+        setStep(1);
+        setShowFullError(false);
+      }, 200);
     }
   }, [open]);
 
@@ -64,11 +76,7 @@ export function AssignEmployeeDialog({
     if (!firestore || !position) return;
 
     if (position.filled >= position.headcount) {
-        toast({
-            variant: "destructive",
-            title: "Орон тоо дүүрсэн",
-            description: "Энэ ажлын байранд ажилтан томилогдсон байна. Шинээр ажилтан томилохын тулд эхлээд өмнөх ажилтныг чөлөөлнө үү."
-        });
+        setShowFullError(true);
         return;
     }
 
@@ -105,81 +113,91 @@ export function AssignEmployeeDialog({
 
   const handleSelectExisting = () => {
     if (position && position.filled >= position.headcount) {
-        toast({
-            variant: "destructive",
-            title: "Орон тоо дүүрсэн",
-            description: "Энэ ажлын байранд ажилтан томилогдсон байна. Шинээр ажилтан томилохын тулд эхлээд өмнөх ажилтныг чөлөөлнө үү."
-        });
+        setShowFullError(true);
         return;
     }
     setStep(2);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>"{position?.title}" ажлын байранд томилгоо хийх</DialogTitle>
-          <DialogDescription>
-            {step === 1 ? 'Хийх үйлдлээ сонгоно уу.' : 'Томилох ажилтнаа сонгоно уу.'}
-          </DialogDescription>
-        </DialogHeader>
-        
-        {isSubmitting && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-        
-        {step === 1 && (
-            <div className="grid grid-cols-1 gap-4 py-4">
-                <Card onClick={handleSelectExisting} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <UserRoundCheck className="h-8 w-8 text-primary" />
-                        <div>
-                            <h3 className="font-semibold">Томилгоогүй ажилтан сонгох</h3>
-                            <p className="text-sm text-muted-foreground">Бүртгэлтэй ажилтнаас томилох</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                 <Card onClick={() => position && onAddNewEmployee(position)} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <UserPlus className="h-8 w-8 text-green-500" />
-                        <div>
-                            <h3 className="font-semibold">Шинэ ажилтан бүртгэх</h3>
-                            <p className="text-sm text-muted-foreground">Системд шинээр ажилтан бүртгэж томилох</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        )}
+    <>
+      <AlertDialog open={showFullError} onOpenChange={setShowFullError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Орон тоо дүүрсэн</AlertDialogTitle>
+            <AlertDialogDescription>
+              Энэ ажлын байранд ажилтан томилогдсон байна. Шинээр ажилтан томилохын тулд эхлээд өмнөх ажилтныг чөлөөлнө үү.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogAction onClick={() => setShowFullError(false)}>Хаах</AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {step === 2 && (
-            <div className="pt-4">
-                <ScrollArea className="h-72">
-                    <div className="space-y-2 pr-4">
-                        {assignableEmployees.length === 0 ? (
-                            <div className="text-center py-10 text-muted-foreground">
-                                Томилгоогүй, идэвхтэй ажилтан байхгүй байна.
-                            </div>
-                        ) : (
-                            assignableEmployees.map((emp) => (
-                                <Card key={emp.id} onClick={() => handleAssignEmployee(emp.id)} className="cursor-pointer hover:bg-muted/80 transition-colors">
-                                    <CardContent className="p-3 flex items-center gap-4">
-                                        <Avatar>
-                                            <AvatarImage src={emp.photoURL} />
-                                            <AvatarFallback>{emp.firstName.charAt(0)}{emp.lastName.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold">{emp.firstName} {emp.lastName}</p>
-                                            <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        )}
-                    </div>
-                </ScrollArea>
-                <Button variant="ghost" onClick={() => setStep(1)} className="mt-4 w-full">Буцах</Button>
-            </div>
-        )}
-      </DialogContent>
-    </Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>"{position?.title}" ажлын байранд томилгоо хийх</DialogTitle>
+            <DialogDescription>
+              {step === 1 ? 'Хийх үйлдлээ сонгоно уу.' : 'Томилох ажилтнаа сонгоно уу.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isSubmitting && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+          
+          {step === 1 && (
+              <div className="grid grid-cols-1 gap-4 py-4">
+                  <Card onClick={handleSelectExisting} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardContent className="p-4 flex items-center gap-4">
+                          <UserRoundCheck className="h-8 w-8 text-primary" />
+                          <div>
+                              <h3 className="font-semibold">Томилгоогүй ажилтан сонгох</h3>
+                              <p className="text-sm text-muted-foreground">Бүртгэлтэй ажилтнаас томилох</p>
+                          </div>
+                      </CardContent>
+                  </Card>
+                  <Card onClick={() => position && onAddNewEmployee(position)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardContent className="p-4 flex items-center gap-4">
+                          <UserPlus className="h-8 w-8 text-green-500" />
+                          <div>
+                              <h3 className="font-semibold">Шинэ ажилтан бүртгэх</h3>
+                              <p className="text-sm text-muted-foreground">Системд шинээр ажилтан бүртгэж томилох</p>
+                          </div>
+                      </CardContent>
+                  </Card>
+              </div>
+          )}
+
+          {step === 2 && (
+              <div className="pt-4">
+                  <ScrollArea className="h-72">
+                      <div className="space-y-2 pr-4">
+                          {assignableEmployees.length === 0 ? (
+                              <div className="text-center py-10 text-muted-foreground">
+                                  Томилгоогүй, идэвхтэй ажилтан байхгүй байна.
+                              </div>
+                          ) : (
+                              assignableEmployees.map((emp) => (
+                                  <Card key={emp.id} onClick={() => handleAssignEmployee(emp.id)} className="cursor-pointer hover:bg-muted/80 transition-colors">
+                                      <CardContent className="p-3 flex items-center gap-4">
+                                          <Avatar>
+                                              <AvatarImage src={emp.photoURL} />
+                                              <AvatarFallback>{emp.firstName.charAt(0)}{emp.lastName.charAt(0)}</AvatarFallback>
+                                          </Avatar>
+                                          <div>
+                                              <p className="font-semibold">{emp.firstName} {emp.lastName}</p>
+                                              <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
+                                          </div>
+                                      </CardContent>
+                                  </Card>
+                              ))
+                          )}
+                      </div>
+                  </ScrollArea>
+                  <Button variant="ghost" onClick={() => setStep(1)} className="mt-4 w-full">Буцах</Button>
+              </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
