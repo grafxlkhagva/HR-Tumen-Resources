@@ -32,7 +32,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
@@ -423,7 +423,7 @@ const OrganizationChart = () => {
   // Data fetching
   const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
   const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
-  const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+  const employeesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, [firestore]);
   const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
   const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
@@ -445,8 +445,24 @@ const OrganizationChart = () => {
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-
   const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff;
+
+    const onLeaveEmployees = useMemo(() => {
+        if (!timeOffData) return new Set<string>();
+        const today = new Date();
+        const onLeave = new Set<string>();
+        timeOffData.forEach(req => {
+            if (isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) })) {
+                onLeave.add(req.employeeId);
+            }
+        });
+        return onLeave;
+    }, [timeOffData]);
+
+    const presentEmployees = useMemo(() => {
+        if (!attendanceData) return new Set<string>();
+        return new Set(attendanceData.map(a => a.employeeId));
+    }, [attendanceData]);
 
   const handleAddEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
@@ -481,8 +497,7 @@ const OrganizationChart = () => {
     const today = new Date();
     const employeeAttendanceStatus = new Map<string, AttendanceStatus>();
     employees.forEach(emp => {
-        const onLeaveRequest = timeOffData?.find(req => req.employeeId === emp.id && isWithinInterval(today, { start: new Date(req.startDate), end: new Date(req.endDate) }));
-        if (onLeaveRequest) {
+        if (onLeaveEmployees.has(emp.id)) {
             employeeAttendanceStatus.set(emp.id, { status: 'on-leave' });
             return;
         }
@@ -542,7 +557,7 @@ const OrganizationChart = () => {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData]);
+  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -632,7 +647,7 @@ const OrganizationChart = () => {
   }
   const { employeeName, positionTitle } = getConfirmationDialogContent();
 
-  const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
+  const activeEmployeesCount = employees?.length || 0;
 
   return (
     <div style={{ height: 'calc(100vh - 100px)' }}>
@@ -655,7 +670,7 @@ const OrganizationChart = () => {
       </AlertDialog>
 
         <CardHeader>
-            <div className="grid gap-4 md:grid-cols-4">
+             <div className="grid gap-4 md:grid-cols-4">
                 <Link href="/dashboard/employees">
                     <Card className="hover:bg-muted/50 transition-colors">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -667,7 +682,23 @@ const OrganizationChart = () => {
                         </CardContent>
                     </Card>
                 </Link>
-                {/* Add other stat cards here */}
+                <Link href="/dashboard/attendance">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Ирцийн тойм</CardTitle>
+                            <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                             {isLoadingAttendance || isLoadingTimeOff ? (
+                                <Skeleton className="h-7 w-20" />
+                            ) : (
+                                <div className="text-2xl font-bold">
+                                    {presentEmployees.size} <span className="text-base font-normal text-muted-foreground">/ {onLeaveEmployees.size} чөлөөтэй</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
         </CardHeader>
       <div className="relative w-full h-full">
