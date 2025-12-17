@@ -562,7 +562,14 @@ const OrganizationChart = () => {
         newNodes.push(node);
 
         if (pos.reportsTo && positions.some(p => p.id === pos.reportsTo)) {
-            newEdges.push({ id: `e-${pos.reportsTo}-${pos.id}`, type: 'smoothstep', animated: true, style: { stroke: '#2563eb', strokeWidth: 2 }});
+            newEdges.push({ 
+                id: `e-${pos.reportsTo}-${pos.id}`,
+                source: pos.reportsTo,
+                target: pos.id,
+                type: 'smoothstep', 
+                animated: true, 
+                style: { stroke: '#2563eb', strokeWidth: 2 }
+            });
         }
     });
     
