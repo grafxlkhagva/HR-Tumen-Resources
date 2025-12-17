@@ -4,9 +4,79 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft } from 'lucide-react';
+import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft, ArrowUpRight } from 'lucide-react';
+
+interface SettingsCardProps {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    href: string;
+}
+
+const SettingsCard: React.FC<SettingsCardProps> = ({ icon: Icon, title, description, href }) => {
+    return (
+        <Link href={href} className="group block">
+            <Card className="h-full transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1">
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div className="p-3 rounded-lg bg-primary/10">
+                            <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <ArrowUpRight className="h-5 w-5 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <CardTitle className="text-lg">{title}</CardTitle>
+                    <CardDescription className="mt-1">
+                        {description}
+                    </CardDescription>
+                </CardContent>
+            </Card>
+        </Link>
+    );
+};
+
 
 export default function GeneralSettingsPage() {
+    const settingsItems: SettingsCardProps[] = [
+        {
+            icon: CalendarClock,
+            title: "Цаг ба Ирцийн Тохиргоо",
+            description: "Ажилтан чөлөөний хүсэлт, цаг бүртгэлийн тохиргоог удирдах.",
+            href: "/dashboard/settings/time-off"
+        },
+        {
+            icon: Code,
+            title: "Ажилтны кодчлол",
+            description: "Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.",
+            href: "/dashboard/settings/employee-code"
+        },
+        {
+            icon: Network,
+            title: "Бүтцийн тохиргоо",
+            description: "Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг тохируулах.",
+            href: "/dashboard/settings/structure"
+        },
+        {
+            icon: FileText,
+            title: "Баримт бичгийн тохиргоо",
+            description: "Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.",
+            href: "/dashboard/settings/documents"
+        },
+        {
+            icon: ClipboardList,
+            title: "Анкетын лавлах сан",
+            description: "Ажилтны анкетын сонголтуудыг эндээс удирдна.",
+            href: "/dashboard/settings/questionnaire"
+        },
+        {
+            icon: Activity,
+            title: "Дасан зохицох хөтөлбөр",
+            description: "Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг тохируулах.",
+            href: "/dashboard/settings/onboarding"
+        }
+    ];
+    
   return (
     <div className="py-8">
        <div className="mb-8 flex items-center justify-between">
@@ -27,97 +97,11 @@ export default function GeneralSettingsPage() {
             </div>
         </div>
       </div>
-      <div className="space-y-8">
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5"/>Цаг ба Ирцийн Тохиргоо</CardTitle>
-                <CardDescription>Ажилтан чөлөөний хүсэлт, цаг бүртгэлийн тохиргоог удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/time-off">
-                        <CalendarClock className="mr-2 size-4 shrink-0" />
-                        Тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-
-         <Card>
-            <CardHeader>
-                <CardTitle>Ажилтны кодчлолын тохиргоо</CardTitle>
-                <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/employee-code">
-                        <Code className="mr-2 size-4 shrink-0" />
-                        Кодчлолын тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Бүтцийн тохиргоо</CardTitle>
-                <CardDescription>Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг эндээс тохируулна.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/structure">
-                        <Network className="mr-2 size-4 shrink-0" />
-                        Бүтцийн тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Баримт бичгийн тохиргоо</CardTitle>
-                <CardDescription>Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Button asChild>
-                    <Link href="/dashboard/settings/documents">
-                        <FileText className="mr-2 size-4 shrink-0" />
-                        Бичиг баримтын тохиргоо
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Анкетын лавлах сан</CardTitle>
-                <CardDescription>Ажилтны анкетын сонголтуудыг эндээс удирдна.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Button asChild>
-                    <Link href="/dashboard/settings/questionnaire">
-                        <ClipboardList className="mr-2 size-4 shrink-0" />
-                        Анкет тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Дасан зохицох хөтөлбөрийн тохиргоо</CardTitle>
-                <CardDescription>Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/onboarding">
-                        <Settings className="mr-2 size-4 shrink-0" />
-                        Дасан зохицох тохиргоо руу очих
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
+      
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {settingsItems.map((item) => (
+            <SettingsCard key={item.href} {...item} />
+        ))}
       </div>
     </div>
   );
