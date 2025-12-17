@@ -289,7 +289,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                 <span className="font-medium">{data.department}</span>
             </div>
              <div className="flex justify-between">
-                <span className={mutedTextColor}>Орон тоо:</span>
+                <span className={mutedTextColor}>Ажилчид:</span>
                 <span className="font-medium">{data.filled}</span>
             </div>
         </div>
@@ -503,26 +503,34 @@ const OrganizationChart = () => {
     setIsAddEmployeeDialogOpen(true);
   }
 
-  const handleDuplicatePosition = (pos: Position) => {
+ const handleDuplicatePosition = (pos: Position) => {
     if (!firestore) return;
-    const { id, filled, ...clonedData } = pos;
-    const newTitle = `${clonedData.title} (Хуулбар)`;
     
+    // Create a new object with only the fields we want to save to Firestore
     const newPositionData = {
-        ...clonedData,
-        title: newTitle,
-        filled: 0,
+        title: `${pos.title} (Хуулбар)`,
+        departmentId: pos.departmentId,
+        reportsTo: pos.reportsTo || null,
+        levelId: pos.levelId || null,
+        employmentTypeId: pos.employmentTypeId || null,
+        workScheduleId: pos.workScheduleId || null,
         isActive: true, // Always create as active
+        jobCategoryId: pos.jobCategoryId || null,
+        createdAt: new Date().toISOString(),
+        canApproveAttendance: pos.canApproveAttendance || false,
+        filled: 0,
     };
+
     const positionsCollection = collection(firestore, 'positions');
     addDocumentNonBlocking(positionsCollection, newPositionData);
 
     toast({
         title: "Амжилттай хувиллаа",
-        description: `"${pos.title}" ажлын байрыг хувилж, "${newTitle}"-г үүсгэлээ.`
+        description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
     });
     setDuplicatingPosition(null);
 };
+
 
   // Create nodes and edges based on data
   useEffect(() => {
@@ -634,8 +642,6 @@ const OrganizationChart = () => {
         
         if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
         
-        // This logic is now handled by the confirmation dialog.
-        // We will just open the confirmation dialog here.
         setPendingConnection(connection);
     },
     [nodes]
@@ -648,7 +654,7 @@ const OrganizationChart = () => {
     const posData = positionNode?.data as PositionNodeData;
     
     // Check if the position is full
-    if(posData.filled >= 1) { // Assuming headcount is always 1 now.
+    if(posData.filled >= 1) { 
          setShowFullError(true);
          setPendingConnection(null);
          return;
@@ -661,8 +667,6 @@ const OrganizationChart = () => {
 
     try {
         const batch = writeBatch(firestore);
-        
-        // No need to check for old position, since we are assigning an unassigned employee.
         
         const newPosRef = doc(firestore, 'positions', newPositionId);
         batch.update(newPosRef, { filled: increment(1) });

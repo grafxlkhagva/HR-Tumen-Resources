@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -82,7 +83,6 @@ type Department = {
   parentId?: string;
   // Locally computed properties
   children?: Department[];
-  approved: number; 
   filled: number;
   typeName?: string;
   positions: Position[];
@@ -145,7 +145,7 @@ const OrgChartNode = ({ node }: { node: Department }) => {
           <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
           <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{node.approved || 0}</span>
+            <span>{node.filled || 0}</span>
           </div>
         </div>
         
@@ -172,7 +172,7 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
         <p className="text-sm text-muted-foreground">{node.typeName || 'Тодорхойгүй'}</p>
         <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />
-        <span>{node.approved || 0}</span>
+        <span>{node.filled || 0}</span>
         </div>
     </div>
     {node.children && node.children.length > 0 && (
@@ -215,9 +215,9 @@ const StructureTab = () => {
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery);
 
-  const { orgTree, totalHeadcount, deptsWithData } = useMemo(() => {
+  const { orgTree, deptsWithData } = useMemo(() => {
     if (!departments || !departmentTypes || !positions) {
-      return { orgTree: [], totalHeadcount: 0, deptsWithData: [] };
+      return { orgTree: [], deptsWithData: [] };
     }
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
@@ -226,10 +226,16 @@ const StructureTab = () => {
       ...d,
       positions: [],
       typeName: typeMap.get(d.typeId || ''),
-      approved: 0, // This will be calculated from positions
       filled: 0, // This will be calculated later
       children: [],
     }));
+    
+    positions.forEach(p => {
+        const dept = deptsWithData.find(d => d.id === p.departmentId);
+        if (dept) {
+            dept.filled += p.filled || 0;
+        }
+    });
 
     const deptMap = new Map(deptsWithData.map(d => [d.id, d]));
     const rootNodes: Department[] = [];
@@ -248,7 +254,7 @@ const StructureTab = () => {
       }
     });
 
-    return { orgTree: rootNodes, totalHeadcount: 0, deptsWithData: deptsWithData };
+    return { orgTree: rootNodes, deptsWithData: deptsWithData };
   }, [departments, departmentTypes, positions]);
   
   const departmentNameMap = useMemo(() => {
@@ -568,21 +574,26 @@ const PositionsTab = () => {
 
     const handleDuplicatePosition = (pos: Position) => {
         if (!firestore) return;
-        const { id, filled, ...clonedData } = pos;
-        const newTitle = `${clonedData.title} (Хуулбар)`;
-        
+
+        const {
+            id,
+            filled,
+            ...clonedData
+        } = pos;
+
         const newPositionData = {
             ...clonedData,
-            title: newTitle,
+            title: `${pos.title} (Хуулбар)`,
             filled: 0,
             isActive: true, // Always create as active
         };
+
         const positionsCollection = collection(firestore, 'positions');
         addDocumentNonBlocking(positionsCollection, newPositionData);
 
         toast({
             title: "Амжилттай хувиллаа",
-            description: `"${pos.title}" ажлын байрыг хувилж, "${newTitle}"-г үүсгэлээ.`
+            description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
         });
     };
 
