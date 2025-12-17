@@ -605,7 +605,6 @@ const PositionsTab = ({ departmentTypes }: { departmentTypes: DepartmentType[] }
             open={isPositionDialogOpen}
             onOpenChange={setIsPositionDialogOpen}
             departments={departments || []}
-            departmentTypes={departmentTypes || []}
             allPositions={positions || []}
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
