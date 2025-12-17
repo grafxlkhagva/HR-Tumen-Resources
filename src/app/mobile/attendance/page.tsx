@@ -45,6 +45,8 @@ type TimeOffRequest = {
     type: string;
     status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
     createdAt: string;
+    approverId: string;
+    approverName: string;
 };
 
 type AttendanceRequest = {
@@ -57,6 +59,8 @@ type AttendanceRequest = {
     hours?: number;
     status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
     createdAt: string;
+    approverId: string;
+    approverName: string;
 }
 
 type AttendanceConfig = {
@@ -68,6 +72,7 @@ type AttendanceConfig = {
 type Position = {
     id: string;
     workScheduleId?: string;
+    canApproveAttendance?: boolean;
 }
 
 type ReferenceItem = {
@@ -84,6 +89,13 @@ type WorkSchedule = {
     name: string;
 }
 
+type Employee = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    positionId?: string;
+}
+
 
 // --- Zod Schemas ---
 const timeOffRequestSchema = z.object({
@@ -93,6 +105,7 @@ const timeOffRequestSchema = z.object({
     to: z.date({ required_error: 'Дуусах огноог сонгоно уу.' }),
   }),
   reason: z.string().min(1, 'Шалтгаан хоосон байж болохгүй.'),
+  approverId: z.string().min(1, 'Хүсэлт илгээх хүнээ сонгоно уу.'),
 });
 type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
 
@@ -103,6 +116,7 @@ const attendanceRequestSchema = z.object({
     endTime: z.string().optional(),
     hours: z.coerce.number().optional(),
     reason: z.string().min(1, "Шалтгаан хоосон байж болохгүй."),
+    approverId: z.string().min(1, 'Хүсэлт илгээх хүнээ сонгоно уу.'),
 }).refine(data => {
     if (data.type === 'OVERTIME') {
         return !!data.startTime && !!data.endTime;
@@ -151,7 +165,18 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
     const attendanceCollectionRef = useMemoFirebase(() => (firestore && employeeId ? collection(firestore, `employees/${employeeId}/attendanceRequests`) : null), [firestore, employeeId]);
     
     const requestTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'timeOffRequestTypes') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('canApproveAttendance', '==', true)) : null, [firestore]);
+    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+
     const { data: requestTypes, isLoading: isLoadingTypes } = useCollection<ReferenceItem>(requestTypesQuery);
+    const { data: approverPositions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+
+    const approvers = React.useMemo(() => {
+        if (!approverPositions || !employees) return [];
+        const approverPositionIds = new Set(approverPositions.map(p => p.id));
+        return employees.filter(emp => emp.positionId && approverPositionIds.has(emp.positionId));
+    }, [approverPositions, employees]);
 
     const timeOffForm = useForm<TimeOffRequestFormValues>({ resolver: zodResolver(timeOffRequestSchema) });
     const attendanceForm = useForm<AttendanceRequestFormValues>({ resolver: zodResolver(attendanceRequestSchema) });
@@ -162,12 +187,15 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
 
     const onTimeOffSubmit = async (values: TimeOffRequestFormValues) => {
         if (!timeOffCollectionRef || !employeeId) return;
+        const approver = approvers.find(a => a.id === values.approverId);
         await addDocumentNonBlocking(timeOffCollectionRef, {
             employeeId,
             type: values.type,
             startDate: values.dateRange.from.toISOString(),
             endDate: values.dateRange.to.toISOString(),
             reason: values.reason,
+            approverId: values.approverId,
+            approverName: approver ? `${approver.firstName} ${approver.lastName}` : '',
             status: 'Хүлээгдэж буй',
             createdAt: new Date().toISOString(),
         });
@@ -178,10 +206,13 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
     
     const onAttendanceSubmit = async (values: AttendanceRequestFormValues) => {
         if (!attendanceCollectionRef || !employeeId) return;
+        const approver = approvers.find(a => a.id === values.approverId);
         await addDocumentNonBlocking(attendanceCollectionRef, {
             employeeId,
             ...values,
             date: format(values.date, 'yyyy-MM-dd'),
+            approverId: values.approverId,
+            approverName: approver ? `${approver.firstName} ${approver.lastName}` : '',
             status: 'Хүлээгдэж буй',
             createdAt: new Date().toISOString(),
         });
@@ -191,6 +222,7 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
     };
     
     const attendanceRequestType = attendanceForm.watch('type');
+    const isLoading = isLoadingTypes || isLoadingPositions || isLoadingEmployees;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,6 +259,15 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
                                  <FormField control={timeOffForm.control} name="reason" render={({ field }) => (
                                     <FormItem><FormLabel>Шалтгаан</FormLabel><FormControl><Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
+                                <FormField control={timeOffForm.control} name="approverId" render={({ field }) => (
+                                    <FormItem><FormLabel>Хүсэлт илгээх</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger disabled={isLoading}><SelectValue placeholder={isLoading ? "Ачааллаж байна..." : "Батлах ажилтан сонгох..."} /></SelectTrigger></FormControl>
+                                            <SelectContent>{approvers?.map(approver => (<SelectItem key={approver.id} value={approver.id}>{approver.firstName} {approver.lastName}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}/>
                                  <DialogFooter>
                                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Цуцлах</Button>
                                     <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Илгээх</Button>
@@ -261,6 +302,15 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
                                 )}
                                  <FormField control={attendanceForm.control} name="reason" render={({ field }) => (
                                     <FormItem><FormLabel>Шалтгаан / Дэлгэрэнгүй</FormLabel><FormControl><Textarea placeholder="Хүсэлт гаргах болсон шалтгаанаа энд бичнэ үү..." {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={attendanceForm.control} name="approverId" render={({ field }) => (
+                                    <FormItem><FormLabel>Хүсэлт илгээх</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger disabled={isLoading}><SelectValue placeholder={isLoading ? "Ачааллаж байна..." : "Батлах ажилтан сонгох..."} /></SelectTrigger></FormControl>
+                                            <SelectContent>{approvers?.map(approver => (<SelectItem key={approver.id} value={approver.id}>{approver.firstName} {approver.lastName}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                    <FormMessage />
+                                    </FormItem>
                                 )}/>
                                 <DialogFooter>
                                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Цуцлах</Button>
