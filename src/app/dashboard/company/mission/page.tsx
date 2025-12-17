@@ -306,7 +306,7 @@ export default function EditMissionPage() {
     <div className="py-8">
        <div className="mb-4">
             <Button asChild variant="outline" size="sm">
-                <Link href="/dashboard/company">
+                <Link href="/dashboard">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Буцах
                 </Link>

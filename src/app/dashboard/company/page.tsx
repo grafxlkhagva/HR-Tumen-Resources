@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video } from 'lucide-react';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -343,6 +343,14 @@ export default function CompanyPage() {
 
   return (
     <div className="py-8 space-y-8">
+        <div className="mb-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Буцах
+            </Link>
+          </Button>
+        </div>
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-4">

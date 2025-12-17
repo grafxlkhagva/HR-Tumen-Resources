@@ -235,7 +235,7 @@ export default function EmployeeCodeSettingsPage() {
     <div className="py-8">
       <div className="mb-4 flex items-center gap-4">
         <Button asChild variant="outline" size="icon">
-          <Link href="/dashboard/settings">
+          <Link href="/dashboard/settings/general">
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Буцах</span>
           </Link>

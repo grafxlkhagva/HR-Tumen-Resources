@@ -25,10 +25,11 @@ import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, Upload, Building } from 'lucide-react';
+import { Loader2, Save, X, Upload, Building, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Link from 'next/link';
 
 
 const companyProfileSchema = z.object({
@@ -401,6 +402,14 @@ export default function EditCompanyPage() {
 
   return (
     <div className="py-8">
+       <div className="mb-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Буцах
+            </Link>
+          </Button>
+        </div>
       <EditCompanyForm initialData={initialData} docExists={docExists} />
     </div>
   );

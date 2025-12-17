@@ -4,19 +4,27 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity } from 'lucide-react';
+import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft } from 'lucide-react';
 
 export default function GeneralSettingsPage() {
   return (
     <div className="py-8">
        <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Ерөнхий тохиргоо
-          </h1>
-          <p className="text-muted-foreground">
-            Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах.
-          </p>
+        <div className="flex items-center gap-4">
+            <Button asChild variant="outline" size="icon">
+              <Link href="/dashboard">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Буцах</span>
+              </Link>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Ерөнхий тохиргоо
+              </h1>
+              <p className="text-muted-foreground">
+                Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах.
+              </p>
+            </div>
         </div>
       </div>
       <div className="space-y-8">
@@ -114,4 +122,3 @@ export default function GeneralSettingsPage() {
     </div>
   );
 }
-
