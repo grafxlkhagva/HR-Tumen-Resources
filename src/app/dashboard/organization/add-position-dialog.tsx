@@ -219,7 +219,7 @@ export function AddPositionDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
             <ScrollArea className="flex-1 pr-6 -mr-6">
               <div className="space-y-4 py-1">
                 <Accordion type="multiple" defaultValue={['basic_info', 'classification', 'settings']} className="w-full">
