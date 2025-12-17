@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase, Power, PowerOff, Copy } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase, Power, PowerOff, Copy, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -948,6 +948,14 @@ const HeadcountTab = () => {
 export default function OrganizationPage() {
   return (
     <div className="py-8">
+      <div className="mb-4">
+        <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard/company">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Буцах
+            </Link>
+        </Button>
+      </div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">
           Бүтэц, орон тоо
@@ -973,5 +981,7 @@ export default function OrganizationPage() {
     </div>
   );
 }
+
+    
 
     
