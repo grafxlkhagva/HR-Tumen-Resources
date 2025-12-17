@@ -218,7 +218,7 @@ export function AddPositionDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
-            <ScrollArea className="flex-grow">
+            <ScrollArea className="flex-1">
               <div className="space-y-4 pr-6">
                 <FormField
                   control={form.control}
