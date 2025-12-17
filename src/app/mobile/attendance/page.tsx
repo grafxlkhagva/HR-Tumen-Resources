@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from '@/components/ui/input';
+import { DateRange } from 'react-day-picker';
 
 // --- Type Definitions ---
 type AttendanceRecord = {
@@ -51,7 +52,8 @@ type TimeOffRequest = {
 
 type AttendanceRequest = {
     id: string;
-    date: string;
+    startDate: string;
+    endDate: string;
     reason: string;
     type: 'OVERTIME' | 'LATE_ARRIVAL' | 'REMOTE_WORK';
     startTime?: string;
@@ -111,7 +113,10 @@ type TimeOffRequestFormValues = z.infer<typeof timeOffRequestSchema>;
 
 const attendanceRequestSchema = z.object({
     type: z.enum(['OVERTIME', 'LATE_ARRIVAL', 'REMOTE_WORK'], { required_error: "Хүсэлтийн төрлийг сонгоно уу." }),
-    date: z.date({ required_error: "Огноог сонгоно уу." }),
+    dateRange: z.object({
+        from: z.date({ required_error: 'Эхлэх огноог сонгоно уу.' }),
+        to: z.date({ required_error: 'Дуусах огноог сонгоно уу.' }),
+    }),
     startTime: z.string().optional(),
     endTime: z.string().optional(),
     hours: z.coerce.number().optional(),
@@ -210,7 +215,8 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
         await addDocumentNonBlocking(attendanceCollectionRef, {
             employeeId,
             ...values,
-            date: format(values.date, 'yyyy-MM-dd'),
+            startDate: values.dateRange.from.toISOString(),
+            endDate: values.dateRange.to.toISOString(),
             approverId: values.approverId,
             approverName: approver ? `${approver.firstName} ${approver.lastName}` : '',
             status: 'Хүлээгдэж буй',
@@ -291,8 +297,12 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                <FormField control={attendanceForm.control} name="date" render={({ field }) => (
-                                    <FormItem className="flex flex-col"><FormLabel>Огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/></PopoverContent></Popover><FormMessage /></FormItem>
+                                <FormField control={attendanceForm.control} name="dateRange" render={({ field }) => (
+                                     <FormItem className="flex flex-col">
+                                        <FormLabel>Хугацаа</FormLabel>
+                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={field.value?.from ? { from: field.value.from, to: field.value.to } : undefined} onSelect={(range) => field.onChange(range as DateRange)} numberOfMonths={1} /></PopoverContent></Popover>
+                                        <FormMessage />
+                                    </FormItem>
                                 )}/>
                                 {attendanceRequestType === 'OVERTIME' && (
                                     <div className="grid grid-cols-2 gap-4">
@@ -426,7 +436,7 @@ function AttendanceRequestHistory({ employeeId }: { employeeId: string }) {
                             <div>
                                 <p className="font-semibold">{typeLabels[req.type] || req.type}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {format(new Date(req.date), 'yyyy/MM/dd')}
+                                    {format(new Date(req.startDate), 'yyyy/MM/dd')} - {format(new Date(req.endDate), 'yyyy/MM/dd')}
                                     {req.startTime && req.endTime && ` (${req.startTime} - ${req.endTime})`}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-2">Илгээсэн: {format(new Date(req.createdAt), 'yyyy/MM/dd, HH:mm')}</p>

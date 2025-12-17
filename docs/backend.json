@@ -187,6 +187,14 @@
           "type": "string",
           "description": "Ажилтантай холбогдох танигч. (Хамаарал: Ажилтан 1:N Чөлөөний хүсэлт)"
         },
+        "approverId": {
+          "type": "string",
+          "description": "Хүсэлтийг батлах ажилтны ID."
+        },
+        "approverName": {
+          "type": "string",
+          "description": "Хүсэлтийг батлах ажилтны нэр."
+        },
         "type": {
           "type": "string",
           "description": "Хүсэлтийн төрөл (жишээ нь, Ээлжийн амралт, Ар гэрийн гачигдал)."
@@ -213,6 +221,7 @@
       "required": [
         "id",
         "employeeId",
+        "approverId",
         "type",
         "startDate",
         "endDate",
@@ -227,8 +236,11 @@
       "properties": {
         "id": { "type": "string" },
         "employeeId": { "type": "string" },
+        "approverId": { "type": "string", "description": "Хүсэлтийг батлах ажилтны ID." },
+        "approverName": { "type": "string", "description": "Хүсэлтийг батлах ажилтны нэр." },
         "type": { "type": "string", "enum": ["OVERTIME", "LATE_ARRIVAL", "REMOTE_WORK"] },
-        "date": { "type": "string", "format": "date" },
+        "startDate": { "type": "string", "format": "date", "description": "Хүсэлт хамаарах эхлэх огноо." },
+        "endDate": { "type": "string", "format": "date", "description": "Хүсэлт хамаарах дуусах огноо." },
         "startTime": { "type": "string", "format": "time" },
         "endTime": { "type": "string", "format": "time" },
         "hours": { "type": "number", "description": "Илүү цагаар ажилласан нийт цаг." },
@@ -236,7 +248,7 @@
         "status": { "type": "string", "enum": ["Хүлээгдэж буй", "Зөвшөөрсөн", "Татгалзсан"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "employeeId", "type", "date", "reason", "status", "createdAt"]
+      "required": ["id", "employeeId", "approverId", "type", "startDate", "endDate", "reason", "status", "createdAt"]
     },
     "Document": {
       "$schema": "http://json-schema.org/draft-07/schema#",
