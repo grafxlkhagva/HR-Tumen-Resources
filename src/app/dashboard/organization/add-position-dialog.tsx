@@ -210,15 +210,15 @@ export function AddPositionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+            <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
+            <DialogDescription>
+            Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
+            </DialogDescription>
+        </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
-              <DialogDescription>
-                Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="flex-1 py-4 -mr-6 pr-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
+            <ScrollArea className="flex-1 pr-6 -mr-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
