@@ -44,7 +44,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
@@ -211,18 +210,16 @@ export function AddPositionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
           <DialogDescription>
             Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
-            <ScrollArea className="flex-1 pr-6 -mr-6">
-              <div className="space-y-6 py-1">
-                
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col">
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Үндсэн мэдээлэл</CardTitle>
@@ -499,10 +496,9 @@ export function AddPositionDialog({
                         />
                     </CardContent>
                 </Card>
+            </div>
 
-              </div>
-            </ScrollArea>
-            <DialogFooter className="pt-4 border-t">
+            <DialogFooter className="p-6 pt-4 border-t sticky bottom-0 bg-background z-10">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                 Цуцлах
               </Button>
