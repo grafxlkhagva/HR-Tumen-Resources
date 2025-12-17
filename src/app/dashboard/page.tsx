@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -28,7 +29,7 @@ import {
   updateDocumentNonBlocking,
   useDoc,
 } from '@/firebase';
-import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,7 +85,7 @@ interface Position {
 interface AttendanceRecord {
     id: string;
     employeeId: string;
-    date: string;
+    date: string; // yyyy-MM-dd
     checkInTime: string;
     checkOutTime?: string;
     status: 'PRESENT' | 'LEFT';
@@ -605,10 +606,22 @@ const OrganizationChart = () => {
     (connection) => {
         const employeeNode = nodes.find(n => n.id === connection.source);
         const positionNode = nodes.find(n => n.id === connection.target);
+        
         if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
+        
+        const posData = positionNode.data as PositionNodeData;
+        if(posData.filled >= posData.headcount) {
+             toast({
+                variant: "destructive",
+                title: "Орон тоо дүүрсэн",
+                description: "Энэ ажлын байр дүүрсэн байна. Та эхлээд өмнөх ажилтныг чөлөөлнө үү."
+            });
+            return;
+        }
+
         setPendingConnection(connection);
     },
-    [nodes]
+    [nodes, toast]
   );
 
   const confirmAssignment = async () => {
@@ -619,19 +632,12 @@ const OrganizationChart = () => {
     if (!employeeId || !newPositionId) return;
 
     try {
-        const oldPositionId = employees?.find(e => e.id === employeeId)?.positionId;
-
         const batch = writeBatch(firestore);
-
-        if (oldPositionId) {
-            const oldPosRef = doc(firestore, 'positions', oldPositionId);
-            const oldPosSnap = await getDoc(oldPosRef);
-            if (oldPosSnap.exists()) batch.update(oldPosRef, { filled: Math.max(0, (oldPosSnap.data().filled || 0) - 1) });
-        }
+        
+        // No need to check for old position, since we are assigning an unassigned employee.
         
         const newPosRef = doc(firestore, 'positions', newPositionId);
-        const newPosSnap = await getDoc(newPosRef);
-        if (newPosSnap.exists()) batch.update(newPosRef, { filled: (newPosSnap.data().filled || 0) + 1 });
+        batch.update(newPosRef, { filled: increment(1) });
         
         const employeeDocRef = doc(firestore, 'employees', employeeId);
         batch.update(employeeDocRef, {

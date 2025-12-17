@@ -62,6 +62,16 @@ export function AssignEmployeeDialog({
 
   const handleAssignEmployee = async (employeeId: string) => {
     if (!firestore || !position) return;
+
+    if (position.filled >= position.headcount) {
+        toast({
+            variant: "destructive",
+            title: "Орон тоо дүүрсэн",
+            description: "Энэ ажлын байранд ажилтан томилогдсон байна. Шинээр ажилтан томилохын тулд эхлээд өмнөх ажилтныг чөлөөлнө үү."
+        });
+        return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -93,6 +103,18 @@ export function AssignEmployeeDialog({
     }
   };
 
+  const handleSelectExisting = () => {
+    if (position && position.filled >= position.headcount) {
+        toast({
+            variant: "destructive",
+            title: "Орон тоо дүүрсэн",
+            description: "Энэ ажлын байранд ажилтан томилогдсон байна. Шинээр ажилтан томилохын тулд эхлээд өмнөх ажилтныг чөлөөлнө үү."
+        });
+        return;
+    }
+    setStep(2);
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -107,7 +129,7 @@ export function AssignEmployeeDialog({
         
         {step === 1 && (
             <div className="grid grid-cols-1 gap-4 py-4">
-                <Card onClick={() => setStep(2)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <Card onClick={handleSelectExisting} className="cursor-pointer hover:bg-muted/50 transition-colors">
                     <CardContent className="p-4 flex items-center gap-4">
                         <UserRoundCheck className="h-8 w-8 text-primary" />
                         <div>
