@@ -24,7 +24,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X, ArrowLeft } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, collectionGroup } from 'firebase/firestore';
@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Employee } from '../employees/data';
 import type { WorkSchedule } from '../settings/time-off/add-work-schedule-dialog';
 import type { Department } from '../organization/page';
+import Link from 'next/link';
 
 // --- Type Definitions ---
 type AttendanceRecord = {
@@ -457,6 +458,14 @@ function TimeReportTab() {
 export default function AttendanceAndRequestsPage() {
   return (
     <div className="py-8 space-y-8">
+        <div className="mb-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Буцах
+            </Link>
+          </Button>
+        </div>
         <div className="flex justify-between items-center">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Цаг ба Ирц</h1>

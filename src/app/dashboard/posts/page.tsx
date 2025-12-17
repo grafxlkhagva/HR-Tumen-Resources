@@ -29,6 +29,7 @@ import {
   Newspaper,
   Image as ImageIcon,
   Pencil,
+  ArrowLeft,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -145,6 +146,14 @@ export default function PostsPage() {
 
   return (
     <div className="py-8">
+        <div className="mb-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Буцах
+            </Link>
+          </Button>
+        </div>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
