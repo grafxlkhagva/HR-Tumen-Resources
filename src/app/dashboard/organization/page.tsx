@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase, Power, PowerOff } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Users, Pencil, Trash2, ChevronRight, Briefcase, Power, PowerOff, Copy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -29,12 +29,24 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   useCollection,
   useFirebase,
   useMemoFirebase,
   deleteDocumentNonBlocking,
   useDoc,
   updateDocumentNonBlocking,
+  addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +58,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -84,7 +97,6 @@ type Position = {
   id: string;
   title: string;
   departmentId: string;
-  headcount: number;
   filled: number;
   reportsTo?: string;
   levelId?: string;
@@ -210,21 +222,12 @@ const StructureTab = () => {
 
     const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
     
-    const positionCountByDept = positions
-        .filter(pos => pos.isActive)
-        .reduce((acc, pos) => {
-            if (!pos.departmentId) return acc;
-            const currentCount = acc.get(pos.departmentId) || 0;
-            acc.set(pos.departmentId, currentCount + pos.headcount);
-            return acc;
-        }, new Map<string, number>());
-    
     const deptsWithData: Department[] = departments.map(d => ({
       ...d,
       positions: [],
       typeName: typeMap.get(d.typeId || ''),
-      approved: positionCountByDept.get(d.id) || 0,
-      filled: 0, // Will be calculated later
+      approved: 0, // This will be calculated from positions
+      filled: 0, // This will be calculated later
       children: [],
     }));
 
@@ -245,9 +248,7 @@ const StructureTab = () => {
       }
     });
 
-    const totalCount = Array.from(positionCountByDept.values()).reduce((sum, count) => sum + count, 0);
-
-    return { orgTree: rootNodes, totalHeadcount: totalCount, deptsWithData: deptsWithData };
+    return { orgTree: rootNodes, totalHeadcount: 0, deptsWithData: deptsWithData };
   }, [departments, departmentTypes, positions]);
   
   const departmentNameMap = useMemo(() => {
@@ -291,7 +292,7 @@ const StructureTab = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{companyProfile?.legalName || 'Байгууллагын бүтэц'} ({isLoading ? <Skeleton className="h-6 w-8 inline-block"/> : totalHeadcount})</CardTitle>
+              <CardTitle>{companyProfile?.legalName || 'Байгууллагын бүтэц'}</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -347,7 +348,6 @@ const StructureTab = () => {
                         <TableHead>Нэгжийн нэр</TableHead>
                         <TableHead>Төрөл</TableHead>
                         <TableHead>Харьяалагдах дээд нэгж</TableHead>
-                        <TableHead className="text-right">Ажилтны тоо</TableHead>
                         <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -357,7 +357,6 @@ const StructureTab = () => {
                             <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                            <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                      ))}
@@ -366,7 +365,6 @@ const StructureTab = () => {
                             <TableCell className="font-medium">{dept.name}</TableCell>
                             <TableCell>{dept.typeName || 'Тодорхойгүй'}</TableCell>
                             <TableCell>{dept.parentId ? departmentNameMap.get(dept.parentId) : '-'}</TableCell>
-                            <TableCell className="text-right">{dept.approved}</TableCell>
                             <TableCell className="text-right">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -404,7 +402,7 @@ const StructureTab = () => {
   );
 };
 
-const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void }) => {
+const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate, onDuplicate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void, onDuplicate: (pos: Position) => void }) => {
     return (
         <Table>
         <TableHeader>
@@ -413,7 +411,6 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
             <TableHead>Хэлтэс</TableHead>
             <TableHead>Зэрэглэл</TableHead>
             <TableHead>Ажил эрхлэлтийн төрөл</TableHead>
-            <TableHead className="text-right">Орон тоо</TableHead>
             <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
             </TableRow>
         </TableHeader>
@@ -425,7 +422,6 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
                 <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="ml-auto h-5 w-16" /></TableCell>
                 <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                 </TableRow>
             ))}
@@ -444,37 +440,54 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
                             {pos.employmentTypeId ? <Badge variant="outline">{lookups.empTypeMap[pos.employmentTypeId] || 'Тодорхойгүй'}</Badge> : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                            {pos.headcount}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => onEdit(pos)}>
-                                        <Pencil className="mr-2 h-4 w-4" /> Засах
-                                    </DropdownMenuItem>
-                                    {isActive ? (
-                                        <DropdownMenuItem onClick={() => onToggleActive(pos)} className="text-destructive">
-                                            <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
+                            <AlertDialog>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => onEdit(pos)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Засах
                                         </DropdownMenuItem>
-                                    ) : (
-                                        <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600 focus:text-green-700">
-                                            <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
-                                        </DropdownMenuItem>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                         <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                <Copy className="mr-2 h-4 w-4" /> Хувилах
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <DropdownMenuSeparator />
+                                        {isActive ? (
+                                            <DropdownMenuItem onClick={() => onToggleActive(pos)} className="text-destructive">
+                                                <PowerOff className="mr-2 h-4 w-4" /> Идэвхгүй болгох
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            <DropdownMenuItem onClick={() => onReactivate(pos)} className="text-green-600 focus:text-green-700">
+                                                <Power className="mr-2 h-4 w-4" /> Идэвхжүүлэх
+                                            </DropdownMenuItem>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Та "{pos.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу? Шинэ ажлын байр нь ижил мэдээлэлтэй боловч ажилтан томилогдоогүйгээр үүснэ.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => onDuplicate(pos)}>Тийм, хувилах</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </TableCell>
                     </TableRow>
                 )
             })}
             {!isLoading && !positions?.length && (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                         Ажлын байрны жагсаалт хоосон байна.
                     </TableCell>
                 </TableRow>
@@ -506,14 +519,13 @@ const PositionsTab = () => {
 
     const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules;
 
-    const { activePositions, inactivePositions, totalHeadcount } = useMemo(() => {
+    const { activePositions, inactivePositions } = useMemo(() => {
         if (!positions) {
-            return { activePositions: [], inactivePositions: [], totalHeadcount: 0 };
+            return { activePositions: [], inactivePositions: [] };
         }
         const active = positions.filter(p => p.isActive !== false);
         const inactive = positions.filter(p => p.isActive === false);
-        const count = active.reduce((sum, pos) => sum + (pos.headcount || 0), 0);
-        return { activePositions: active, inactivePositions: inactive, totalHeadcount: count };
+        return { activePositions: active, inactivePositions: inactive };
     }, [positions]);
 
     const lookups = React.useMemo(() => {
@@ -554,6 +566,26 @@ const PositionsTab = () => {
         });
     }
 
+    const handleDuplicatePosition = (pos: Position) => {
+        if (!firestore) return;
+        const { id, filled, ...clonedData } = pos;
+        const newTitle = `${clonedData.title} (Хуулбар)`;
+        
+        const newPositionData = {
+            ...clonedData,
+            title: newTitle,
+            filled: 0,
+            isActive: true, // Always create as active
+        };
+        const positionsCollection = collection(firestore, 'positions');
+        addDocumentNonBlocking(positionsCollection, newPositionData);
+
+        toast({
+            title: "Амжилттай хувиллаа",
+            description: `"${pos.title}" ажлын байрыг хувилж, "${newTitle}"-г үүсгэлээ.`
+        });
+    };
+
     return (
         <>
          <AddPositionDialog
@@ -570,7 +602,7 @@ const PositionsTab = () => {
         <Card>
         <CardHeader className="flex-row items-center justify-between">
             <div>
-            <CardTitle>Ажлын байрны жагсаалт (Идэвхтэй орон тоо: {isLoading ? <Skeleton className="h-6 w-8 inline-block" /> : totalHeadcount})</CardTitle>
+            <CardTitle>Ажлын байрны жагсаалт</CardTitle>
             <CardDescription>
                 Байгууллагад бүртгэлтэй бүх албан тушаал.
             </CardDescription>
@@ -596,6 +628,7 @@ const PositionsTab = () => {
                         onEdit={handleOpenEditDialog}
                         onToggleActive={handleToggleActive}
                         onReactivate={handleReactivate}
+                        onDuplicate={handleDuplicatePosition}
                      />
                 </TabsContent>
                 <TabsContent value="inactive" className="mt-4">
@@ -606,6 +639,7 @@ const PositionsTab = () => {
                         onEdit={handleOpenEditDialog}
                         onToggleActive={handleToggleActive}
                         onReactivate={handleReactivate}
+                        onDuplicate={handleDuplicatePosition}
                      />
                 </TabsContent>
             </Tabs>
@@ -635,9 +669,9 @@ const HeadcountTab = () => {
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
   
-    const { departmentsWithHeadcount, totalApproved, totalFilled, totalVacancy, newPositionsInPeriod } = React.useMemo(() => {
+    const { departmentsWithHeadcount, totalFilled } = React.useMemo(() => {
         if (!positions || !employees || !departments) {
-            return { departmentsWithHeadcount: [], totalApproved: 0, totalFilled: 0, totalVacancy: 0, newPositionsInPeriod: 0 };
+            return { departmentsWithHeadcount: [], totalFilled: 0 };
         }
     
         const periodStart = date?.from ? startOfDay(date.from) : null;
@@ -662,13 +696,6 @@ const HeadcountTab = () => {
              return p.isActive && (!periodEnd || createdAt <= periodEnd);
         });
 
-        const newPositionsInPeriod = positions
-            .filter(p => {
-                const createdAt = p.createdAt ? new Date(p.createdAt) : null;
-                return createdAt && (!periodStart || createdAt >= periodStart) && (!periodEnd || createdAt <= periodEnd);
-            })
-            .reduce((sum, p) => sum + p.headcount, 0);
-
         const departmentsData = departments.map(d => {
             const deptPositions = activePositions
                 .filter(p => p.departmentId === d.id)
@@ -677,26 +704,20 @@ const HeadcountTab = () => {
                     filled: employeeCountByPosition.get(p.id) || 0,
                 }));
     
-            const approved = deptPositions.reduce((sum, p) => sum + p.headcount, 0);
             const filled = deptPositions.reduce((sum, p) => sum + p.filled, 0);
     
             return {
                 ...d,
-                approved,
                 filled,
                 positions: deptPositions,
             };
         });
     
-        const totalApproved = departmentsData.reduce((sum, dept) => sum + (dept.approved || 0), 0);
         const totalFilled = departmentsData.reduce((sum, dept) => sum + (dept.filled || 0), 0);
     
         return { 
             departmentsWithHeadcount: departmentsData,
-            totalApproved,
             totalFilled,
-            totalVacancy: totalApproved - totalFilled,
-            newPositionsInPeriod
         };
     }, [positions, employees, departments, date]);
     
@@ -819,40 +840,24 @@ const HeadcountTab = () => {
                   </div>
               </CardHeader>
               <CardContent>
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       <Card>
                           <CardHeader>
-                          <CardTitle>Батлагдсан орон тоо</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalApproved}</div>}
-                          </CardContent>
-                      </Card>
-                      <Card>
-                          <CardHeader>
-                          <CardTitle>Ажиллаж буй</CardTitle>
+                          <CardTitle>Нийт ажиллаж буй</CardTitle>
                           </CardHeader>
                           <CardContent>
                           {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold">{totalFilled}</div>}
-                          </CardContent>
-                      </Card>
-                      <Card>
-                          <CardHeader>
-                          <CardTitle>Сул орон тоо</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-primary">{totalVacancy}</div>}
                           </CardContent>
                       </Card>
                        <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Briefcase className="h-5 w-5" />
-                                Шинээр нэмэгдсэн
+                                Шинэ ажлын байр
                             </CardTitle>
                           </CardHeader>
                           <CardContent>
-                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-green-600">+{newPositionsInPeriod}</div>}
+                          {isLoading ? <Skeleton className="h-10 w-20" /> : <div className="text-4xl font-bold text-green-600">N/A</div>}
                           </CardContent>
                       </Card>
                   </div>
@@ -868,10 +873,7 @@ const HeadcountTab = () => {
                       <TableHeader>
                           <TableRow>
                               <TableHead className="w-[250px]">Хэлтэс/Ажлын байр</TableHead>
-                              <TableHead className="text-right">Батлагдсан орон тоо</TableHead>
                               <TableHead className="text-right">Ажиллаж буй</TableHead>
-                              <TableHead className="text-right">Сул орон тоо</TableHead>
-                              <TableHead className="w-[200px]">Гүйцэтгэл</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -879,9 +881,6 @@ const HeadcountTab = () => {
                               <TableRow key={i}>
                                   <TableCell><Skeleton className="h-5 w-32"/></TableCell>
                                   <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                  <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                  <TableCell className="text-right"><Skeleton className="h-5 w-10 ml-auto"/></TableCell>
-                                  <TableCell><Skeleton className="h-4 w-full"/></TableCell>
                               </TableRow>
                           ))}
                           {!isLoading && departmentsWithHeadcount.map(dept => (
@@ -896,32 +895,15 @@ const HeadcountTab = () => {
                                                 {dept.name}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right">{dept.approved}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="link" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); handleShowEmployees(dept.id); }}>{dept.filled}</Button>
                                         </TableCell>
-                                        <TableCell className="text-right text-primary">{(dept.approved || 0) - (dept.filled || 0)}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Progress value={(dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0} className="h-2" />
-                                                <span className="text-xs text-muted-foreground">{Math.round((dept.approved || 0) > 0 ? ((dept.filled || 0) / (dept.approved || 0)) * 100 : 0)}%</span>
-                                            </div>
-                                        </TableCell>
                                     </TableRow>
                                     {openRows.has(dept.id) && dept.positions.map((pos) => {
-                                        const posProgress = pos.headcount > 0 ? (pos.filled / pos.headcount) * 100 : 0;
                                         return (
                                         <TableRow key={pos.id} className="text-sm bg-background hover:bg-muted/30">
                                             <TableCell className="pl-12">{pos.title}</TableCell>
-                                            <TableCell className="text-right">{pos.headcount}</TableCell>
                                             <TableCell className="text-right">{pos.filled}</TableCell>
-                                            <TableCell className="text-right text-primary">{pos.headcount - pos.filled}</TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Progress value={posProgress} className="h-2 bg-slate-200" />
-                                                    <span className="text-xs text-muted-foreground">{Math.round(posProgress)}%</span>
-                                                </div>
-                                            </TableCell>
                                         </TableRow>
                                         )
                                     })}
@@ -929,7 +911,7 @@ const HeadcountTab = () => {
                             ))}
                            {!isLoading && departmentsWithHeadcount.length === 0 && (
                               <TableRow>
-                                  <TableCell colSpan={5} className="h-24 text-center">
+                                  <TableCell colSpan={2} className="h-24 text-center">
                                       Мэдээлэл байхгүй.
                                   </TableCell>
                               </TableRow>
@@ -938,15 +920,7 @@ const HeadcountTab = () => {
                        <TableFooter>
                           <TableRow>
                               <TableCell className="font-bold">Нийт</TableCell>
-                              <TableCell className="text-right font-bold">{totalApproved}</TableCell>
                               <TableCell className="text-right font-bold">{totalFilled}</TableCell>
-                              <TableCell className="text-right font-bold text-primary">{totalVacancy}</TableCell>
-                              <TableCell>
-                                  <div className="flex items-center gap-2">
-                                      <Progress value={totalApproved > 0 ? (totalFilled / totalApproved) * 100 : 0} className="h-2" />
-                                      <span className="text-xs text-muted-foreground">{totalApproved > 0 ? Math.round((totalFilled / totalApproved) * 100) : 0}%</span>
-                                  </div>
-                              </TableCell>
                           </TableRow>
                       </TableFooter>
                   </Table>
