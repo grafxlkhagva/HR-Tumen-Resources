@@ -45,7 +45,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
 const positionSchema = z.object({
@@ -221,175 +221,183 @@ export function AddPositionDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
             <ScrollArea className="flex-1 pr-6 -mr-6">
-              <div className="space-y-4 py-1">
-                <Accordion type="multiple" defaultValue={['basic_info', 'classification', 'settings']} className="w-full">
-                  <AccordionItem value="basic_info">
-                    <AccordionTrigger>Үндсэн мэдээлэл</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-2">
+              <div className="space-y-6 py-1">
+                
+                {/* Үндсэн мэдээлэл */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Үндсэн мэдээлэл</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <FormField
-                          control={form.control}
-                          name="title"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Албан тушаалын нэр</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Албан тушаалын нэр</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
                         />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <FormField
+                            <FormField
+                                control={form.control}
+                                name="departmentId"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Харьяалагдах хэлтэс</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Хэлтэс сонгох" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {departments.map((dept) => (
+                                        <SelectItem key={dept.id} value={dept.id}>
+                                            {dept.name}
+                                        </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="reportsTo"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Удирдах албан тушаал сонгох" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
+                                        {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
+                                        <SelectItem key={pos.id} value={pos.id}>
+                                            {pos.title}
+                                        </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                         <FormField
                             control={form.control}
-                            name="departmentId"
+                            name="headcount"
                             render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Харьяалагдах хэлтэс</FormLabel>
+                                <FormItem>
+                                <FormLabel>Батлагдсан орон тоо</FormLabel>
+                                <FormControl>
+                                    <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                </Card>
+
+                {/* Ангилал */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Ангилал</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField
+                            control={form.control}
+                            name="levelId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
+                                    <FormControl>
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Хэлтэс сонгох" />
+                                        <SelectValue placeholder="Зэрэглэл сонгох" />
                                     </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {departments.map((dept) => (
-                                      <SelectItem key={dept.id} value={dept.id}>
-                                        {dept.name}
-                                      </SelectItem>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {positionLevels.map((level) => (
+                                        <SelectItem key={level.id} value={level.id}>
+                                        {level.name}
+                                        </SelectItem>
                                     ))}
-                                  </SelectContent>
+                                    </SelectContent>
                                 </Select>
                                 <FormMessage />
-                              </FormItem>
+                                </FormItem>
                             )}
-                          />
-                          <FormField
+                            />
+                            <FormField
                             control={form.control}
-                            name="reportsTo"
+                            name="employmentTypeId"
                             render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                                <FormItem>
+                                <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
+                                    <FormControl>
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Удирдах албан тушаал сонгох" />
+                                        <SelectValue placeholder="Төрөл сонгох" />
                                     </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
-                                    {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
-                                      <SelectItem key={pos.id} value={pos.id}>
-                                        {pos.title}
-                                      </SelectItem>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {employmentTypes.map((type) => (
+                                        <SelectItem key={type.id} value={type.id}>
+                                        {type.name}
+                                        </SelectItem>
                                     ))}
-                                  </SelectContent>
+                                    </SelectContent>
                                 </Select>
                                 <FormMessage />
-                              </FormItem>
+                                </FormItem>
                             )}
-                          />
+                            />
                         </div>
                         <FormField
-                          control={form.control}
-                          name="headcount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Батлагдсан орон тоо</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                            control={form.control}
+                            name="jobCategoryId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Ажил мэргэжлийн ангилал (ҮАМАТ)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="ҮАМАТ сонгох" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {jobCategories.map((cat) => (
+                                        <SelectItem key={cat.id} value={cat.id}>
+                                        {cat.code} - {cat.name}
+                                        </SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="classification">
-                    <AccordionTrigger>Ангилал</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <FormField
-                          control={form.control}
-                          name="levelId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Зэрэглэл сонгох" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {positionLevels.map((level) => (
-                                    <SelectItem key={level.id} value={level.id}>
-                                      {level.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="employmentTypeId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Төрөл сонгох" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {employmentTypes.map((type) => (
-                                    <SelectItem key={type.id} value={type.id}>
-                                      {type.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="jobCategoryId"
-                          render={({ field }) => (
-                            <FormItem className="sm:col-span-2">
-                              <FormLabel>Ажил мэргэжлийн ангилал (ҮАМАТ)</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="ҮАМАТ сонгох" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {jobCategories.map((cat) => (
-                                    <SelectItem key={cat.id} value={cat.id}>
-                                      {cat.code} - {cat.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="settings">
-                    <AccordionTrigger>Нэмэлт тохиргоо</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-2">
+                    </CardContent>
+                </Card>
+                
+                {/* Нэмэлт тохиргоо */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Нэмэлт тохиргоо</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <FormField
                           control={form.control}
                           name="workScheduleId"
@@ -492,10 +500,9 @@ export function AddPositionDialog({
                             </FormItem>
                           )}
                         />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                    </CardContent>
+                </Card>
+
               </div>
             </ScrollArea>
             <DialogFooter className="pt-4 border-t">
