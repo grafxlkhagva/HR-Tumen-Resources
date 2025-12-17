@@ -145,15 +145,15 @@ function AttendanceHistoryTab() {
 
   return (
     <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
                 <CardTitle>Цагийн бүртгэлийн түүх</CardTitle>
                 <CardDescription>Ажилтнуудын ирц, цагийн бүртгэлийг хянах.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
             <Popover>
                 <PopoverTrigger asChild>
-                <Button id="date" variant={"outline"} className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                <Button id="date" variant={"outline"} className={cn("w-full md:w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? format(date, "yyyy-MM-dd") : <span>Огноо сонгох</span>}
                 </Button>
@@ -162,7 +162,7 @@ function AttendanceHistoryTab() {
                 <Calendar initialFocus mode="single" selected={date} onSelect={setDate} />
                 </PopoverContent>
             </Popover>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" className="w-full md:w-auto">
                 <Download className="mr-2 h-4 w-4" />
                 Экспорт
             </Button>
@@ -226,7 +226,7 @@ function TimeOffRequestsTable() {
     const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, [firestore]);
+    const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, []);
     const { data: requests, isLoading } = useCollection<TimeOffRequest>(requestsQuery);
 
     const employeeMap = React.useMemo(() => new Map(employees?.map(e => [e.id, e])), [employees]);
@@ -377,15 +377,15 @@ function TimeReportTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                  <div>
                     <CardTitle>Цагийн тайлан</CardTitle>
                     <CardDescription>Сонгосон сарын ажилтнуудын цагийн нэгдсэн тайлан.</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full md:w-auto">
                     <Popover>
                         <PopoverTrigger asChild>
-                        <Button id="month" variant={"outline"} className={cn("w-[240px] justify-start text-left font-normal")}>
+                        <Button id="month" variant={"outline"} className={cn("w-full md:w-[240px] justify-start text-left font-normal")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {format(month, "yyyy - MMMM")}
                         </Button>
@@ -402,7 +402,7 @@ function TimeReportTab() {
                          />
                         </PopoverContent>
                     </Popover>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" className="w-full md:w-auto">
                         <Download className="mr-2 h-4 w-4" />
                         Экспорт
                     </Button>

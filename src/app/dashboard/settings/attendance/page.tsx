@@ -169,7 +169,7 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
                 <FormField control={form.control} name="longitude" render={({ field }) => ( <FormItem><FormLabel>Уртраг (Longitude)</FormLabel><FormControl><Input type="number" placeholder="106.917" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                 </div>
                 <FormField control={form.control} name="radius" render={({ field }) => ( <FormItem><FormLabel>Хүрээ (метр)</FormLabel><FormControl><Input type="number" placeholder="50" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                 <div className="flex items-center gap-2">
+                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />}
                         <Save className="mr-2 size-4 shrink-0" />
@@ -192,7 +192,7 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
                         <Input
                             type="text"
                             placeholder="Хаягаар хайх..."
-                            className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-72"
+                            className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-full max-w-sm"
                         />
                     </Autocomplete>
                     <GoogleMap
@@ -227,6 +227,7 @@ function ConfigForm({ initialData }: { initialData: AttendanceConfigFormValues }
 }
 
 function ConfigCardSkeleton() {
+  // Карт давхардахаас зайлсхийж зөвхөн контент хэсгийн skeleton
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

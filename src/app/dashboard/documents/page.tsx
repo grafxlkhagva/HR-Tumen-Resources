@@ -67,7 +67,7 @@ function DocumentRow({ doc }: { doc: Document }) {
       <TableCell className="hidden md:table-cell">
         {format(new Date(doc.uploadDate), 'yyyy.MM.dd')}
       </TableCell>
-      <TableCell className="text-right">... KB</TableCell>
+      <TableCell className="text-right hidden md:table-cell">... KB</TableCell>
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -133,7 +133,7 @@ export default function DocumentsPage() {
                 <TableHead className="hidden md:table-cell">
                   Сүүлд зассан
                 </TableHead>
-                <TableHead className="text-right">Хэмжээ</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Хэмжээ</TableHead>
                 <TableHead>
                   <span className="sr-only">Үйлдлүүд</span>
                 </TableHead>
@@ -155,7 +155,7 @@ export default function DocumentsPage() {
                     <TableCell className="hidden md:table-cell">
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right hidden md:table-cell">
                       <Skeleton className="ml-auto h-4 w-16" />
                     </TableCell>
                     <TableCell>

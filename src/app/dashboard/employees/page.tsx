@@ -170,8 +170,8 @@ export default function EmployeesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
 
-  const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-  const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+  const employeesQuery = useMemoFirebase(({firestore}) => (firestore ? collection(firestore, 'employees') : null), []);
+  const departmentsQuery = useMemoFirebase(({firestore}) => (firestore ? collection(firestore, 'departments') : null), []);
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
   const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
