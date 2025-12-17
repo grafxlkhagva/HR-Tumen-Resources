@@ -239,7 +239,8 @@
         "approverId": { "type": "string", "description": "Хүсэлтийг батлах ажилтны ID." },
         "approverName": { "type": "string", "description": "Хүсэлтийг батлах ажилтны нэр." },
         "type": { "type": "string", "enum": ["OVERTIME", "LATE_ARRIVAL", "REMOTE_WORK"] },
-        "date": { "type": "string", "format": "date" },
+        "startDate": { "type": "string", "format": "date", "description": "Хүсэлт хамаарах эхлэх огноо." },
+        "endDate": { "type": "string", "format": "date", "description": "Хүсэлт хамаарах дуусах огноо." },
         "startTime": { "type": "string", "format": "time" },
         "endTime": { "type": "string", "format": "time" },
         "hours": { "type": "number", "description": "Илүү цагаар ажилласан нийт цаг." },
@@ -247,7 +248,7 @@
         "status": { "type": "string", "enum": ["Хүлээгдэж буй", "Зөвшөөрсөн", "Татгалзсан"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "employeeId", "approverId", "type", "date", "reason", "status", "createdAt"]
+      "required": ["id", "employeeId", "approverId", "type", "startDate", "endDate", "reason", "status", "createdAt"]
     },
     "Document": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -507,13 +508,12 @@
         "levelId": { "type": "string", "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)" },
         "employmentTypeId": { "type": "string", "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)" },
         "jobCategoryId": { "type": "string", "description": "Үндэсний ажил мэргэжлийн ангилал, тодорхойлолт (ҮАМАТ) танигч. (Хамаарал: JobCategory 1:N Position)" },
-        "headcount": { "type": "number", "description": "Энэ албан тушаалын батлагдсан орон тооны тоо." },
         "filled": { "type": "number", "description": "Одоо ажиллаж буй ажилтны тоо." },
         "isActive": { "type": "boolean", "description": "Ажлын байрны төлөв (Идэвхтэй/Идэвхгүй)." },
         "createdAt": { "type": "string", "description": "Ажлын байр батлагдсан огноо.", "format": "date-time" },
         "canApproveAttendance": { "type": "boolean", "description": "Энэ ажлын байр ирцийн хүсэлт батлах эрхтэй эсэхийг заана." }
       },
-      "required": [ "id", "title", "departmentId", "headcount", "isActive", "createdAt" ]
+      "required": [ "id", "title", "departmentId", "isActive", "createdAt" ]
     },
     "EmploymentType": {
       "$schema": "http://json-schema.org/draft-07/schema#",

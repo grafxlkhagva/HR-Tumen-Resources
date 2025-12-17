@@ -32,7 +32,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface Position {
   id: string;
   title: string;
-  headcount: number;
   filled: number;
 }
 
@@ -75,11 +74,6 @@ export function AssignEmployeeDialog({
   const handleAssignEmployee = async (employeeId: string) => {
     if (!firestore || !position) return;
 
-    if (position.filled >= position.headcount) {
-        setShowFullError(true);
-        return;
-    }
-
     setIsSubmitting(true);
     
     try {
@@ -112,10 +106,6 @@ export function AssignEmployeeDialog({
   };
 
   const handleSelectExisting = () => {
-    if (position && position.filled >= position.headcount) {
-        setShowFullError(true);
-        return;
-    }
     setStep(2);
   }
 
@@ -201,3 +191,4 @@ export function AssignEmployeeDialog({
     </>
   );
 }
+

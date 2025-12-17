@@ -56,7 +56,6 @@ const positionSchema = z.object({
   workScheduleId: z.string().optional(),
   isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
-  headcount: z.coerce.number().min(1, 'Орон тоо 1-ээс бага байж болохгүй.'),
   createdAt: z.date({
     required_error: 'Батлагдсан огноог сонгоно уу.',
   }),
@@ -78,7 +77,6 @@ interface Position {
   id: string;
   title: string;
   departmentId: string;
-  headcount: number;
   filled: number;
   reportsTo?: string;
   levelId?: string;
@@ -127,7 +125,6 @@ export function AddPositionDialog({
       employmentTypeId: '',
       workScheduleId: '',
       isActive: true,
-      headcount: 1,
       jobCategoryId: '',
       createdAt: new Date(),
       canApproveAttendance: false,
@@ -138,7 +135,6 @@ export function AddPositionDialog({
     if (editingPosition) {
       form.reset({
         ...editingPosition,
-        headcount: editingPosition.headcount || 1,
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         workScheduleId: editingPosition.workScheduleId || '',
@@ -158,7 +154,6 @@ export function AddPositionDialog({
         workScheduleId: '',
         jobCategoryId: '',
         isActive: true,
-        headcount: 1,
         createdAt: new Date(),
         canApproveAttendance: false,
       });
@@ -184,7 +179,6 @@ export function AddPositionDialog({
       workScheduleId: data.workScheduleId,
       isActive: data.isActive,
       jobCategoryId: data.jobCategoryId,
-      headcount: data.headcount,
       createdAt: data.createdAt.toISOString(),
       canApproveAttendance: data.canApproveAttendance,
     };
@@ -289,19 +283,6 @@ export function AddPositionDialog({
                                 )}
                             />
                         </div>
-                         <FormField
-                            control={form.control}
-                            name="headcount"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Батлагдсан орон тоо</FormLabel>
-                                <FormControl>
-                                    <Input type="number" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                     </CardContent>
                 </Card>
 
@@ -513,3 +494,4 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
+
