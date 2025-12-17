@@ -32,7 +32,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
@@ -432,6 +432,7 @@ const OrganizationChart = () => {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
   const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
+  const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
 
   const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
   const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
@@ -442,10 +443,11 @@ const OrganizationChart = () => {
   const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
   const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
+  const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts;
 
     const onLeaveEmployees = useMemo(() => {
         if (!timeOffData) return new Set<string>();
@@ -670,7 +672,7 @@ const OrganizationChart = () => {
       </AlertDialog>
 
         <CardHeader>
-             <div className="grid gap-4 md:grid-cols-4">
+             <div className="grid gap-4 md:grid-cols-3">
                 <Link href="/dashboard/employees">
                     <Card className="hover:bg-muted/50 transition-colors">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -696,6 +698,17 @@ const OrganizationChart = () => {
                                     {presentEmployees.size} <span className="text-base font-normal text-muted-foreground">/ {onLeaveEmployees.size} чөлөөтэй</span>
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link href="/dashboard/posts">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Нийтлэл</CardTitle>
+                            <Newspaper className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingPosts ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{posts?.length || 0}</div>}
                         </CardContent>
                     </Card>
                 </Link>
