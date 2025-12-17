@@ -153,7 +153,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
         '#22c55e'; // green-500
     
     const avatarContent = (
-         <div className="relative mx-auto mb-3">
+         <div className="relative mx-auto">
             <Avatar className="h-20 w-20">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
@@ -215,7 +215,7 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     const Icon = config.icon;
 
     return (
-        <div className={cn("flex items-center justify-center gap-1.5 text-xs font-medium mt-1", config.color)}>
+        <div className={cn("flex items-center justify-center gap-1.5 text-xs font-medium", config.color)}>
             <Icon className="h-3.5 w-3.5" />
             <span>{config.text} {config.time}</span>
         </div>
@@ -235,38 +235,44 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
         style={{ backgroundColor: data.departmentColor }}
     >
       <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn("h-7 w-7 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="absolute top-2 right-2 z-10">
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className={cn("h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
+                <MoreHorizontal className="h-4 w-4" />
+            </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-      <CardContent className="p-4 text-center">
+      <CardContent className="p-4 text-center space-y-2">
         <AvatarWithProgress employee={employee} />
         
-        {employee ? (
-            <>
-              <p className="font-semibold text-base">{employee.firstName} {employee.lastName}</p>
-              {employee.questionnaireCompletion !== undefined && (
-                <p className={cn("text-xs font-bold", mutedTextColor)}>
-                    Анкет: {Math.round(employee.questionnaireCompletion)}%
-                </p>
-              )}
-            </>
-        ) : (
-            <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
-        )}
-        <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
+        <div className="space-y-1">
+            {employee ? (
+                <>
+                <Link href={`/dashboard/employees/${employee.id}`}>
+                  <p className="font-semibold text-base hover:underline">{employee.firstName} {employee.lastName}</p>
+                </Link>
+                {employee.questionnaireCompletion !== undefined && (
+                    <p className={cn("text-xs font-bold", mutedTextColor)}>
+                        Анкет: {Math.round(employee.questionnaireCompletion)}%
+                    </p>
+                )}
+                </>
+            ) : (
+                <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
+            )}
+            <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
+        </div>
         
         <AttendanceStatusIndicator status={data.attendanceStatus} />
 
-        <div className={cn("mt-4 pt-4 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500' : 'border-border')}>
+        <div className={cn("pt-3 mt-3 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
             <div className="flex justify-between">
                 <span className={mutedTextColor}>Хэлтэс:</span>
                 <span className="font-medium">{data.department}</span>
