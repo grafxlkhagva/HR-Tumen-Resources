@@ -52,7 +52,7 @@ import {
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Trash2, PlusCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -186,10 +186,6 @@ export function AddPositionDialog({
     [firestore]
   );
   
-  const handleDepartmentSelectChange = (value: string) => {
-    form.setValue('departmentId', value);
-  }
-
   const handleNewDepartmentAdded = (newDeptId: string) => {
       form.setValue('departmentId', newDeptId, { shouldValidate: true });
   }
@@ -288,7 +284,7 @@ export function AddPositionDialog({
                                 render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Харьяалагдах хэлтэс</FormLabel>
-                                    <Select onValueChange={handleDepartmentSelectChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
                                         <SelectValue placeholder="Хэлтэс сонгох" />
@@ -303,6 +299,15 @@ export function AddPositionDialog({
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />
+                                     <Button
+                                        type="button"
+                                        variant="link"
+                                        className="p-0 h-auto text-sm"
+                                        onClick={() => setIsAddDeptOpen(true)}
+                                    >
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Шинээр үүсгэх
+                                    </Button>
                                 </FormItem>
                                 )}
                             />
