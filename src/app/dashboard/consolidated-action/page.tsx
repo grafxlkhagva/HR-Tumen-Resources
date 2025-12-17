@@ -154,7 +154,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     
     const avatarContent = (
          <div className="relative mx-auto">
-            <Avatar className="h-20 w-20">
+            <Avatar className="h-20 w-20 mx-auto">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
                     {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
