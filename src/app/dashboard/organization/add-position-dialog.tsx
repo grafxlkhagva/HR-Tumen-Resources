@@ -14,6 +14,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog"
+import {
   Form,
   FormControl,
   FormDescription,
@@ -36,15 +47,17 @@ import {
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
+  deleteDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const positionSchema = z.object({
@@ -81,8 +94,8 @@ interface Position {
   reportsTo?: string;
   levelId?: string;
   employmentTypeId?: string;
-  workScheduleId?: string;
   jobCategoryId?: string;
+  workScheduleId?: string;
   isActive?: boolean;
   createdAt?: string;
   canApproveAttendance?: boolean;
@@ -170,7 +183,6 @@ export function AddPositionDialog({
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
     
-    // Create the base data object
     const baseData: any = {
       title: data.title,
       departmentId: data.departmentId,
@@ -183,7 +195,6 @@ export function AddPositionDialog({
       canApproveAttendance: data.canApproveAttendance,
     };
 
-    // Only include reportsTo if it has a meaningful value
     if (data.reportsTo && data.reportsTo !== '(none)') {
       baseData.reportsTo = data.reportsTo;
     }
@@ -201,6 +212,21 @@ export function AddPositionDialog({
 
     onOpenChange(false);
   };
+  
+  const handleDelete = () => {
+    if (!firestore || !editingPosition || editingPosition.filled > 0) return;
+    
+    const docRef = doc(firestore, 'positions', editingPosition.id);
+    deleteDocumentNonBlocking(docRef);
+    
+    toast({
+      variant: 'destructive',
+      title: 'Амжилттай устгагдлаа',
+      description: `"${editingPosition.title}" ажлын байр устгагдлаа.`,
+    });
+    
+    onOpenChange(false);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -479,14 +505,57 @@ export function AddPositionDialog({
                 </Card>
             </div>
 
-            <DialogFooter className="p-6 pt-4 border-t sticky bottom-0 bg-background z-10">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                Цуцлах
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
-              </Button>
+            <DialogFooter className="p-6 pt-4 border-t sticky bottom-0 bg-background z-10 flex justify-between">
+                <div>
+                     {isEditMode && (
+                        <AlertDialog>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        {/* This div is necessary for the tooltip to work on a disabled button */}
+                                        <div> 
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    disabled={(editingPosition?.filled || 0) > 0}
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                        </div>
+                                    </TooltipTrigger>
+                                    {(editingPosition?.filled || 0) > 0 && (
+                                        <TooltipContent>
+                                            <p>Энэ ажлын байранд ажилтан томилогдсон тул устгах боломжгүй.</p>
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
+                            </TooltipProvider>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{editingPosition?.title}" ажлын байрыг бүрмөсөн устгах болно.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete}>Тийм, устгах</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                        Цуцлах
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
+                    </Button>
+                </div>
             </DialogFooter>
           </form>
         </Form>
@@ -494,4 +563,3 @@ export function AddPositionDialog({
     </Dialog>
   );
 }
-
