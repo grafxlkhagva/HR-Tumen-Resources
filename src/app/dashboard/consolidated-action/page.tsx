@@ -26,13 +26,14 @@ import {
   useFirebase,
   useMemoFirebase,
   updateDocumentNonBlocking,
+  useDoc,
 } from '@/firebase';
 import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
@@ -99,6 +100,11 @@ type AttendanceStatus = {
     status: 'on-leave' | 'checked-in' | 'checked-out' | 'absent';
     checkInTime?: string;
     checkOutTime?: string;
+}
+
+interface CompanyProfile {
+    name?: string;
+    logoUrl?: string;
 }
 
 
@@ -428,6 +434,7 @@ const OrganizationChart = () => {
   const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
   const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
+  const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
   
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
@@ -444,10 +451,11 @@ const OrganizationChart = () => {
   const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
   const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
+  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
   
   const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts;
+  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
 
     const onLeaveEmployees = useMemo(() => {
         if (!timeOffData) return new Set<string>();
@@ -652,7 +660,7 @@ const OrganizationChart = () => {
   const activeEmployeesCount = employees?.length || 0;
 
   return (
-    <div style={{ height: 'calc(100vh - 100px)' }}>
+    <div style={{ height: 'calc(100vh - 100px)' }} className="flex flex-col">
       <AlertDialog open={!!pendingConnection} onOpenChange={(open) => !open && cancelAssignment()}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -670,6 +678,28 @@ const OrganizationChart = () => {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        <div className="p-4">
+             <Link href="/dashboard/company" className="inline-block">
+                <div className="flex items-center gap-4 group">
+                     {isLoadingProfile ? (
+                        <>
+                            <Skeleton className="size-10 rounded-lg" />
+                            <Skeleton className="h-6 w-32" />
+                        </>
+                        ) : (
+                        <>
+                            <Avatar className="size-10 rounded-lg">
+                                <AvatarImage src={companyProfile?.logoUrl} className="object-contain"/>
+                                <AvatarFallback className="rounded-lg bg-muted">
+                                    <Building className="size-5" />
+                                </AvatarFallback>
+                            </Avatar>
+                            <h1 className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
+                        </>
+                    )}
+                </div>
+            </Link>
+        </div>
 
         <CardHeader>
              <div className="grid gap-4 md:grid-cols-3">
@@ -714,7 +744,7 @@ const OrganizationChart = () => {
                 </Link>
             </div>
         </CardHeader>
-      <div className="relative w-full h-full">
+      <div className="relative w-full flex-1">
         {isLoading ? <SkeletonChart/> : (
             <ReactFlow
                 nodes={nodes}
@@ -763,3 +793,4 @@ const OrganizationChart = () => {
 export default OrganizationChart;
 
     
+
