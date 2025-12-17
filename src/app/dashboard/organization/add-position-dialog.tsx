@@ -240,6 +240,7 @@ export function AddPositionDialog({
         onOpenChange={setIsAddDeptOpen}
         departments={departments}
         departmentTypes={departmentTypes}
+        editingDepartment={null}
     />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
