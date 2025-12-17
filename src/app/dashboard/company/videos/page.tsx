@@ -245,7 +245,7 @@ export default function EditCompanyVideosPage() {
     <div className="py-8">
         <div className="mb-4 flex items-center gap-4">
             <Button asChild variant="outline" size="icon">
-                <Link href="/dashboard">
+                <Link href="/dashboard/company">
                     <ArrowLeft className="h-4 w-4" />
                     <span className="sr-only">Буцах</span>
                 </Link>

@@ -404,7 +404,7 @@ export default function EditCompanyPage() {
     <div className="py-8">
        <div className="mb-4">
           <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard">
+            <Link href="/dashboard/company">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Буцах
             </Link>
