@@ -656,15 +656,17 @@ const OrganizationChart = () => {
 
         <CardHeader>
             <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Нийт ажилчид</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
-                    </CardContent>
-                </Card>
+                <Link href="/dashboard/employees">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Нийт ажилчид</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
+                        </CardContent>
+                    </Card>
+                </Link>
                 {/* Add other stat cards here */}
             </div>
         </CardHeader>
@@ -715,3 +717,5 @@ const OrganizationChart = () => {
 };
 
 export default OrganizationChart;
+
+    
