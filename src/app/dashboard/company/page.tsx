@@ -8,11 +8,12 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft, Handshake, Zap, Users2 } from 'lucide-react';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft, Handshake, Zap, Users2, Network } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -103,7 +104,14 @@ export default function CompanyPage() {
     [firestore]
   );
   
+  const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+  const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+
   const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef);
+  const { data: departments, isLoading: isLoadingDepts } = useCollection(departmentsQuery);
+  const { data: positions, isLoading: isLoadingPos } = useCollection(positionsQuery);
+
+  const isLoading = isLoadingProfile || isLoadingDepts || isLoadingPos;
   
   if (error) {
       return (
@@ -120,7 +128,7 @@ export default function CompanyPage() {
       )
   }
 
-  if (isLoadingProfile) {
+  if (isLoading) {
     return <PageSkeleton />;
   }
   
@@ -241,7 +249,7 @@ export default function CompanyPage() {
         )}
 
         {/* General & Contact Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Ерөнхий мэдээлэл</CardTitle>
@@ -266,6 +274,20 @@ export default function CompanyPage() {
                     <InfoRow icon={Mail} label="Ерөнхий и-мэйл" value={companyProfile.contactEmail} />
                     <InfoRow icon={MapPin} label="Хаяг" value={companyProfile.address} />
                 </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Байгууллагын бүтэц</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <InfoRow icon={Network} label="Нийт хэлтэс" value={departments?.length.toString() ?? '0'} />
+                    <InfoRow icon={Briefcase} label="Нийт ажлын байр" value={positions?.length.toString() ?? '0'} />
+                </CardContent>
+                <CardFooter>
+                     <Button asChild className="w-full">
+                        <Link href="/dashboard/organization">Бүтцийн дэлгэрэнгүй</Link>
+                    </Button>
+                </CardFooter>
             </Card>
         </div>
         
