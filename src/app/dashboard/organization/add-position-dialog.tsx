@@ -16,6 +16,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -57,6 +58,7 @@ const positionSchema = z.object({
   createdAt: z.date({
     required_error: 'Батлагдсан огноог сонгоно уу.',
   }),
+  canApproveAttendance: z.boolean().default(false),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -83,6 +85,7 @@ interface Position {
   jobCategoryId?: string;
   isActive?: boolean;
   createdAt?: string;
+  canApproveAttendance?: boolean;
 }
 
 interface AddPositionDialogProps {
@@ -125,6 +128,7 @@ export function AddPositionDialog({
       headcount: 1,
       jobCategoryId: '',
       createdAt: new Date(),
+      canApproveAttendance: false,
     },
   });
 
@@ -140,6 +144,7 @@ export function AddPositionDialog({
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
         createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
+        canApproveAttendance: editingPosition.canApproveAttendance || false,
       });
     } else {
       form.reset({
@@ -153,6 +158,7 @@ export function AddPositionDialog({
         isActive: true,
         headcount: 1,
         createdAt: new Date(),
+        canApproveAttendance: false,
       });
     }
   }, [editingPosition, open, form]);
@@ -178,6 +184,7 @@ export function AddPositionDialog({
       jobCategoryId: data.jobCategoryId,
       headcount: data.headcount,
       createdAt: data.createdAt.toISOString(),
+      canApproveAttendance: data.canApproveAttendance,
     };
 
     // Only include reportsTo if it has a meaningful value
@@ -440,6 +447,26 @@ export function AddPositionDialog({
                   </FormItem>
                 )}
               />
+                <FormField
+                    control={form.control}
+                    name="canApproveAttendance"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 sm:col-span-2">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
+                                <FormDescription>
+                                    Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
+                                </FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>

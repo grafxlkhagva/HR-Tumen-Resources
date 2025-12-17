@@ -499,7 +499,8 @@
         "headcount": { "type": "number", "description": "Энэ албан тушаалын батлагдсан орон тооны тоо." },
         "filled": { "type": "number", "description": "Одоо ажиллаж буй ажилтны тоо." },
         "isActive": { "type": "boolean", "description": "Ажлын байрны төлөв (Идэвхтэй/Идэвхгүй)." },
-        "createdAt": { "type": "string", "description": "Ажлын байр батлагдсан огноо.", "format": "date-time" }
+        "createdAt": { "type": "string", "description": "Ажлын байр батлагдсан огноо.", "format": "date-time" },
+        "canApproveAttendance": { "type": "boolean", "description": "Энэ ажлын байр ирцийн хүсэлт батлах эрхтэй эсэхийг заана." }
       },
       "required": [ "id", "title", "departmentId", "headcount", "isActive", "createdAt" ]
     },
