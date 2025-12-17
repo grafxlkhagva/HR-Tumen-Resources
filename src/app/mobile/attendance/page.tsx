@@ -115,7 +115,7 @@ const attendanceRequestSchema = z.object({
     type: z.enum(['OVERTIME', 'LATE_ARRIVAL', 'REMOTE_WORK'], { required_error: "Хүсэлтийн төрлийг сонгоно уу." }),
     dateRange: z.object({
         from: z.date({ required_error: 'Эхлэх огноог сонгоно уу.' }),
-        to: z.date({ required_error: 'Дуусах огноог сонгоно уу.' }),
+        to: z.date().optional(),
     }),
     startTime: z.string().optional(),
     endTime: z.string().optional(),
@@ -216,7 +216,7 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
             employeeId,
             ...values,
             startDate: values.dateRange.from.toISOString(),
-            endDate: values.dateRange.to.toISOString(),
+            endDate: values.dateRange.to?.toISOString() || values.dateRange.from.toISOString(),
             approverId: values.approverId,
             approverName: approver ? `${approver.firstName} ${approver.lastName}` : '',
             status: 'Хүлээгдэж буй',
@@ -258,7 +258,9 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
                                 <FormField control={timeOffForm.control} name="dateRange" render={({ field }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Хугацаа</FormLabel>
-                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={{ from: field.value?.from, to: field.value?.to }} onSelect={field.onChange} numberOfMonths={1} disabled={disabledDates}/></PopoverContent></Popover>
+                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={{ from: field.value?.from, to: field.value?.to }} onSelect={field.onChange} numberOfMonths={2} disabled={disabledDates}/></PopoverContent>
+                                        </Popover>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -300,7 +302,9 @@ function RequestDialog({ open, onOpenChange, employeeId, disabledDates }: { open
                                 <FormField control={attendanceForm.control} name="dateRange" render={({ field }) => (
                                      <FormItem className="flex flex-col">
                                         <FormLabel>Хугацаа</FormLabel>
-                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={field.value?.from ? { from: field.value.from, to: field.value.to } : undefined} onSelect={(range) => field.onChange(range as DateRange)} numberOfMonths={1} /></PopoverContent></Popover>
+                                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value?.from && "text-muted-foreground")}>{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "yyyy/MM/dd")} - {format(field.value.to, "yyyy/MM/dd")}</>) : (format(field.value.from, "yyyy/MM/dd"))) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={field.value?.from} selected={field.value?.from ? { from: field.value.from, to: field.value.to } : undefined} onSelect={(range) => field.onChange(range as DateRange)} numberOfMonths={2} /></PopoverContent>
+                                        </Popover>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
