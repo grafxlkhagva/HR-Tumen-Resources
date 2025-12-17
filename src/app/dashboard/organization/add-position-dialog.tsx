@@ -217,9 +217,9 @@ export function AddPositionDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 pr-6 -mr-6">
-              <div className="space-y-4 py-1">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
+            <ScrollArea className="flex-grow">
+              <div className="space-y-4 pr-6">
                 <FormField
                   control={form.control}
                   name="title"
@@ -473,7 +473,7 @@ export function AddPositionDialog({
                 />
               </div>
             </ScrollArea>
-            <DialogFooter className="pt-4 border-t mt-4 flex-shrink-0">
+            <DialogFooter className="pt-4 border-t flex-shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                 Цуцлах
               </Button>
