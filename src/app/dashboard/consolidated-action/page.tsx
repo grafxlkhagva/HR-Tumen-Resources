@@ -33,7 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from '../organization/add-position-dialog';
 import { AssignEmployeeDialog } from '../organization/assign-employee-dialog';
@@ -678,10 +678,10 @@ const OrganizationChart = () => {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-        <div className="p-4">
-             <Link href="/dashboard/company" className="inline-block">
+        <div className="p-4 flex items-center justify-between">
+            <Link href="/dashboard/company" className="inline-block">
                 <div className="flex items-center gap-4 group">
-                     {isLoadingProfile ? (
+                        {isLoadingProfile ? (
                         <>
                             <Skeleton className="size-10 rounded-lg" />
                             <Skeleton className="h-6 w-32" />
@@ -699,6 +699,12 @@ const OrganizationChart = () => {
                     )}
                 </div>
             </Link>
+            <Button asChild variant="ghost" size="icon">
+                <Link href="/dashboard/settings/general">
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">Тохиргоо</span>
+                </Link>
+            </Button>
         </div>
 
         <CardHeader>
@@ -793,4 +799,5 @@ const OrganizationChart = () => {
 export default OrganizationChart;
 
     
+
 
