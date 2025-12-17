@@ -45,6 +45,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
@@ -209,7 +211,7 @@ export function AddPositionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
           <DialogDescription>
@@ -217,263 +219,282 @@ export function AddPositionDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col gap-4">
-            <ScrollArea className="flex-grow pr-6 -mr-6">
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Албан тушаалын нэр</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="departmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Харьяалагдах хэлтэс</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Accordion type="multiple" defaultValue={['basic_info', 'classification', 'settings']} className="w-full">
+              <AccordionItem value="basic_info">
+                <AccordionTrigger>Үндсэн мэдээлэл</AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-2">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Албан тушаалын нэр</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Хэлтэс сонгох" />
-                            </SelectTrigger>
+                            <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="reportsTo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Удирдах албан тушаал сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
-                            {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
-                              <SelectItem key={pos.id} value={pos.id}>
-                                {pos.title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="levelId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Зэрэглэл сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {positionLevels.map((level) => (
-                              <SelectItem key={level.id} value={level.id}>
-                                {level.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="employmentTypeId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Төрөл сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {employmentTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="workScheduleId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ажлын цагийн хуваарь</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Цагийн хуваарь сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {workSchedules.map((schedule) => (
-                              <SelectItem key={schedule.id} value={schedule.id}>
-                                {schedule.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="jobCategoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ажил мэргэжлийн ангилал</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="ҮАМАТ сонгох" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {jobCategories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.code} - {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="headcount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Батлагдсан орон тоо</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="createdAt"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Батлагдсан огноо</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "yyyy-MM-dd")
-                                ) : (
-                                  <span>Огноо сонгох</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) =>
-                                date > new Date()
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="departmentId"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Харьяалагдах хэлтэс</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Хэлтэс сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {departments.map((dept) => (
+                                    <SelectItem key={dept.id} value={dept.id}>
+                                        {dept.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
                         />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="canApproveAttendance"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
-                        <FormDescription>
-                          Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
+                        <FormField
+                            control={form.control}
+                            name="reportsTo"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Удирдах албан тушаал сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
+                                    {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
+                                    <SelectItem key={pos.id} value={pos.id}>
+                                        {pos.title}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
                         />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </ScrollArea>
-            <DialogFooter className="flex-shrink-0">
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="headcount"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Батлагдсан орон тоо</FormLabel>
+                                <FormControl>
+                                <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="classification">
+                <AccordionTrigger>Ангилал</AccordionTrigger>
+                <AccordionContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <FormField
+                            control={form.control}
+                            name="levelId"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Зэрэглэл сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {positionLevels.map((level) => (
+                                    <SelectItem key={level.id} value={level.id}>
+                                        {level.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="employmentTypeId"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Төрөл сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {employmentTypes.map((type) => (
+                                    <SelectItem key={type.id} value={type.id}>
+                                        {type.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="jobCategoryId"
+                            render={({ field }) => (
+                            <FormItem className="sm:col-span-2">
+                                <FormLabel>Ажил мэргэжлийн ангилал (ҮАМАТ)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="ҮАМАТ сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {jobCategories.map((cat) => (
+                                    <SelectItem key={cat.id} value={cat.id}>
+                                        {cat.code} - {cat.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="settings">
+                <AccordionTrigger>Нэмэлт тохиргоо</AccordionTrigger>
+                <AccordionContent>
+                   <div className="space-y-4 pt-2">
+                        <FormField
+                            control={form.control}
+                            name="workScheduleId"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Ажлын цагийн хуваарь</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Цагийн хуваарь сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {workSchedules.map((schedule) => (
+                                    <SelectItem key={schedule.id} value={schedule.id}>
+                                        {schedule.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="createdAt"
+                            render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Батлагдсан огноо</FormLabel>
+                                <Popover>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                        "w-full pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.value ? (
+                                        format(field.value, "yyyy-MM-dd")
+                                        ) : (
+                                        <span>Огноо сонгох</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) =>
+                                        date > new Date()
+                                    }
+                                    initialFocus
+                                    />
+                                </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="isActive"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="canApproveAttendance"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
+                                    <FormDescription>
+                                    Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                   </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                 Цуцлах
               </Button>
