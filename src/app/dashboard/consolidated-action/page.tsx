@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { UserNav } from '@/components/user-nav';
 
 // --- Types ---
 type Employee = BaseEmployee & {
@@ -699,12 +700,15 @@ const OrganizationChart = () => {
                     )}
                 </div>
             </Link>
-            <Button asChild variant="ghost" size="icon">
-                <Link href="/dashboard/settings/general">
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Тохиргоо</span>
-                </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+                <UserNav />
+                <Button asChild variant="ghost" size="icon">
+                    <Link href="/dashboard/settings/general">
+                        <Settings className="h-5 w-5" />
+                        <span className="sr-only">Тохиргоо</span>
+                    </Link>
+                </Button>
+            </div>
         </div>
 
         <CardHeader>
@@ -799,5 +803,6 @@ const OrganizationChart = () => {
 export default OrganizationChart;
 
     
+
 
 

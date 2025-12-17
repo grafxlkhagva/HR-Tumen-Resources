@@ -92,7 +92,14 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           <MainNav />
         </SidebarContent>
         <SidebarFooter>
-            <UserNav />
+          <SidebarMenu>
+            <SidebarMenuItem>
+                 <SidebarMenuButton onClick={handleLogout} tooltip="Гарах" variant="outline" className="mt-4">
+                    <LogOut />
+                    <span>Гарах</span>
+                 </SidebarMenuButton>
+            </SidebarMenuItem>
+        </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
