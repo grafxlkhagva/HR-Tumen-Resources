@@ -198,7 +198,7 @@ export function AddDepartmentDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {departmentTypes.map((type) => (
+                        {departmentTypes && departmentTypes.map((type) => (
                           <SelectItem key={type.id} value={type.id}>
                             {type.name}
                           </SelectItem>
