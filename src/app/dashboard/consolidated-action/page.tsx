@@ -153,8 +153,8 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
         '#22c55e'; // green-500
     
     const avatarContent = (
-         <div className="relative mx-auto">
-            <Avatar className="h-20 w-20 mx-auto">
+         <div className="relative w-20 h-20 mx-auto">
+            <Avatar className="h-20 w-20">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
                     {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
