@@ -223,7 +223,6 @@ export function AddPositionDialog({
             <ScrollArea className="flex-1 pr-6 -mr-6">
               <div className="space-y-6 py-1">
                 
-                {/* Үндсэн мэдээлэл */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Үндсэн мэдээлэл</CardTitle>
@@ -309,7 +308,6 @@ export function AddPositionDialog({
                     </CardContent>
                 </Card>
 
-                {/* Ангилал */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Ангилал</CardTitle>
@@ -392,7 +390,6 @@ export function AddPositionDialog({
                     </CardContent>
                 </Card>
                 
-                {/* Нэмэлт тохиргоо */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Нэмэлт тохиргоо</CardTitle>
