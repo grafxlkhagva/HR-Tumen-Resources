@@ -217,7 +217,7 @@ export function AddPositionDialog({
             </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
               <ScrollArea className="flex-1 pr-6 -mr-6">
                 <div className="grid gap-4 sm:grid-cols-2 py-4">
                   <FormField
@@ -480,8 +480,8 @@ export function AddPositionDialog({
                   {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
                 </Button>
               </DialogFooter>
-            </form>
-          </Form>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
