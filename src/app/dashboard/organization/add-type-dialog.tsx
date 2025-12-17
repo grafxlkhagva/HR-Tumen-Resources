@@ -51,6 +51,7 @@ type DepartmentType = {
 interface ManageTypesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTypeAdded?: (newTypeId: string) => void;
 }
 
 function InlineEditType({ type, onSave, onCancel }: { type: DepartmentType, onSave: (id: string, newName: string) => void, onCancel: () => void }) {
@@ -81,7 +82,7 @@ function InlineEditType({ type, onSave, onCancel }: { type: DepartmentType, onSa
 }
 
 
-export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
+export function AddTypeDialog({ open, onOpenChange, onTypeAdded }: ManageTypesDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = React.useState(false);
@@ -103,10 +104,14 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
 
   const { isSubmitting } = form.formState;
 
-  const onSubmit = (data: TypeFormValues) => {
+  const onSubmit = async (data: TypeFormValues) => {
     if (!departmentTypesCollection) return;
 
-    addDocumentNonBlocking(departmentTypesCollection, data);
+    const newDoc = await addDocumentNonBlocking(departmentTypesCollection, data);
+    
+    if(newDoc?.id && onTypeAdded) {
+        onTypeAdded(newDoc.id);
+    }
 
     toast({
       title: 'Амжилттай',
@@ -141,14 +146,16 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
     setEditingTypeId(null);
   }
 
+  const handleDialogClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setShowAddForm(false);
+      setEditingTypeId(null);
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-        onOpenChange(isOpen);
-        if (!isOpen) {
-            setShowAddForm(false);
-            setEditingTypeId(null);
-        }
-    }}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Бүтцийн төрлийн жагсаалт</DialogTitle>

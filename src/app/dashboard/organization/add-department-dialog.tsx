@@ -38,6 +38,7 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { AddTypeDialog } from './add-type-dialog';
 
 const departmentSchema = z.object({
   name: z.string().min(2, {
@@ -76,6 +77,7 @@ export function AddDepartmentDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingDepartment;
+  const [isAddTypeOpen, setIsAddTypeOpen] = React.useState(false);
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
@@ -112,6 +114,18 @@ export function AddDepartmentDialog({
     () => (firestore ? collection(firestore, 'departments') : null),
     [firestore]
   );
+
+  const handleTypeSelectChange = (value: string) => {
+    if (value === '__add_new__') {
+        setIsAddTypeOpen(true);
+    } else {
+        form.setValue('typeId', value);
+    }
+  }
+  
+  const handleNewTypeAdded = (newTypeId: string) => {
+      form.setValue('typeId', newTypeId, { shouldValidate: true });
+  }
 
   const onSubmit = (data: DepartmentFormValues) => {
     if (!firestore) {
@@ -163,115 +177,125 @@ export function AddDepartmentDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Нэгж нэмэх'}</DialogTitle>
-              
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Нэгжийн нэр</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Жишээ нь: Маркетингийн хэлтэс" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="typeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Төрөл</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Төрөл сонгох" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departmentTypes && departmentTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Харьяалагдах нэгж</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Дээд нэгжийг сонгох (заавал биш)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="(none)">(Дээд нэгж байхгүй)</SelectItem>
-                        {departments
-                         .filter(d => !editingDepartment || d.id !== editingDepartment.id)
-                         .map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <>
+      <AddTypeDialog 
+        open={isAddTypeOpen} 
+        onOpenChange={setIsAddTypeOpen} 
+        onTypeAdded={handleNewTypeAdded}
+      />
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <DialogHeader>
+                <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Нэгж нэмэх'}</DialogTitle>
+                
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
                 <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Өнгө</FormLabel>
-                    <FormControl>
-                        <div className="flex items-center gap-2">
-                            <Input type="color" {...field} className="w-12 h-10 p-1" />
-                            <Input placeholder="#RRGGBB" value={field.value || ''} onChange={field.onChange} />
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Цуцлах
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Нэгжийн нэр</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Жишээ нь: Маркетингийн хэлтэс" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="typeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Төрөл</FormLabel>
+                      <Select onValueChange={handleTypeSelectChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Төрөл сонгох" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {departmentTypes && departmentTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                           <SelectItem value="__add_new__" className="font-bold text-primary mt-2">
+                                + Шинэ төрөл нэмэх...
+                            </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="parentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Харьяалагдах нэгж</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Дээд нэгжийг сонгох (заавал биш)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="(none)">(Дээд нэгж байхгүй)</SelectItem>
+                          {departments
+                          .filter(d => !editingDepartment || d.id !== editingDepartment.id)
+                          .map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                  <FormField
+                  control={form.control}
+                  name="color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Өнгө</FormLabel>
+                      <FormControl>
+                          <div className="flex items-center gap-2">
+                              <Input type="color" {...field} className="w-12 h-10 p-1" />
+                              <Input placeholder="#RRGGBB" value={field.value || ''} onChange={field.onChange} />
+                          </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
+                >
+                  Цуцлах
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
