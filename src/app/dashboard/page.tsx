@@ -1,3 +1,4 @@
+
 // src/app/dashboard/page.tsx
 'use client';
 
@@ -28,13 +29,14 @@ import {
   useMemoFirebase,
   updateDocumentNonBlocking,
   useDoc,
+  addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -72,7 +74,6 @@ interface Position {
   id: string;
   title: string;
   departmentId: string;
-  headcount: number;
   filled: number;
   reportsTo?: string;
   levelId?: string;
@@ -116,12 +117,12 @@ interface PositionNodeData {
   title: string;
   department: string;
   departmentColor?: string;
-  headcount: number;
   filled: number;
   employees: Employee[];
   workScheduleName?: string;
   onAddEmployee: (position: Position) => void;
   onEditPosition: (position: Position) => void;
+  onDuplicatePosition: (position: Position) => void;
   attendanceStatus?: AttendanceStatus;
 }
 
@@ -253,6 +254,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
             <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => data.onDuplicatePosition(data as any)}><Copy className="mr-2 h-4 w-4" /> Хувилах</DropdownMenuItem>
             <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -288,7 +290,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             </div>
              <div className="flex justify-between">
                 <span className={mutedTextColor}>Орон тоо:</span>
-                <span className="font-medium">{data.filled} / {data.headcount}</span>
+                <span className="font-medium">{data.filled}</span>
             </div>
         </div>
         
@@ -427,6 +429,7 @@ const OrganizationChart = () => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [showFullError, setShowFullError] = useState(false);
+  const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
   
   const { toast } = useToast();
   const { firestore } = useFirebase();
@@ -500,6 +503,27 @@ const OrganizationChart = () => {
     setIsAddEmployeeDialogOpen(true);
   }
 
+  const handleDuplicatePosition = (pos: Position) => {
+    if (!firestore) return;
+    const { id, filled, ...clonedData } = pos;
+    const newTitle = `${clonedData.title} (Хуулбар)`;
+    
+    const newPositionData = {
+        ...clonedData,
+        title: newTitle,
+        filled: 0,
+        isActive: true, // Always create as active
+    };
+    const positionsCollection = collection(firestore, 'positions');
+    addDocumentNonBlocking(positionsCollection, newPositionData);
+
+    toast({
+        title: "Амжилттай хувиллаа",
+        description: `"${pos.title}" ажлын байрыг хувилж, "${newTitle}"-г үүсгэлээ.`
+    });
+    setDuplicatingPosition(null);
+};
+
   // Create nodes and edges based on data
   useEffect(() => {
     if (isLoading || !positions || !employees) return;
@@ -552,11 +576,11 @@ const OrganizationChart = () => {
                 ...pos, label: pos.title, title: pos.title,
                 department: department?.name || 'Unknown',
                 departmentColor: department?.color,
-                headcount: pos.headcount,
                 filled: posToEmployeeMap.get(pos.id)?.length || 0,
                 employees: assignedEmployees,
                 onAddEmployee: handleAddEmployeeClick,
                 onEditPosition: handleEditPositionClick,
+                onDuplicatePosition: (position) => setDuplicatingPosition(position),
                 workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                 attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
             },
@@ -610,12 +634,8 @@ const OrganizationChart = () => {
         
         if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
         
-        const posData = positionNode.data as PositionNodeData;
-        if(posData.filled >= posData.headcount) {
-             setShowFullError(true);
-             return;
-        }
-
+        // This logic is now handled by the confirmation dialog.
+        // We will just open the confirmation dialog here.
         setPendingConnection(connection);
     },
     [nodes]
@@ -623,6 +643,17 @@ const OrganizationChart = () => {
 
   const confirmAssignment = async () => {
     if (!pendingConnection || !firestore) return;
+    
+    const positionNode = nodes.find(n => n.id === pendingConnection.target);
+    const posData = positionNode?.data as PositionNodeData;
+    
+    // Check if the position is full
+    if(posData.filled >= 1) { // Assuming headcount is always 1 now.
+         setShowFullError(true);
+         setPendingConnection(null);
+         return;
+    }
+
     setIsConfirming(true);
 
     const { source: employeeId, target: newPositionId } = pendingConnection;
@@ -685,7 +716,7 @@ const OrganizationChart = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Орон тоо дүүрсэн</AlertDialogTitle>
             <AlertDialogDescription>
-              Энэ ажлын байр дүүрсэн байна. Та эхлээд өмнөх ажилтныг чөлөөлнө үү.
+              Энэ ажлын байранд ажилтан томилогдсон байгаа тул энэ үйлдэлийг хийх боломжгүй. Та эхлээд өмнөх албан тушаалтаныг уг албан тушаалаас чөлөөлөх ёстой.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogAction onClick={() => setShowFullError(false)}>Хаах</AlertDialogAction>
@@ -709,6 +740,23 @@ const OrganizationChart = () => {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+        <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
+                        Тийм, хувилах
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       
       <div className="p-4 flex items-center justify-between">
             <Link href="/dashboard/company" className="inline-block">
