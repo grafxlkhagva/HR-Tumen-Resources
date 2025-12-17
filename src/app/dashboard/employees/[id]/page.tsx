@@ -5,13 +5,13 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where, writeBatch, increment } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle, UserMinus, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -30,6 +30,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
@@ -71,14 +82,17 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
 };
 
 
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) {
+function InfoRow({ icon: Icon, label, value, actionButton }: { icon: React.ElementType, label: string, value: React.ReactNode, actionButton?: React.ReactNode }) {
     return (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 items-center">
             <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Icon className="h-4 w-4" />
                 <span>{label}</span>
             </dt>
-            <dd className="col-span-2 text-sm">{value || '-'}</dd>
+            <dd className="col-span-2 text-sm flex items-center justify-between">
+                <span>{value || '-'}</span>
+                {actionButton}
+            </dd>
         </div>
     );
 }
@@ -505,6 +519,8 @@ export default function EmployeeProfilePage() {
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const [isConfirmingUnassign, setIsConfirmingUnassign] = React.useState(false);
+    const [isUnassigning, setIsUnassigning] = React.useState(false);
 
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
@@ -527,7 +543,7 @@ export default function EmployeeProfilePage() {
 
     const workScheduleDocRef = useMemoFirebase(
         ({firestore}) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
-        [position]
+        [position?.workScheduleId]
     );
     
     const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef);
@@ -578,6 +594,47 @@ export default function EmployeeProfilePage() {
             });
         }
     }
+    
+    const handleUnassign = async () => {
+        if (!firestore || !employee || !employee.positionId) return;
+        setIsUnassigning(true);
+        
+        try {
+            const batch = writeBatch(firestore);
+
+            // Update employee
+            const employeeRef = doc(firestore, 'employees', employee.id);
+            batch.update(employeeRef, {
+                positionId: null,
+                jobTitle: 'Томилгоогүй'
+            });
+
+            // Decrement position filled count
+            const positionRef = doc(firestore, 'positions', employee.positionId);
+            batch.update(positionRef, {
+                filled: increment(-1)
+            });
+
+            // Add history event
+            const historyCollection = collection(firestore, `employees/${employee.id}/employmentHistory`);
+            const historyDoc = doc(historyCollection);
+            batch.set(historyDoc, {
+                eventType: "Албан тушаалаас чөлөөлөгдсөн",
+                eventDate: new Date().toISOString(),
+                notes: `${employee.jobTitle} албан тушаалаас чөлөөлөгдөж, томилгоогүй болов.`,
+                createdAt: new Date().toISOString(),
+            });
+
+            await batch.commit();
+            toast({ title: 'Амжилттай чөлөөллөө', description: `${employee.firstName}-г албан тушаалаас чөлөөллөө.` });
+
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Алдаа гарлаа', description: 'Албан тушаалаас чөлөөлөхөд алдаа гарлаа.' });
+        } finally {
+            setIsUnassigning(false);
+            setIsConfirmingUnassign(false);
+        }
+    }
 
     if (isLoading) {
         return (
@@ -603,6 +660,32 @@ export default function EmployeeProfilePage() {
     const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
     const isActive = employee.status === 'Идэвхтэй';
+
+    const unassignButton = employee.positionId ? (
+        <AlertDialog open={isConfirmingUnassign} onOpenChange={setIsConfirmingUnassign}>
+            <AlertDialogTrigger asChild>
+                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                    <UserMinus className="h-4 w-4" />
+                    <span className="sr-only">Чөлөөлөх</span>
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                       {fullName}-г {employee.jobTitle} албан тушаалаас чөлөөлөх үү? Энэ үйлдэл нь ажилтныг томилгоогүй болгох ба орон тоог суллана.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isUnassigning}>Цуцлах</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleUnassign} disabled={isUnassigning}>
+                        {isUnassigning && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Тийм, чөлөөлөх
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    ) : null;
 
     return (
         <div className="py-8">
@@ -664,7 +747,7 @@ export default function EmployeeProfilePage() {
                         <dl className="space-y-4">
                             <InfoRow icon={Mail} label="Имэйл" value={<a href={`mailto:${employee.email}`} className="text-primary hover:underline">{employee.email}</a>} />
                             <InfoRow icon={Phone} label="Утасны дугаар" value={employee.phoneNumber || '-'} />
-                            <InfoRow icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} />
+                            <InfoRow icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} actionButton={unassignButton} />
                             <InfoRow icon={Clock} label="Ажлын цагийн хуваарь" value={workScheduleName} />
                              <InfoRow icon={User} label="Ажилтны код" value={employee.employeeCode || '-'} />
                             <InfoRow icon={Shield} label="Ажилтны төлөв" value={employee.status || '-'} />
