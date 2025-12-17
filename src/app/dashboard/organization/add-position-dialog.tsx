@@ -187,11 +187,7 @@ export function AddPositionDialog({
   );
   
   const handleDepartmentSelectChange = (value: string) => {
-    if (value === '__add_new__') {
-        setIsAddDeptOpen(true);
-    } else {
-        form.setValue('departmentId', value);
-    }
+    form.setValue('departmentId', value);
   }
 
   const handleNewDepartmentAdded = (newDeptId: string) => {
@@ -304,9 +300,6 @@ export function AddPositionDialog({
                                             {dept.name}
                                         </SelectItem>
                                         ))}
-                                        <SelectItem value="__add_new__" className="font-bold text-primary mt-2">
-                                            + Шинэ нэгж нэмэх...
-                                        </SelectItem>
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />

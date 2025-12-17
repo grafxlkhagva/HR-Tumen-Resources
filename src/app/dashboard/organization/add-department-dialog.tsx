@@ -118,11 +118,7 @@ export function AddDepartmentDialog({
   );
 
   const handleTypeSelectChange = (value: string) => {
-    if (value === '__add_new__') {
-        setIsAddTypeOpen(true);
-    } else {
-        form.setValue('typeId', value);
-    }
+    form.setValue('typeId', value);
   }
   
   const handleNewTypeAdded = (newTypeId: string) => {
@@ -179,11 +175,6 @@ export function AddDepartmentDialog({
 
   return (
     <>
-      <AddTypeDialog 
-        open={isAddTypeOpen} 
-        onOpenChange={setIsAddTypeOpen} 
-        onTypeAdded={handleNewTypeAdded}
-      />
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <Form {...form}>
@@ -224,9 +215,6 @@ export function AddDepartmentDialog({
                               {type.name}
                             </SelectItem>
                           ))}
-                           <SelectItem value="__add_new__" className="font-bold text-primary mt-2">
-                                + Шинэ төрөл нэмэх...
-                            </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
