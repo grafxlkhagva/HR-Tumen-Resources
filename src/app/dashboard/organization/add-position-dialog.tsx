@@ -216,11 +216,10 @@ export function AddPositionDialog({
             Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
             </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 min-h-0">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col gap-4">
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
               <ScrollArea className="flex-1 pr-6 -mr-6">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 py-4">
                   <FormField
                     control={form.control}
                     name="title"
@@ -483,7 +482,6 @@ export function AddPositionDialog({
               </DialogFooter>
             </form>
           </Form>
-        </div>
       </DialogContent>
     </Dialog>
   );
