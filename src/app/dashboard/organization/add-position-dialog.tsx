@@ -216,10 +216,11 @@ export function AddPositionDialog({
             Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
             </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
-              <ScrollArea className="flex-1 pr-6 -mr-6">
-                <div className="grid gap-4 sm:grid-cols-2 py-4">
+        <div className="flex-1 min-h-0">
+          <ScrollArea className="h-full pr-6 -mr-6">
+            <Form {...form}>
+              <form id="position-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="title"
@@ -470,18 +471,19 @@ export function AddPositionDialog({
                         )}
                     />
                 </div>
-              </ScrollArea>
-              <DialogFooter className="pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                  Цуцлах
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
-                </Button>
-              </DialogFooter>
-          </form>
-        </Form>
+              </form>
+            </Form>
+          </ScrollArea>
+        </div>
+        <DialogFooter className="pt-4 border-t">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Цуцлах
+          </Button>
+          <Button type="submit" form="position-form" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
