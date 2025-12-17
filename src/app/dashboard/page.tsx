@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
+import { AddEmployeeDialog } from './employees/add/page';
 
 // --- Types ---
 type Employee = BaseEmployee & {
@@ -423,6 +424,7 @@ const OrganizationChart = () => {
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
   const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const { firestore } = useFirebase();
@@ -490,6 +492,12 @@ const OrganizationChart = () => {
     setIsPositionDialogOpen(true);
   };
   
+  const handleOpenAddEmployeeDialog = (position: Position) => {
+    setSelectedPosition(position);
+    setIsAssignDialogOpen(false); // Close assign dialog if open
+    setIsAddEmployeeDialogOpen(true);
+  }
+
   // Create nodes and edges based on data
   useEffect(() => {
     if (isLoading || !positions || !employees) return;
@@ -554,7 +562,7 @@ const OrganizationChart = () => {
         newNodes.push(node);
 
         if (pos.reportsTo && positions.some(p => p.id === pos.reportsTo)) {
-            newEdges.push({ id: `e-${pos.reportsTo}-${pos.id}`, source: pos.reportsTo, target: pos.id, type: 'smoothstep', animated: true, style: { stroke: '#2563eb', strokeWidth: 2 }});
+            newEdges.push({ id: `e-${pos.reportsTo}-${pos.id}`, type: 'smoothstep', animated: true, style: { stroke: '#2563eb', strokeWidth: 2 }});
         }
     });
     
@@ -785,6 +793,7 @@ const OrganizationChart = () => {
         onOpenChange={setIsAssignDialogOpen}
         position={selectedPosition}
         employees={employees?.filter(e => !e.positionId) || []}
+        onAddNewEmployee={handleOpenAddEmployeeDialog}
       />
       <AddPositionDialog
         open={isPositionDialogOpen}
@@ -797,6 +806,16 @@ const OrganizationChart = () => {
         jobCategories={jobCategories || []}
         workSchedules={workSchedules || []}
       />
+      {isAddEmployeeDialogOpen && (
+        <AddEmployeeDialog 
+            open={isAddEmployeeDialogOpen}
+            onOpenChange={setIsAddEmployeeDialogOpen}
+            departments={departments || []}
+            positions={positions || []}
+            preselectedDept={selectedPosition?.departmentId}
+            preselectedPos={selectedPosition?.id}
+        />
+      )}
     </div>
   );
 };
