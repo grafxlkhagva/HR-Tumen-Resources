@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -511,6 +512,7 @@ const PositionsTab = () => {
 
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const departmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
@@ -518,12 +520,13 @@ const PositionsTab = () => {
 
     const { data: positions, isLoading: isLoadingPos, error: errorPos } = useCollection<Position>(positionsQuery);
     const { data: departments, isLoading: isLoadingDepts, error: errorDepts } = useCollection<Department>(departmentsQuery);
+    const { data: departmentTypes, isLoading: isLoadingDeptTypes } = useCollection<DepartmentType>(departmentTypesQuery);
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<PositionLevel>(levelsQuery);
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
     const { data: workSchedules, isLoading: isLoadingWorkSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
-    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules;
+    const isLoading = isLoadingPos || isLoadingDepts || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingWorkSchedules || isLoadingDeptTypes;
 
     const { activePositions, inactivePositions } = useMemo(() => {
         if (!positions) {
@@ -603,6 +606,7 @@ const PositionsTab = () => {
             open={isPositionDialogOpen}
             onOpenChange={setIsPositionDialogOpen}
             departments={departments || []}
+            departmentTypes={departmentTypes || []}
             allPositions={positions || []}
             positionLevels={positionLevels || []}
             employmentTypes={employmentTypes || []}
