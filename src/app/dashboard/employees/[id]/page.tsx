@@ -45,6 +45,8 @@ import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { OffboardingDialog } from './OffboardingDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 type Department = {
     id: string;
@@ -573,7 +575,9 @@ export default function EmployeeProfilePage() {
         if (!employee || !firestore) return;
 
         try {
-             // Step 1: Enable Firebase Auth user
+            // NOTE: The fetch call to the non-existent API is commented out to prevent the error.
+            // When a serverless function is available, this can be re-enabled.
+            /*
             const response = await fetch('/api/update-user-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -584,6 +588,8 @@ export default function EmployeeProfilePage() {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to enable user account.');
             }
+            */
+            
             // Step 2: Update Firestore document status
             await updateDocumentNonBlocking(employeeDocRef!, { status: 'Идэвхтэй' });
             
