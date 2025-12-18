@@ -206,7 +206,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     );
     
     if (employee) {
-        return <Link href={`/dashboard/employees/${employee.id}/questionnaire`}>{avatarContent}</Link>
+        return <Link href={`/dashboard/employees/${employee.id}`}>{avatarContent}</Link>
     }
 
     return avatarContent;
