@@ -42,7 +42,7 @@ function EmployeeCarouselCard({ employee, isSelected, onSelect }: { employee: Em
         >
             <CardContent className="p-4 flex items-center gap-4">
                  <Link href={`/dashboard/employees/${employee.id}`} onClick={(e) => e.stopPropagation()}>
-                    <Avatar className="h-12 w-12">
+                    <Avatar className="h-12 w-12 transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
                         <AvatarImage src={employee.photoURL} alt={employee.firstName} />
                         <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
                     </Avatar>
