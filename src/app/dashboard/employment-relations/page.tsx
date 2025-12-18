@@ -26,16 +26,27 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
 
 function EmployeeCarouselCard({ employee, isSelected, onSelect }: { employee: Employee, isSelected: boolean, onSelect: () => void }) {
     const status = statusConfig[employee.status] || { variant: 'outline', className: '' };
+    
+    const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        // Stop propagation if the click is on a link or inside a link
+        if ((e.target as HTMLElement).closest('a')) {
+            return;
+        }
+        onSelect();
+    };
+
     return (
         <Card 
             className={cn("w-full cursor-pointer transition-all", isSelected ? "border-primary shadow-lg" : "hover:shadow-md")}
-            onClick={onSelect}
+            onClick={handleCardClick}
         >
             <CardContent className="p-4 flex items-center gap-4">
-                <Avatar className="h-12 w-12">
-                    <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                    <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
-                </Avatar>
+                 <Link href={`/dashboard/employees/${employee.id}`} onClick={(e) => e.stopPropagation()}>
+                    <Avatar className="h-12 w-12">
+                        <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                        <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                </Link>
                 <div className="flex-1 overflow-hidden">
                     <p className="font-semibold truncate">{employee.firstName} {employee.lastName}</p>
                     <p className="text-xs text-muted-foreground truncate">{employee.jobTitle}</p>
