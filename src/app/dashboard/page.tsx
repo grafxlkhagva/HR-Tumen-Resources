@@ -165,7 +165,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
         '#22c55e'; // green-500
     
     const avatarContent = (
-        <div className="relative w-20 h-20 mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
+         <div className="relative w-20 h-20 mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
             <Avatar className="h-20 w-20">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
@@ -304,16 +304,16 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
-    <Card className="w-64 bg-amber-50 border-amber-200 shadow-md">
+    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md">
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-        <CardContent className="p-3 flex items-center gap-3">
-             <div className="w-16 h-16 flex-shrink-0">
+        <CardContent className="p-4 flex items-center gap-4">
+             <div className="w-20 h-20 flex-shrink-0">
                 <AvatarWithProgress employee={data.employee} />
              </div>
             <Link href={`/dashboard/employees/${data.employee.id}`}>
-                <div>
-                    <p className="font-semibold hover:underline">{data.name}</p>
-                    <p className="text-xs text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
+                <div className="space-y-1">
+                    <p className="font-semibold text-lg hover:underline">{data.name}</p>
+                    <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
         </CardContent>
@@ -616,7 +616,7 @@ const OrganizationChart = () => {
     const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
     unassignedEmployees.forEach((emp, index) => {
         newNodes.push({
-            id: emp.id, type: 'unassigned', position: { x: -450, y: index * 120 },
+            id: emp.id, type: 'unassigned', position: { x: -500, y: index * 140 },
             data: { 
               label: emp.firstName, 
               name: `${emp.firstName} ${emp.lastName}`, 
