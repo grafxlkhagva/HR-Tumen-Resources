@@ -60,7 +60,6 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { AddDepartmentDialog } from './add-department-dialog';
 
 
 const positionSchema = z.object({
@@ -108,7 +107,6 @@ interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: Reference[];
-  departmentTypes: Reference[];
   allPositions: Position[] | null;
   positionLevels: Reference[];
   employmentTypes: Reference[];
@@ -121,7 +119,6 @@ export function AddPositionDialog({
   open,
   onOpenChange,
   departments,
-  departmentTypes,
   allPositions,
   positionLevels,
   employmentTypes,
@@ -132,7 +129,6 @@ export function AddPositionDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingPosition;
-  const [isAddDeptOpen, setIsAddDeptOpen] = React.useState(false);
 
   const form = useForm<PositionFormValues>({
     resolver: zodResolver(positionSchema),
@@ -186,9 +182,6 @@ export function AddPositionDialog({
     [firestore]
   );
   
-  const handleNewDepartmentAdded = (newDeptId: string) => {
-      form.setValue('departmentId', newDeptId, { shouldValidate: true });
-  }
 
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
@@ -240,14 +233,6 @@ export function AddPositionDialog({
 
   return (
     <>
-    <AddDepartmentDialog
-        open={isAddDeptOpen}
-        onOpenChange={setIsAddDeptOpen}
-        departments={departments}
-        departmentTypes={departmentTypes}
-        editingDepartment={null}
-        onDepartmentAdded={handleNewDepartmentAdded}
-    />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
@@ -299,15 +284,6 @@ export function AddPositionDialog({
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />
-                                     <Button
-                                        type="button"
-                                        variant="link"
-                                        className="p-0 h-auto text-sm"
-                                        onClick={() => setIsAddDeptOpen(true)}
-                                    >
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Шинээр үүсгэх
-                                    </Button>
                                 </FormItem>
                                 )}
                             />
