@@ -199,24 +199,15 @@ const RootOrgChartNode = ({ node }: { node: Department }) => (
   
 
 
-const StructureTab = () => {
+const StructureTab = ({ departments, departmentTypes, positions }: { departments: Department[] | null, departmentTypes: DepartmentType[] | null, positions: Position[] | null }) => {
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
   const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   
   const { firestore } = useFirebase();
-
-  const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-  const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
   const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
-  
-  const positionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
-  
-  const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
-  const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
-  const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery);
-
+  
   const { orgTree, deptsWithData } = useMemo(() => {
     if (!departments || !departmentTypes || !positions) {
       return { orgTree: [], deptsWithData: [] };
@@ -264,7 +255,7 @@ const StructureTab = () => {
       return new Map(departments.map(d => [d.id, d.name]));
   }, [departments]);
 
-  const isLoading = isLoadingDepts || isLoadingTypes || isLoadingPos || isLoadingProfile;
+  const isLoading = !departments || !departmentTypes || !positions || isLoadingProfile;
 
   const handleOpenAddDialog = () => {
     setEditingDepartment(null);
@@ -946,8 +937,13 @@ const HeadcountTab = () => {
 
 export default function OrganizationPage() {
     const { firestore } = useFirebase();
+    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
     const { data: departmentTypes, isLoading: isLoadingTypes } = useCollection<DepartmentType>(deptTypesQuery);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
 
   return (
     <div className="py-8">
@@ -972,7 +968,7 @@ export default function OrganizationPage() {
           <TabsTrigger value="headcount">Орон тоо</TabsTrigger>
         </TabsList>
         <TabsContent value="structure">
-          <StructureTab />
+          <StructureTab departments={departments} departmentTypes={departmentTypes} positions={positions} />
         </TabsContent>
         <TabsContent value="positions">
           <PositionsTab departmentTypes={departmentTypes || []} />
@@ -984,5 +980,3 @@ export default function OrganizationPage() {
     </div>
   );
 }
-
-

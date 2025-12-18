@@ -43,6 +43,7 @@ const departmentSchema = z.object({
   name: z.string().min(2, {
     message: 'Нэгжийн нэр дор хаяж 2 тэмдэгттэй байх ёстой.',
   }),
+  typeId: z.string().min(1, 'Төрөл сонгоно уу.'),
   parentId: z.string().optional(),
   color: z.string().optional(),
 });
@@ -77,15 +78,12 @@ export function AddDepartmentDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingDepartment;
-  
-  // DEBUGGING: Log the received departmentTypes prop
-  console.log("AddDepartmentDialog received departmentTypes:", departmentTypes);
-
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
     defaultValues: {
       name: '',
+      typeId: '',
       parentId: '',
       color: '#ffffff',
     },
@@ -95,12 +93,14 @@ export function AddDepartmentDialog({
     if (isEditMode && editingDepartment) {
       form.reset({
         name: editingDepartment.name,
+        typeId: editingDepartment.typeId || '',
         parentId: editingDepartment.parentId || '(none)',
         color: editingDepartment.color || '#ffffff',
       });
     } else {
       form.reset({
         name: '',
+        typeId: '',
         parentId: '(none)',
         color: '#ffffff',
       });
@@ -125,8 +125,9 @@ export function AddDepartmentDialog({
       return;
     }
 
-    const finalData: Omit<DepartmentFormValues, 'parentId'> & { parentId?: string } = {
+    const finalData: Partial<DepartmentFormValues> = {
         name: data.name,
+        typeId: data.typeId,
         color: data.color,
     };
     
@@ -136,11 +137,7 @@ export function AddDepartmentDialog({
 
     if (isEditMode && editingDepartment) {
       const docRef = doc(firestore, 'departments', editingDepartment.id);
-      const updateData: any = { ...finalData };
-      if (!updateData.parentId) {
-        delete updateData.parentId;
-      }
-      updateDocumentNonBlocking(docRef, updateData);
+      updateDocumentNonBlocking(docRef, finalData);
       toast({
         title: 'Амжилттай шинэчлэгдлээ',
         description: `"${data.name}" нэгжийн мэдээлэл шинэчлэгдлээ.`,
@@ -182,6 +179,30 @@ export function AddDepartmentDialog({
                       <FormControl>
                         <Input placeholder="Жишээ нь: Маркетингийн хэлтэс" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="typeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Төрөл</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Төрөл сонгох" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {departmentTypes && departmentTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
