@@ -92,7 +92,7 @@ function OnLeaveProcess({ employee }: { employee: Employee }) {
         <Card>
             <CardHeader>
                 <CardTitle>Чөлөө олгох процесс</CardTitle>
-                <CardDescription>{employee.firstName}-д {employee.status.toLowerCase()} чөлөө олгохтой холбоотой үйлдлүүд.</CardDescription>
+                <CardDescription>{employee.firstName}-д {employee.status?.toLowerCase()} чөлөө олгохтой холбоотой үйлдлүүд.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
                 {processSteps.map(step => (
