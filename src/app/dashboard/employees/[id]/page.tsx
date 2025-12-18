@@ -573,40 +573,14 @@ export default function EmployeeProfilePage() {
     
     const handleReactivate = async () => {
         if (!employee || !firestore) return;
-
-        try {
-            // NOTE: The fetch call to the non-existent API is commented out to prevent the error.
-            // When a serverless function is available, this can be re-enabled.
-            /*
-            const response = await fetch('/api/update-user-status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: employee.id, disabled: false }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to enable user account.');
-            }
-            */
-            
-            // Step 2: Update Firestore document status
-            await updateDocumentNonBlocking(employeeDocRef!, { status: 'Идэвхтэй' });
-            
-            toast({
-                title: 'Ажилтан идэвхжлээ',
-                description: `${employee.firstName}-н нэвтрэх эрхийг сэргээлээ.`,
-            });
-            router.refresh();
-
-        } catch (error: any) {
-            console.error("Error reactivating employee:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Алдаа гарлаа',
-                description: error.message || 'Ажилтныг идэвхжүүлэхэд алдаа гарлаа.',
-            });
-        }
+        
+        await updateDocumentNonBlocking(employeeDocRef!, { status: 'Идэвхтэй' });
+        
+        toast({
+            title: 'Ажилтан идэвхжлээ',
+            description: `${employee.firstName}-н нэвтрэх эрхийг сэргээлээ.`,
+        });
+        
     }
     
 
@@ -645,9 +619,11 @@ export default function EmployeeProfilePage() {
     return (
         <div className="py-8">
             <div className="mb-4 flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Буцах</span>
+                <Button asChild variant="outline" size="icon">
+                    <Link href="/dashboard/employees">
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="sr-only">Буцах</span>
+                    </Link>
                 </Button>
                 <h1 className="text-xl font-semibold tracking-tight">Ажилтны хувийн хэрэг</h1>
             </div>

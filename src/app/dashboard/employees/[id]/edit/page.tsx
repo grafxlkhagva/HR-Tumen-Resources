@@ -324,9 +324,11 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Хадгалах
                         </Button>
-                        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting || isUploading}>
-                            <X className="mr-2 h-4 w-4" />
-                            Цуцлах
+                        <Button asChild variant="outline" disabled={isSubmitting || isUploading}>
+                            <Link href={`/dashboard/employees/${employeeData.id}`}>
+                                <X className="mr-2 h-4 w-4" />
+                                Цуцлах
+                            </Link>
                         </Button>
                     </div>
                 </CardContent>
@@ -371,9 +373,11 @@ export default function EditEmployeePage() {
     return (
         <div className="py-8">
             <div className="mb-4 flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Буцах</span>
+                 <Button asChild variant="outline" size="icon">
+                    <Link href={`/dashboard/employees/${employeeId}`}>
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="sr-only">Буцах</span>
+                    </Link>
                 </Button>
                 <h1 className="text-xl font-semibold tracking-tight">Мэдээлэл засах</h1>
             </div>
