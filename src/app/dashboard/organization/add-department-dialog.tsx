@@ -78,6 +78,10 @@ export function AddDepartmentDialog({
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const isEditMode = !!editingDepartment;
+  
+  // DEBUGGING: Log the received departmentTypes prop
+  console.log("AddDepartmentDialog received departmentTypes:", departmentTypes);
+
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
