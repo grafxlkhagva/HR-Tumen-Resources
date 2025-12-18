@@ -132,6 +132,7 @@ interface EmployeeNodeData {
   name: string;
   jobTitle: string;
   avatar?: string;
+  employee: Employee;
 }
 
 type CustomNode = Node<PositionNodeData | EmployeeNodeData>;
@@ -164,7 +165,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
         '#22c55e'; // green-500
     
     const avatarContent = (
-         <div className="relative w-20 h-20 mx-auto">
+        <div className="relative w-20 h-20 mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
             <Avatar className="h-20 w-20">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
@@ -205,7 +206,7 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     );
     
     if (employee) {
-        return <Link href={`/dashboard/employees/${employee.id}`}>{avatarContent}</Link>
+        return <Link href={`/dashboard/employees/${employee.id}/questionnaire`}>{avatarContent}</Link>
     }
 
     return avatarContent;
@@ -306,11 +307,15 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
     <Card className="w-64 bg-amber-50 border-amber-200 shadow-md">
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
         <CardContent className="p-3 flex items-center gap-3">
-             <Avatar className="h-9 w-9"><AvatarImage src={data.avatar} alt={data.name} /><AvatarFallback>{data.name?.charAt(0)}</AvatarFallback></Avatar>
-            <div>
-                <p className="font-semibold">{data.name}</p>
-                <p className="text-xs text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
-            </div>
+             <div className="w-16 h-16 flex-shrink-0">
+                <AvatarWithProgress employee={data.employee} />
+             </div>
+            <Link href={`/dashboard/employees/${data.employee.id}`}>
+                <div>
+                    <p className="font-semibold hover:underline">{data.name}</p>
+                    <p className="text-xs text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
+                </div>
+            </Link>
         </CardContent>
     </Card>
 )
@@ -611,8 +616,14 @@ const OrganizationChart = () => {
     const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
     unassignedEmployees.forEach((emp, index) => {
         newNodes.push({
-            id: emp.id, type: 'unassigned', position: { x: -350, y: index * 100 },
-            data: { label: emp.firstName, name: `${emp.firstName} ${emp.lastName}`, jobTitle: emp.jobTitle, avatar: emp.photoURL },
+            id: emp.id, type: 'unassigned', position: { x: -450, y: index * 120 },
+            data: { 
+              label: emp.firstName, 
+              name: `${emp.firstName} ${emp.lastName}`, 
+              jobTitle: emp.jobTitle, 
+              avatar: emp.photoURL,
+              employee: emp,
+            },
         });
     });
 
@@ -682,7 +693,7 @@ const OrganizationChart = () => {
 
         toast({
             title: "Амжилттай томилогдлоо",
-            description: `${nodes.find(n => n.id === employeeId)?.data.name} ажилтныг ${nodes.find(n => n.id === newPositionId)?.data.title} албан тушаалд томиллоо.`
+            description: `${(nodes.find(n => n.id === employeeId)?.data as EmployeeNodeData)?.name} ажилтныг ${(nodes.find(n => n.id === newPositionId)?.data as PositionNodeData)?.title} албан тушаалд томиллоо.`
         })
     } catch(e) {
         console.error(e);
@@ -706,8 +717,8 @@ const OrganizationChart = () => {
     const employeeNode = nodes.find(n => n.id === pendingConnection.source);
     const positionNode = nodes.find(n => n.id === pendingConnection.target);
     return {
-        employeeName: employeeNode?.data.name,
-        positionTitle: positionNode?.data.title,
+        employeeName: (employeeNode?.data as EmployeeNodeData)?.name,
+        positionTitle: (positionNode?.data as PositionNodeData)?.title,
     }
   }
   const { employeeName, positionTitle } = getConfirmationDialogContent();
