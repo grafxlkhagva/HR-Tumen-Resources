@@ -33,17 +33,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import {
     Accordion,
     AccordionContent,
     AccordionItem,
@@ -53,6 +42,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
+import { OffboardingDialog } from './OffboardingDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -537,8 +527,8 @@ export default function EmployeeProfilePage() {
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isConfirmingUnassign, setIsConfirmingUnassign] = React.useState(false);
-    const [isUnassigning, setIsUnassigning] = React.useState(false);
+    const [isOffboardingOpen, setIsOffboardingOpen] = React.useState(false);
+
 
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
@@ -613,46 +603,6 @@ export default function EmployeeProfilePage() {
         }
     }
     
-    const handleUnassign = async () => {
-        if (!firestore || !employee || !employee.positionId) return;
-        setIsUnassigning(true);
-        
-        try {
-            const batch = writeBatch(firestore);
-
-            // Update employee
-            const employeeRef = doc(firestore, 'employees', employee.id);
-            batch.update(employeeRef, {
-                positionId: null,
-                jobTitle: 'Томилгоогүй'
-            });
-
-            // Decrement position filled count
-            const positionRef = doc(firestore, 'positions', employee.positionId);
-            batch.update(positionRef, {
-                filled: increment(-1)
-            });
-
-            // Add history event
-            const historyCollection = collection(firestore, `employees/${employee.id}/employmentHistory`);
-            const historyDoc = doc(historyCollection);
-            batch.set(historyDoc, {
-                eventType: "Албан тушаалаас чөлөөлөгдсөн",
-                eventDate: new Date().toISOString(),
-                notes: `${employee.jobTitle} албан тушаалаас чөлөөлөгдөж, томилгоогүй болов.`,
-                createdAt: new Date().toISOString(),
-            });
-
-            await batch.commit();
-            toast({ title: 'Амжилттай чөлөөллөө', description: `${employee.firstName}-г албан тушаалаас чөлөөллөө.` });
-
-        } catch (error: any) {
-             toast({ variant: 'destructive', title: 'Алдаа гарлаа', description: 'Албан тушаалаас чөлөөлөхөд алдаа гарлаа.' });
-        } finally {
-            setIsUnassigning(false);
-            setIsConfirmingUnassign(false);
-        }
-    }
 
     if (isLoading) {
         return (
@@ -680,29 +630,10 @@ export default function EmployeeProfilePage() {
     const isActive = employee.status === 'Идэвхтэй';
 
     const unassignButton = employee.positionId ? (
-        <AlertDialog open={isConfirmingUnassign} onOpenChange={setIsConfirmingUnassign}>
-            <AlertDialogTrigger asChild>
-                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                    <UserMinus className="h-4 w-4" />
-                    <span className="sr-only">Чөлөөлөх</span>
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                       {fullName}-г {employee.jobTitle} албан тушаалаас чөлөөлөх үү? Энэ үйлдэл нь ажилтныг томилгоогүй болгох ба орон тоог суллана.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isUnassigning}>Цуцлах</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleUnassign} disabled={isUnassigning}>
-                        {isUnassigning && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Тийм, чөлөөлөх
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setIsOffboardingOpen(true)}>
+            <UserMinus className="h-4 w-4" />
+            <span className="sr-only">Чөлөөлөх</span>
+        </Button>
     ) : null;
 
     return (
@@ -714,6 +645,12 @@ export default function EmployeeProfilePage() {
                 </Button>
                 <h1 className="text-xl font-semibold tracking-tight">Ажилтны хувийн хэрэг</h1>
             </div>
+
+            <OffboardingDialog
+                open={isOffboardingOpen}
+                onOpenChange={setIsOffboardingOpen}
+                employee={employee}
+            />
 
             <div className="space-y-6">
                  {!isActive && (
@@ -815,4 +752,3 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
-
