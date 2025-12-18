@@ -1,4 +1,5 @@
 
+
 // src/app/dashboard/page.tsx
 'use client';
 
@@ -36,7 +37,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -437,7 +438,7 @@ const OrganizationChart = () => {
   // Data fetching
   const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
   const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
-  const employeesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, [firestore]);
+  const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
   const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
   const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
   const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
@@ -711,7 +712,8 @@ const OrganizationChart = () => {
   }
   const { employeeName, positionTitle } = getConfirmationDialogContent();
 
-  const activeEmployeesCount = employees?.length || 0;
+  const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
+  const inactiveEmployeesCount = employees?.filter(e => e.status !== 'Идэвхтэй').length || 0;
 
   return (
     <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
@@ -795,7 +797,7 @@ const OrganizationChart = () => {
         </div>
 
         <CardHeader>
-             <div className="grid gap-4 md:grid-cols-3">
+             <div className="grid gap-4 md:grid-cols-4">
                 <Link href="/dashboard/employees">
                     <Card className="hover:bg-muted/50 transition-colors">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -821,6 +823,17 @@ const OrganizationChart = () => {
                                     {presentEmployees.size} <span className="text-base font-normal text-muted-foreground">/ {onLeaveEmployees.size} чөлөөтэй</span>
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link href="/dashboard/employment-relations">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Хөдөлмөрийн харилцаа</CardTitle>
+                            <UserMinusIcon className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{inactiveEmployeesCount}</div>}
                         </CardContent>
                     </Card>
                 </Link>
