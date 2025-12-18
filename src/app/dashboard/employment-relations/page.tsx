@@ -9,7 +9,7 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Employee } from '../employees/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -160,6 +160,8 @@ export default function EmploymentRelationsPage() {
                             </CarouselItem>
                             ))}
                         </CarouselContent>
+                        <CarouselPrevious />
+                        <CarouselNext />
                     </Carousel>
                  )}
                  {!isLoading && inactiveEmployees.length === 0 && (
