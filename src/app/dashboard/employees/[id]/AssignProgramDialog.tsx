@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -56,12 +57,14 @@ interface AssignProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employee: Employee;
+  assignedProgramIds: string[];
 }
 
 export function AssignProgramDialog({
   open,
   onOpenChange,
   employee,
+  assignedProgramIds,
 }: AssignProgramDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -79,6 +82,12 @@ export function AssignProgramDialog({
     () => firestore ? collection(firestore, `employees/${employee.id}/assignedPrograms`) : null,
     [firestore, employee.id]
   );
+
+  const availablePrograms = React.useMemo(() => {
+    if (!programTemplates) return [];
+    return programTemplates.filter(p => !assignedProgramIds.includes(p.id));
+  }, [programTemplates, assignedProgramIds]);
+
 
   const handleAssign = async () => {
     if (!selectedProgramId || !firestore || !assignedProgramsCollectionRef) {
@@ -183,9 +192,9 @@ export function AssignProgramDialog({
         <div className="py-4">
             {isLoadingTemplates ? (
                 <Skeleton className="h-10 w-full" />
-            ) : !programTemplates || programTemplates.length === 0 ? (
+            ) : !availablePrograms || availablePrograms.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
-                    Тохиргоо хэсэгт хөтөлбөрийн загвар үүсгэнэ үү.
+                    Оноох боломжтой шинэ хөтөлбөрийн загвар байхгүй байна.
                 </div>
             ) : (
                 <Select
@@ -196,7 +205,7 @@ export function AssignProgramDialog({
                         <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {programTemplates?.map((program) => (
+                        {availablePrograms?.map((program) => (
                         <SelectItem key={program.id} value={program.id}>
                             {program.title}
                         </SelectItem>

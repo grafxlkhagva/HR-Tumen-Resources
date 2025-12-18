@@ -1,4 +1,5 @@
 
+
 // src/app/dashboard/employees/[id]/page.tsx
 'use client';
 
@@ -40,8 +41,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+  } from '@/components/ui/accordion';
 
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask } from './AssignProgramDialog';
@@ -197,7 +203,7 @@ function ProfileSkeleton() {
     )
 }
 
-const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
+const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
@@ -207,14 +213,13 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
         firestore
           ? query(
               collection(firestore, `employees/${employee.id}/assignedPrograms`),
-              where('status', '==', 'IN_PROGRESS')
+              orderBy('startDate', 'desc')
             )
           : null,
       [firestore, employee.id]
     );
 
     const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
-    const activeProgram = assignedPrograms?.[0];
     
     const handleStatusChange = (program: AssignedProgram, taskIndex: number, newStatus: AssignedTask['status']) => {
         if (!firestore) return;
@@ -232,9 +237,10 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
             const doneTasks = updatedTasks.filter(t => t.status === 'DONE' || t.status === 'VERIFIED').length;
             const inProgressTasks = updatedTasks.filter(t => t.status === 'IN_PROGRESS').length;
             const progress = updatedTasks.length > 0 ? ((doneTasks * 100) + (inProgressTasks * 50)) / updatedTasks.length : 0;
+            const programStatus = progress === 100 ? 'COMPLETED' : 'IN_PROGRESS';
 
             const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
-            updateDocumentNonBlocking(programDocRef, { tasks: updatedTasks, progress });
+            updateDocumentNonBlocking(programDocRef, { tasks: updatedTasks, progress, status: programStatus });
 
             toast({ title: "Даалгаврын төлөв шинэчлэгдлээ." });
         }
@@ -253,69 +259,78 @@ const OnboardingProgramCard = ({ employee }: { employee: Employee }) => {
         )
     }
 
-    if (activeProgram) {
-        return (
-          <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle>Дасан зохицох хөтөлбөр: {activeProgram.programName}</CardTitle>
-                        <CardDescription>
-                            Эхэлсэн огноо: {new Date(activeProgram.startDate).toLocaleDateString()}
-                        </CardDescription>
-                    </div>
+    return (
+        <Card>
+            <CardHeader className="flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Дасан зохицох хөтөлбөрүүд</CardTitle>
+                    <CardDescription>
+                        Ажилтанд оноогдсон бүх хөтөлбөрийн жагсаалт.
+                    </CardDescription>
                 </div>
-                 <div className="flex items-center gap-4 pt-2">
-                    <Progress value={activeProgram.progress} className="h-2" />
-                    <span className="text-sm font-bold text-muted-foreground">{Math.round(activeProgram.progress || 0)}%</span>
-                </div>
+                 <Button onClick={() => setIsAssignDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Хөтөлбөр оноох
+                </Button>
             </CardHeader>
-            <CardContent className="space-y-2">
-                {activeProgram.tasks.map((task, index) => (
-                    <div key={task.templateTaskId + index} className="flex items-center justify-between rounded-md border p-3">
-                        <div>
-                             <p className="font-medium">{task.title}</p>
-                             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
-                                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                        <TaskStatusDropdown 
-                            currentStatus={task.status} 
-                            onStatusChange={(newStatus) => handleStatusChange(activeProgram, index, newStatus)} 
-                        />
-                    </div>
-                ))}
-                 {activeProgram.tasks.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">
-                        <p>Энэ хөтөлбөрт оноогдсон даалгавар байхгүй байна.</p>
+            <CardContent>
+                 <AssignProgramDialog 
+                    open={isAssignDialogOpen} 
+                    onOpenChange={setIsAssignDialogOpen}
+                    employee={employee}
+                    assignedProgramIds={assignedPrograms?.map(p => p.programId) || []}
+                 />
+
+                {assignedPrograms && assignedPrograms.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full space-y-4">
+                        {assignedPrograms.map(program => (
+                        <AccordionItem value={program.id} key={program.id} className="border rounded-lg">
+                            <AccordionTrigger className="p-4 hover:no-underline">
+                                <div className="w-full flex justify-between items-center pr-4">
+                                    <div className="text-left">
+                                        <p className="font-semibold">{program.programName}</p>
+                                        <p className="text-sm text-muted-foreground">Эхэлсэн: {new Date(program.startDate).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4 w-1/3">
+                                        <Progress value={program.progress} className="h-2" />
+                                        <span className="text-sm font-bold w-12 text-right">{Math.round(program.progress || 0)}%</span>
+                                    </div>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <div className="space-y-2">
+                                {program.tasks.map((task, index) => (
+                                    <div key={task.templateTaskId + index} className="flex items-center justify-between rounded-md border p-3">
+                                        <div>
+                                            <p className="font-medium">{task.title}</p>
+                                            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.assigneeName || 'Тодорхойгүй'}</span>
+                                                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{new Date(task.dueDate).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                        <TaskStatusDropdown 
+                                            currentStatus={task.status} 
+                                            onStatusChange={(newStatus) => handleStatusChange(program, index, newStatus)} 
+                                        />
+                                    </div>
+                                ))}
+                                {program.tasks.length === 0 && (
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        <p>Энэ хөтөлбөрт оноогдсон даалгавар байхгүй байна.</p>
+                                    </div>
+                                )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <div className="text-center py-10">
+                        <p className="text-muted-foreground">Энэ ажилтанд одоогоор идэвхтэй дасан зохицох хөтөлбөр оноогоогүй байна.</p>
                     </div>
                 )}
             </CardContent>
-          </Card>
-        );
-    }
-    
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Дасан зохицох хөтөлбөр</CardTitle>
-          <CardDescription>
-            Энэ ажилтанд одоогоор идэвхтэй дасан зохицох хөтөлбөр оноогоогүй байна.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={() => setIsAssignDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Хөтөлбөр оноох
-          </Button>
-           <AssignProgramDialog 
-             open={isAssignDialogOpen} 
-             onOpenChange={setIsAssignDialogOpen}
-             employee={employee}
-           />
-        </CardContent>
-      </Card>
+        </Card>
     );
 };
 
@@ -758,7 +773,7 @@ export default function EmployeeProfilePage() {
                     </CardContent>
                 </Card>
 
-                <Tabs defaultValue="overview">
+                <Tabs defaultValue="onboarding">
                     <TabsList>
                         <TabsTrigger value="overview">Ерөнхий</TabsTrigger>
                         <TabsTrigger value="onboarding">Дасан зохицох</TabsTrigger>
@@ -772,7 +787,7 @@ export default function EmployeeProfilePage() {
                        <OverviewTabContent employeeId={employeeId} />
                     </TabsContent>
                     <TabsContent value="onboarding">
-                        <OnboardingProgramCard employee={employee} />
+                        <OnboardingTabContent employee={employee} />
                     </TabsContent>
                     <TabsContent value="history">
                         <HistoryTabContent employeeId={employeeId} />
@@ -799,3 +814,4 @@ export default function EmployeeProfilePage() {
         </div>
     )
 }
+
