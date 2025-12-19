@@ -299,37 +299,39 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                     <Accordion type="single" collapsible className="w-full space-y-4">
                         {assignedPrograms.map(program => (
                         <AccordionItem value={program.id} key={program.id} className="border rounded-lg">
-                            <AccordionTrigger className="p-4 hover:no-underline group">
-                                <div className="w-full flex justify-between items-center pr-4">
-                                    <div className="text-left">
-                                        <p className="font-semibold">{program.programName}</p>
-                                        <p className="text-sm text-muted-foreground">Эхэлсэн: {new Date(program.startDate).toLocaleDateString()}</p>
+                            <div className="flex items-center justify-between p-4 group">
+                                <AccordionTrigger className="flex-1 hover:no-underline p-0">
+                                    <div className="w-full flex justify-between items-center pr-4">
+                                        <div className="text-left">
+                                            <p className="font-semibold">{program.programName}</p>
+                                            <p className="text-sm text-muted-foreground">Эхэлсэн: {new Date(program.startDate).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4 w-1/3">
+                                            <Progress value={program.progress} className="h-2" />
+                                            <span className="text-sm font-bold w-12 text-right">{Math.round(program.progress || 0)}%</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-4 w-1/3">
-                                        <Progress value={program.progress} className="h-2" />
-                                        <span className="text-sm font-bold w-12 text-right">{Math.round(program.progress || 0)}%</span>
-                                    </div>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                             <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.programName}" хөтөлбөрийг энэ ажилтнаас устгах болно.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel onClick={e => e.stopPropagation()}>Цуцлах</AlertDialogCancel>
-                                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeleteProgram(program); }}>Тийм, устгах</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </AccordionTrigger>
+                                </AccordionTrigger>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.programName}" хөтөлбөрийг энэ ажилтнаас устгах болно.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel onClick={e => e.stopPropagation()}>Цуцлах</AlertDialogCancel>
+                                            <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeleteProgram(program); }}>Тийм, устгах</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
                             <AccordionContent className="p-4 pt-0">
                                 <div className="space-y-2">
                                 {program.tasks.map((task, index) => (
