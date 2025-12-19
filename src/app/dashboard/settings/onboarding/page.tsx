@@ -59,6 +59,8 @@ export type OnboardingTaskTemplate = {
     description?: string;
     assigneeType: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY' | 'SPECIFIC_PERSON';
     dueDays: number;
+    attachmentUrl?: string;
+    attachmentName?: string;
 }
 
 
@@ -116,69 +118,71 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
     const { icon: AppliesToIcon, text: appliesToText } = getAppliesToText();
 
     return (
-        <Card className="flex flex-col">
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <Link href={`/dashboard/settings/onboarding/${program.id}`} className="block group">
-                        <CardTitle className="group-hover:text-primary transition-colors">{program.title}</CardTitle>
-                        <CardDescription className="mt-1 line-clamp-2">{program.description || 'Тодорхойлолт байхгүй.'}</CardDescription>
-                    </Link>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Засах</DropdownMenuItem>
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.title}" хөтөлбөрийг бүх үе шат, даалгаврын хамт устгах болно.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                    <AlertDialogAction onClick={onDelete}>Тийм, устгах</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </CardHeader>
-            <CardContent className="flex-1 grid grid-cols-2 gap-4">
-                 <Card className="bg-muted/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Үе шат</CardTitle>
-                        <Layers className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{program.stageCount || 0}</div>
-                    </CardContent>
-                </Card>
-                 <Card className="bg-muted/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Даалгавар</CardTitle>
-                        <ListTodo className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{program.taskCount || 0}</div>
-                    </CardContent>
-                </Card>
-            </CardContent>
-            <CardFooter>
+        <Card className="flex flex-col transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1">
+             <Link href={`/dashboard/settings/onboarding/${program.id}`} className="flex-1 flex flex-col">
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle>{program.title}</CardTitle>
+                            <CardDescription className="mt-1 line-clamp-2">{program.description || 'Тодорхойлолт байхгүй.'}</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="flex-1 grid grid-cols-2 gap-4">
+                    <Card className="bg-muted/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Үе шат</CardTitle>
+                            <Layers className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{program.stageCount || 0}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-muted/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Даалгавар</CardTitle>
+                            <ListTodo className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{program.taskCount || 0}</div>
+                        </CardContent>
+                    </Card>
+                </CardContent>
+            </Link>
+            <CardFooter className="flex justify-between items-center">
                  <Badge variant="secondary" className="font-normal flex items-center gap-2">
                     <AppliesToIcon className="h-4 w-4" />
                     {appliesToText}
                 </Badge>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Засах</DropdownMenuItem>
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.title}" хөтөлбөрийг бүх үе шат, даалгаврын хамт устгах болно.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                <AlertDialogAction onClick={onDelete}>Тийм, устгах</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </CardFooter>
         </Card>
     );
