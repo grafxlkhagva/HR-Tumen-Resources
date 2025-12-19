@@ -14,12 +14,11 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
-  updateDocumentNonBlocking,
   useFirebase,
-  addDocumentNonBlocking,
   useMemoFirebase,
+  useCollection,
 } from '@/firebase';
-import { doc, increment, writeBatch, collection } from 'firebase/firestore';
+import { doc, increment, writeBatch, collection, getDocs, addDoc } from 'firebase/firestore';
 import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save } from 'lucide-react';
 import type { Employee } from '../employees/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -39,8 +38,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { add, format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onboarding/page';
+import { Checkbox } from '@/components/ui/checkbox';
+import type { AssignedProgram } from '../employees/[id]/AssignProgramDialog';
+
 
 interface Position {
   id: string;
@@ -52,6 +55,7 @@ const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
     assignmentType: z.enum(['direct', 'trial']),
     trialEndDate: z.date().optional(),
+    onboardingProgramIds: z.array(z.string()).optional(),
 }).refine(data => {
     if (data.assignmentType === 'trial') {
         return !!data.trialEndDate;
@@ -81,7 +85,7 @@ export function AssignEmployeeDialog({
 }: AssignEmployeeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [step, setStep] = React.useState(2); // Start at step 2
+  const [step, setStep] = React.useState(2);
   const [localSelectedEmployee, setLocalSelectedEmployee] = React.useState<Employee | null>(null);
 
   const form = useForm<AssignmentFormValues>({
@@ -89,11 +93,27 @@ export function AssignEmployeeDialog({
       defaultValues: {
           assignmentDate: new Date(),
           assignmentType: 'direct',
+          onboardingProgramIds: [],
       }
   });
   
   const { isSubmitting } = form.formState;
   const assignmentType = form.watch('assignmentType');
+
+  // Fetch Onboarding Programs
+  const programsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
+  const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programsQuery);
+  
+  // Fetch already assigned programs for the selected employee
+  const assignedProgramsQuery = useMemoFirebase(({ firestore }) => (firestore && localSelectedEmployee) ? collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`) : null, [firestore, localSelectedEmployee]);
+  const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
+
+  const availablePrograms = React.useMemo(() => {
+      if (!programTemplates) return [];
+      const assignedIds = new Set(assignedPrograms?.map(p => p.programId));
+      return programTemplates.filter(p => !assignedIds.has(p.id));
+  }, [programTemplates, assignedPrograms]);
+
 
   React.useEffect(() => {
     if (open) {
@@ -101,13 +121,14 @@ export function AssignEmployeeDialog({
             setLocalSelectedEmployee(selectedEmployee);
             setStep(3); // Directly go to assignment details
         } else {
-            setStep(2); // Start with employee selection
+            setStep(2);
             setLocalSelectedEmployee(null);
         }
         form.reset({
             assignmentDate: new Date(),
             assignmentType: 'direct',
             trialEndDate: undefined,
+            onboardingProgramIds: [],
         });
     }
   }, [open, selectedEmployee, form]);
@@ -152,6 +173,56 @@ export function AssignEmployeeDialog({
         });
         
         await batch.commit();
+
+        // 4. Assign onboarding programs
+        if (values.onboardingProgramIds && values.onboardingProgramIds.length > 0) {
+            const assignedProgramsCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`);
+
+            for (const programId of values.onboardingProgramIds) {
+                const programTemplate = programTemplates?.find(p => p.id === programId);
+                if (!programTemplate) continue;
+
+                const stagesSnapshot = await getDocs(collection(firestore, `onboardingPrograms/${programId}/stages`));
+                const allTasks: any[] = [];
+                const hireDate = new Date(localSelectedEmployee.hireDate);
+
+                for (const stageDoc of stagesSnapshot.docs) {
+                    const tasksSnapshot = await getDocs(collection(firestore, stageDoc.ref.path, 'tasks'));
+                    tasksSnapshot.forEach(taskDoc => {
+                         const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
+                         const dueDate = add(hireDate, { days: taskTemplate.dueDays });
+
+                          let assigneeId = localSelectedEmployee.id;
+                          let assigneeName = `${localSelectedEmployee.firstName} ${localSelectedEmployee.lastName}`;
+
+                         switch(taskTemplate.assigneeType) {
+                            case 'NEW_HIRE': break;
+                            // TODO: Add real logic for other assignee types
+                            case 'MANAGER': assigneeName = "Шууд удирдлага"; break;
+                            case 'HR': assigneeName = "Хүний нөөц"; break;
+                            case 'BUDDY': assigneeName = "Дэмжигч ажилтан"; break;
+                         }
+
+                        allTasks.push({
+                            templateTaskId: taskDoc.id,
+                            title: taskTemplate.title,
+                            status: 'TODO',
+                            dueDate: dueDate.toISOString(),
+                            assigneeId: assigneeId, 
+                            assigneeName: assigneeName
+                        });
+                    });
+                }
+                await addDoc(assignedProgramsCollectionRef, {
+                    programId: programTemplate.id,
+                    programName: programTemplate.title,
+                    status: 'IN_PROGRESS',
+                    startDate: new Date().toISOString(),
+                    progress: 0,
+                    tasks: allTasks,
+                });
+            }
+        }
 
         toast({
             title: 'Амжилттай томилогдлоо',
@@ -206,7 +277,7 @@ export function AssignEmployeeDialog({
 
   const renderStepThree = () => (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFinalAssignment)} className="space-y-4 pt-4">
+        <form onSubmit={(e) => { e.preventDefault(); setStep(4); }} className="space-y-4 pt-4">
             <div className="p-3 rounded-md border bg-muted/50 flex items-center gap-3">
                  <Avatar>
                     <AvatarImage src={localSelectedEmployee?.photoURL} />
@@ -258,11 +329,64 @@ export function AssignEmployeeDialog({
             )}
              <DialogFooter>
               <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(2)} disabled={isSubmitting}>Буцах</Button>
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Баталгаажуулах</Button>
+              <Button type="submit">Үргэлжлүүлэх</Button>
             </DialogFooter>
         </form>
       </Form>
   )
+
+  const renderStepFour = () => (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleFinalAssignment)} className="space-y-4 pt-4">
+            <FormItem>
+                <FormLabel>Дасан зохицох хөтөлбөр сонгох</FormLabel>
+                <FormDescription>Томилгоо хийгдсэний дараа эдгээр хөтөлбөрүүд ажилтанд автоматаар оноогдоно.</FormDescription>
+                <ScrollArea className="h-60 rounded-md border p-2">
+                    <div className="space-y-2 p-2">
+                    {isLoadingTemplates || isLoadingAssigned ? <Skeleton className="h-10 w-full" /> : 
+                        availablePrograms?.map((program) => (
+                            <FormField
+                                key={program.id}
+                                control={form.control}
+                                name="onboardingProgramIds"
+                                render={({ field }) => (
+                                    <FormItem
+                                    key={program.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-3 hover:bg-muted/50"
+                                    >
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value?.includes(program.id)}
+                                                onCheckedChange={(checked) => {
+                                                    return checked
+                                                    ? field.onChange([...(field.value || []), program.id])
+                                                    : field.onChange(
+                                                        field.value?.filter(
+                                                        (value) => value !== program.id
+                                                        )
+                                                    )
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="font-normal w-full cursor-pointer">{program.title}</FormLabel>
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
+                        {!isLoadingTemplates && !isLoadingAssigned && availablePrograms?.length === 0 && (
+                             <p className="text-center text-sm text-muted-foreground p-4">Шинэ хөтөлбөр байхгүй байна.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </FormItem>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setStep(3)}>Буцах</Button>
+                <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Баталгаажуулах</Button>
+            </DialogFooter>
+        </form>
+      </Form>
+  )
+
 
   return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -272,6 +396,7 @@ export function AssignEmployeeDialog({
             <DialogDescription>
               {step === 2 && 'Томилох ажилтнаа сонгоно уу.'}
               {step === 3 && 'Томилгооны мэдээллийг оруулна уу.'}
+              {step === 4 && 'Хөтөлбөр оноох (заавал биш).'}
             </DialogDescription>
           </DialogHeader>
           
@@ -279,6 +404,7 @@ export function AssignEmployeeDialog({
           
           {step === 2 && renderStepTwo()}
           {step === 3 && localSelectedEmployee && renderStepThree()}
+          {step === 4 && localSelectedEmployee && renderStepFour()}
 
         </DialogContent>
       </Dialog>
