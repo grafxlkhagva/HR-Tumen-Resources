@@ -289,17 +289,31 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 }
 
 // --- Stage Column ---
-function StageColumn({ stage, programId, programRef, onAddTask }: { stage: OnboardingStage, programId: string, programRef: DocumentReference | null, onAddTask: (stageId: string) => void }) {
+function StageColumn({ stage, programId, programRef, onAddTask, onEditTask, onDeleteTask }: { 
+    stage: OnboardingStage, 
+    programId: string, 
+    programRef: DocumentReference | null, 
+    onAddTask: (stageId: string) => void,
+    onEditTask: (stageId: string, task: OnboardingTaskTemplate) => void,
+    onDeleteTask: (stageId: string, taskId: string) => void,
+}) {
     const { firestore } = useFirebase();
     const [isEditing, setIsEditing] = React.useState(false);
+    
+    const tasksQuery = useMemoFirebase(({ firestore }) => 
+        firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
+        [programId, stage.id]
+    );
+    const { data: tasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
+
 
     const handleDeleteStage = async () => {
         if (!firestore || !programRef) return;
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
-        const tasksQuery = query(collection(firestore, stageDocRef.path, 'tasks'));
+        const tasksQueryRef = query(collection(firestore, stageDocRef.path, 'tasks'));
         
         try {
-            const tasksSnapshot = await getDocs(tasksQuery);
+            const tasksSnapshot = await getDocs(tasksQueryRef);
             const tasksToDeleteCount = tasksSnapshot.size;
 
             const batch = writeBatch(firestore);
@@ -336,12 +350,12 @@ function StageColumn({ stage, programId, programRef, onAddTask }: { stage: Onboa
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="p-3 space-y-3">
-                        {stage.tasks?.map(task => (
+                        {tasks?.map(task => (
                             <TaskCard 
                                 key={task.id} 
                                 task={task} 
-                                onEdit={() => {}}
-                                onDelete={() => {}}
+                                onEdit={() => onEditTask(stage.id, task)}
+                                onDelete={() => onDeleteTask(stage.id, task.id)}
                             />
                         ))}
                     </div>
@@ -374,20 +388,6 @@ export default function OnboardingProgramBuilderPage() {
     
     const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
     const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
-    
-    // This is not efficient, but it's the simplest way for now without complex queries.
-    // In a real app, you might restructure data or use more specific listeners.
-    const { data: allTasks } = useCollection(useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${id}/stages/all/tasks`), [id]));
-
-
-    const stagesWithTasks = React.useMemo(() => {
-        if (!stages || !allTasks) return stages;
-        return stages.map(stage => ({
-            ...stage,
-            tasks: allTasks.filter(task => (task as any).parentStageId === stage.id) // This assumes tasks have parentStageId
-        }))
-    }, [stages, allTasks])
-
 
     const handleAddTask = (stageId: string) => {
         setSelectedStageIdForTask(stageId);
@@ -444,51 +444,17 @@ export default function OnboardingProgramBuilderPage() {
                 <div className="inline-flex h-full items-start gap-6 px-4 md:px-6">
                     {isLoadingStages && Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="w-80 h-full rounded-lg" />)}
                     
-                    {!isLoadingStages && stages?.map(stage => {
-                        const tasksQuery = query(collection(useFirebase().firestore, `onboardingPrograms/${id}/stages/${stage.id}/tasks`));
-                        const {data: tasks} = useCollection(tasksQuery);
-
-                        return (
-                             <div key={stage.id} className="w-80 shrink-0">
-                                <div className="flex flex-col h-full rounded-lg bg-muted/60">
-                                    <div className="flex items-center justify-between p-3 border-b">
-                                        <h3 className="font-semibold px-2">{stage.title}</h3>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent>
-                                                 {/* Placeholder for edit stage dialog trigger */}
-                                                <DropdownMenuItem>Үе шат засах</DropdownMenuItem>
-                                                {/* Placeholder for delete stage action */}
-                                                <DropdownMenuItem className="text-destructive">Үе шат устгах</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                    <ScrollArea className="flex-1">
-                                        <div className="p-3 space-y-3">
-                                            {tasks?.map(task => (
-                                                <TaskCard 
-                                                    key={task.id} 
-                                                    task={task as OnboardingTaskTemplate}
-                                                    onEdit={() => handleEditTask(stage.id, task as OnboardingTaskTemplate)}
-                                                    onDelete={() => handleDeleteTask(stage.id, task.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    </ScrollArea>
-                                    <div className="p-3 border-t">
-                                        <Button variant="ghost" className="w-full justify-start" onClick={() => handleAddTask(stage.id)}>
-                                            <PlusCircle className="mr-2 h-4 w-4" />
-                                            Даалгавар нэмэх
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    })}
+                    {!isLoadingStages && stages?.map(stage => (
+                        <StageColumn
+                            key={stage.id}
+                            stage={stage}
+                            programId={id}
+                            programRef={programDocRef}
+                            onAddTask={handleAddTask}
+                            onEditTask={handleEditTask}
+                            onDeleteTask={handleDeleteTask}
+                        />
+                    ))}
                     
                     {!isLoadingStages && (
                         <div className="w-80 shrink-0">
@@ -503,5 +469,3 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
-
-    
