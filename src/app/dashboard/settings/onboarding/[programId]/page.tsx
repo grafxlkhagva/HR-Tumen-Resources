@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -64,6 +65,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type OnboardingStage = BaseOnboardingStage & {
@@ -208,11 +210,12 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 // --- Stage Dialog ---
 const stageSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
-    order: z.coerce.number().min(1),
+    order: z.coerce.number(),
+    position: z.string(),
 });
 type StageFormValues = z.infer<typeof stageSchema>;
 
-function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }: { open: boolean, onOpenChange: (open: boolean) => void, programId: string, editingStage: OnboardingStage | null, stageCount: number }) {
+function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { open: boolean, onOpenChange: (open: boolean) => void, programId: string, editingStage: OnboardingStage | null, stages: OnboardingStage[] | null }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const isEditMode = !!editingStage;
@@ -227,22 +230,49 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
     React.useEffect(() => {
         if(open) {
             if(isEditMode && editingStage) {
-                form.reset(editingStage);
+                form.reset({
+                    title: editingStage.title,
+                    order: editingStage.order,
+                    position: `after_${editingStage.id}`
+                });
             } else {
-                form.reset({ title: '', order: stageCount + 1 });
+                form.reset({ title: '', order: (stages?.length || 0) + 1, position: 'end' });
             }
         }
-    }, [open, editingStage, isEditMode, form, stageCount]);
+    }, [open, editingStage, isEditMode, form, stages]);
 
     const onSubmit = (data: StageFormValues) => {
         if (!firestore) return;
+
+        let finalOrder = 0;
+        if(data.position === 'start') {
+            finalOrder = (stages?.[0]?.order || 1) / 2;
+        } else if (data.position === 'end') {
+            finalOrder = (stages?.[stages.length - 1]?.order || 0) + 1;
+        } else {
+            const afterId = data.position.replace('after_', '');
+            const afterIndex = stages?.findIndex(s => s.id === afterId) ?? -1;
+            if (afterIndex !== -1 && stages) {
+                const afterOrder = stages[afterIndex].order;
+                const nextOrder = stages[afterIndex + 1]?.order || (afterOrder + 2);
+                finalOrder = (afterOrder + nextOrder) / 2;
+            } else {
+                 finalOrder = (stages?.length || 0) + 1;
+            }
+        }
+
+        const finalData = {
+            title: data.title,
+            order: finalOrder,
+        }
+
         if (isEditMode && editingStage) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, editingStage.id);
-            updateDocumentNonBlocking(docRef, data);
+            updateDocumentNonBlocking(docRef, finalData);
             toast({ title: 'Үе шат шинэчлэгдлээ' });
         } else {
             if (!stagesCollectionRef || !programDocRef) return;
-            addDocumentNonBlocking(stagesCollectionRef, data);
+            addDocumentNonBlocking(stagesCollectionRef, finalData);
             updateDocumentNonBlocking(programDocRef, { stageCount: increment(1) });
             toast({ title: 'Шинэ үе шат нэмэгдлээ' });
         }
@@ -259,7 +289,13 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Дараалал</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormDescription>Үе шатуудыг зүүнээс баруун тийш харуулах дараалал. Бага тоо нь зүүн талд байна.</FormDescription><FormMessage /></FormItem> )} />
+                         <FormField control={form.control} name="position" render={({ field }) => ( <FormItem><FormLabel>Байрлал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
+                            <SelectItem value="start">Эхэнд байршуулах</SelectItem>
+                            {stages?.filter(s => s.id !== editingStage?.id).map(stage => (
+                                <SelectItem key={stage.id} value={`after_${stage.id}`}>{stage.title}-н ард байршуулах</SelectItem>
+                            ))}
+                            <SelectItem value="end">Төгсгөлд байршуулах</SelectItem>
+                         </SelectContent></Select><FormDescription>Үе шат хаана байрлахыг сонгоно уу.</FormDescription><FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
@@ -279,7 +315,7 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
             <CardContent className="p-3">
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
-                    <div className="flex items-center">
+                     <div className="flex items-center -mt-1 -mr-1">
                         <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -300,7 +336,7 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Цуцлах</AlertDialogCancel>
                                     <AlertDialogAction onClick={(e) => { e.stopPropagation(); onDelete(); }}>Тийм, устгах</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -317,12 +353,12 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 }
 
 // --- Stage Column ---
-function StageColumn({ stage, programId, onEditTask, onDeleteTask, stageCount }: { 
+function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages }: { 
     stage: OnboardingStage, 
     programId: string, 
     onEditTask: (stageId: string, task: OnboardingTaskTemplate | null) => void,
     onDeleteTask: (stageId: string, taskId: string) => void,
-    stageCount: number,
+    stages: OnboardingStage[] | null,
 }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { firestore } = useFirebase();
@@ -417,7 +453,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stageCount }:
                     </Button>
                 </div>
             </div>
-            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stageCount={stageCount} />
+            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stages={stages} />
         </div>
     )
 }
@@ -472,7 +508,7 @@ export default function OnboardingProgramBuilderPage() {
                     editingTask={selectedTask}
                 />
             )}
-             <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id} editingStage={null} stageCount={stages?.length || 0} />
+             <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id} editingStage={null} stages={stages} />
             <header className="px-4 md:px-6 mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -501,7 +537,7 @@ export default function OnboardingProgramBuilderPage() {
                             programId={id}
                             onEditTask={handleEditTask}
                             onDeleteTask={handleDeleteTask}
-                            stageCount={stages?.length || 0}
+                            stages={stages}
                         />
                     ))}
                     
