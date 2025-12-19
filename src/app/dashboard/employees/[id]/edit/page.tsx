@@ -28,6 +28,7 @@ import {
   useCollection,
   useDoc,
   useMemoFirebase,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -137,12 +138,13 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         // Get active positions for the selected department
         const departmentPositions = positions.filter(p => p.isActive && p.departmentId === watchedDepartmentId);
         
-        // Find the employee's current position
-        const currentPosition = positions.find(p => p.id === employeeData.positionId);
-        
-        // If the current position exists and is NOT in the list already (e.g., it's inactive), add it.
-        if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
-            departmentPositions.push(currentPosition);
+        // Find the employee's current position if it exists
+        if (employeeData.positionId) {
+            const currentPosition = positions.find(p => p.id === employeeData.positionId);
+            // If the current position exists and is NOT in the list already (e.g., it's inactive), add it.
+            if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
+                departmentPositions.push(currentPosition);
+            }
         }
 
         return departmentPositions;
