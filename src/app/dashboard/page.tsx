@@ -304,19 +304,19 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
-    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md">
+    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-        <CardContent className="p-4 flex items-center gap-4">
-             <div className="w-20 h-20 flex-shrink-0">
-                <AvatarWithProgress employee={data.employee} />
-             </div>
+        <div className="flex items-center gap-4">
+            <div className="w-20 h-20 flex-shrink-0">
+               <AvatarWithProgress employee={data.employee} />
+            </div>
             <Link href={`/dashboard/employees/${data.employee.id}`}>
                 <div className="space-y-1">
                     <p className="font-semibold text-lg hover:underline">{data.name}</p>
                     <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
-        </CardContent>
+        </div>
     </Card>
 )
 
@@ -429,12 +429,10 @@ const OrganizationChart = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
   const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-  const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
-  const [isConfirming, setIsConfirming] = useState(false);
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
-  const [showFullError, setShowFullError] = useState(false);
   const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
   
   const { toast } = useToast();
@@ -654,127 +652,28 @@ const OrganizationChart = () => {
         
         if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
         
-        setPendingConnection(connection);
+        const posData = positionNode?.data as PositionNodeData;
+        if(posData.filled >= 1) { 
+            toast({
+                title: "Орон тоо дүүрсэн",
+                description: `"${posData.title}" ажлын байранд ажилтан томилогдсон байна.`,
+                variant: "destructive"
+            })
+            return;
+        }
+
+        setSelectedPosition(positionNode.data as Position);
+        setSelectedEmployeeForAssignment(employeeNode.data.employee);
+        setIsAssignDialogOpen(true);
     },
-    [nodes]
+    [nodes, toast]
   );
-
-  const confirmAssignment = async () => {
-    if (!pendingConnection || !firestore) return;
-    
-    const positionNode = nodes.find(n => n.id === pendingConnection.target);
-    const posData = positionNode?.data as PositionNodeData;
-    
-    // Check if the position is full
-    if(posData.filled >= 1) { 
-         setShowFullError(true);
-         setPendingConnection(null);
-         return;
-    }
-
-    setIsConfirming(true);
-
-    const { source: employeeId, target: newPositionId } = pendingConnection;
-    if (!employeeId || !newPositionId) return;
-
-    try {
-        const batch = writeBatch(firestore);
-        
-        const newPosRef = doc(firestore, 'positions', newPositionId);
-        batch.update(newPosRef, { filled: increment(1) });
-        
-        const employeeDocRef = doc(firestore, 'employees', employeeId);
-        batch.update(employeeDocRef, {
-            positionId: newPositionId,
-            jobTitle: positions?.find(p => p.id === newPositionId)?.title || 'Тодорхойгүй',
-        });
-
-        await batch.commit();
-
-        toast({
-            title: "Амжилттай томилогдлоо",
-            description: `${(nodes.find(n => n.id === employeeId)?.data as EmployeeNodeData)?.name} ажилтныг ${(nodes.find(n => n.id === newPositionId)?.data as PositionNodeData)?.title} албан тушаалд томиллоо.`
-        })
-    } catch(e) {
-        console.error(e);
-        toast({
-            title: "Алдаа гарлаа",
-            description: "Томилгоо хийхэд алдаа гарлаа.",
-            variant: "destructive"
-        })
-    } finally {
-        setIsConfirming(false);
-        setPendingConnection(null);
-    }
-  };
-
-  const cancelAssignment = () => {
-    setPendingConnection(null);
-  }
-
-  const getConfirmationDialogContent = () => {
-    if (!pendingConnection) return { employeeName: '', positionTitle: '' };
-    const employeeNode = nodes.find(n => n.id === pendingConnection.source);
-    const positionNode = nodes.find(n => n.id === pendingConnection.target);
-    return {
-        employeeName: (employeeNode?.data as EmployeeNodeData)?.name,
-        positionTitle: (positionNode?.data as PositionNodeData)?.title,
-    }
-  }
-  const { employeeName, positionTitle } = getConfirmationDialogContent();
-
+  
   const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
   const inactiveEmployeesCount = employees?.filter(e => e.status !== 'Идэвхтэй').length || 0;
 
   return (
     <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
-       <AlertDialog open={showFullError} onOpenChange={setShowFullError}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Орон тоо дүүрсэн</AlertDialogTitle>
-            <AlertDialogDescription>
-              Энэ ажлын байранд ажилтан томилогдсон байгаа тул энэ үйлдэлийг хийх боломжгүй. Та эхлээд өмнөх албан тушаалтаныг уг албан тушаалаас чөлөөлөх ёстой.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogAction onClick={() => setShowFullError(false)}>Хаах</AlertDialogAction>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={!!pendingConnection} onOpenChange={(open) => !open && cancelAssignment()}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Томилгоог баталгаажуулах</AlertDialogTitle>
-            <AlertDialogDescription>
-                Та <strong>{employeeName}</strong>-г(г) <strong>{positionTitle}</strong> албан тушаалд томилохдоо итгэлтэй байна уу?
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancelAssignment} disabled={isConfirming}>Цуцлах</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmAssignment} disabled={isConfirming}>
-                {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                Тийм, томилох
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-        <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
-                        Тийм, хувилах
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-      
       <div className="p-4 flex items-center justify-between">
             <Link href="/dashboard/company" className="inline-block">
                 <div className="flex items-center gap-4 group">
@@ -890,7 +789,9 @@ const OrganizationChart = () => {
         open={isAssignDialogOpen}
         onOpenChange={setIsAssignDialogOpen}
         position={selectedPosition}
-        employees={employees?.filter(e => !e.positionId) || []}
+        selectedEmployee={selectedEmployeeForAssignment}
+        onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
+        employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
         onAddNewEmployee={handleOpenAddEmployeeDialog}
       />
       <AddPositionDialog
@@ -914,6 +815,22 @@ const OrganizationChart = () => {
             preselectedPos={selectedPosition?.id}
         />
       )}
+      <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
+                    Тийм, хувилах
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
