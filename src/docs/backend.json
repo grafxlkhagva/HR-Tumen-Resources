@@ -298,6 +298,21 @@
         "documentType"
       ]
     },
+     "CompanyPolicy": {
+      "title": "Компанийн журам",
+      "description": "Байгууллагын дотоод дүрэм, журмыг хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Журмын нэр." },
+        "description": { "type": "string", "description": "Журмын товч тайлбар." },
+        "documentUrl": { "type": "string", "format": "uri", "description": "Хавсаргасан баримт бичгийн URL." },
+        "uploadDate": { "type": "string", "format": "date-time", "description": "Сүүлд шинэчилсэн огноо." },
+        "appliesToAll": { "type": "boolean", "description": "Бүх ажилтанд хамааралтай эсэх." },
+        "applicablePositionIds": { "type": "array", "items": { "type": "string" }, "description": "Зөвхөн эдгээр албан тушаалд хамааралтай." }
+      },
+      "required": ["id", "title", "uploadDate"]
+    },
     "OnboardingTask": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Шинэ ажилтны даалгавар",
@@ -910,10 +925,14 @@
         "id": { "type": "string" },
         "title": { "type": "string", "description": "Даалгаврын гарчиг." },
         "description": { "type": "string", "description": "Даалгаврын дэлгэрэнгүй тайлбар." },
-        "assigneeType": { "type": "string", "enum": ["NEW_HIRE", "MANAGER", "HR", "BUDDY", "SPECIFIC_PERSON"], "description": "Даалгаврыг гүйцэтгэгч." },
+        "guideEmployeeIds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Даалгаврыг чиглүүлж гүйцэтгүүлэх боломжтой ажилтнуудын ID-нууд."
+        },
         "dueDays": { "type": "number", "description": "Хөтөлбөр эхэлснээс хойш хэдэн өдрийн дотор хийх хугацаа." }
       },
-      "required": ["id", "title", "assigneeType", "dueDays"]
+      "required": ["id", "title", "dueDays"]
     },
     "AssignedProgram": {
       "title": "Оноогдсон хөтөлбөр",
@@ -1080,6 +1099,15 @@
               "description": "Баримт бичгийн давтагдашгүй танигч."
             }
           ]
+        }
+      },
+      {
+        "path": "/companyPolicies/{policyId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/CompanyPolicy"
+          },
+          "description": "Компанийн дотоод дүрэм, журмыг хадгална."
         }
       },
       {

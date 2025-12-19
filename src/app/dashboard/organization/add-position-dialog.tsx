@@ -158,15 +158,14 @@ export function AddPositionDialog({
   
   const watchedDepartmentId = form.watch('departmentId');
 
-    const availablePrograms = React.useMemo(() => {
+  const availablePrograms = React.useMemo(() => {
     if (!onboardingPrograms || !watchedDepartmentId) return [];
 
     return onboardingPrograms.filter(p => {
         const appliesTo = p.appliesTo;
 
-        // 1. Program applies to ALL (no specific departments or positions)
-        const isGlobal = !appliesTo || 
-                       (!appliesTo.departmentIds?.length && !appliesTo.positionIds?.length);
+        // 1. Program is global (applies to all)
+        const isGlobal = !appliesTo || (!appliesTo.departmentIds?.length && !appliesTo.positionIds?.length);
         if (isGlobal) {
             return true;
         }
@@ -176,7 +175,7 @@ export function AddPositionDialog({
             return true;
         }
 
-        // 3. (Only in edit mode) Program applies specifically to this position
+        // 3. (Only in edit mode) Program applies specifically to this position being edited
         if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
             return true;
         }
@@ -650,5 +649,4 @@ export function AddPositionDialog({
     </>
   );
 }
-
 
