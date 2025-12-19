@@ -6,14 +6,14 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, orderBy, where, writeBatch, increment } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle, UserMinus, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle, UserMinus, Loader2, BookOpen, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -45,7 +45,7 @@ import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { OffboardingDialog } from './OffboardingDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { AlertDialog, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 type Department = {
@@ -248,6 +248,17 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
             toast({ title: "Даалгаврын төлөв шинэчлэгдлээ." });
         }
     };
+    
+    const handleDeleteProgram = (program: AssignedProgram) => {
+        if (!firestore) return;
+        const docRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
+        deleteDocumentNonBlocking(docRef);
+        toast({
+            variant: "destructive",
+            title: "Хөтөлбөр устгагдлаа",
+            description: `"${program.programName}" хөтөлбөрийг ажилтнаас хаслаа.`,
+        });
+    }
 
     if (isLoadingAssigned) {
         return (
@@ -288,7 +299,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                     <Accordion type="single" collapsible className="w-full space-y-4">
                         {assignedPrograms.map(program => (
                         <AccordionItem value={program.id} key={program.id} className="border rounded-lg">
-                            <AccordionTrigger className="p-4 hover:no-underline">
+                            <AccordionTrigger className="p-4 hover:no-underline group">
                                 <div className="w-full flex justify-between items-center pr-4">
                                     <div className="text-left">
                                         <p className="font-semibold">{program.programName}</p>
@@ -298,6 +309,25 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                                         <Progress value={program.progress} className="h-2" />
                                         <span className="text-sm font-bold w-12 text-right">{Math.round(program.progress || 0)}%</span>
                                     </div>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.programName}" хөтөлбөрийг энэ ажилтнаас устгах болно.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel onClick={e => e.stopPropagation()}>Цуцлах</AlertDialogCancel>
+                                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeleteProgram(program); }}>Тийм, устгах</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
