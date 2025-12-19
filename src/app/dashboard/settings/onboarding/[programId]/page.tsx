@@ -54,7 +54,7 @@ import {
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where, WriteBatch } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, WriteBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil, Paperclip, Upload } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
@@ -176,7 +176,20 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
             fileName = attachmentFile.name;
         }
 
-        const finalData = { ...data, attachmentUrl: fileUrl, attachmentName: fileName };
+        const finalData: Partial<TaskFormValues> = { ...data };
+        
+        if (fileUrl) {
+            finalData.attachmentUrl = fileUrl;
+        } else {
+            delete finalData.attachmentUrl;
+        }
+
+        if (fileName) {
+            finalData.attachmentName = fileName;
+        } else {
+            delete finalData.attachmentName;
+        }
+
         setIsUploading(false);
 
         if (isEditMode && editingTask) {
@@ -190,7 +203,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
         }
         onOpenChange(false);
     };
-
+    
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-2xl">
@@ -308,6 +321,8 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
         defaultValues: { title: '', order: 'end' }
     });
 
+    const { isSubmitting } = form.formState;
+
     React.useEffect(() => {
         if(open) {
             if(isEditMode && editingStage) {
@@ -372,17 +387,6 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Байрлал</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={String(field.value === "end" ? "end" : editingStage?.order)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Байрлал сонгох..." /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="start">Эхэнд байршуулах</SelectItem>
-                                {stages?.filter(s => s.id !== editingStage?.id).map(s => <SelectItem key={s.id} value={s.id}>{s.title}-н ард байршуулах</SelectItem>)}
-                                <SelectItem value="end">Төгсгөлд байршуулах</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormDescription>Үе шатуудыг зүүнээс баруун тийш харуулах дараалал. Бага тоо нь зүүн талд байна.</FormDescription>
-                        <FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
