@@ -271,6 +271,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                 <>
                 <Link href={`/dashboard/employees/${employee.id}`}>
                   <p className="font-semibold text-base hover:underline">{employee.firstName} {employee.lastName}</p>
+                  <p className={cn("text-sm font-mono", mutedTextColor)}>{employee.employeeCode}</p>
                 </Link>
                 {employee.questionnaireCompletion !== undefined && (
                     <p className={cn("text-xs font-bold", mutedTextColor)}>
@@ -314,6 +315,7 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
             <Link href={`/dashboard/employees/${data.employee.id}`}>
                 <div className="space-y-0.5">
                     <p className="font-semibold text-lg hover:underline">{data.name}</p>
+                     <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
                     <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
