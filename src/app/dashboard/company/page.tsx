@@ -301,7 +301,7 @@ export default function CompanyPage() {
                 </CardContent>
                 <CardFooter>
                      <Button asChild className="w-full">
-                        <Link href="/dashboard/company/policies">Журам удирдах</Link>
+                        <Link href="/dashboard/settings/policies">Журам удирдах</Link>
                     </Button>
                 </CardFooter>
             </Card>
@@ -328,7 +328,7 @@ export default function CompanyPage() {
                 </Link>
             </Button>
              <Button asChild variant="outline" size="sm" className="shadow-lg">
-                <Link href="/dashboard/company/policies">
+                <Link href="/dashboard/settings/policies">
                     <ScrollText className="mr-2 h-4 w-4" />
                     Журам
                 </Link>

@@ -1,10 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft, ArrowUpRight, ScrollText } from 'lucide-react';
 
 interface SettingsCardProps {
     icon: React.ElementType;
@@ -56,6 +57,12 @@ export default function GeneralSettingsPage() {
             title: "Бүтцийн тохиргоо",
             description: "Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг тохируулах.",
             href: "/dashboard/settings/structure"
+        },
+        {
+            icon: ScrollText,
+            title: "Дүрэм, журмын тохиргоо",
+            description: "Компанийн дотоод дүрэм, журмыг нэмэх, удирдах.",
+            href: "/dashboard/settings/policies"
         },
         {
             icon: FileText,
