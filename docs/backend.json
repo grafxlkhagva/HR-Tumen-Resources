@@ -930,7 +930,9 @@
             "items": { "type": "string" },
             "description": "Даалгаврыг чиглүүлж гүйцэтгүүлэх боломжтой ажилтнуудын ID-нууд."
         },
-        "dueDays": { "type": "number", "description": "Хөтөлбөр эхэлснээс хойш хэдэн өдрийн дотор хийх хугацаа." }
+        "dueDays": { "type": "number", "description": "Хөтөлбөр эхэлснээс хойш хэдэн өдрийн дотор хийх хугацаа." },
+        "attachmentUrl": { "type": "string", "format": "uri", "description": "Хавсаргасан файлын URL." },
+        "attachmentName": { "type": "string", "description": "Хавсаргасан файлын нэр." }
       },
       "required": ["id", "title", "dueDays"]
     },

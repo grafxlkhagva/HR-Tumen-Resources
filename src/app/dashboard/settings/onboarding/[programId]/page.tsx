@@ -52,9 +52,10 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where, WriteBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil, Paperclip, Upload } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
 import type { Employee } from '@/app/dashboard/employees/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -64,6 +65,13 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from '@/components/ui/select';
 
 
 type OnboardingStage = BaseOnboardingStage & {
@@ -72,6 +80,8 @@ type OnboardingStage = BaseOnboardingStage & {
 
 type OnboardingTaskTemplate = BaseOnboardingTaskTemplate & {
     guideEmployeeIds?: string[];
+    attachmentUrl?: string;
+    attachmentName?: string;
 }
 
 // --- Task Dialog ---
@@ -80,6 +90,8 @@ const taskSchema = z.object({
     description: z.string().optional(),
     guideEmployeeIds: z.array(z.string()).optional(),
     dueDays: z.coerce.number().min(0, 'Хугацаа 0-ээс бага байж болохгүй.'),
+    attachmentUrl: z.string().optional(),
+    attachmentName: z.string().optional(),
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
 
@@ -88,6 +100,8 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const { toast } = useToast();
     const isEditMode = !!editingTask;
     const [employeeSearch, setEmployeeSearch] = React.useState('');
+    const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
+    const [isUploading, setIsUploading] = React.useState(false);
 
     const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
@@ -112,22 +126,57 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                     title: editingTask.title || '',
                     description: editingTask.description || '',
                     dueDays: editingTask.dueDays || 1,
-                    guideEmployeeIds: editingTask.guideEmployeeIds || []
+                    guideEmployeeIds: editingTask.guideEmployeeIds || [],
+                    attachmentUrl: editingTask.attachmentUrl,
+                    attachmentName: editingTask.attachmentName,
                 });
             } else {
-                form.reset({ title: '', description: '', dueDays: 1, guideEmployeeIds: [] });
+                form.reset({ title: '', description: '', dueDays: 1, guideEmployeeIds: [], attachmentUrl: '', attachmentName: '' });
             }
+            setAttachmentFile(null);
         }
     }, [open, editingTask, isEditMode, form]);
+    
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setAttachmentFile(file);
+            form.setValue('attachmentName', file.name);
+        }
+    };
+    
+    const removeAttachment = () => {
+        setAttachmentFile(null);
+        form.setValue('attachmentUrl', undefined);
+        form.setValue('attachmentName', undefined);
+    };
 
-    const onSubmit = (data: TaskFormValues) => {
+
+    const onSubmit = async (data: TaskFormValues) => {
         if (!firestore || !programDocRef || !tasksCollectionRef) return;
+        
+        setIsUploading(true);
+
+        let fileUrl = data.attachmentUrl;
+        let fileName = data.attachmentName;
+
+        if (attachmentFile) {
+            const storage = getStorage();
+            const storageRef = ref(storage, `onboarding-attachments/${programId}/${Date.now()}-${attachmentFile.name}`);
+            await uploadBytes(storageRef, attachmentFile);
+            fileUrl = await getDownloadURL(storageRef);
+            fileName = attachmentFile.name;
+        }
+
+        const finalData = { ...data, attachmentUrl: fileUrl, attachmentName: fileName };
+        setIsUploading(false);
+
         if (isEditMode && editingTask) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`, editingTask.id);
-            updateDocumentNonBlocking(docRef, data);
+            updateDocumentNonBlocking(docRef, finalData);
             toast({ title: 'Даалгавар шинэчлэгдлээ' });
         } else {
-            addDocumentNonBlocking(tasksCollectionRef, data);
+            addDocumentNonBlocking(tasksCollectionRef, finalData);
             updateDocumentNonBlocking(programDocRef, { taskCount: increment(1) });
             toast({ title: 'Шинэ даалгавар нэмэгдлээ' });
         }
@@ -193,10 +242,36 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                             )}
                         />
                         <FormField control={form.control} name="dueDays" render={({ field }) => ( <FormItem><FormLabel>Хийх хугацаа (хоногоор)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                         <FormItem>
+                            <FormLabel>Хавсралт файл</FormLabel>
+                            {form.watch('attachmentName') ? (
+                                <div className="flex items-center justify-between rounded-md border p-2">
+                                    <div className="flex items-center gap-2">
+                                       <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                       <span className="text-sm">{form.watch('attachmentName')}</span>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={removeAttachment} className="h-6 w-6">
+                                       <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ): (
+                                <Button type="button" variant="outline" className="w-full" onClick={() => document.getElementById('attachment-upload')?.click()}>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Файл сонгох
+                                </Button>
+                            )}
+                             <FormControl>
+                                <Input id="attachment-upload" type="file" className="hidden" onChange={handleFileChange} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
-                        <Button type="submit">{isEditMode ? 'Хадгалах' : 'Нэмэх'}</Button>
+                        <Button type="submit" disabled={isSubmitting || isUploading}>
+                            {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            {isEditMode ? 'Хадгалах' : 'Нэмэх'}
+                        </Button>
                     </DialogFooter>
                 </form>
                 </Form>
@@ -208,6 +283,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 // --- Stage Dialog ---
 const stageSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
+    order: z.string(), // We use string to represent position relative to other stages
 });
 type StageFormValues = z.infer<typeof stageSchema>;
 
@@ -221,24 +297,39 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
 
     const form = useForm<StageFormValues>({
         resolver: zodResolver(stageSchema),
+        defaultValues: { title: '', order: 'end' }
     });
 
     React.useEffect(() => {
         if(open) {
             if(isEditMode && editingStage) {
-                form.reset({
-                    title: editingStage.title,
-                });
+                form.reset({ title: editingStage.title, order: String(editingStage.order) });
             } else {
-                form.reset({ title: '' });
+                form.reset({ title: '', order: 'end' });
             }
         }
-    }, [open, editingStage, isEditMode, form, stages]);
+    }, [open, editingStage, isEditMode, form]);
 
     const onSubmit = (data: StageFormValues) => {
         if (!firestore) return;
-
-        const finalOrder = (stages?.length || 0) + 1;
+        
+        let finalOrder;
+        if(data.order === 'start') {
+            const firstOrder = stages?.[0]?.order || 1;
+            finalOrder = firstOrder / 2;
+        } else if (data.order === 'end') {
+            const lastOrder = stages?.[stages.length - 1]?.order || 0;
+            finalOrder = lastOrder + 1;
+        } else {
+            const selectedStageIndex = stages?.findIndex(s => s.id === data.order) ?? -1;
+            if(selectedStageIndex !== -1 && stages) {
+                const prevOrder = stages[selectedStageIndex].order;
+                const nextOrder = stages[selectedStageIndex + 1]?.order;
+                finalOrder = nextOrder ? (prevOrder + nextOrder) / 2 : prevOrder + 1;
+            } else {
+                finalOrder = (stages?.length || 0) + 1;
+            }
+        }
 
         const finalData = {
             title: data.title,
@@ -247,7 +338,12 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
 
         if (isEditMode && editingStage) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, editingStage.id);
-            updateDocumentNonBlocking(docRef, { title: data.title }); // Only update title, order is managed by dnd
+            // Only update title if order is not changed by user
+             if (data.order === String(editingStage.order)) {
+                 updateDocumentNonBlocking(docRef, { title: data.title });
+            } else {
+                updateDocumentNonBlocking(docRef, { title: data.title, order: finalOrder });
+            }
             toast({ title: 'Үе шат шинэчлэгдлээ' });
         } else {
             if (!stagesCollectionRef || !programDocRef) return;
@@ -287,14 +383,14 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
             <CardContent className="p-3">
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
-                     <div className="flex items-center -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center -mt-1 -mr-1">
+                        <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
                                     onClick={(e) => { e.stopPropagation(); }}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -315,9 +411,15 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
                         </AlertDialog>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
                     <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.guideEmployeeIds?.length || 0} чиглүүлэгч</span>
                     <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{task.dueDays} хоног</span>
+                    {task.attachmentName && (
+                        <span className="flex items-center gap-1.5 truncate">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            <span className="truncate">{task.attachmentName}</span>
+                        </span>
+                    )}
                 </div>
             </CardContent>
         </Card>
@@ -325,32 +427,30 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 }
 
 // --- Stage Column ---
-function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages, onDragStart, onDragOver, onDragEnd, onDrop, isDragging }: { 
+function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, onDragOver, onDragEnd, onDrop, isDragging }: { 
     stage: OnboardingStage, 
     programId: string, 
     onEditTask: (stageId: string, task: OnboardingTaskTemplate | null) => void,
     onDeleteTask: (stageId: string, taskId: string) => void,
-    stages: OnboardingStage[] | null,
     onDragStart: (e: React.DragEvent<HTMLDivElement>, stageId: string) => void,
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void,
     onDragEnd: () => void,
     onDrop: (e: React.DragEvent<HTMLDivElement>, targetStageId: string) => void,
     isDragging: boolean,
 }) {
-    const [isEditing, setIsEditing] = React.useState(false);
-    const { firestore } = useFirebase();
-    
-    const tasksQuery = useMemoFirebase(({ firestore }) => 
-        firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
-        [programId, stage.id]
+    const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
+
+    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(
+        useMemoFirebase(({ firestore }) => 
+            firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
+        [programId, stage.id])
     );
-    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
     
     const onAddTask = () => {
         onEditTask(stage.id, null); // Pass null to indicate a new task
     };
 
-    const handleDeleteStage = async () => {
+    const handleDeleteStage = async ({ firestore }: { firestore: any }) => {
         if (!firestore) return;
         const programRef = doc(firestore, `onboardingPrograms/${programId}`);
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
@@ -393,8 +493,8 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages, onDra
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                             <DropdownMenuItem onClick={() => setIsEditing(true)}>Үе шат засах</DropdownMenuItem>
+                        <DropdownMenuContent align="end">
+                             <DropdownMenuItem onClick={() => setIsStageDialogOpen(true)}>Үе шат засах</DropdownMenuItem>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
@@ -410,7 +510,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages, onDra
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeleteStage}>Тийм, устгах</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleDeleteStage({ firestore })}>Тийм, устгах</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -437,7 +537,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages, onDra
                     </Button>
                 </div>
             </div>
-            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stages={stages} />
+            <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={programId} editingStage={stage} stages={[]} />
         </div>
     )
 }
@@ -561,7 +661,6 @@ export default function OnboardingProgramBuilderPage() {
                             programId={id}
                             onEditTask={handleEditTask}
                             onDeleteTask={handleDeleteTask}
-                            stages={stages}
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
                             onDragOver={handleDragOver}
@@ -583,3 +682,5 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
+
+    
