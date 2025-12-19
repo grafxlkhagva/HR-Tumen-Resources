@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle, UserMinus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Edit, Mail, Phone, FileText, MoreHorizontal, User, Shield, Clock, PlusCircle, CheckCircle, AlertTriangle, UserMinus, Loader2, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVDisplay } from './cv-display';
@@ -72,6 +72,16 @@ type EmploymentHistoryEvent = {
   documentName?: string;
   documentId?: string;
 };
+
+type CompanyPolicy = {
+    id: string;
+    title: string;
+    documentUrl: string;
+    uploadDate: string;
+    appliesToAll: boolean;
+    applicablePositionIds: string[];
+}
+
 
 const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
     "Идэвхтэй": { variant: 'default', className: 'bg-green-500 hover:bg-green-600', label: 'Идэвхтэй' },
@@ -327,28 +337,49 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
     );
 };
 
-const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
+const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
     const historyQuery = useMemoFirebase(
       () =>
-        firestore && employeeId
+        firestore
           ? query(
-              collection(firestore, `employees/${employeeId}/employmentHistory`),
+              collection(firestore, `employees/${employee.id}/employmentHistory`),
               orderBy('eventDate', 'desc')
             )
           : null,
-      [firestore, employeeId]
+      [firestore, employee.id]
     );
+
+    const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
   
-    const {
-      data: history,
-      isLoading,
-      error,
-    } = useCollection<EmploymentHistoryEvent>(historyQuery);
+    const { data: history, isLoading: isLoadingHistory } = useCollection<EmploymentHistoryEvent>(historyQuery);
+    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
 
-    const documents = history?.filter(event => event.documentId);
+    const allDocuments = React.useMemo(() => {
+        const employeeDocs = (history || [])
+            .filter(event => event.documentId)
+            .map(event => ({
+                id: event.documentId!,
+                title: event.documentName || 'Нэргүй баримт',
+                source: 'Хувийн хэрэг',
+                date: event.eventDate
+            }));
+        
+        const applicablePolicies = (policies || []).filter(policy => {
+            return policy.appliesToAll || (employee.positionId && policy.applicablePositionIds?.includes(employee.positionId));
+        }).map(policy => ({
+            id: policy.id,
+            title: policy.title,
+            source: 'Компанийн журам',
+            date: policy.uploadDate
+        }));
 
-    if (isLoading) {
+        return [...employeeDocs, ...applicablePolicies].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    }, [history, policies, employee.positionId]);
+
+
+    if (isLoadingHistory || isLoadingPolicies) {
         return (
             <div className="space-y-2">
                 {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -356,60 +387,37 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
         )
     }
 
-    if (error) {
-        return <p className="text-destructive">Баримт бичиг ачаалахад алдаа гарлаа.</p>
-    }
-
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Хавсаргасан бичиг баримтууд</CardTitle>
+                <CardTitle>Хамааралтай бичиг баримтууд</CardTitle>
                 <CardDescription>
-                    Ажилтны хөдөлмөрийн түүхтэй холбоотой хавсаргасан баримтууд.
+                    Ажилтны хөдөлмөрийн түүх болон албан тушаалтай холбоотой бүх баримт бичиг.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                {documents && documents.length > 0 ? (
+                {allDocuments && allDocuments.length > 0 ? (
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Баримтын нэр</TableHead>
-                            <TableHead>Холбогдох үйл явдал</TableHead>
+                            <TableHead>Эх сурвалж</TableHead>
                             <TableHead>Огноо</TableHead>
-                            <TableHead className="text-right">Үйлдэл</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {documents.map((doc) => (
+                        {allDocuments.map((doc) => (
                             <TableRow key={doc.id}>
                                 <TableCell className="font-medium flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                    {doc.documentName}
+                                     <Link href={`/dashboard/documents/${doc.id}`} className="flex items-center gap-2 hover:underline">
+                                        <FileText className="h-4 w-4 text-muted-foreground" />
+                                        {doc.title}
+                                    </Link>
                                 </TableCell>
-                                <TableCell>{doc.eventType}</TableCell>
-                                <TableCell>{new Date(doc.eventDate).toLocaleDateString()}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                         <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">Цэс</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem asChild>
-                                                <Link href={`/dashboard/documents/${doc.documentId}`}>
-                                                    Дэлгэрэнгүй
-                                                </Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem asChild>
-                                                <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
-                                                    Татах
-                                                </a>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                <TableCell>
+                                    <Badge variant={doc.source === 'Хувийн хэрэг' ? 'secondary' : 'outline'}>{doc.source}</Badge>
                                 </TableCell>
+                                <TableCell>{new Date(doc.date).toLocaleDateString()}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -417,7 +425,7 @@ const DocumentsTabContent = ({ employeeId }: { employeeId: string }) => {
                  ) : (
                     <div className="py-10 text-center text-muted-foreground">
                         <FileText className="mx-auto h-12 w-12" />
-                        <p className="mt-4">Хавсаргасан баримт бичиг одоогоор байхгүй байна.</p>
+                        <p className="mt-4">Хамааралтай баримт бичиг одоогоор байхгүй байна.</p>
                     </div>
                 )}
             </CardContent>
@@ -724,7 +732,7 @@ export default function EmployeeProfilePage() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="documents">
-                        <DocumentsTabContent employeeId={employeeId} />
+                        <DocumentsTabContent employee={employee} />
                     </TabsContent>
                     <TabsContent value="cv">
                         <CVDisplay employeeId={employeeId} />

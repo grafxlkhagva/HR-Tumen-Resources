@@ -298,6 +298,21 @@
         "documentType"
       ]
     },
+     "CompanyPolicy": {
+      "title": "Компанийн журам",
+      "description": "Байгууллагын дотоод дүрэм, журмыг хадгална.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Журмын нэр." },
+        "description": { "type": "string", "description": "Журмын товч тайлбар." },
+        "documentUrl": { "type": "string", "format": "uri", "description": "Хавсаргасан баримт бичгийн URL." },
+        "uploadDate": { "type": "string", "format": "date-time", "description": "Сүүлд шинэчилсэн огноо." },
+        "appliesToAll": { "type": "boolean", "description": "Бүх ажилтанд хамааралтай эсэх." },
+        "applicablePositionIds": { "type": "array", "items": { "type": "string" }, "description": "Зөвхөн эдгээр албан тушаалд хамааралтай." }
+      },
+      "required": ["id", "title", "uploadDate"]
+    },
     "OnboardingTask": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Шинэ ажилтны даалгавар",
@@ -504,7 +519,7 @@
         "title": { "type": "string", "description": "Албан тушаалын нэр." },
         "departmentId": { "type": "string", "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)" },
         "workScheduleId": { "type": "string", "description": "Энэ албан тушаалын ажлын цагийн хуваарь. (Хамаарал: WorkSchedule 1:N Position)" },
-        "onboardingProgramId": { "type": "string", "description": "Энэ албан тушаалд томилогдоход автоматаар оноогдох дасан зохицох хөтөлбөр. (Хамаарал: OnboardingProgram 1:N Position)" },
+        "onboardingProgramIds": { "type": "array", "items": { "type": "string" }, "description": "Энэ албан тушаалд томилогдоход автоматаар оноогдох дасан зохицох хөтөлбөрүүд." },
         "reportsTo": { "type": "string", "description": "Энэ албан тушаалын шууд удирдах албан тушаалын танигч. (Хамаарал: Position 1:N Position)" },
         "levelId": { "type": "string", "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)" },
         "employmentTypeId": { "type": "string", "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)" },
@@ -876,8 +891,8 @@
           "type": "object",
           "description": "Энэ хөтөлбөр ямар нөхцөлд автоматаар оноогдохыг заана.",
           "properties": {
-            "departmentId": { "type": "string" },
-            "positionId": { "type": "string" }
+            "departmentIds": { "type": "array", "items": { "type": "string" } },
+            "positionIds": { "type": "array", "items": { "type": "string" } }
           }
         },
         "stageCount": {
@@ -1080,6 +1095,15 @@
               "description": "Баримт бичгийн давтагдашгүй танигч."
             }
           ]
+        }
+      },
+      {
+        "path": "/companyPolicies/{policyId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/CompanyPolicy"
+          },
+          "description": "Компанийн дотоод дүрэм, журмыг хадгална."
         }
       },
       {

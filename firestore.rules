@@ -44,6 +44,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Company-wide policies can be read by any signed-in user, but only managed by admins.
+    match /companyPolicies/{policyId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
+
     // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
     // Writable only by admins
     match /{refCollection}/{docId} {
