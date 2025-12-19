@@ -35,6 +35,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -64,7 +65,6 @@ import { cn } from '@/lib/utils';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
     Select,
     SelectContent,
@@ -118,6 +118,8 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
         resolver: zodResolver(taskSchema),
         defaultValues: { dueDays: 1, guideEmployeeIds: [] }
     });
+    
+    const { isSubmitting } = form.formState;
 
     React.useEffect(() => {
         if(open) {
@@ -439,18 +441,19 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, 
     isDragging: boolean,
 }) {
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
+    const { firestore } = useFirebase();
 
-    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(
-        useMemoFirebase(({ firestore }) => 
-            firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
-        [programId, stage.id])
-    );
+    const tasksQuery = useMemoFirebase(({ firestore }) => 
+        firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
+    [programId, stage.id]);
+
+    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
     
     const onAddTask = () => {
         onEditTask(stage.id, null); // Pass null to indicate a new task
     };
 
-    const handleDeleteStage = async ({ firestore }: { firestore: any }) => {
+    const handleDeleteStage = async () => {
         if (!firestore) return;
         const programRef = doc(firestore, `onboardingPrograms/${programId}`);
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
@@ -510,7 +513,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, 
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteStage({ firestore })}>Тийм, устгах</AlertDialogAction>
+                                        <AlertDialogAction onClick={handleDeleteStage}>Тийм, устгах</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
