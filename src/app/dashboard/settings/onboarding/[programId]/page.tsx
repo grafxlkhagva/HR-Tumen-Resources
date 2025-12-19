@@ -4,9 +4,6 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import {
   Card,
   CardContent,
@@ -14,13 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuCheckboxItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -50,85 +40,26 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle } from 'lucide-react';
-import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal } from 'lucide-react';
+import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
 import type { Employee } from '@/app/dashboard/employees/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
+
+type OnboardingStage = BaseOnboardingStage & {
+    tasks?: OnboardingTaskTemplate[];
+};
 
 type OnboardingTaskTemplate = BaseOnboardingTaskTemplate & {
     guideEmployeeIds?: string[];
-}
-
-
-// --- Stage Dialog ---
-const stageSchema = z.object({
-    title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
-    order: z.coerce.number().min(1),
-});
-type StageFormValues = z.infer<typeof stageSchema>;
-
-function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }: { open: boolean, onOpenChange: (open: boolean) => void, programId: string, editingStage: OnboardingStage | null, stageCount: number }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const isEditMode = !!editingStage;
-    
-    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-    const stagesCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
-
-    const form = useForm<StageFormValues>({
-        resolver: zodResolver(stageSchema),
-    });
-
-    React.useEffect(() => {
-        if(open) {
-            if(isEditMode && editingStage) {
-                form.reset(editingStage);
-            } else {
-                form.reset({ title: '', order: stageCount + 1 });
-            }
-        }
-    }, [open, editingStage, isEditMode, form, stageCount]);
-
-    const onSubmit = (data: StageFormValues) => {
-        if (!firestore) return;
-        if (isEditMode && editingStage) {
-            const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, editingStage.id);
-            updateDocumentNonBlocking(docRef, data);
-            toast({ title: 'Үе шат шинэчлэгдлээ' });
-        } else {
-            if (!stagesCollectionRef || !programDocRef) return;
-            addDocumentNonBlocking(stagesCollectionRef, data);
-            updateDocumentNonBlocking(programDocRef, { stageCount: increment(1) });
-            toast({ title: 'Шинэ үе шат нэмэгдлээ' });
-        }
-        onOpenChange(false);
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>{isEditMode ? 'Үе шат засах' : 'Шинэ үе шат нэмэх'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Дараалал</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
-                        <Button type="submit">{isEditMode ? 'Хадгалах' : 'Нэмэх'}</Button>
-                    </DialogFooter>
-                </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
-    );
 }
 
 // --- Task Dialog ---
@@ -199,7 +130,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                     <DialogHeader>
                         <DialogTitle>{isEditMode ? 'Даалгавар засах' : 'Шинэ даалгавар нэмэх'}</DialogTitle>
                     </DialogHeader>
-                    <div className="py-4 space-y-4">
+                    <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Компанийн дотоод журамтай танилцах" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Тайлбар</FormLabel><FormControl><Textarea placeholder="Даалгаврын дэлгэрэнгүй тайлбар..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                          <FormField
@@ -262,34 +193,117 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     );
 }
 
+// --- Stage Dialog ---
+const stageSchema = z.object({
+    title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
+    order: z.coerce.number().min(1),
+});
+type StageFormValues = z.infer<typeof stageSchema>;
 
-function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, programId: string, programRef: DocumentReference | null }) {
+function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }: { open: boolean, onOpenChange: (open: boolean) => void, programId: string, editingStage: OnboardingStage | null, stageCount: number }) {
     const { firestore } = useFirebase();
-    const [editingStage, setEditingStage] = React.useState<OnboardingStage | null>(null);
-    const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
-    const [editingTask, setEditingTask] = React.useState<OnboardingTaskTemplate | null>(null);
-    const [isTaskDialogOpen, setIsTaskDialogOpen] = React.useState(false);
+    const { toast } = useToast();
+    const isEditMode = !!editingStage;
+    
+    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
+    const stagesCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
 
-    const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`), [programId, stage.id]);
-    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksCollectionRef);
+    const form = useForm<StageFormValues>({
+        resolver: zodResolver(stageSchema),
+    });
 
-    const handleEditStage = () => {
-        setEditingStage(stage);
-        setIsStageDialogOpen(true);
+    React.useEffect(() => {
+        if(open) {
+            if(isEditMode && editingStage) {
+                form.reset(editingStage);
+            } else {
+                form.reset({ title: '', order: stageCount + 1 });
+            }
+        }
+    }, [open, editingStage, isEditMode, form, stageCount]);
+
+    const onSubmit = (data: StageFormValues) => {
+        if (!firestore) return;
+        if (isEditMode && editingStage) {
+            const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, editingStage.id);
+            updateDocumentNonBlocking(docRef, data);
+            toast({ title: 'Үе шат шинэчлэгдлээ' });
+        } else {
+            if (!stagesCollectionRef || !programDocRef) return;
+            addDocumentNonBlocking(stagesCollectionRef, data);
+            updateDocumentNonBlocking(programDocRef, { stageCount: increment(1) });
+            toast({ title: 'Шинэ үе шат нэмэгдлээ' });
+        }
+        onOpenChange(false);
     };
 
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <DialogHeader>
+                        <DialogTitle>{isEditMode ? 'Үе шат засах' : 'Шинэ үе шат нэмэх'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Дараалал</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
+                        <Button type="submit">{isEditMode ? 'Хадгалах' : 'Нэмэх'}</Button>
+                    </DialogFooter>
+                </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// --- Task Card ---
+function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, onEdit: () => void, onDelete: () => void }) {
+    return (
+        <Card className="group bg-card hover:bg-muted/50 transition-colors">
+            <CardContent className="p-3">
+                <div className="flex justify-between items-start">
+                    <p className="font-medium text-sm pr-6">{task.title}</p>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={onEdit}>Засах</DropdownMenuItem>
+                            <DropdownMenuItem onClick={onDelete} className="text-destructive">Устгах</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                    <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.guideEmployeeIds?.length || 0} чиглүүлэгч</span>
+                    <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{task.dueDays} хоног</span>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+// --- Stage Column ---
+function StageColumn({ stage, programId, programRef, onAddTask }: { stage: OnboardingStage, programId: string, programRef: DocumentReference | null, onAddTask: (stageId: string) => void }) {
+    const { firestore } = useFirebase();
+    const [isEditing, setIsEditing] = React.useState(false);
+
     const handleDeleteStage = async () => {
-        if (!firestore || !programRef || !tasksCollectionRef) return;
+        if (!firestore || !programRef) return;
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
+        const tasksQuery = query(collection(firestore, stageDocRef.path, 'tasks'));
         
         try {
-            const tasksSnapshot = await getDocs(tasksCollectionRef);
+            const tasksSnapshot = await getDocs(tasksQuery);
             const tasksToDeleteCount = tasksSnapshot.size;
 
             const batch = writeBatch(firestore);
-            tasksSnapshot.forEach(taskDoc => {
-                batch.delete(taskDoc.ref);
-            });
+            tasksSnapshot.forEach(taskDoc => batch.delete(taskDoc.ref));
             batch.delete(stageDocRef);
             batch.update(programRef, { 
                 stageCount: increment(-1),
@@ -302,121 +316,192 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
             console.error("Error deleting stage and its tasks: ", error);
         }
     }
-
-    const handleAddTask = () => {
-        setEditingTask(null);
-        setIsTaskDialogOpen(true);
-    }
-
-    const handleEditTask = (task: OnboardingTaskTemplate) => {
-        setEditingTask(task);
-        setIsTaskDialogOpen(true);
-    }
     
-    const handleDeleteTask = async (taskId: string) => {
-        if (!firestore || !programRef) return;
-        const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`, taskId);
-        await deleteDoc(docRef);
-        updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
-    }
-
     return (
-        <Card>
-             <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={programId} editingStage={editingStage} stageCount={0} />
-             <TaskDialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen} programId={programId} stageId={stage.id} editingTask={editingTask} />
-            <CardHeader className="flex-row items-center justify-between bg-muted/50">
-                <div className="flex items-center gap-2">
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle className="text-lg">{stage.title}</CardTitle>
+        <div className="w-80 shrink-0">
+            <div className="flex flex-col h-full rounded-lg bg-muted/60">
+                <div className="flex items-center justify-between p-3 border-b">
+                    <h3 className="font-semibold px-2">{stage.title}</h3>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                             <DropdownMenuItem onClick={() => setIsEditing(true)}>Үе шат засах</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDeleteStage} className="text-destructive">Үе шат устгах</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleEditStage}>Засах</Button>
-                    <Button variant="destructive" size="sm" onClick={handleDeleteStage}>Устгах</Button>
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-                {isLoadingTasks && <Skeleton className="h-10 w-full" />}
-                {tasks?.map(task => (
-                    <div key={task.id} className="flex items-center justify-between rounded-md border bg-background p-3">
-                        <div>
-                            <p className="font-medium">{task.title}</p>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.guideEmployeeIds?.length || 0} чиглүүлэгч</span>
-                                <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{task.dueDays} хоногийн дотор</span>
-                            </div>
-                        </div>
-                        <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => handleEditTask(task)}>Засах</Button>
-                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteTask(task.id)}>Устгах</Button>
-                        </div>
+                <ScrollArea className="flex-1">
+                    <div className="p-3 space-y-3">
+                        {stage.tasks?.map(task => (
+                            <TaskCard 
+                                key={task.id} 
+                                task={task} 
+                                onEdit={() => {}}
+                                onDelete={() => {}}
+                            />
+                        ))}
                     </div>
-                ))}
-                <Button variant="outline" className="w-full" onClick={handleAddTask}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Даалгавар нэмэх
-                </Button>
-            </CardContent>
-        </Card>
-    );
+                </ScrollArea>
+                <div className="p-3 border-t">
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => onAddTask(stage.id)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Даалгавар нэмэх
+                    </Button>
+                </div>
+            </div>
+            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stageCount={0} />
+        </div>
+    )
 }
 
+
+// --- Main Page Component ---
 export default function OnboardingProgramBuilderPage() {
     const { programId } = useParams();
     const id = Array.isArray(programId) ? programId[0] : programId;
 
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
+    const [isTaskDialogOpen, setIsTaskDialogOpen] = React.useState(false);
+    const [selectedStageIdForTask, setSelectedStageIdForTask] = React.useState<string | null>(null);
+    const [selectedTask, setSelectedTask] = React.useState<OnboardingTaskTemplate | null>(null);
 
     const programDocRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [id]);
     const stagesQuery = useMemoFirebase(({firestore}) => (firestore ? query(collection(firestore, `onboardingPrograms/${id}/stages`), orderBy('order')) : null), [id]);
     
     const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
     const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
+    
+    // This is not efficient, but it's the simplest way for now without complex queries.
+    // In a real app, you might restructure data or use more specific listeners.
+    const { data: allTasks } = useCollection(useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${id}/stages/all/tasks`), [id]));
 
-    if (isLoadingProgram) {
-        return (
-             <div className="py-8 space-y-4">
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-40 w-full" />
-             </div>
-        )
+
+    const stagesWithTasks = React.useMemo(() => {
+        if (!stages || !allTasks) return stages;
+        return stages.map(stage => ({
+            ...stage,
+            tasks: allTasks.filter(task => (task as any).parentStageId === stage.id) // This assumes tasks have parentStageId
+        }))
+    }, [stages, allTasks])
+
+
+    const handleAddTask = (stageId: string) => {
+        setSelectedStageIdForTask(stageId);
+        setSelectedTask(null);
+        setIsTaskDialogOpen(true);
+    }
+    
+    const handleEditTask = (stageId: string, task: OnboardingTaskTemplate) => {
+        setSelectedStageIdForTask(stageId);
+        setSelectedTask(task);
+        setIsTaskDialogOpen(true);
+    }
+    
+    const handleDeleteTask = async (stageId: string, taskId: string) => {
+        const { firestore } = useFirebase();
+        if (!firestore || !programDocRef) return;
+        const docRef = doc(firestore, `onboardingPrograms/${id}/stages/${stageId}/tasks`, taskId);
+        await deleteDoc(docRef);
+        updateDocumentNonBlocking(programDocRef, { taskCount: increment(-1) });
     }
 
+    const isLoading = isLoadingProgram || isLoadingStages;
+
     return (
-        <div className="py-8">
-            <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id} editingStage={null} stageCount={stages?.length || 0} />
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/settings/onboarding">
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Буцах</span>
-                        </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">{program?.title}</h1>
-                        <p className="text-muted-foreground">{program?.description}</p>
+        <div className="h-screen flex flex-col py-8">
+            {isTaskDialogOpen && selectedStageIdForTask && (
+                <TaskDialog 
+                    open={isTaskDialogOpen} 
+                    onOpenChange={setIsTaskDialogOpen} 
+                    programId={id} 
+                    stageId={selectedStageIdForTask}
+                    editingTask={selectedTask}
+                />
+            )}
+             <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id} editingStage={null} stageCount={stages?.length || 0} />
+            <header className="px-4 md:px-6 mb-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Button asChild variant="outline" size="icon">
+                            <Link href="/dashboard/settings/onboarding">
+                                <ArrowLeft className="h-4 w-4" />
+                                <span className="sr-only">Буцах</span>
+                            </Link>
+                        </Button>
+                        <div>
+                            {isLoading ? <Skeleton className="h-7 w-48" /> : <h1 className="text-2xl font-bold tracking-tight">{program?.title}</h1>}
+                            {isLoading ? <Skeleton className="h-4 w-64 mt-1" /> : <p className="text-muted-foreground">{program?.description}</p>}
+                        </div>
                     </div>
                 </div>
-                <Button onClick={() => setIsStageDialogOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Шинэ үе шат нэмэх
-                </Button>
-            </div>
-            
-            <div className="space-y-6">
-                {isLoadingStages && <Skeleton className="h-40 w-full" />}
-                {stages?.map(stage => (
-                    <StageCard key={stage.id} stage={stage} programId={id} programRef={programDocRef} />
-                ))}
-                 {!isLoadingStages && (!stages || stages.length === 0) && (
-                    <Card className="text-center py-12">
-                        <CardContent>
-                            <p className="text-muted-foreground">Энэ хөтөлбөрт үе шат үүсээгүй байна.</p>
-                        </CardContent>
-                    </Card>
-                 )}
+            </header>
+
+            <div className="flex-1 min-h-0 overflow-x-auto pb-4">
+                <div className="inline-flex h-full items-start gap-6 px-4 md:px-6">
+                    {isLoadingStages && Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="w-80 h-full rounded-lg" />)}
+                    
+                    {!isLoadingStages && stages?.map(stage => {
+                        const tasksQuery = query(collection(useFirebase().firestore, `onboardingPrograms/${id}/stages/${stage.id}/tasks`));
+                        const {data: tasks} = useCollection(tasksQuery);
+
+                        return (
+                             <div key={stage.id} className="w-80 shrink-0">
+                                <div className="flex flex-col h-full rounded-lg bg-muted/60">
+                                    <div className="flex items-center justify-between p-3 border-b">
+                                        <h3 className="font-semibold px-2">{stage.title}</h3>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                 {/* Placeholder for edit stage dialog trigger */}
+                                                <DropdownMenuItem>Үе шат засах</DropdownMenuItem>
+                                                {/* Placeholder for delete stage action */}
+                                                <DropdownMenuItem className="text-destructive">Үе шат устгах</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                    <ScrollArea className="flex-1">
+                                        <div className="p-3 space-y-3">
+                                            {tasks?.map(task => (
+                                                <TaskCard 
+                                                    key={task.id} 
+                                                    task={task as OnboardingTaskTemplate}
+                                                    onEdit={() => handleEditTask(stage.id, task as OnboardingTaskTemplate)}
+                                                    onDelete={() => handleDeleteTask(stage.id, task.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="p-3 border-t">
+                                        <Button variant="ghost" className="w-full justify-start" onClick={() => handleAddTask(stage.id)}>
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Даалгавар нэмэх
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                    
+                    {!isLoadingStages && (
+                        <div className="w-80 shrink-0">
+                            <Button variant="outline" className="w-full h-full border-2 border-dashed bg-transparent hover:bg-muted/80" onClick={() => setIsStageDialogOpen(true)}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Шинэ үе шат нэмэх
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
+
+    
