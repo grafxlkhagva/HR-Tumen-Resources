@@ -21,6 +21,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+  } from "@/components/ui/alert-dialog"
+import {
   Form,
   FormControl,
   FormField,
@@ -42,7 +52,7 @@ import {
 } from '@/firebase';
 import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
 import type { Employee } from '@/app/dashboard/employees/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -263,21 +273,37 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
 // --- Task Card ---
 function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, onEdit: () => void, onDelete: () => void }) {
     return (
-        <Card className="group bg-card hover:bg-muted/50 transition-colors">
+        <Card className="group bg-card hover:bg-muted/50 transition-colors cursor-pointer" onClick={onEdit}>
             <CardContent className="p-3">
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={onEdit}>Засах</DropdownMenuItem>
-                            <DropdownMenuItem onClick={onDelete} className="text-destructive">Устгах</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center">
+                        <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
+                                    onClick={(e) => { e.stopPropagation(); }}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Даалгавар устгах</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Та "{task.title}" даалгаврыг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                    <AlertDialogAction onClick={(e) => { e.stopPropagation(); onDelete(); }}>Тийм, устгах</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                     <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.guideEmployeeIds?.length || 0} чиглүүлэгч</span>
