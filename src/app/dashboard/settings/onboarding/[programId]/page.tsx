@@ -50,7 +50,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
