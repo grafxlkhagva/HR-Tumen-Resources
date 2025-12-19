@@ -52,9 +52,12 @@ import {
 } from '@/firebase';
 import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
 import type { Employee } from '@/app/dashboard/employees/data';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 type OnboardingTaskTemplate = BaseOnboardingTaskTemplate & {
     guideEmployeeIds?: string[];
@@ -145,7 +148,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 
     const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
-    const employeesQuery = useMemoFirebase(({firestore}) => collection(firestore, 'employees'), [firestore]);
+    const employeesQuery = useMemoFirebase(({firestore}) => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, [firestore]);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
     
     const filteredEmployees = React.useMemo(() => {
@@ -190,7 +193,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
                  <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <DialogHeader>
@@ -203,38 +206,47 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                             control={form.control}
                             name="guideEmployeeIds"
                             render={({ field }) => (
-                            <FormItem>
-                                 <FormLabel>Чиглүүлэгчид</FormLabel>
-                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-start font-normal">
-                                            {field.value && field.value.length > 0 ? `${field.value.length} ажилтан сонгосон` : "Ажилтан сонгох..."}
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
-                                            <div className="p-2 relative">
+                                <FormItem>
+                                    <FormLabel>Чиглүүлэгчид</FormLabel>
+                                     <div className="p-2 relative border rounded-md">
+                                        <div className="px-2 pb-2 relative">
                                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input placeholder="Хайх..." className="pl-8" value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} />
-                                            </div>
-                                            <DropdownMenuSeparator />
-                                            {isLoadingEmployees ? <div className="p-2 text-center text-sm">Ачааллаж байна...</div> : 
-                                            filteredEmployees.map(emp => (
-                                                <DropdownMenuCheckboxItem
-                                                key={emp.id}
-                                                checked={field.value?.includes(emp.id)}
-                                                onCheckedChange={(checked) => {
-                                                    return checked
-                                                    ? field.onChange([...(field.value || []), emp.id])
-                                                    : field.onChange(field.value?.filter((id) => id !== emp.id))
-                                                }}
+                                            <Input placeholder="Ажилтны нэрээр хайх..." className="pl-8" value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} />
+                                        </div>
+                                        <ScrollArea className="h-60">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
+                                            {isLoadingEmployees ? (
+                                                Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
+                                            ) : filteredEmployees.map(emp => {
+                                                const isSelected = field.value?.includes(emp.id);
+                                                return (
+                                                <Card 
+                                                    key={emp.id} 
+                                                    className={cn("p-2 flex items-center gap-3 cursor-pointer transition-all relative", isSelected && "border-primary ring-2 ring-primary")}
+                                                    onClick={() => {
+                                                        const newValue = isSelected 
+                                                            ? field.value?.filter(id => id !== emp.id)
+                                                            : [...(field.value || []), emp.id];
+                                                        field.onChange(newValue);
+                                                    }}
                                                 >
-                                                {emp.firstName} {emp.lastName}
-                                                </DropdownMenuCheckboxItem>
-                                            ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <FormMessage />
-                            </FormItem>
+                                                    {isSelected && <CheckCircle className="h-5 w-5 text-primary absolute top-2 right-2" />}
+                                                    <Avatar>
+                                                        <AvatarImage src={emp.photoURL} />
+                                                        <AvatarFallback>{emp.firstName?.[0]}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="font-semibold text-sm">{emp.firstName} {emp.lastName}</p>
+                                                        <p className="text-xs text-muted-foreground">{emp.jobTitle}</p>
+                                                    </div>
+                                                </Card>
+                                                )
+                                            })}
+                                            </div>
+                                        </ScrollArea>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
                             )}
                         />
                         <FormField control={form.control} name="dueDays" render={({ field }) => ( <FormItem><FormLabel>Хийх хугацаа (хоногоор)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -355,7 +367,7 @@ export default function OnboardingProgramBuilderPage() {
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
 
     const programDocRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [id]);
-    const stagesQuery = useMemoFirebase(({firestore}) => (firestore ? collection(firestore, `onboardingPrograms/${id}/stages`) : null), [id]);
+    const stagesQuery = useMemoFirebase(({firestore}) => (firestore ? query(collection(firestore, `onboardingPrograms/${id}/stages`), orderBy('order')) : null), [id]);
     
     const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
     const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
@@ -394,7 +406,7 @@ export default function OnboardingProgramBuilderPage() {
             
             <div className="space-y-6">
                 {isLoadingStages && <Skeleton className="h-40 w-full" />}
-                {stages?.sort((a,b) => a.order - b.order).map(stage => (
+                {stages?.map(stage => (
                     <StageCard key={stage.id} stage={stage} programId={id} programRef={programDocRef} />
                 ))}
                  {!isLoadingStages && (!stages || stages.length === 0) && (
@@ -408,5 +420,3 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
-
-    
