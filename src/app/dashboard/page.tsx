@@ -157,46 +157,48 @@ function isColorDark(hex: string): boolean {
 
 const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     const progress = employee?.questionnaireCompletion || 0;
-    
-    const progressColor =
-        progress < 50 ? '#ef4444' : // red-500
-        progress < 90 ? '#f59e0b' : // amber-500
-        '#22c55e'; // green-500
+    const size = 80;
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (progress / 100) * circumference;
+
+    const progressColor = progress < 50 ? '#ef4444' : progress < 90 ? '#f59e0b' : '#22c55e';
     
     const avatarContent = (
-         <div className="relative w-20 h-20 mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
-            <Avatar className="h-20 w-20">
+         <div className="relative mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg" style={{ width: size, height: size }}>
+            <Avatar className="h-full w-full">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
-                    {employee ? employee.firstName?.charAt(0) : <User className="h-8 w-8 text-muted-foreground"/>}
+                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8 text-muted-foreground"/>}
                 </AvatarFallback>
             </Avatar>
             {employee && (
                  <svg
                     className="absolute top-0 left-0"
-                    width="80"
-                    height="80"
-                    viewBox="0 0 80 80"
+                    width={size}
+                    height={size}
+                    viewBox={`0 0 ${size} ${size}`}
                 >
                     <circle
                         className="text-muted/30"
                         stroke="currentColor"
-                        strokeWidth="4"
+                        strokeWidth={strokeWidth}
                         fill="transparent"
-                        r="38"
-                        cx="40"
-                        cy="40"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
                     />
                     <circle
-                        strokeWidth="4"
-                        strokeDasharray={2 * Math.PI * 38}
-                        strokeDashoffset={(2 * Math.PI * 38) * (1 - progress / 100)}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
                         strokeLinecap="round"
                         fill="transparent"
-                        r="38"
-                        cx="40"
-                        cy="40"
-                        transform="rotate(-90 40 40)"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                        transform={`rotate(-90 ${size/2} ${size/2})`}
                         style={{ stroke: progressColor, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
                     />
                 </svg>
@@ -303,15 +305,15 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
-    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-3">
+    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-        <div className="flex items-center gap-3">
-            <div className="w-16 h-16 flex-shrink-0">
+        <div className="flex items-center gap-4">
+            <div className="w-20 h-20 flex-shrink-0">
                <AvatarWithProgress employee={data.employee} />
             </div>
             <Link href={`/dashboard/employees/${data.employee.id}`}>
                 <div className="space-y-0.5">
-                    <p className="font-semibold text-base hover:underline">{data.name}</p>
+                    <p className="font-semibold text-lg hover:underline">{data.name}</p>
                     <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
