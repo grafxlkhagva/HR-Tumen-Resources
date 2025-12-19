@@ -76,6 +76,7 @@ interface AssignEmployeeDialogProps {
   selectedEmployee: Employee | null;
   onAddNewEmployee: (position: Position) => void;
   onAssignmentComplete: () => void;
+  onEmployeeCreated: (employee: Employee) => void;
 }
 
 export function AssignEmployeeDialog({
@@ -86,6 +87,7 @@ export function AssignEmployeeDialog({
   selectedEmployee,
   onAddNewEmployee,
   onAssignmentComplete,
+  onEmployeeCreated,
 }: AssignEmployeeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -182,6 +184,12 @@ export function AssignEmployeeDialog({
       setLocalSelectedEmployee(employee);
       setStep(3);
   }
+  
+  React.useEffect(() => {
+    if(onEmployeeCreated && localSelectedEmployee) {
+      setStep(3);
+    }
+  }, [onEmployeeCreated, localSelectedEmployee]);
 
   const renderStepOne = () => (
       <div className="grid grid-cols-1 gap-4 py-4">

@@ -507,6 +507,13 @@ const OrganizationChart = () => {
     setIsAddEmployeeDialogOpen(true);
   }
 
+  const handleEmployeeCreated = (newEmployee: Employee) => {
+    setIsAddEmployeeDialogOpen(false);
+    // Now, open the assignment dialog with the new employee pre-selected
+    setSelectedEmployeeForAssignment(newEmployee);
+    setIsAssignDialogOpen(true);
+  };
+
  const handleDuplicatePosition = (pos: Position) => {
     if (!firestore) return;
     
@@ -813,6 +820,7 @@ const OrganizationChart = () => {
             positions={positions || []}
             preselectedDept={selectedPosition?.departmentId}
             preselectedPos={selectedPosition?.id}
+            onEmployeeCreated={handleEmployeeCreated}
         />
       )}
       <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>

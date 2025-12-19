@@ -55,6 +55,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { Employee } from '../data';
 
 
 const employeeSchema = z.object({
@@ -116,6 +117,7 @@ interface AddEmployeeDialogProps {
   positions: Position[];
   preselectedDept?: string;
   preselectedPos?: string;
+  onEmployeeCreated?: (employee: Employee) => void;
 }
 
 export function AddEmployeeDialog({ 
@@ -124,7 +126,8 @@ export function AddEmployeeDialog({
     departments,
     positions,
     preselectedDept,
-    preselectedPos
+    preselectedPos,
+    onEmployeeCreated,
 }: AddEmployeeDialogProps) {
     const router = useRouter();
     const { firestore } = useFirebase();
@@ -272,7 +275,11 @@ export function AddEmployeeDialog({
                     title: 'Амжилттай хадгаллаа',
                     description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
                 });
-                router.push('/login'); 
+                if(onEmployeeCreated) {
+                    onEmployeeCreated(employeeData as Employee);
+                } else {
+                    router.push('/login'); 
+                }
                 return;
             }
 
@@ -281,7 +288,11 @@ export function AddEmployeeDialog({
                 description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
             });
             
-            onOpenChange(false);
+             if(onEmployeeCreated) {
+                onEmployeeCreated(employeeData as Employee);
+            } else {
+                onOpenChange(false);
+            }
 
         } catch(error: any) {
             console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
