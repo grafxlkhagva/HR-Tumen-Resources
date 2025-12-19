@@ -39,7 +39,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,7 +52,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, where, WriteBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
@@ -65,7 +64,6 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type OnboardingStage = BaseOnboardingStage & {
@@ -210,8 +208,6 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 // --- Stage Dialog ---
 const stageSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
-    order: z.coerce.number(),
-    position: z.string(),
 });
 type StageFormValues = z.infer<typeof stageSchema>;
 
@@ -232,11 +228,9 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
             if(isEditMode && editingStage) {
                 form.reset({
                     title: editingStage.title,
-                    order: editingStage.order,
-                    position: `after_${editingStage.id}`
                 });
             } else {
-                form.reset({ title: '', order: (stages?.length || 0) + 1, position: 'end' });
+                form.reset({ title: '' });
             }
         }
     }, [open, editingStage, isEditMode, form, stages]);
@@ -244,22 +238,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
     const onSubmit = (data: StageFormValues) => {
         if (!firestore) return;
 
-        let finalOrder = 0;
-        if(data.position === 'start') {
-            finalOrder = (stages?.[0]?.order || 1) / 2;
-        } else if (data.position === 'end') {
-            finalOrder = (stages?.[stages.length - 1]?.order || 0) + 1;
-        } else {
-            const afterId = data.position.replace('after_', '');
-            const afterIndex = stages?.findIndex(s => s.id === afterId) ?? -1;
-            if (afterIndex !== -1 && stages) {
-                const afterOrder = stages[afterIndex].order;
-                const nextOrder = stages[afterIndex + 1]?.order || (afterOrder + 2);
-                finalOrder = (afterOrder + nextOrder) / 2;
-            } else {
-                 finalOrder = (stages?.length || 0) + 1;
-            }
-        }
+        const finalOrder = (stages?.length || 0) + 1;
 
         const finalData = {
             title: data.title,
@@ -268,7 +247,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
 
         if (isEditMode && editingStage) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages`, editingStage.id);
-            updateDocumentNonBlocking(docRef, finalData);
+            updateDocumentNonBlocking(docRef, { title: data.title }); // Only update title, order is managed by dnd
             toast({ title: 'Үе шат шинэчлэгдлээ' });
         } else {
             if (!stagesCollectionRef || !programDocRef) return;
@@ -289,13 +268,6 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         <FormField control={form.control} name="position" render={({ field }) => ( <FormItem><FormLabel>Байрлал</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
-                            <SelectItem value="start">Эхэнд байршуулах</SelectItem>
-                            {stages?.filter(s => s.id !== editingStage?.id).map(stage => (
-                                <SelectItem key={stage.id} value={`after_${stage.id}`}>{stage.title}-н ард байршуулах</SelectItem>
-                            ))}
-                            <SelectItem value="end">Төгсгөлд байршуулах</SelectItem>
-                         </SelectContent></Select><FormDescription>Үе шат хаана байрлахыг сонгоно уу.</FormDescription><FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
@@ -315,14 +287,14 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
             <CardContent className="p-3">
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
-                     <div className="flex items-center -mt-1 -mr-1">
-                        <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
+                     <div className="flex items-center -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
+                                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
                                     onClick={(e) => { e.stopPropagation(); }}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -353,17 +325,21 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 }
 
 // --- Stage Column ---
-function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages }: { 
+function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages, onDragStart, onDragOver, onDragEnd, onDrop, isDragging }: { 
     stage: OnboardingStage, 
     programId: string, 
     onEditTask: (stageId: string, task: OnboardingTaskTemplate | null) => void,
     onDeleteTask: (stageId: string, taskId: string) => void,
     stages: OnboardingStage[] | null,
+    onDragStart: (e: React.DragEvent<HTMLDivElement>, stageId: string) => void,
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => void,
+    onDragEnd: () => void,
+    onDrop: (e: React.DragEvent<HTMLDivElement>, targetStageId: string) => void,
+    isDragging: boolean,
 }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { firestore } = useFirebase();
     
-    const programRef = useMemoFirebase(({ firestore }) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const tasksQuery = useMemoFirebase(({ firestore }) => 
         firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
         [programId, stage.id]
@@ -375,7 +351,8 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages }: {
     };
 
     const handleDeleteStage = async () => {
-        if (!firestore || !programRef) return;
+        if (!firestore) return;
+        const programRef = doc(firestore, `onboardingPrograms/${programId}`);
         const stageDocRef = doc(firestore, `onboardingPrograms/${programId}/stages`, stage.id);
         const tasksQueryRef = query(collection(firestore, stageDocRef.path, 'tasks'));
         
@@ -399,9 +376,16 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages }: {
     }
     
     return (
-        <div className="w-80 shrink-0">
+        <div
+            draggable
+            onDragStart={(e) => onDragStart(e, stage.id)}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDrop={(e) => onDrop(e, stage.id)}
+            className={cn("w-80 shrink-0 transition-opacity", isDragging && "opacity-50")}
+        >
             <div className="flex flex-col h-full rounded-lg bg-muted/60">
-                <div className="flex items-center justify-between p-3 border-b">
+                <div className="flex items-center justify-between p-3 border-b cursor-grab">
                     <h3 className="font-semibold px-2">{stage.title}</h3>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -463,11 +447,14 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stages }: {
 export default function OnboardingProgramBuilderPage() {
     const { programId } = useParams();
     const id = Array.isArray(programId) ? programId[0] : programId;
+    const { firestore } = useFirebase();
 
     const [isStageDialogOpen, setIsStageDialogOpen] = React.useState(false);
     const [isTaskDialogOpen, setIsTaskDialogOpen] = React.useState(false);
     const [selectedStageIdForTask, setSelectedStageIdForTask] = React.useState<string | null>(null);
     const [selectedTask, setSelectedTask] = React.useState<OnboardingTaskTemplate | null>(null);
+
+    const [draggedStageId, setDraggedStageId] = React.useState<string | null>(null);
 
     const programDocRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [id]);
     const stagesQuery = useMemoFirebase(({firestore}) => (firestore ? query(collection(firestore, `onboardingPrograms/${id}/stages`), orderBy('order')) : null), [id]);
@@ -488,12 +475,49 @@ export default function OnboardingProgramBuilderPage() {
     }
     
     const handleDeleteTask = async (stageId: string, taskId: string) => {
-        const { firestore } = useFirebase();
         if (!firestore || !programDocRef) return;
         const docRef = doc(firestore, `onboardingPrograms/${id}/stages/${stageId}/tasks`, taskId);
         await deleteDoc(docRef);
         updateDocumentNonBlocking(programDocRef, { taskCount: increment(-1) });
     }
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, stageId: string) => {
+        setDraggedStageId(stageId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragEnd = () => {
+        setDraggedStageId(null);
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault(); // Necessary to allow dropping
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStageId: string) => {
+        e.preventDefault();
+        if (!draggedStageId || draggedStageId === targetStageId || !stages || !firestore) return;
+
+        const draggedIndex = stages.findIndex(s => s.id === draggedStageId);
+        const targetIndex = stages.findIndex(s => s.id === targetStageId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        let newOrder;
+        if (draggedIndex < targetIndex) { // moving right
+            const afterOrder = stages[targetIndex].order;
+            const beforeOrder = stages[targetIndex + 1]?.order;
+            newOrder = beforeOrder ? (afterOrder + beforeOrder) / 2 : afterOrder + 1;
+        } else { // moving left
+            const beforeOrder = stages[targetIndex].order;
+            const afterOrder = stages[targetIndex - 1]?.order;
+            newOrder = afterOrder !== undefined ? (afterOrder + beforeOrder) / 2 : beforeOrder - 1;
+        }
+        
+        const draggedStageRef = doc(firestore, `onboardingPrograms/${id}/stages`, draggedStageId);
+        updateDocumentNonBlocking(draggedStageRef, { order: newOrder });
+    };
 
     const isLoading = isLoadingProgram || isLoadingStages;
 
@@ -538,6 +562,11 @@ export default function OnboardingProgramBuilderPage() {
                             onEditTask={handleEditTask}
                             onDeleteTask={handleDeleteTask}
                             stages={stages}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={handleDragOver}
+                            onDrop={handleDrop}
+                            isDragging={draggedStageId === stage.id}
                         />
                     ))}
                     
