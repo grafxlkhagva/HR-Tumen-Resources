@@ -30,6 +30,7 @@ import { z } from 'zod';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -43,6 +44,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onboarding/page';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { AssignedProgram } from '../employees/[id]/AssignProgramDialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface Position {
@@ -410,3 +412,5 @@ export function AssignEmployeeDialog({
       </Dialog>
   );
 }
+
+    
