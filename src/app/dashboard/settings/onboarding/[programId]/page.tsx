@@ -54,7 +54,7 @@ import {
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, WriteBatch } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, WriteBatch, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil, Paperclip, Upload } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
@@ -176,6 +176,8 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
             fileName = attachmentFile.name;
         }
 
+        setIsUploading(false);
+
         const finalData: Partial<TaskFormValues> = { ...data };
         
         if (fileUrl) {
@@ -189,8 +191,6 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
         } else {
             delete finalData.attachmentName;
         }
-
-        setIsUploading(false);
 
         if (isEditMode && editingTask) {
             const docRef = doc(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`, editingTask.id);
@@ -390,7 +390,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
-                        <Button type="submit">{isEditMode ? 'Хадгалах' : 'Нэмэх'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isEditMode ? 'Хадгалах' : 'Нэмэх'}</Button>
                     </DialogFooter>
                 </form>
                 </Form>
