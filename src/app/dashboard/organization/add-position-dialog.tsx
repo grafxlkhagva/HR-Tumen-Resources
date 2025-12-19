@@ -429,14 +429,14 @@ export function AddPositionDialog({
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger disabled={!watchedDepartmentId}>
                                     <SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Хөтөлбөр сонгох (заавал биш)"} />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">(Сонгоогүй)</SelectItem>
+                                  <SelectItem value="none">(Сонгоогүй)</SelectItem>
                                   {availablePrograms.map((program) => (
                                     <SelectItem key={program.id} value={program.id}>
                                       {program.title}
