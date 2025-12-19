@@ -160,10 +160,24 @@ export function AddPositionDialog({
 
   const availablePrograms = React.useMemo(() => {
     if (!onboardingPrograms) return [];
-    return onboardingPrograms.filter(p => 
-        !p.appliesTo?.departmentId || p.appliesTo.departmentId === watchedDepartmentId
-    );
-  }, [onboardingPrograms, watchedDepartmentId]);
+    return onboardingPrograms.filter(p => {
+        const appliesTo = p.appliesTo;
+        // 1. Applies to ALL (no specific conditions)
+        if (!appliesTo || ( !appliesTo.departmentIds && !appliesTo.positionIds)) {
+            return true;
+        }
+        // 2. Applies to the selected department
+        if (appliesTo.departmentIds && appliesTo.departmentIds.includes(watchedDepartmentId)) {
+            return true;
+        }
+        // 3. Applies to the specific position (only relevant in edit mode)
+        if (isEditMode && editingPosition && appliesTo.positionIds && appliesTo.positionIds.includes(editingPosition.id)) {
+            return true;
+        }
+
+        return false;
+    });
+}, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
 
   React.useEffect(() => {
     if (editingPosition) {
@@ -627,4 +641,5 @@ export function AddPositionDialog({
     </>
   );
 }
+
 
