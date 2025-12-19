@@ -38,6 +38,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -279,13 +280,13 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
                     <div className="flex items-center">
-                        <Pencil className="h-4 w-4 text-muted-foreground opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 opacity-100 sm:opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
+                                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
                                     onClick={(e) => { e.stopPropagation(); }}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -319,14 +320,14 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 function StageColumn({ stage, programId, onEditTask, onDeleteTask, stageCount }: { 
     stage: OnboardingStage, 
     programId: string, 
-    onEditTask: (stageId: string, task: OnboardingTaskTemplate) => void,
+    onEditTask: (stageId: string, task: OnboardingTaskTemplate | null) => void,
     onDeleteTask: (stageId: string, taskId: string) => void,
     stageCount: number,
 }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { firestore } = useFirebase();
+    
     const programRef = useMemoFirebase(({ firestore }) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-
     const tasksQuery = useMemoFirebase(({ firestore }) => 
         firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
         [programId, stage.id]
@@ -334,7 +335,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, stageCount }:
     const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
     
     const onAddTask = () => {
-        onEditTask(stage.id, null as any); // Pass null to indicate a new task
+        onEditTask(stage.id, null); // Pass null to indicate a new task
     };
 
     const handleDeleteStage = async () => {
