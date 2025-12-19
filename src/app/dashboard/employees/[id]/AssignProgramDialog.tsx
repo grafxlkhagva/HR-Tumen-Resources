@@ -121,27 +121,28 @@ export function AssignProgramDialog({
               let assigneeId = employee.id;
               let assigneeName = `${employee.firstName} ${employee.lastName}`;
               
-              switch(taskTemplate.assigneeType) {
-                case 'NEW_HIRE':
-                  assigneeId = employee.id;
-                  assigneeName = `${employee.firstName} ${employee.lastName}`;
-                  break;
-                case 'MANAGER':
-                    // TODO: Replace with actual manager lookup logic
-                    assigneeId = employee.id; 
-                    assigneeName = "Шууд удирдлага";
-                    break;
-                case 'HR':
-                    // TODO: Replace with actual HR lookup logic
-                    assigneeId = employee.id;
-                    assigneeName = "Хүний нөөц";
-                    break;
-                case 'BUDDY':
-                     // TODO: Replace with actual buddy lookup logic
-                    assigneeId = employee.id;
-                    assigneeName = "Дэмжигч ажилтан";
-                    break;
-              }
+              // This is a placeholder for a more complex assignee logic
+              // switch(taskTemplate.assigneeType) {
+              //   case 'NEW_HIRE':
+              //     assigneeId = employee.id;
+              //     assigneeName = `${employee.firstName} ${employee.lastName}`;
+              //     break;
+              //   case 'MANAGER':
+              //       // TODO: Replace with actual manager lookup logic
+              //       assigneeId = employee.id; 
+              //       assigneeName = "Шууд удирдлага";
+              //       break;
+              //   case 'HR':
+              //       // TODO: Replace with actual HR lookup logic
+              //       assigneeId = employee.id;
+              //       assigneeName = "Хүний нөөц";
+              //       break;
+              //   case 'BUDDY':
+              //        // TODO: Replace with actual buddy lookup logic
+              //       assigneeId = employee.id;
+              //       assigneeName = "Дэмжигч ажилтан";
+              //       break;
+              // }
 
               allTasks.push({
                   templateTaskId: taskDoc.id,
