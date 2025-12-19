@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { OnboardingProgram } from '../settings/onboarding/page';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const positionSchema = z.object({
@@ -71,7 +73,7 @@ const positionSchema = z.object({
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
   workScheduleId: z.string().optional(),
-  onboardingProgramId: z.string().optional(),
+  onboardingProgramIds: z.array(z.string()).optional(),
   isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
   createdAt: z.date({
@@ -101,7 +103,7 @@ interface Position {
   employmentTypeId?: string;
   jobCategoryId?: string;
   workScheduleId?: string;
-  onboardingProgramId?: string;
+  onboardingProgramIds?: string[];
   isActive?: boolean;
   createdAt?: string;
   canApproveAttendance?: boolean;
@@ -146,7 +148,7 @@ export function AddPositionDialog({
       levelId: '',
       employmentTypeId: '',
       workScheduleId: '',
-      onboardingProgramId: '',
+      onboardingProgramIds: [],
       isActive: true,
       jobCategoryId: '',
       createdAt: new Date(),
@@ -170,7 +172,7 @@ export function AddPositionDialog({
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         workScheduleId: editingPosition.workScheduleId || '',
-        onboardingProgramId: editingPosition.onboardingProgramId || '',
+        onboardingProgramIds: editingPosition.onboardingProgramIds || [],
         reportsTo: editingPosition.reportsTo || '(none)',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
@@ -185,7 +187,7 @@ export function AddPositionDialog({
         levelId: '',
         employmentTypeId: '',
         workScheduleId: '',
-        onboardingProgramId: '',
+        onboardingProgramIds: [],
         jobCategoryId: '',
         isActive: true,
         createdAt: new Date(),
@@ -211,7 +213,7 @@ export function AddPositionDialog({
       levelId: data.levelId,
       employmentTypeId: data.employmentTypeId,
       workScheduleId: data.workScheduleId,
-      onboardingProgramId: data.onboardingProgramId,
+      onboardingProgramIds: data.onboardingProgramIds,
       isActive: data.isActive,
       jobCategoryId: data.jobCategoryId,
       createdAt: data.createdAt.toISOString(),
@@ -425,26 +427,37 @@ export function AddPositionDialog({
                     <CardContent className="space-y-4">
                          <FormField
                           control={form.control}
-                          name="onboardingProgramId"
-                          render={({ field }) => (
+                          name="onboardingProgramIds"
+                          render={() => (
                             <FormItem>
-                              <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
-                                <FormControl>
-                                  <SelectTrigger disabled={!watchedDepartmentId}>
-                                    <SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Хөтөлбөр сонгох (заавал биш)"} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="none">(Сонгоогүй)</SelectItem>
-                                  {availablePrograms.map((program) => (
-                                    <SelectItem key={program.id} value={program.id}>
-                                      {program.title}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                               <FormDescription>Энэ албан тушаалд ажилтан томилогдоход автоматаар оноогдох хөтөлбөр.</FormDescription>
+                                <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
+                                <ScrollArea className="h-40 rounded-md border">
+                                    <div className="p-4 space-y-2">
+                                        {availablePrograms.map((program) => (
+                                            <FormField
+                                                key={program.id}
+                                                control={form.control}
+                                                name="onboardingProgramIds"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                        <FormControl>
+                                                            <Checkbox
+                                                                checked={field.value?.includes(program.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                    ? field.onChange([...(field.value || []), program.id])
+                                                                    : field.onChange(field.value?.filter((value) => value !== program.id))
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormLabel className="font-normal">{program.title}</FormLabel>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                               <FormDescription>Энэ албан тушаалд ажилтан томилогдоход автоматаар оноогдох хөтөлбөрүүд.</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -614,3 +627,4 @@ export function AddPositionDialog({
     </>
   );
 }
+
