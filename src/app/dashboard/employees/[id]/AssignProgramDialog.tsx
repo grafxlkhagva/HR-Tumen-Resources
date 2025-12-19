@@ -35,6 +35,7 @@ import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/o
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
 
 export type AssignedTask = {
     templateTaskId: string;
@@ -322,5 +323,3 @@ export function AssignProgramDialog({
     </Dialog>
   );
 }
-
-    
