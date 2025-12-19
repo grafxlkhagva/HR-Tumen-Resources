@@ -59,12 +59,6 @@ export default function GeneralSettingsPage() {
             href: "/dashboard/settings/structure"
         },
         {
-            icon: ScrollText,
-            title: "Дүрэм, журмын тохиргоо",
-            description: "Компанийн дотоод дүрэм, журмыг нэмэх, удирдах.",
-            href: "/dashboard/settings/policies"
-        },
-        {
             icon: FileText,
             title: "Баримт бичгийн тохиргоо",
             description: "Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.",
