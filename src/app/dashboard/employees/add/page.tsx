@@ -342,6 +342,7 @@ export function AddEmployeeDialog({
 }
 
 export default function AddEmployeePage() {
+    const router = useRouter();
     const { firestore } = useFirebase();
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -350,13 +351,19 @@ export default function AddEmployeePage() {
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
 
     const isLoading = isLoadingPositions || isLoadingDepartments;
+    
+    const handleClose = (open: boolean) => {
+        if (!open) {
+            router.back();
+        }
+    }
 
   return (
     <div className="py-8">
       {isLoading ? <AddEmployeeFormSkeleton /> : (
           <AddEmployeeDialog 
             open={true}
-            onOpenChange={() => {}}
+            onOpenChange={handleClose}
             departments={departments || []}
             positions={positions || []}
           />
