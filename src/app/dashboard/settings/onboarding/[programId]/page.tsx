@@ -258,7 +258,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Дараалал</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Дараалал</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormDescription>Үе шатуудыг зүүнээс баруун тийш харуулах дараалал. Бага тоо нь зүүн талд байна.</FormDescription><FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
@@ -279,13 +279,13 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
                 <div className="flex justify-between items-start">
                     <p className="font-medium text-sm pr-6">{task.title}</p>
                     <div className="flex items-center">
-                        <Pencil className="h-4 w-4 text-muted-foreground transition-opacity opacity-0 group-hover:opacity-100" />
+                        <Pencil className="h-4 w-4 text-muted-foreground opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity" />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
+                                    className="h-7 w-7 opacity-100 sm:opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
                                     onClick={(e) => { e.stopPropagation(); }}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -316,23 +316,26 @@ function TaskCard({ task, onEdit, onDelete }: { task: OnboardingTaskTemplate, on
 }
 
 // --- Stage Column ---
-function StageColumn({ stage, programId, programRef, onAddTask, onEditTask, onDeleteTask }: { 
+function StageColumn({ stage, programId, onEditTask, onDeleteTask, stageCount }: { 
     stage: OnboardingStage, 
     programId: string, 
-    programRef: DocumentReference | null, 
-    onAddTask: (stageId: string) => void,
     onEditTask: (stageId: string, task: OnboardingTaskTemplate) => void,
     onDeleteTask: (stageId: string, taskId: string) => void,
+    stageCount: number,
 }) {
-    const { firestore } = useFirebase();
     const [isEditing, setIsEditing] = React.useState(false);
-    
+    const { firestore } = useFirebase();
+    const programRef = useMemoFirebase(({ firestore }) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
+
     const tasksQuery = useMemoFirebase(({ firestore }) => 
         firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
         [programId, stage.id]
     );
-    const { data: tasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
-
+    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
+    
+    const onAddTask = () => {
+        onEditTask(stage.id, null as any); // Pass null to indicate a new task
+    };
 
     const handleDeleteStage = async () => {
         if (!firestore || !programRef) return;
@@ -371,12 +374,31 @@ function StageColumn({ stage, programId, programRef, onAddTask, onEditTask, onDe
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                              <DropdownMenuItem onClick={() => setIsEditing(true)}>Үе шат засах</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDeleteStage} className="text-destructive">Үе шат устгах</DropdownMenuItem>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                        <Trash2 className="mr-2 h-4 w-4"/> Үе шат устгах
+                                    </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Энэ үйлдэл нь "{stage.title}" үе шатыг болон доторх бүх даалгаврыг устгана. Үүнийг буцаах боломжгүй.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteStage}>Тийм, устгах</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="p-3 space-y-3">
+                         {isLoadingTasks && Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
                         {tasks?.map(task => (
                             <TaskCard 
                                 key={task.id} 
@@ -388,13 +410,13 @@ function StageColumn({ stage, programId, programRef, onAddTask, onEditTask, onDe
                     </div>
                 </ScrollArea>
                 <div className="p-3 border-t">
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => onAddTask(stage.id)}>
+                    <Button variant="ghost" className="w-full justify-start" onClick={onAddTask}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Даалгавар нэмэх
                     </Button>
                 </div>
             </div>
-            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stageCount={0} />
+            <StageDialog open={isEditing} onOpenChange={setIsEditing} programId={programId} editingStage={stage} stageCount={stageCount} />
         </div>
     )
 }
@@ -476,10 +498,9 @@ export default function OnboardingProgramBuilderPage() {
                             key={stage.id}
                             stage={stage}
                             programId={id}
-                            programRef={programDocRef}
-                            onAddTask={handleAddTask}
                             onEditTask={handleEditTask}
                             onDeleteTask={handleDeleteTask}
+                            stageCount={stages?.length || 0}
                         />
                     ))}
                     
