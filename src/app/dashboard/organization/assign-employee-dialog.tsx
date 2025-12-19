@@ -109,10 +109,13 @@ export function AssignEmployeeDialog({
 
   React.useEffect(() => {
     if (open) {
+        // If an employee is pre-selected (e.g., from drag-and-drop),
+        // go directly to the assignment details step.
         if (selectedEmployee) {
             setLocalSelectedEmployee(selectedEmployee);
-            setStep(2); // Directly go to assignment details
+            setStep(2);
         } else {
+            // Otherwise, start from the employee selection step.
             setStep(1);
             setLocalSelectedEmployee(null);
         }
@@ -164,8 +167,6 @@ export function AssignEmployeeDialog({
             createdAt: new Date().toISOString(),
         });
         
-        await batch.commit();
-
         // 4. Assign onboarding programs if selected
         if (values.assignOnboarding) {
             const programIdsToAssign = position.onboardingProgramIds || [];
@@ -218,6 +219,8 @@ export function AssignEmployeeDialog({
                 }
             }
         }
+        
+        await batch.commit();
 
         toast({
             title: 'Амжилттай томилогдлоо',
