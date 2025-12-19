@@ -7,7 +7,8 @@ import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin, Video } from 'lucide-react';
+import { Building, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail, MapPin, Video, ScrollText } from 'lucide-react';
+import Link from 'next/link';
 
 const videoSchema = z.object({
     title: z.string(),
@@ -120,6 +121,19 @@ export default function MobileCompanyPage() {
             </Avatar>
             <h2 className="text-xl font-bold">{companyProfile.name}</h2>
         </div>
+
+        <Link href="/mobile/company/policies" className="block">
+            <Card className="hover:bg-muted/50 transition-colors">
+                 <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <ScrollText className="h-5 w-5 text-primary" />
+                        Дүрэм, журам
+                    </CardTitle>
+                    <CardDescription>Байгууллагын дүрэм, журамтай танилцах.</CardDescription>
+                </CardHeader>
+            </Card>
+        </Link>
+        
 
         {(companyProfile.mission || companyProfile.vision) && (
             <Card>
