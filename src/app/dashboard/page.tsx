@@ -120,7 +120,7 @@ interface PositionNodeData {
   filled: number;
   employees: Employee[];
   workScheduleName?: string;
-  onAddEmployee: (position: Position) => void;
+  onAssignEmployee: (position: Position) => void;
   onEditPosition: (position: Position) => void;
   onDuplicatePosition: (position: Position) => void;
   attendanceStatus?: AttendanceStatus;
@@ -256,7 +256,7 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             <DropdownMenuContent>
             <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
             <DropdownMenuItem onClick={() => data.onDuplicatePosition(data as any)}><Copy className="mr-2 h-4 w-4" /> Хувилах</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => data.onAddEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => data.onAssignEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -303,15 +303,15 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
 
 
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
-    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
+    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-3">
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-        <div className="flex items-center gap-4">
-            <div className="w-20 h-20 flex-shrink-0">
+        <div className="flex items-center gap-3">
+            <div className="w-16 h-16 flex-shrink-0">
                <AvatarWithProgress employee={data.employee} />
             </div>
             <Link href={`/dashboard/employees/${data.employee.id}`}>
-                <div className="space-y-1">
-                    <p className="font-semibold text-lg hover:underline">{data.name}</p>
+                <div className="space-y-0.5">
+                    <p className="font-semibold text-base hover:underline">{data.name}</p>
                     <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
@@ -427,7 +427,6 @@ const OrganizationChart = () => {
   const [nodes, setNodes] = useState<CustomNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
   const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
@@ -485,7 +484,7 @@ const OrganizationChart = () => {
         return new Set(attendanceData.map(a => a.employeeId));
     }, [attendanceData]);
 
-  const handleAddEmployeeClick = (position: Position) => {
+  const handleAssignEmployeeClick = (position: Position) => {
     setSelectedPosition(position);
     setIsAssignDialogOpen(true);
   };
@@ -500,11 +499,6 @@ const OrganizationChart = () => {
     setIsPositionDialogOpen(true);
   };
   
-  const handleOpenAddEmployeeDialog = () => {
-      setIsAssignDialogOpen(false);
-      setIsAddEmployeeDialogOpen(true);
-  }
-
  const handleDuplicatePosition = (pos: Position) => {
     if (!firestore) return;
     
@@ -588,7 +582,7 @@ const OrganizationChart = () => {
                 departmentColor: department?.color,
                 filled: posToEmployeeMap.get(pos.id)?.length || 0,
                 employees: assignedEmployees,
-                onAddEmployee: handleAddEmployeeClick,
+                onAssignEmployee: handleAssignEmployeeClick,
                 onEditPosition: handleEditPositionClick,
                 onDuplicatePosition: (position) => setDuplicatingPosition(position),
                 workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
@@ -612,7 +606,7 @@ const OrganizationChart = () => {
     const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
     unassignedEmployees.forEach((emp, index) => {
         newNodes.push({
-            id: emp.id, type: 'unassigned', position: { x: -500, y: index * 140 },
+            id: emp.id, type: 'unassigned', position: { x: -500, y: index * 120 },
             data: { 
               label: emp.firstName, 
               name: `${emp.firstName} ${emp.lastName}`, 
@@ -734,14 +728,14 @@ const OrganizationChart = () => {
                         </CardContent>
                     </Card>
                 </Link>
-                <Link href="/dashboard/employment-relations">
+                 <Link href="/dashboard/employment-relations">
                     <Card className="hover:bg-muted/50 transition-colors">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Хүлээгдэж буй</CardTitle>
                             <UserMinusIcon className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{inactiveEmployeesCount}</div>}
+                             {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{inactiveEmployeesCount}</div>}
                         </CardContent>
                     </Card>
                 </Link>
@@ -777,6 +771,12 @@ const OrganizationChart = () => {
                 <RotateCcw className="h-6 w-6" />
                 <span className="sr-only">Байршлыг сэргээх</span>
             </Button>
+            <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
+                <Link href="/dashboard/employees/add">
+                    <User className="h-6 w-6" />
+                    <span className="sr-only">Ажилтан нэмэх</span>
+                </Link>
+            </Button>
             <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
                 <PlusCircle className="h-6 w-6" />
                 <span className="sr-only">Ажлын байр нэмэх</span>
@@ -790,10 +790,6 @@ const OrganizationChart = () => {
         selectedEmployee={selectedEmployeeForAssignment}
         onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
         employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
-        onAddNewEmployee={() => {
-            setIsAssignDialogOpen(false);
-            setIsAddEmployeeDialogOpen(true);
-        }}
       />
       <AddPositionDialog
         open={isPositionDialogOpen}
@@ -806,18 +802,6 @@ const OrganizationChart = () => {
         jobCategories={jobCategories || []}
         workSchedules={workSchedules || []}
       />
-      {isAddEmployeeDialogOpen && (
-        <iframe 
-            src="/dashboard/employees/add" 
-            className="fixed inset-0 z-[60] w-full h-full bg-background"
-            onLoad={() => {
-                // This is a simple way to detect if the iframe content has navigated away
-                // A more robust solution might involve postMessage API
-                // For now, we assume any navigation means it closed.
-                // This is not perfect.
-            }}
-        />
-      )}
       <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>

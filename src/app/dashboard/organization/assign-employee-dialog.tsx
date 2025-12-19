@@ -12,14 +12,6 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   updateDocumentNonBlocking,
@@ -76,7 +68,6 @@ interface AssignEmployeeDialogProps {
   position: Position | null;
   employees: Employee[];
   selectedEmployee: Employee | null;
-  onAddNewEmployee: () => void;
   onAssignmentComplete: () => void;
 }
 
@@ -86,12 +77,11 @@ export function AssignEmployeeDialog({
   position,
   employees,
   selectedEmployee,
-  onAddNewEmployee,
   onAssignmentComplete,
 }: AssignEmployeeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [step, setStep] = React.useState(1);
+  const [step, setStep] = React.useState(2); // Start at step 2
   const [localSelectedEmployee, setLocalSelectedEmployee] = React.useState<Employee | null>(null);
 
   const form = useForm<AssignmentFormValues>({
@@ -111,7 +101,7 @@ export function AssignEmployeeDialog({
             setLocalSelectedEmployee(selectedEmployee);
             setStep(3); // Directly go to assignment details
         } else {
-            setStep(1);
+            setStep(2); // Start with employee selection
             setLocalSelectedEmployee(null);
         }
         form.reset({
@@ -185,29 +175,6 @@ export function AssignEmployeeDialog({
       setStep(3);
   }
 
-  const renderStepOne = () => (
-      <div className="grid grid-cols-1 gap-4 py-4">
-          <Card onClick={() => setStep(2)} className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <UserRoundCheck className="h-8 w-8 text-primary" />
-                  <div>
-                      <h3 className="font-semibold">Томилгоогүй ажилтан сонгох</h3>
-                      <p className="text-sm text-muted-foreground">Бүртгэлтэй ажилтнаас томилох</p>
-                  </div>
-              </CardContent>
-          </Card>
-          <Card onClick={onAddNewEmployee} className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <UserPlus className="h-8 w-8 text-green-500" />
-                  <div>
-                      <h3 className="font-semibold">Шинэ ажилтан бүртгэх</h3>
-                      <p className="text-sm text-muted-foreground">Системд шинээр ажилтан бүртгэж томилох</p>
-                  </div>
-              </CardContent>
-          </Card>
-      </div>
-  );
-
   const renderStepTwo = () => (
        <div className="pt-4">
             <ScrollArea className="h-72">
@@ -234,7 +201,6 @@ export function AssignEmployeeDialog({
                     )}
                 </div>
             </ScrollArea>
-            <Button variant="ghost" onClick={() => setStep(1)} className="mt-4 w-full">Буцах</Button>
         </div>
   );
 
@@ -291,7 +257,7 @@ export function AssignEmployeeDialog({
                 />
             )}
              <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStep(selectedEmployee ? 1 : 2)} disabled={isSubmitting}>Буцах</Button>
+              <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(2)} disabled={isSubmitting}>Буцах</Button>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Баталгаажуулах</Button>
             </DialogFooter>
         </form>
@@ -304,7 +270,6 @@ export function AssignEmployeeDialog({
           <DialogHeader>
             <DialogTitle>"{position?.title}" ажлын байранд томилгоо хийх</DialogTitle>
             <DialogDescription>
-              {step === 1 && 'Хийх үйлдлээ сонгоно уу.'}
               {step === 2 && 'Томилох ажилтнаа сонгоно уу.'}
               {step === 3 && 'Томилгооны мэдээллийг оруулна уу.'}
             </DialogDescription>
@@ -312,7 +277,6 @@ export function AssignEmployeeDialog({
           
           {isSubmitting && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
           
-          {step === 1 && renderStepOne()}
           {step === 2 && renderStepTwo()}
           {step === 3 && localSelectedEmployee && renderStepThree()}
 
