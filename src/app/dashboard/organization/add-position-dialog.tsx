@@ -159,25 +159,33 @@ export function AddPositionDialog({
   const watchedDepartmentId = form.watch('departmentId');
 
   const availablePrograms = React.useMemo(() => {
-    if (!onboardingPrograms) return [];
+    if (!onboardingPrograms || !watchedDepartmentId) return [];
+  
     return onboardingPrograms.filter(p => {
-        const appliesTo = p.appliesTo;
-        // 1. Applies to ALL (no specific conditions)
-        if (!appliesTo || (!appliesTo.departmentIds && !appliesTo.positionIds)) {
-            return true;
-        }
-        // 2. Applies to the selected department
-        if (appliesTo.departmentIds && appliesTo.departmentIds.includes(watchedDepartmentId)) {
-            return true;
-        }
-        // 3. Applies to the specific position (only relevant in edit mode)
-        if (isEditMode && editingPosition && appliesTo.positionIds && appliesTo.positionIds.includes(editingPosition.id)) {
-            return true;
-        }
-
-        return false;
+      const appliesTo = p.appliesTo;
+  
+      // Condition 1: Program applies to ALL departments/positions
+      const isGlobal = !appliesTo || 
+                       (!appliesTo.departmentIds || appliesTo.departmentIds.length === 0) &&
+                       (!appliesTo.positionIds || appliesTo.positionIds.length === 0);
+      if (isGlobal) {
+        return true;
+      }
+  
+      // Condition 2: Program applies to the selected department
+      const inDepartment = appliesTo.departmentIds?.includes(watchedDepartmentId);
+      if (inDepartment) {
+        return true;
+      }
+  
+      // Condition 3: Program applies specifically to the position being edited
+      if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
+        return true;
+      }
+  
+      return false;
     });
-}, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
+  }, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
 
   React.useEffect(() => {
     if (editingPosition) {
@@ -236,6 +244,8 @@ export function AddPositionDialog({
 
     if (data.reportsTo && data.reportsTo !== '(none)') {
       baseData.reportsTo = data.reportsTo;
+    } else {
+      baseData.reportsTo = null;
     }
     
     if (isEditMode && editingPosition) {
@@ -482,13 +492,14 @@ export function AddPositionDialog({
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Ажлын цагийн хуваарь</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Цагийн хуваарь сонгох" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                   <SelectItem value="none">(Сонгоогүй)</SelectItem>
                                   {workSchedules.map((schedule) => (
                                     <SelectItem key={schedule.id} value={schedule.id}>
                                       {schedule.name}
@@ -641,6 +652,4 @@ export function AddPositionDialog({
     </>
   );
 }
-
-
 
