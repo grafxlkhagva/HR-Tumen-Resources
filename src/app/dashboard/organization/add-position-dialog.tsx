@@ -50,6 +50,7 @@ import {
   useFirebase,
   useMemoFirebase,
   deleteDocumentNonBlocking,
+  useCollection,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2, Calendar as CalendarIcon, Trash2, PlusCircle } from 'lucide-react';
@@ -60,6 +61,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import type { OnboardingProgram } from '../settings/onboarding/page';
 
 
 const positionSchema = z.object({
@@ -69,6 +71,7 @@ const positionSchema = z.object({
   levelId: z.string().min(1, 'Зэрэглэл сонгоно уу.'),
   employmentTypeId: z.string().min(1, 'Ажил эрхлэлтийн төрөл сонгоно уу.'),
   workScheduleId: z.string().optional(),
+  onboardingProgramId: z.string().optional(),
   isActive: z.boolean().default(true),
   jobCategoryId: z.string().optional(),
   createdAt: z.date({
@@ -98,6 +101,7 @@ interface Position {
   employmentTypeId?: string;
   jobCategoryId?: string;
   workScheduleId?: string;
+  onboardingProgramId?: string;
   isActive?: boolean;
   createdAt?: string;
   canApproveAttendance?: boolean;
@@ -130,6 +134,9 @@ export function AddPositionDialog({
   const { toast } = useToast();
   const isEditMode = !!editingPosition;
 
+  const programsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'onboardingPrograms') : null), [firestore]);
+  const { data: onboardingPrograms } = useCollection<OnboardingProgram>(programsQuery);
+
   const form = useForm<PositionFormValues>({
     resolver: zodResolver(positionSchema),
     defaultValues: {
@@ -139,12 +146,22 @@ export function AddPositionDialog({
       levelId: '',
       employmentTypeId: '',
       workScheduleId: '',
+      onboardingProgramId: '',
       isActive: true,
       jobCategoryId: '',
       createdAt: new Date(),
       canApproveAttendance: false,
     },
   });
+  
+  const watchedDepartmentId = form.watch('departmentId');
+
+  const availablePrograms = React.useMemo(() => {
+    if (!onboardingPrograms) return [];
+    return onboardingPrograms.filter(p => 
+        !p.appliesTo?.departmentId || p.appliesTo.departmentId === watchedDepartmentId
+    );
+  }, [onboardingPrograms, watchedDepartmentId]);
 
   React.useEffect(() => {
     if (editingPosition) {
@@ -153,6 +170,7 @@ export function AddPositionDialog({
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         workScheduleId: editingPosition.workScheduleId || '',
+        onboardingProgramId: editingPosition.onboardingProgramId || '',
         reportsTo: editingPosition.reportsTo || '(none)',
         isActive: editingPosition.isActive === undefined ? true : editingPosition.isActive,
         jobCategoryId: editingPosition.jobCategoryId || '',
@@ -167,6 +185,7 @@ export function AddPositionDialog({
         levelId: '',
         employmentTypeId: '',
         workScheduleId: '',
+        onboardingProgramId: '',
         jobCategoryId: '',
         isActive: true,
         createdAt: new Date(),
@@ -192,6 +211,7 @@ export function AddPositionDialog({
       levelId: data.levelId,
       employmentTypeId: data.employmentTypeId,
       workScheduleId: data.workScheduleId,
+      onboardingProgramId: data.onboardingProgramId,
       isActive: data.isActive,
       jobCategoryId: data.jobCategoryId,
       createdAt: data.createdAt.toISOString(),
@@ -403,6 +423,32 @@ export function AddPositionDialog({
                         <CardTitle className="text-lg">Нэмэлт тохиргоо</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                         <FormField
+                          control={form.control}
+                          name="onboardingProgramId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger disabled={!watchedDepartmentId}>
+                                    <SelectValue placeholder={!watchedDepartmentId ? "Эхлээд хэлтэс сонгоно уу" : "Хөтөлбөр сонгох (заавал биш)"} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="">(Сонгоогүй)</SelectItem>
+                                  {availablePrograms.map((program) => (
+                                    <SelectItem key={program.id} value={program.id}>
+                                      {program.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                               <FormDescription>Энэ албан тушаалд ажилтан томилогдоход автоматаар оноогдох хөтөлбөр.</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                         <FormField
                           control={form.control}
                           name="workScheduleId"
