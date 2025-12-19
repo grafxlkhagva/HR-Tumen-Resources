@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,15 +35,17 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+
 
 const programSchema = z.object({
   title: z.string().min(1, 'Хөтөлбөрийн нэр хоосон байж болохгүй.'),
   description: z.string().optional(),
   appliesToType: z.enum(['ALL', 'DEPARTMENT', 'POSITION']).default('ALL'),
-  departmentId: z.string().optional(),
-  positionId: z.string().optional(),
+  departmentIds: z.array(z.string()).optional(),
+  positionIds: z.array(z.string()).optional(),
 });
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -51,21 +54,15 @@ type Reference = {
     id: string;
     name: string;
     title?: string;
-    statusId?: string;
-}
-
-interface PositionStatus {
-    id: string;
-    name: string;
+    isActive?: boolean;
 }
 
 interface AddProgramDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingProgram?: { id: string } & Partial<ProgramFormValues> & { appliesTo?: { departmentId?: string, positionId?: string } } | null;
+  editingProgram?: { id: string } & Partial<ProgramFormValues> & { appliesTo?: { departmentIds?: string[], positionIds?: string[] } } | null;
   departments: Reference[];
   positions: Reference[];
-  positionStatuses: PositionStatus[];
 }
 
 export function AddProgramDialog({
@@ -74,7 +71,6 @@ export function AddProgramDialog({
   editingProgram,
   departments,
   positions,
-  positionStatuses,
 }: AddProgramDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -91,8 +87,8 @@ export function AddProgramDialog({
         title: '',
         description: '',
         appliesToType: 'ALL',
-        departmentId: '',
-        positionId: '',
+        departmentIds: [],
+        positionIds: [],
     },
   });
 
@@ -100,23 +96,23 @@ export function AddProgramDialog({
     if (open) {
       if (isEditMode && editingProgram) {
         let appliesToType: 'ALL' | 'DEPARTMENT' | 'POSITION' = 'ALL';
-        if (editingProgram.appliesTo?.departmentId) appliesToType = 'DEPARTMENT';
-        if (editingProgram.appliesTo?.positionId) appliesToType = 'POSITION';
+        if (editingProgram.appliesTo?.departmentIds && editingProgram.appliesTo.departmentIds.length > 0) appliesToType = 'DEPARTMENT';
+        if (editingProgram.appliesTo?.positionIds && editingProgram.appliesTo.positionIds.length > 0) appliesToType = 'POSITION';
         
         form.reset({
           title: editingProgram.title || '',
           description: editingProgram.description || '',
           appliesToType: appliesToType,
-          departmentId: editingProgram.appliesTo?.departmentId || '',
-          positionId: editingProgram.appliesTo?.positionId || '',
+          departmentIds: editingProgram.appliesTo?.departmentIds || [],
+          positionIds: editingProgram.appliesTo?.positionIds || [],
         });
       } else {
         form.reset({
             title: '',
             description: '',
             appliesToType: 'ALL',
-            departmentId: '',
-            positionId: '',
+            departmentIds: [],
+            positionIds: [],
         });
       }
     }
@@ -128,10 +124,10 @@ export function AddProgramDialog({
     if (!programsCollectionRef || !firestore) return;
 
     let appliesTo = {};
-    if (data.appliesToType === 'DEPARTMENT' && data.departmentId) {
-        appliesTo = { departmentId: data.departmentId };
-    } else if (data.appliesToType === 'POSITION' && data.positionId) {
-        appliesTo = { positionId: data.positionId };
+    if (data.appliesToType === 'DEPARTMENT' && data.departmentIds && data.departmentIds.length > 0) {
+        appliesTo = { departmentIds: data.departmentIds };
+    } else if (data.appliesToType === 'POSITION' && data.positionIds && data.positionIds.length > 0) {
+        appliesTo = { positionIds: data.positionIds };
     }
 
     const finalData = {
@@ -156,14 +152,15 @@ export function AddProgramDialog({
   const appliesToType = form.watch('appliesToType');
 
   const activePositions = React.useMemo(() => {
-    if (!positions || !positionStatuses) return [];
-    const openStatusId = positionStatuses.find(status => status.name === 'Нээлттэй')?.id;
-    if (openStatusId) {
-        return positions.filter(pos => pos.statusId === openStatusId);
-    }
-    return positions;
-  }, [positions, positionStatuses]);
+    if (!positions) return [];
+    return positions.filter(pos => pos.isActive !== false);
+  }, [positions]);
+  
+  const [deptSearch, setDeptSearch] = React.useState('');
+  const [posSearch, setPosSearch] = React.useState('');
 
+  const filteredDepartments = React.useMemo(() => departments.filter(d => d.name.toLowerCase().includes(deptSearch.toLowerCase())), [departments, deptSearch]);
+  const filteredPositions = React.useMemo(() => activePositions.filter(p => (p.title || p.name).toLowerCase().includes(posSearch.toLowerCase())), [activePositions, posSearch]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,15 +223,36 @@ export function AddProgramDialog({
                                     {appliesToType === 'DEPARTMENT' && (
                                         <FormField
                                             control={form.control}
-                                            name="departmentId"
+                                            name="departmentIds"
                                             render={({ field }) => (
                                             <FormItem>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Хэлтэс сонгоно уу..." /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
-                                                </SelectContent>
-                                                </Select>
+                                                 <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-start font-normal">
+                                                            {field.value && field.value.length > 0 ? `${field.value.length} хэлтэс сонгосон` : "Хэлтэс сонгох..."}
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                                                         <div className="p-2 relative">
+                                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                            <Input placeholder="Хайх..." className="pl-8" value={deptSearch} onChange={(e) => setDeptSearch(e.target.value)} />
+                                                         </div>
+                                                         <DropdownMenuSeparator />
+                                                         {filteredDepartments.map(dept => (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={dept.id}
+                                                                checked={field.value?.includes(dept.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                    ? field.onChange([...(field.value || []), dept.id])
+                                                                    : field.onChange(field.value?.filter((id) => id !== dept.id))
+                                                                }}
+                                                            >
+                                                                {dept.name}
+                                                            </DropdownMenuCheckboxItem>
+                                                         ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                                 <FormMessage />
                                             </FormItem>
                                             )}
@@ -249,15 +267,36 @@ export function AddProgramDialog({
                                     {appliesToType === 'POSITION' && (
                                         <FormField
                                             control={form.control}
-                                            name="positionId"
+                                            name="positionIds"
                                             render={({ field }) => (
                                             <FormItem>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Ажлын байр сонгоно уу..." /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    {activePositions.map(pos => <SelectItem key={pos.id} value={pos.id}>{pos.title || pos.name}</SelectItem>)}
-                                                </SelectContent>
-                                                </Select>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-start font-normal">
+                                                            {field.value && field.value.length > 0 ? `${field.value.length} ажлын байр сонгосон` : "Ажлын байр сонгох..."}
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                                                         <div className="p-2 relative">
+                                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                            <Input placeholder="Хайх..." className="pl-8" value={posSearch} onChange={(e) => setPosSearch(e.target.value)} />
+                                                         </div>
+                                                         <DropdownMenuSeparator />
+                                                         {filteredPositions.map(pos => (
+                                                             <DropdownMenuCheckboxItem
+                                                                key={pos.id}
+                                                                checked={field.value?.includes(pos.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                    ? field.onChange([...(field.value || []), pos.id])
+                                                                    : field.onChange(field.value?.filter((id) => id !== pos.id))
+                                                                }}
+                                                            >
+                                                                {pos.title || pos.name}
+                                                            </DropdownMenuCheckboxItem>
+                                                         ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                                 <FormMessage />
                                             </FormItem>
                                             )}

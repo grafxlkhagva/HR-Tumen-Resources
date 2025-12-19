@@ -876,8 +876,8 @@
           "type": "object",
           "description": "Энэ хөтөлбөр ямар нөхцөлд автоматаар оноогдохыг заана.",
           "properties": {
-            "departmentId": { "type": "string" },
-            "positionId": { "type": "string" }
+            "departmentIds": { "type": "array", "items": { "type": "string" } },
+            "positionIds": { "type": "array", "items": { "type": "string" } }
           }
         },
         "stageCount": {
