@@ -163,7 +163,7 @@ export function AddPositionDialog({
     return onboardingPrograms.filter(p => {
         const appliesTo = p.appliesTo;
         // 1. Applies to ALL (no specific conditions)
-        if (!appliesTo || ( !appliesTo.departmentIds && !appliesTo.positionIds)) {
+        if (!appliesTo || (!appliesTo.departmentIds && !appliesTo.positionIds)) {
             return true;
         }
         // 2. Applies to the selected department
@@ -641,5 +641,6 @@ export function AddPositionDialog({
     </>
   );
 }
+
 
 
