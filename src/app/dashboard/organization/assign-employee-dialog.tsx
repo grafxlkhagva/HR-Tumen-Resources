@@ -89,7 +89,7 @@ export function AssignEmployeeDialog({
 }: AssignEmployeeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [step, setStep] = React.useState(2);
+  const [step, setStep] = React.useState(1);
   const [localSelectedEmployee, setLocalSelectedEmployee] = React.useState<Employee | null>(null);
 
   const form = useForm<AssignmentFormValues>({
@@ -103,7 +103,6 @@ export function AssignEmployeeDialog({
   
   const { isSubmitting } = form.formState;
   const assignmentType = form.watch('assignmentType');
-  const assignOnboarding = form.watch('assignOnboarding');
 
   const programsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
   const { data: programTemplates } = useCollection<OnboardingProgram>(programsQuery);
@@ -112,9 +111,9 @@ export function AssignEmployeeDialog({
     if (open) {
         if (selectedEmployee) {
             setLocalSelectedEmployee(selectedEmployee);
-            setStep(3); // Directly go to assignment details
+            setStep(2); // Directly go to assignment details
         } else {
-            setStep(2);
+            setStep(1);
             setLocalSelectedEmployee(null);
         }
         form.reset({
@@ -168,53 +167,55 @@ export function AssignEmployeeDialog({
         await batch.commit();
 
         // 4. Assign onboarding programs if selected
-        const programIdsToAssign = position.onboardingProgramIds || [];
-        if (values.assignOnboarding && programIdsToAssign.length > 0) {
-            const assignedProgramsCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`);
+        if (values.assignOnboarding) {
+            const programIdsToAssign = position.onboardingProgramIds || [];
+            if (programIdsToAssign.length > 0) {
+                const assignedProgramsCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`);
 
-            for (const programId of programIdsToAssign) {
-                const programTemplate = programTemplates?.find(p => p.id === programId);
-                if (!programTemplate) continue;
+                for (const programId of programIdsToAssign) {
+                    const programTemplate = programTemplates?.find(p => p.id === programId);
+                    if (!programTemplate) continue;
 
-                const stagesSnapshot = await getDocs(collection(firestore, `onboardingPrograms/${programId}/stages`));
-                const allTasks: any[] = [];
-                const hireDate = new Date(localSelectedEmployee.hireDate);
+                    const stagesSnapshot = await getDocs(collection(firestore, `onboardingPrograms/${programId}/stages`));
+                    const allTasks: any[] = [];
+                    const hireDate = new Date(localSelectedEmployee.hireDate);
 
-                for (const stageDoc of stagesSnapshot.docs) {
-                    const tasksSnapshot = await getDocs(collection(firestore, stageDoc.ref.path, 'tasks'));
-                    tasksSnapshot.forEach(taskDoc => {
-                         const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
-                         const dueDate = add(hireDate, { days: taskTemplate.dueDays });
+                    for (const stageDoc of stagesSnapshot.docs) {
+                        const tasksSnapshot = await getDocs(collection(firestore, stageDoc.ref.path, 'tasks'));
+                        tasksSnapshot.forEach(taskDoc => {
+                            const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
+                            const dueDate = add(hireDate, { days: taskTemplate.dueDays });
 
-                          let assigneeId = localSelectedEmployee.id;
-                          let assigneeName = `${localSelectedEmployee.firstName} ${localSelectedEmployee.lastName}`;
+                            let assigneeId = localSelectedEmployee.id;
+                            let assigneeName = `${localSelectedEmployee.firstName} ${localSelectedEmployee.lastName}`;
 
-                         switch(taskTemplate.assigneeType) {
-                            case 'NEW_HIRE': break;
-                            // TODO: Add real logic for other assignee types
-                            case 'MANAGER': assigneeName = "Шууд удирдлага"; break;
-                            case 'HR': assigneeName = "Хүний нөөц"; break;
-                            case 'BUDDY': assigneeName = "Дэмжигч ажилтан"; break;
-                         }
+                            switch(taskTemplate.assigneeType) {
+                                case 'NEW_HIRE': break;
+                                // TODO: Add real logic for other assignee types
+                                case 'MANAGER': assigneeName = "Шууд удирдлага"; break;
+                                case 'HR': assigneeName = "Хүний нөөц"; break;
+                                case 'BUDDY': assigneeName = "Дэмжигч ажилтан"; break;
+                            }
 
-                        allTasks.push({
-                            templateTaskId: taskDoc.id,
-                            title: taskTemplate.title,
-                            status: 'TODO',
-                            dueDate: dueDate.toISOString(),
-                            assigneeId: assigneeId, 
-                            assigneeName: assigneeName
+                            allTasks.push({
+                                templateTaskId: taskDoc.id,
+                                title: taskTemplate.title,
+                                status: 'TODO',
+                                dueDate: dueDate.toISOString(),
+                                assigneeId: assigneeId, 
+                                assigneeName: assigneeName
+                            });
                         });
+                    }
+                    await addDoc(assignedProgramsCollectionRef, {
+                        programId: programTemplate.id,
+                        programName: programTemplate.title,
+                        status: 'IN_PROGRESS',
+                        startDate: new Date().toISOString(),
+                        progress: 0,
+                        tasks: allTasks,
                     });
                 }
-                await addDoc(assignedProgramsCollectionRef, {
-                    programId: programTemplate.id,
-                    programName: programTemplate.title,
-                    status: 'IN_PROGRESS',
-                    startDate: new Date().toISOString(),
-                    progress: 0,
-                    tasks: allTasks,
-                });
             }
         }
 
@@ -237,10 +238,10 @@ export function AssignEmployeeDialog({
   
   const handleEmployeeSelect = (employee: Employee) => {
       setLocalSelectedEmployee(employee);
-      setStep(3);
+      setStep(2);
   }
 
-  const renderStepTwo = () => (
+  const renderStepOne = () => (
        <div className="pt-4">
             <ScrollArea className="h-72">
                 <div className="space-y-2 pr-4">
@@ -269,7 +270,7 @@ export function AssignEmployeeDialog({
         </div>
   );
 
-  const renderStepThree = () => (
+  const renderStepTwo = () => (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleFinalAssignment)} className="space-y-4 pt-4">
             <div className="p-3 rounded-md border bg-muted/50 flex items-center gap-3">
@@ -321,7 +322,7 @@ export function AssignEmployeeDialog({
                     )}
                 />
             )}
-            <FormField
+             <FormField
                 control={form.control}
                 name="assignOnboarding"
                 render={({ field }) => (
@@ -342,8 +343,11 @@ export function AssignEmployeeDialog({
                 )}
                 />
              <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(2)} disabled={isSubmitting}>Буцах</Button>
-              <Button type="submit">Баталгаажуулах</Button>
+              <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(1)} disabled={isSubmitting}>Буцах</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                Баталгаажуулах
+              </Button>
             </DialogFooter>
         </form>
       </Form>
@@ -355,15 +359,15 @@ export function AssignEmployeeDialog({
           <DialogHeader>
             <DialogTitle>"{position?.title}" ажлын байранд томилгоо хийх</DialogTitle>
             <DialogDescription>
-              {step === 2 && 'Томилох ажилтнаа сонгоно уу.'}
-              {step === 3 && 'Томилгооны мэдээллийг оруулна уу.'}
+              {step === 1 && 'Томилох ажилтнаа сонгоно уу.'}
+              {step === 2 && 'Томилгооны мэдээллийг оруулна уу.'}
             </DialogDescription>
           </DialogHeader>
           
           {isSubmitting && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
           
-          {step === 2 && renderStepTwo()}
-          {step === 3 && localSelectedEmployee && renderStepThree()}
+          {step === 1 && renderStepOne()}
+          {step === 2 && localSelectedEmployee && renderStepTwo()}
 
         </DialogContent>
       </Dialog>
