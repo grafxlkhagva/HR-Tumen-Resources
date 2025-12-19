@@ -158,34 +158,32 @@ export function AddPositionDialog({
   
   const watchedDepartmentId = form.watch('departmentId');
 
-  const availablePrograms = React.useMemo(() => {
+    const availablePrograms = React.useMemo(() => {
     if (!onboardingPrograms || !watchedDepartmentId) return [];
-  
+
     return onboardingPrograms.filter(p => {
-      const appliesTo = p.appliesTo;
-  
-      // Condition 1: Program applies to ALL departments/positions
-      const isGlobal = !appliesTo || 
-                       (!appliesTo.departmentIds || appliesTo.departmentIds.length === 0) &&
-                       (!appliesTo.positionIds || appliesTo.positionIds.length === 0);
-      if (isGlobal) {
-        return true;
-      }
-  
-      // Condition 2: Program applies to the selected department
-      const inDepartment = appliesTo.departmentIds?.includes(watchedDepartmentId);
-      if (inDepartment) {
-        return true;
-      }
-  
-      // Condition 3: Program applies specifically to the position being edited
-      if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
-        return true;
-      }
-  
-      return false;
+        const appliesTo = p.appliesTo;
+
+        // 1. Program applies to ALL (no specific departments or positions)
+        const isGlobal = !appliesTo || 
+                       (!appliesTo.departmentIds?.length && !appliesTo.positionIds?.length);
+        if (isGlobal) {
+            return true;
+        }
+
+        // 2. Program applies to the selected department
+        if (appliesTo.departmentIds?.includes(watchedDepartmentId)) {
+            return true;
+        }
+
+        // 3. (Only in edit mode) Program applies specifically to this position
+        if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
+            return true;
+        }
+
+        return false;
     });
-  }, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
+}, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
 
   React.useEffect(() => {
     if (editingPosition) {
@@ -652,4 +650,5 @@ export function AddPositionDialog({
     </>
   );
 }
+
 
