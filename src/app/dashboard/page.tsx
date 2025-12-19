@@ -57,7 +57,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
-import { AddEmployeeDialog } from './employees/add/page';
 
 // --- Types ---
 type Employee = BaseEmployee & {
@@ -428,11 +427,11 @@ const OrganizationChart = () => {
   const [nodes, setNodes] = useState<CustomNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
   const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
   
   const { toast } = useToast();
@@ -501,18 +500,10 @@ const OrganizationChart = () => {
     setIsPositionDialogOpen(true);
   };
   
-  const handleOpenAddEmployeeDialog = (position: Position) => {
-    setSelectedPosition(position);
-    setIsAssignDialogOpen(false); // Close assign dialog if open
-    setIsAddEmployeeDialogOpen(true);
+  const handleOpenAddEmployeeDialog = () => {
+      setIsAssignDialogOpen(false);
+      setIsAddEmployeeDialogOpen(true);
   }
-
-  const handleEmployeeCreated = (newEmployee: Employee) => {
-    setIsAddEmployeeDialogOpen(false);
-    // Now, open the assignment dialog with the new employee pre-selected
-    setSelectedEmployeeForAssignment(newEmployee);
-    setIsAssignDialogOpen(true);
-  };
 
  const handleDuplicatePosition = (pos: Position) => {
     if (!firestore) return;
@@ -746,7 +737,7 @@ const OrganizationChart = () => {
                 <Link href="/dashboard/employment-relations">
                     <Card className="hover:bg-muted/50 transition-colors">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Хөдөлмөрийн харилцаа</CardTitle>
+                            <CardTitle className="text-sm font-medium">Хүлээгдэж буй</CardTitle>
                             <UserMinusIcon className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
@@ -799,7 +790,10 @@ const OrganizationChart = () => {
         selectedEmployee={selectedEmployeeForAssignment}
         onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
         employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
-        onAddNewEmployee={handleOpenAddEmployeeDialog}
+        onAddNewEmployee={() => {
+            setIsAssignDialogOpen(false);
+            setIsAddEmployeeDialogOpen(true);
+        }}
       />
       <AddPositionDialog
         open={isPositionDialogOpen}
@@ -813,14 +807,15 @@ const OrganizationChart = () => {
         workSchedules={workSchedules || []}
       />
       {isAddEmployeeDialogOpen && (
-        <AddEmployeeDialog 
-            open={isAddEmployeeDialogOpen}
-            onOpenChange={setIsAddEmployeeDialogOpen}
-            departments={departments || []}
-            positions={positions || []}
-            preselectedDept={selectedPosition?.departmentId}
-            preselectedPos={selectedPosition?.id}
-            onEmployeeCreated={handleEmployeeCreated}
+        <iframe 
+            src="/dashboard/employees/add" 
+            className="fixed inset-0 z-[60] w-full h-full bg-background"
+            onLoad={() => {
+                // This is a simple way to detect if the iframe content has navigated away
+                // A more robust solution might involve postMessage API
+                // For now, we assume any navigation means it closed.
+                // This is not perfect.
+            }}
         />
       )}
       <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>

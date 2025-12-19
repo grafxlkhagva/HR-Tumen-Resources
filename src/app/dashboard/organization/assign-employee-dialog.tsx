@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import * as React from 'react';
@@ -74,9 +76,8 @@ interface AssignEmployeeDialogProps {
   position: Position | null;
   employees: Employee[];
   selectedEmployee: Employee | null;
-  onAddNewEmployee: (position: Position) => void;
+  onAddNewEmployee: () => void;
   onAssignmentComplete: () => void;
-  onEmployeeCreated: (employee: Employee) => void;
 }
 
 export function AssignEmployeeDialog({
@@ -87,7 +88,6 @@ export function AssignEmployeeDialog({
   selectedEmployee,
   onAddNewEmployee,
   onAssignmentComplete,
-  onEmployeeCreated,
 }: AssignEmployeeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -184,12 +184,6 @@ export function AssignEmployeeDialog({
       setLocalSelectedEmployee(employee);
       setStep(3);
   }
-  
-  React.useEffect(() => {
-    if(onEmployeeCreated && localSelectedEmployee) {
-      setStep(3);
-    }
-  }, [onEmployeeCreated, localSelectedEmployee]);
 
   const renderStepOne = () => (
       <div className="grid grid-cols-1 gap-4 py-4">
@@ -202,7 +196,7 @@ export function AssignEmployeeDialog({
                   </div>
               </CardContent>
           </Card>
-          <Card onClick={() => position && onAddNewEmployee(position)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+          <Card onClick={onAddNewEmployee} className="cursor-pointer hover:bg-muted/50 transition-colors">
               <CardContent className="p-4 flex items-center gap-4">
                   <UserPlus className="h-8 w-8 text-green-500" />
                   <div>

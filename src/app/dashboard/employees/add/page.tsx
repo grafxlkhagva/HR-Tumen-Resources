@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -117,7 +118,6 @@ interface AddEmployeeDialogProps {
   positions: Position[];
   preselectedDept?: string;
   preselectedPos?: string;
-  onEmployeeCreated?: (employee: Employee) => void;
 }
 
 export function AddEmployeeDialog({ 
@@ -127,7 +127,6 @@ export function AddEmployeeDialog({
     positions,
     preselectedDept,
     preselectedPos,
-    onEmployeeCreated,
 }: AddEmployeeDialogProps) {
     const router = useRouter();
     const { firestore } = useFirebase();
@@ -154,22 +153,6 @@ export function AddEmployeeDialog({
         positionId: preselectedPos || ''
         }
     });
-
-    React.useEffect(() => {
-        if (open) {
-            form.reset({
-                firstName: '',
-                lastName: '',
-                email: '',
-                phoneNumber: '',
-                status: 'Идэвхтэй',
-                departmentId: preselectedDept || '',
-                positionId: preselectedPos || ''
-            });
-            setPhotoFile(null);
-            setPhotoPreview(null);
-        }
-    }, [open, preselectedDept, preselectedPos, form]);
     
     const employeesCollection = useMemoFirebase(
         () => (firestore ? collection(firestore, 'employees') : null),
@@ -275,11 +258,7 @@ export function AddEmployeeDialog({
                     title: 'Амжилттай хадгаллаа',
                     description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
                 });
-                if(onEmployeeCreated) {
-                    onEmployeeCreated(employeeData as Employee);
-                } else {
-                    router.push('/login'); 
-                }
+                router.push('/login'); 
                 return;
             }
 
@@ -287,12 +266,7 @@ export function AddEmployeeDialog({
                 title: 'Амжилттай хадгаллаа',
                 description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
             });
-            
-             if(onEmployeeCreated) {
-                onEmployeeCreated(employeeData as Employee);
-            } else {
-                onOpenChange(false);
-            }
+            onOpenChange(false);
 
         } catch(error: any) {
             console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
