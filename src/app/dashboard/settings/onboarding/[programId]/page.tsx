@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,6 +14,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuCheckboxItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,13 +40,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
   useFirebase,
@@ -51,8 +52,14 @@ import {
 } from '@/firebase';
 import { collection, doc, increment, writeBatch, getDocs, WriteBatch, DocumentReference, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Calendar, Clock } from 'lucide-react';
-import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate } from '../page';
+import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search } from 'lucide-react';
+import type { OnboardingProgram, OnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
+import type { Employee } from '@/app/dashboard/employees/data';
+
+type OnboardingTaskTemplate = BaseOnboardingTaskTemplate & {
+    guideEmployeeIds?: string[];
+}
+
 
 // --- Stage Dialog ---
 const stageSchema = z.object({
@@ -125,7 +132,7 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stageCount }
 const taskSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
     description: z.string().optional(),
-    assigneeType: z.enum(['NEW_HIRE', 'MANAGER', 'HR', 'BUDDY', 'SPECIFIC_PERSON']),
+    guideEmployeeIds: z.array(z.string()).optional(),
     dueDays: z.coerce.number().min(0, 'Хугацаа 0-ээс бага байж болохгүй.'),
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -134,21 +141,35 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const isEditMode = !!editingTask;
+    const [employeeSearch, setEmployeeSearch] = React.useState('');
 
     const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
     const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
+    const employeesQuery = useMemoFirebase(({firestore}) => collection(firestore, 'employees'), [firestore]);
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+    
+    const filteredEmployees = React.useMemo(() => {
+        if (!employees) return [];
+        return employees.filter(emp => `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase()));
+    }, [employees, employeeSearch]);
+
 
     const form = useForm<TaskFormValues>({
         resolver: zodResolver(taskSchema),
-        defaultValues: { dueDays: 1, assigneeType: 'NEW_HIRE' }
+        defaultValues: { dueDays: 1, guideEmployeeIds: [] }
     });
 
     React.useEffect(() => {
         if(open) {
             if(isEditMode && editingTask) {
-                form.reset(editingTask);
+                form.reset({
+                    title: editingTask.title || '',
+                    description: editingTask.description || '',
+                    dueDays: editingTask.dueDays || 1,
+                    guideEmployeeIds: editingTask.guideEmployeeIds || []
+                });
             } else {
-                form.reset({ title: '', description: '', dueDays: 1, assigneeType: 'NEW_HIRE' });
+                form.reset({ title: '', description: '', dueDays: 1, guideEmployeeIds: [] });
             }
         }
     }, [open, editingTask, isEditMode, form]);
@@ -178,13 +199,44 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Компанийн дотоод журамтай танилцах" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Тайлбар</FormLabel><FormControl><Textarea placeholder="Даалгаврын дэлгэрэнгүй тайлбар..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="assigneeType" render={({ field }) => ( <FormItem><FormLabel>Гүйцэтгэгч</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
-                            <SelectItem value="NEW_HIRE">Шинэ ажилтан</SelectItem>
-                            <SelectItem value="MANAGER">Шууд удирдлага</SelectItem>
-                            <SelectItem value="HR">Хүний нөөц</SelectItem>
-                            <SelectItem value="BUDDY">Дэмжигч ажилтан (Buddy)</SelectItem>
-                            <SelectItem value="SPECIFIC_PERSON">Бусад</SelectItem>
-                            </SelectContent></Select><FormMessage /></FormItem> )} />
+                         <FormField
+                            control={form.control}
+                            name="guideEmployeeIds"
+                            render={({ field }) => (
+                            <FormItem>
+                                 <FormLabel>Чиглүүлэгчид</FormLabel>
+                                 <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-start font-normal">
+                                            {field.value && field.value.length > 0 ? `${field.value.length} ажилтан сонгосон` : "Ажилтан сонгох..."}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                                            <div className="p-2 relative">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input placeholder="Хайх..." className="pl-8" value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} />
+                                            </div>
+                                            <DropdownMenuSeparator />
+                                            {isLoadingEmployees ? <div className="p-2 text-center text-sm">Ачааллаж байна...</div> : 
+                                            filteredEmployees.map(emp => (
+                                                <DropdownMenuCheckboxItem
+                                                key={emp.id}
+                                                checked={field.value?.includes(emp.id)}
+                                                onCheckedChange={(checked) => {
+                                                    return checked
+                                                    ? field.onChange([...(field.value || []), emp.id])
+                                                    : field.onChange(field.value?.filter((id) => id !== emp.id))
+                                                }}
+                                                >
+                                                {emp.firstName} {emp.lastName}
+                                                </DropdownMenuCheckboxItem>
+                                            ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                         <FormField control={form.control} name="dueDays" render={({ field }) => ( <FormItem><FormLabel>Хийх хугацаа (хоногоор)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
@@ -256,14 +308,6 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
         updateDocumentNonBlocking(programRef, { taskCount: increment(-1) });
     }
 
-    const assigneeLabels: { [key: string]: string } = {
-        NEW_HIRE: 'Шинэ ажилтан',
-        MANAGER: 'Шууд удирдлага',
-        HR: 'Хүний нөөц',
-        BUDDY: 'Дэмжигч ажилтан',
-        SPECIFIC_PERSON: 'Бусад'
-    };
-
     return (
         <Card>
              <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={programId} editingStage={editingStage} stageCount={0} />
@@ -285,7 +329,7 @@ function StageCard({ stage, programId, programRef }: { stage: OnboardingStage, p
                         <div>
                             <p className="font-medium">{task.title}</p>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{assigneeLabels[task.assigneeType] || 'Тодорхойгүй'}</span>
+                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{task.guideEmployeeIds?.length || 0} чиглүүлэгч</span>
                                 <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{task.dueDays} хоногийн дотор</span>
                             </div>
                         </div>
@@ -364,3 +408,5 @@ export default function OnboardingProgramBuilderPage() {
         </div>
     );
 }
+
+    
