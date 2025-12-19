@@ -66,6 +66,12 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -103,9 +109,9 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
     const [isUploading, setIsUploading] = React.useState(false);
 
-    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-    const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [firestore, programId, stageId]);
-    const employeesQuery = useMemoFirebase(({firestore}) => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, [firestore]);
+    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [programId]);
+    const tasksCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [programId, stageId]);
+    const employeesQuery = useMemoFirebase(({firestore}) => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, []);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
     
     const filteredEmployees = React.useMemo(() => {
@@ -285,7 +291,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 // --- Stage Dialog ---
 const stageSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
-    order: z.string(), // We use string to represent position relative to other stages
+    order: z.string(),
 });
 type StageFormValues = z.infer<typeof stageSchema>;
 
@@ -294,8 +300,8 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
     const { toast } = useToast();
     const isEditMode = !!editingStage;
     
-    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [firestore, programId]);
-    const stagesCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages`), [firestore, programId]);
+    const programDocRef = useMemoFirebase(({firestore}) => doc(firestore, `onboardingPrograms/${programId}`), [programId]);
+    const stagesCollectionRef = useMemoFirebase(({firestore}) => collection(firestore, `onboardingPrograms/${programId}/stages`), [programId]);
 
     const form = useForm<StageFormValues>({
         resolver: zodResolver(stageSchema),
@@ -366,6 +372,17 @@ function StageDialog({ open, onOpenChange, programId, editingStage, stages }: { 
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Ажлын эхний долоо хоног" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="order" render={({ field }) => ( <FormItem><FormLabel>Байрлал</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={String(field.value === "end" ? "end" : editingStage?.order)}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Байрлал сонгох..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="start">Эхэнд байршуулах</SelectItem>
+                                {stages?.filter(s => s.id !== editingStage?.id).map(s => <SelectItem key={s.id} value={s.id}>{s.title}-н ард байршуулах</SelectItem>)}
+                                <SelectItem value="end">Төгсгөлд байршуулах</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormDescription>Үе шатуудыг зүүнээс баруун тийш харуулах дараалал. Бага тоо нь зүүн талд байна.</FormDescription>
+                        <FormMessage /></FormItem> )} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
