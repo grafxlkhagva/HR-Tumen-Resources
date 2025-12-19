@@ -45,6 +45,7 @@ import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onbo
 import { Checkbox } from '@/components/ui/checkbox';
 import type { AssignedProgram } from '../employees/[id]/AssignProgramDialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 
 
 interface Position {
@@ -57,13 +58,14 @@ const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
     assignmentType: z.enum(['direct', 'trial']),
     trialEndDate: z.date().optional(),
+    assignOnboarding: z.boolean().default(true),
     onboardingProgramIds: z.array(z.string()).optional(),
 }).refine(data => {
     if (data.assignmentType === 'trial') {
         return !!data.trialEndDate;
     }
     return true;
-}, { message: "Туршилтын хугацаа дуусах огноог сонгоно уу.", path: ["trialEndDate"] });
+}, { message: "Туршилтын хугацаа дуусах огноог оруулна уу.", path: ["trialEndDate"] });
 
 type AssignmentFormValues = z.infer<typeof assignmentSchema>;
 
@@ -95,12 +97,14 @@ export function AssignEmployeeDialog({
       defaultValues: {
           assignmentDate: new Date(),
           assignmentType: 'direct',
+          assignOnboarding: true,
           onboardingProgramIds: [],
       }
   });
   
   const { isSubmitting } = form.formState;
   const assignmentType = form.watch('assignmentType');
+  const assignOnboarding = form.watch('assignOnboarding');
 
   // Fetch Onboarding Programs
   const programsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
@@ -130,6 +134,7 @@ export function AssignEmployeeDialog({
             assignmentDate: new Date(),
             assignmentType: 'direct',
             trialEndDate: undefined,
+            assignOnboarding: true,
             onboardingProgramIds: [],
         });
     }
@@ -176,8 +181,8 @@ export function AssignEmployeeDialog({
         
         await batch.commit();
 
-        // 4. Assign onboarding programs
-        if (values.onboardingProgramIds && values.onboardingProgramIds.length > 0) {
+        // 4. Assign onboarding programs if selected
+        if (values.assignOnboarding && values.onboardingProgramIds && values.onboardingProgramIds.length > 0) {
             const assignedProgramsCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`);
 
             for (const programId of values.onboardingProgramIds) {
@@ -248,6 +253,14 @@ export function AssignEmployeeDialog({
       setStep(3);
   }
 
+  const handleStep3Submit = (values: AssignmentFormValues) => {
+      if (values.assignOnboarding) {
+          setStep(4);
+      } else {
+          handleFinalAssignment(values);
+      }
+  }
+
   const renderStepTwo = () => (
        <div className="pt-4">
             <ScrollArea className="h-72">
@@ -279,7 +292,7 @@ export function AssignEmployeeDialog({
 
   const renderStepThree = () => (
       <Form {...form}>
-        <form onSubmit={(e) => { e.preventDefault(); setStep(4); }} className="space-y-4 pt-4">
+        <form onSubmit={form.handleSubmit(handleStep3Submit)} className="space-y-4 pt-4">
             <div className="p-3 rounded-md border bg-muted/50 flex items-center gap-3">
                  <Avatar>
                     <AvatarImage src={localSelectedEmployee?.photoURL} />
@@ -329,9 +342,29 @@ export function AssignEmployeeDialog({
                     )}
                 />
             )}
+            <FormField
+                control={form.control}
+                name="assignOnboarding"
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <FormLabel>Дасан зохицох хөтөлбөр оноох</FormLabel>
+                            <FormDescription>
+                               Энэ томилгоонд дасан зохицох хөтөлбөр оноох эсэх.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                    </FormItem>
+                )}
+                />
              <DialogFooter>
               <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(2)} disabled={isSubmitting}>Буцах</Button>
-              <Button type="submit">Үргэлжлүүлэх</Button>
+              <Button type="submit">{assignOnboarding ? 'Үргэлжлүүлэх' : 'Баталгаажуулах'}</Button>
             </DialogFooter>
         </form>
       </Form>
