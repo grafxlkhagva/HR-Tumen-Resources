@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -31,6 +32,9 @@ import type { Employee } from '../data';
 import { add } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { OnboardingProgram, OnboardingTaskTemplate } from '../../settings/onboarding/page';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
 
 export type AssignedTask = {
     templateTaskId: string;
@@ -60,6 +64,10 @@ interface AssignProgramDialogProps {
   assignedProgramIds: string[];
 }
 
+interface TaskWithTemplate extends OnboardingTaskTemplate {
+    id: string;
+}
+
 export function AssignProgramDialog({
   open,
   onOpenChange,
@@ -70,12 +78,22 @@ export function AssignProgramDialog({
   const { toast } = useToast();
   const [selectedProgramId, setSelectedProgramId] = React.useState('');
   const [isAssigning, setIsAssigning] = React.useState(false);
+  const [step, setStep] = React.useState(1);
+  const [programTasks, setProgramTasks] = React.useState<TaskWithTemplate[]>([]);
+
+  const form = useForm();
 
   const programTemplatesQuery = useMemoFirebase(
     () => (firestore ? collection(firestore, 'onboardingPrograms') : null),
     [firestore]
   );
+  const allEmployeesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'employees') : null),
+    [firestore]
+  );
+
   const { data: programTemplates, isLoading: isLoadingTemplates } = useCollection<OnboardingProgram>(programTemplatesQuery);
+  const { data: allEmployees, isLoading: isLoadingEmployees } = useCollection<Employee>(allEmployeesQuery);
 
 
   const assignedProgramsCollectionRef = useMemoFirebase(
@@ -89,13 +107,53 @@ export function AssignProgramDialog({
   }, [programTemplates, assignedProgramIds]);
 
 
-  const handleAssign = async () => {
-    if (!selectedProgramId || !firestore || !assignedProgramsCollectionRef) {
-      toast({
-        variant: 'destructive',
-        title: 'Хөтөлбөр сонгоогүй байна',
-        description: 'Жагсаалтаас оноох хөтөлбөрөө сонгоно уу.',
-      });
+  React.useEffect(() => {
+    if (!open) {
+        setTimeout(() => {
+            setStep(1);
+            setSelectedProgramId('');
+            setProgramTasks([]);
+            form.reset();
+        }, 200)
+    }
+  }, [open, form]);
+
+  const handleNextStep = async () => {
+    if (!selectedProgramId || !firestore) return;
+    
+    setIsAssigning(true);
+    const stagesCollectionRef = collection(firestore, `onboardingPrograms/${selectedProgramId}/stages`);
+    const stagesSnapshot = await getDocs(stagesCollectionRef);
+
+    const tasks: TaskWithTemplate[] = [];
+    for (const stageDoc of stagesSnapshot.docs) {
+        const tasksCollectionRef = collection(firestore, stageDoc.ref.path, 'tasks');
+        const tasksSnapshot = await getDocs(tasksCollectionRef);
+        tasksSnapshot.forEach(taskDoc => {
+            tasks.push({ id: taskDoc.id, ...taskDoc.data() as OnboardingTaskTemplate });
+        });
+    }
+    setProgramTasks(tasks);
+    
+    // Set default values for the form
+    const defaultValues: Record<string, string> = {};
+    tasks.forEach(task => {
+        let defaultAssigneeId = '';
+         if (task.assigneeType === 'NEW_HIRE') {
+            defaultAssigneeId = employee.id;
+        } else if (task.guideEmployeeIds && task.guideEmployeeIds.length === 1) {
+            defaultAssigneeId = task.guideEmployeeIds[0];
+        }
+        defaultValues[task.id] = defaultAssigneeId;
+    });
+    form.reset(defaultValues);
+
+    setIsAssigning(false);
+    setStep(2);
+  }
+
+  const handleAssign = async (data: Record<string, string>) => {
+    if (!selectedProgramId || !firestore || !assignedProgramsCollectionRef || !allEmployees) {
       return;
     }
     setIsAssigning(true);
@@ -104,57 +162,22 @@ export function AssignProgramDialog({
       const programTemplate = programTemplates?.find(p => p.id === selectedProgramId);
       if (!programTemplate) throw new Error('Хөтөлбөрийн загвар олдсонгүй.');
 
-      const stagesCollectionRef = collection(firestore, `onboardingPrograms/${selectedProgramId}/stages`);
-      const stagesSnapshot = await getDocs(stagesCollectionRef);
-
-      const allTasks: any[] = [];
       const hireDate = new Date(employee.hireDate);
+      const allTasks: AssignedTask[] = programTasks.map(task => {
+          const assigneeId = data[task.id];
+          const assignee = allEmployees.find(emp => emp.id === assigneeId);
+          const dueDate = add(hireDate, { days: task.dueDays });
+
+          return {
+              templateTaskId: task.id,
+              title: task.title,
+              status: 'TODO',
+              dueDate: dueDate.toISOString(),
+              assigneeId: assigneeId, 
+              assigneeName: assignee ? `${assignee.firstName} ${assignee.lastName}` : 'Тодорхойгүй'
+          }
+      });
       
-      for (const stageDoc of stagesSnapshot.docs) {
-          const tasksCollectionRef = collection(firestore, stageDoc.ref.path, 'tasks');
-          const tasksSnapshot = await getDocs(tasksCollectionRef);
-          
-          tasksSnapshot.forEach(taskDoc => {
-              const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
-              const dueDate = add(hireDate, { days: taskTemplate.dueDays });
-
-              let assigneeId = employee.id;
-              let assigneeName = `${employee.firstName} ${employee.lastName}`;
-              
-              // This is a placeholder for a more complex assignee logic
-              // switch(taskTemplate.assigneeType) {
-              //   case 'NEW_HIRE':
-              //     assigneeId = employee.id;
-              //     assigneeName = `${employee.firstName} ${employee.lastName}`;
-              //     break;
-              //   case 'MANAGER':
-              //       // TODO: Replace with actual manager lookup logic
-              //       assigneeId = employee.id; 
-              //       assigneeName = "Шууд удирдлага";
-              //       break;
-              //   case 'HR':
-              //       // TODO: Replace with actual HR lookup logic
-              //       assigneeId = employee.id;
-              //       assigneeName = "Хүний нөөц";
-              //       break;
-              //   case 'BUDDY':
-              //        // TODO: Replace with actual buddy lookup logic
-              //       assigneeId = employee.id;
-              //       assigneeName = "Дэмжигч ажилтан";
-              //       break;
-              // }
-
-              allTasks.push({
-                  templateTaskId: taskDoc.id,
-                  title: taskTemplate.title,
-                  status: 'TODO',
-                  dueDate: dueDate.toISOString(),
-                  assigneeId: assigneeId, 
-                  assigneeName: assigneeName
-              });
-          });
-      }
-
       await addDocumentNonBlocking(assignedProgramsCollectionRef, {
         programId: programTemplate.id,
         programName: programTemplate.title,
@@ -181,54 +204,123 @@ export function AssignProgramDialog({
     }
   };
 
+  const employeeMap = React.useMemo(() => {
+      if (!allEmployees) return new Map();
+      return new Map(allEmployees.map(emp => [emp.id, emp]));
+  }, [allEmployees]);
+
+
+  const renderStepOne = () => (
+    <>
+      <div className="py-4">
+        {isLoadingTemplates ? (
+          <Skeleton className="h-10 w-full" />
+        ) : !availablePrograms || availablePrograms.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            Оноох боломжтой шинэ хөтөлбөрийн загвар байхгүй байна.
+          </div>
+        ) : (
+          <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePrograms?.map((program) => (
+                <SelectItem key={program.id} value={program.id}>
+                  {program.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isAssigning}>
+          Цуцлах
+        </Button>
+        <Button onClick={handleNextStep} disabled={isAssigning || !selectedProgramId}>
+          {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Үргэлжлүүлэх
+        </Button>
+      </DialogFooter>
+    </>
+  );
+
+  const renderStepTwo = () => (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleAssign)}>
+            <ScrollArea className="h-96 -mx-6 px-6">
+                <div className="py-4 space-y-4">
+                    {programTasks.map(task => {
+                        const guideEmployees = task.guideEmployeeIds?.map(id => employeeMap.get(id)).filter(Boolean) as Employee[] || [];
+                        const isSingleOption = task.assigneeType === 'NEW_HIRE' || guideEmployees.length <= 1;
+                        let defaultAssignee: Employee | undefined = undefined;
+                        if(task.assigneeType === 'NEW_HIRE') defaultAssignee = employee;
+                        else if (guideEmployees.length === 1) defaultAssignee = guideEmployees[0];
+
+                        return (
+                        <Card key={task.id} className="p-4">
+                            <FormField
+                                control={form.control}
+                                name={task.id}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="font-semibold">{task.title}</FormLabel>
+                                    <Select 
+                                        onValueChange={field.onChange} 
+                                        defaultValue={field.value} 
+                                        disabled={isSingleOption}
+                                    >
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={
+                                                defaultAssignee ? `${defaultAssignee.firstName} ${defaultAssignee.lastName}` :
+                                                "Гүйцэтгэгч сонгоно уу..."} />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        {!isSingleOption && (
+                                            <SelectContent>
+                                                {guideEmployees.map(emp => (
+                                                    <SelectItem key={emp.id} value={emp.id}>
+                                                        {emp.firstName} {emp.lastName}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        )}
+                                    </Select>
+                                </FormItem>
+                                )}
+                            />
+                        </Card>
+                    )})}
+                </div>
+            </ScrollArea>
+             <DialogFooter className="pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isAssigning}>Буцах</Button>
+                <Button type="submit" disabled={isAssigning}>
+                {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Оноох
+                </Button>
+            </DialogFooter>
+        </form>
+      </Form>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Дасан зохицох хөтөлбөр оноох</DialogTitle>
           <DialogDescription>
-            {employee.firstName} {employee.lastName} ажилтанд хөтөлбөр оноох.
+            {step === 1 && `${employee.firstName}-д хөтөлбөр сонгож онооно уу.`}
+            {step === 2 && 'Даалгавар гүйцэтгэгчдийг тохируулна уу.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-            {isLoadingTemplates ? (
-                <Skeleton className="h-10 w-full" />
-            ) : !availablePrograms || availablePrograms.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                    Оноох боломжтой шинэ хөтөлбөрийн загвар байхгүй байна.
-                </div>
-            ) : (
-                <Select
-                    value={selectedProgramId}
-                    onValueChange={setSelectedProgramId}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Хөтөлбөрийн загвараас сонгоно уу..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availablePrograms?.map((program) => (
-                        <SelectItem key={program.id} value={program.id}>
-                            {program.title}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            )}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isAssigning}
-          >
-            Цуцлах
-          </Button>
-          <Button onClick={handleAssign} disabled={isAssigning || !selectedProgramId}>
-            {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Оноох
-          </Button>
-        </DialogFooter>
+        {step === 1 && renderStepOne()}
+        {step === 2 && renderStepTwo()}
       </DialogContent>
     </Dialog>
   );
 }
+
+    
