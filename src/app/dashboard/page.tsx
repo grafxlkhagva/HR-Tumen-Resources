@@ -139,8 +139,8 @@ interface EmployeeNodeData {
 type CustomNode = Node<PositionNodeData | EmployeeNodeData>;
 
 // --- Constants & Layout ---
-const X_GAP = 380;
-const Y_GAP = 350;
+const X_GAP = 450;
+const Y_GAP = 500;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 // --- Helper Functions ---
@@ -729,8 +729,15 @@ const OrganizationChart = () => {
         // Map employee onboarding programs
         const employeeOnboardingMap = new Map<string, { progress: number; hasActive: boolean }>();
         assignedPrograms?.forEach((program: any) => {
-            // Fallback for employeeId if it's missing from the document data (legacy data)
-            const employeeId = program.employeeId || program.ref?.parent?.parent?.id;
+            // Robust way to get employeeId from document path or explicit field
+            // Path: employees/{empId}/assignedPrograms/{docId}
+            let employeeId = program.employeeId;
+            if (!employeeId && program.ref?.path) {
+                const parts = program.ref.path.split('/');
+                if (parts.length >= 2 && parts[0] === 'employees') {
+                    employeeId = parts[1];
+                }
+            }
 
             if (employeeId && (program.status === 'IN_PROGRESS' || program.status === 'COMPLETED')) {
                 const existing = employeeOnboardingMap.get(employeeId);

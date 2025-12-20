@@ -33,8 +33,9 @@ export function useCollection<T = DocumentData>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
-  // Use path and type to create a stable dependency for the effect
-  const dependency = target ? `${target.type}:${(target as any).path}` : null;
+  // Use a more stable dependency for the effect. 
+  // For collectionGroup queries, we use a custom string representation.
+  const dependency = target ? ((target as any).path || (target as any)._query?.toString() || 'query') : null;
 
   useEffect(() => {
     // 🔒 target бэлэн биш үед: ямар ч асуулга явуулахгүй

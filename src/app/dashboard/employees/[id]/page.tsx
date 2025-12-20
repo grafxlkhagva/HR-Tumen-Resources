@@ -420,11 +420,22 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                                                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {totalTasks} даалгавар</span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 w-full sm:w-1/3">
+                                            <div className="flex items-center gap-4 w-full sm:w-1/2">
                                                 <div className="flex-1">
-                                                    <div className="flex justify-between text-xs mb-1.5">
-                                                        <span>Явц</span>
-                                                        <span className="font-medium">{Math.round(program.progress || 0)}%</span>
+                                                    <div className="flex justify-between items-center text-xs mb-1.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">Нийт явц</span>
+                                                            <div className="group/info relative">
+                                                                <Clock className="h-3 w-3 text-muted-foreground cursor-help" />
+                                                                <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-popover text-popover-foreground rounded-md shadow-lg border text-[10px] invisible group-hover/info:visible z-50">
+                                                                    Баталгаажуулалт шаардлагатай даалгаврууд:<br />
+                                                                    - Хийж эхэлсэн: 40%<br />
+                                                                    - Хийж дууссан: 80% (Хяналт хүлээж буй)<br />
+                                                                    - Баталгаажсан: 100%
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span className="font-bold text-primary">{Math.round(program.progress || 0)}%</span>
                                                     </div>
                                                     <Progress value={program.progress} className="h-2 bg-muted/50" />
                                                 </div>

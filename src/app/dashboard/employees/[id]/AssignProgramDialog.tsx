@@ -218,6 +218,20 @@ export function AssignProgramDialog({
       const programTemplate = programTemplates?.find(p => p.id === selectedProgramId);
       if (!programTemplate) throw new Error('Хөтөлбөрийн загвар олдсонгүй.');
 
+      // Check if all tasks have an assignee
+      const missingAssignee = programStages.some(stage =>
+        stage.tasks.some(task => !mainData[task.id])
+      );
+
+      if (missingAssignee) {
+        toast({
+          variant: 'destructive',
+          title: 'Мэдээлэл дутуу байна',
+          description: 'Бүх даалгаварт гүйцэтгэгч оноох шаардлагатай.'
+        });
+        return;
+      }
+
       // Safely handle date parsing
       const hireDate = employee.hireDate ? new Date(employee.hireDate) : new Date();
       if (isNaN(hireDate.getTime())) {
@@ -270,7 +284,7 @@ export function AssignProgramDialog({
       });
 
       toast({
-        title: 'Амжилттай onoолоо',
+        title: 'Амжилттай оноолоо',
         description: `${employee.firstName}-д "${programTemplate.title}" хөтөлбөрийг оноолоо.`,
       });
       onOpenChange(false);

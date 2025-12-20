@@ -724,10 +724,45 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, 
                 taskCount: increment(-tasksToDeleteCount)
             });
 
+            // Sync deletion to active assigned programs
+            const assignedQuery = query(
+                collectionGroup(firestore, 'assignedPrograms'),
+                where('programId', '==', programId),
+                where('status', '==', 'IN_PROGRESS')
+            );
+            const assignedDocs = await getDocs(assignedQuery);
+            assignedDocs.forEach(assignedDoc => {
+                const assignedData = assignedDoc.data();
+                if (Array.isArray(assignedData.stages)) {
+                    const updatedStages = assignedData.stages.filter((s: any) => s.stageId !== stage.id);
+                    if (updatedStages.length !== assignedData.stages.length) {
+                        // Recalculate progress after stage removal
+                        let totalTasks = 0;
+                        let completedTasks = 0;
+                        updatedStages.forEach((s: any) => {
+                            s.tasks.forEach((t: any) => {
+                                totalTasks++;
+                                if (t.status === 'VERIFIED') completedTasks++;
+                                else if (t.status === 'DONE') completedTasks += t.requiresVerification ? 0.8 : 1;
+                                else if (t.status === 'IN_PROGRESS') completedTasks += 0.4;
+                            });
+                        });
+                        const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                        batch.update(assignedDoc.ref, {
+                            stages: updatedStages,
+                            progress,
+                            status: progress === 100 ? 'COMPLETED' : 'IN_PROGRESS'
+                        });
+                    }
+                }
+            });
+
             await batch.commit();
+            toast({ title: 'Үе шат устгагдаж, идэвхтэй хөтөлбөрүүдээс хасагдлаа.' });
 
         } catch (error) {
             console.error("Error deleting stage and its tasks: ", error);
+            toast({ variant: 'destructive', title: 'Устгахад алдаа гарлаа' });
         }
     }
 
@@ -855,9 +890,64 @@ export default function OnboardingProgramBuilderPage() {
 
     const handleDeleteTask = async (stageId: string, taskId: string) => {
         if (!firestore || !programDocRef || !id) return;
-        const docRef = doc(firestore, `onboardingPrograms/${id as string}/stages/${stageId}/tasks`, taskId);
-        await deleteDoc(docRef);
-        updateDocumentNonBlocking(programDocRef, { taskCount: increment(-1) });
+
+        try {
+            const batch = writeBatch(firestore);
+            const docRef = doc(firestore, `onboardingPrograms/${id as string}/stages/${stageId}/tasks`, taskId);
+
+            batch.delete(docRef);
+            batch.update(programDocRef, { taskCount: increment(-1) });
+
+            // Sync deletion to active assigned programs
+            const assignedQuery = query(
+                collectionGroup(firestore, 'assignedPrograms'),
+                where('programId', '==', id),
+                where('status', '==', 'IN_PROGRESS')
+            );
+            const assignedDocs = await getDocs(assignedQuery);
+            assignedDocs.forEach(assignedDoc => {
+                const assignedData = assignedDoc.data();
+                if (Array.isArray(assignedData.stages)) {
+                    let changed = false;
+                    const updatedStages = assignedData.stages.map((stage: any) => {
+                        if (stage.stageId === stageId && Array.isArray(stage.tasks)) {
+                            const filteredTasks = stage.tasks.filter((t: any) => t.templateTaskId !== taskId);
+                            if (filteredTasks.length !== stage.tasks.length) {
+                                changed = true;
+                                return { ...stage, tasks: filteredTasks };
+                            }
+                        }
+                        return stage;
+                    });
+
+                    if (changed) {
+                        // Recalculate progress
+                        let totalTasks = 0;
+                        let completedTasks = 0;
+                        updatedStages.forEach((s: any) => {
+                            s.tasks.forEach((t: any) => {
+                                totalTasks++;
+                                if (t.status === 'VERIFIED') completedTasks++;
+                                else if (t.status === 'DONE') completedTasks += t.requiresVerification ? 0.8 : 1;
+                                else if (t.status === 'IN_PROGRESS') completedTasks += 0.4;
+                            });
+                        });
+                        const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                        batch.update(assignedDoc.ref, {
+                            stages: updatedStages,
+                            progress,
+                            status: progress === 100 ? 'COMPLETED' : 'IN_PROGRESS'
+                        });
+                    }
+                }
+            });
+
+            await batch.commit();
+            toast({ title: 'Даалгавар устгагдаж, идэвхтэй хөтөлбөрүүдээс хасагдлаа.' });
+        } catch (err) {
+            console.error("Error deleting task sync:", err);
+            toast({ variant: 'destructive', title: 'Даалгавар устгахад алдаа гарлаа' });
+        }
     }
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, stageId: string) => {
