@@ -4,6 +4,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import ReactFlow, {
     addEdge,
     applyNodeChanges,
@@ -37,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -70,7 +71,7 @@ interface Department {
     color?: string;
 }
 
-interface Position {
+interface JobPosition {
     id: string;
     title: string;
     departmentId: string;
@@ -81,6 +82,7 @@ interface Position {
     jobCategoryId?: string;
     workScheduleId?: string;
     isActive?: boolean;
+    canApproveAttendance?: boolean;
 }
 
 interface AttendanceRecord {
@@ -112,7 +114,7 @@ interface CompanyProfile {
 }
 
 
-interface PositionNodeData {
+interface JobPositionNodeData {
     label: string;
     title: string;
     department: string;
@@ -120,9 +122,9 @@ interface PositionNodeData {
     filled: number;
     employees: Employee[];
     workScheduleName?: string;
-    onAssignEmployee: (position: Position) => void;
-    onEditPosition: (position: Position) => void;
-    onDuplicatePosition: (position: Position) => void;
+    onAssignEmployee: (position: JobPosition) => void;
+    onEditPosition: (position: JobPosition) => void;
+    onDuplicatePosition: (position: JobPosition) => void;
     attendanceStatus?: AttendanceStatus;
     onboardingProgress?: number; // 0-100
     hasActiveOnboarding?: boolean;
@@ -136,7 +138,7 @@ interface EmployeeNodeData {
     employee: Employee;
 }
 
-type CustomNode = Node<PositionNodeData | EmployeeNodeData>;
+type CustomNode = Node<JobPositionNodeData | EmployeeNodeData>;
 
 // --- Constants & Layout ---
 const X_GAP = 450;
@@ -274,7 +276,7 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     )
 }
 
-const PositionNode = ({ data }: { data: PositionNodeData }) => {
+const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
     const employee = data.employees[0];
     const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
     const textColor = isDarkBg ? 'text-white' : 'text-foreground';
@@ -401,11 +403,11 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
     </Card>
 )
 
-const nodeTypes = { position: PositionNode, unassigned: UnassignedEmployeeNode };
+const nodeTypes = { position: JobPositionNode, unassigned: UnassignedEmployeeNode };
 const SkeletonChart = () => <div className="relative h-[80vh] w-full"><Skeleton className="h-32 w-64 absolute top-10 left-10" /><Skeleton className="h-32 w-64 absolute top-60 left-80" /><Skeleton className="h-32 w-64 absolute top-10 right-10" /></div>
 
 // --- Layouting Logic ---
-function calculateLayout(positions: Position[]) {
+function calculateLayout(positions: JobPosition[]) {
     const positionMap = new Map(positions.map((p) => [p.id, p]));
     const childrenMap = new Map<string, string[]>();
     positions.forEach((p) => {
@@ -418,12 +420,21 @@ function calculateLayout(positions: Position[]) {
     const nodePositions: Record<string, { x: number; y: number }> = {};
     const processedNodes = new Set<string>();
 
-    const calculateSubtreeWidth = (nodeId: string): number => {
+    const widthMemo = new Map<string, number>();
+    const calculateSubtreeWidth = (nodeId: string, visited = new Set<string>()): number => {
+        if (widthMemo.has(nodeId)) return widthMemo.get(nodeId)!;
+        if (visited.has(nodeId)) return X_GAP; // Cycle detected
+
+        const newVisited = new Set(visited);
+        newVisited.add(nodeId);
+
         const children = childrenMap.get(nodeId) || [];
         if (children.length === 0) {
             return X_GAP;
         }
-        return children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId), 0);
+        const width = children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId, newVisited), 0);
+        widthMemo.set(nodeId, width);
+        return width;
     };
 
     function positionNodes(nodeId: string, x: number, y: number) {
@@ -460,7 +471,7 @@ function calculateLayout(positions: Position[]) {
 }
 
 
-function useLayout(positions: Position[] | null) {
+function useLayout(positions: JobPosition[] | null) {
     const [nodePositions, setNodePositions] = useState<Record<string, { x: number, y: number }>>({});
 
     useEffect(() => {
@@ -509,11 +520,11 @@ const OrganizationChart = () => {
     const [nodes, setNodes] = useState<CustomNode[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-    const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+    const [selectedPosition, setSelectedPosition] = useState<JobPosition | null>(null);
     const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
     const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
-    const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-    const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
+    const [editingPosition, setEditingPosition] = useState<JobPosition | null>(null);
+    const [duplicatingPosition, setDuplicatingPosition] = React.useState<JobPosition | null>(null);
 
     const { toast } = useToast();
     const { firestore } = useFirebase();
@@ -538,7 +549,7 @@ const OrganizationChart = () => {
     const assignedProgramsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'assignedPrograms') : null, [firestore]);
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<JobPosition>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
     const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
     const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
@@ -553,7 +564,11 @@ const OrganizationChart = () => {
 
     const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile || isLoadingAssigned;
+    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
+
+    const activeEmployeesCount = useMemo(() => {
+        return (employees || []).filter(emp => emp.status === 'Идэвхтэй').length;
+    }, [employees]);
 
     const onLeaveEmployees = useMemo(() => {
         if (!timeOffData) return new Set<string>();
@@ -647,12 +662,12 @@ const OrganizationChart = () => {
         return activities.slice(0, 10);
     }, [attendanceData, employees]);
 
-    const handleAssignEmployeeClick = (position: Position) => {
+    const handleAssignEmployeeClick = (position: JobPosition) => {
         setSelectedPosition(position);
         setIsAssignDialogOpen(true);
     };
 
-    const handleEditPositionClick = (position: Position) => {
+    const handleEditPositionClick = (position: JobPosition) => {
         setEditingPosition(position);
         setIsPositionDialogOpen(true);
     };
@@ -662,7 +677,7 @@ const OrganizationChart = () => {
         setIsPositionDialogOpen(true);
     };
 
-    const handleDuplicatePosition = (pos: Position) => {
+    const handleDuplicatePosition = (pos: JobPosition) => {
         if (!firestore) return;
 
         // Create a new object with only the fields we want to save to Firestore
@@ -764,7 +779,7 @@ const OrganizationChart = () => {
             // Get onboarding data for the employee
             const onboardingData = employee ? employeeOnboardingMap.get(employee.id) : undefined;
 
-            const node: Node<PositionNodeData> = {
+            const node: Node<JobPositionNodeData> = {
                 id: pos.id,
                 type: 'position',
                 position: nodePositions[pos.id] || { x: 0, y: 0 },
@@ -776,7 +791,7 @@ const OrganizationChart = () => {
                     employees: assignedEmployees,
                     onAssignEmployee: handleAssignEmployeeClick,
                     onEditPosition: handleEditPositionClick,
-                    onDuplicatePosition: (position) => setDuplicatingPosition(position),
+                    onDuplicatePosition: (pos: JobPosition) => setDuplicatingPosition(pos),
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
                     onboardingProgress: onboardingData?.progress,
@@ -838,7 +853,7 @@ const OrganizationChart = () => {
 
             if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
 
-            const posData = positionNode?.data as PositionNodeData;
+            const posData = positionNode?.data as JobPositionNodeData;
             if (posData.filled >= 1) {
                 toast({
                     title: "Орон тоо дүүрсэн",
@@ -848,35 +863,35 @@ const OrganizationChart = () => {
                 return;
             }
 
-            setSelectedPosition(positionNode.data as Position);
-            setSelectedEmployeeForAssignment(employeeNode.data.employee);
+            setSelectedPosition(positionNode.data as any);
+            setSelectedEmployeeForAssignment((employeeNode.data as any).employee);
             setIsAssignDialogOpen(true);
         },
         [nodes, toast]
     );
 
-    const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
-    const inactiveEmployeesCount = employees?.filter(e => e.status !== 'Идэвхтэй').length || 0;
+    const inactiveEmployeesCount = (employees || []).filter(e => e.status !== 'Идэвхтэй').length;
 
     return (
-        <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
-            <div className="p-4 flex items-center justify-between">
+        <div className="flex flex-col h-screen">
+            {/* Header - Compact */}
+            <div className="px-4 py-2 flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <Link href="/dashboard/company" className="inline-block">
-                    <div className="flex items-center gap-4 group">
+                    <div className="flex items-center gap-3 group">
                         {isLoadingProfile ? (
                             <>
-                                <Skeleton className="size-10 rounded-lg" />
-                                <Skeleton className="h-6 w-32" />
+                                <Skeleton className="size-8 rounded-lg" />
+                                <Skeleton className="h-5 w-24" />
                             </>
                         ) : (
                             <>
-                                <Avatar className="size-10 rounded-lg">
+                                <Avatar className="size-8 rounded-lg">
                                     <AvatarImage src={companyProfile?.logoUrl} className="object-contain" />
                                     <AvatarFallback className="rounded-lg bg-muted">
-                                        <Building className="size-5" />
+                                        <Building className="size-4" />
                                     </AvatarFallback>
                                 </Avatar>
-                                <h1 className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
+                                <h1 className="text-base font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
                             </>
                         )}
                     </div>
@@ -885,115 +900,167 @@ const OrganizationChart = () => {
                     <UserNav />
                     <Button asChild variant="ghost" size="icon">
                         <Link href="/dashboard/settings/general">
-                            <Settings className="h-5 w-5" />
+                            <Settings className="h-4 w-4" />
                             <span className="sr-only">Тохиргоо</span>
                         </Link>
                     </Button>
                 </div>
             </div>
 
-            <div className="px-4 pb-4 grid gap-4 md:grid-cols-5">
-                <Link href="/dashboard/employees">
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Нийт ажилчид</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingEmp ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
-                        </CardContent>
-                    </Card>
-                </Link>
-                <Link href="/dashboard/attendance">
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Ирцийн тойм</CardTitle>
-                            <UserCheck className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingAttendance || isLoadingTimeOff ? (
-                                <Skeleton className="h-7 w-20" />
-                            ) : (
-                                <div className="text-2xl font-bold">
-                                    {presentEmployees.size} <span className="text-base font-normal text-muted-foreground">/ {onLeaveEmployees.size} чөлөөтэй</span>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Link>
-                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 hover:shadow-md transition-all cursor-pointer">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-100">Дасан зохицох</CardTitle>
-                        <Briefcase className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                            {onboardingStats.activePrograms} <span className="text-sm font-normal text-blue-700 dark:text-blue-300">идэвхтэй</span>
+            {/* Stats Bar - 20% height, horizontal scroll */}
+            <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950">
+                <div className="h-full overflow-x-auto overflow-y-hidden px-6 py-4">
+                    <div className="flex gap-6 h-full">
+                        {/* 1. Total Employees */}
+                        <Link href="/dashboard/employees" className="flex-shrink-0">
+                            <Card className="h-full w-[220px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Нийт ажилчид</div>
+                                        <Users className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    {isLoadingEmp ? (
+                                        <Skeleton className="h-10 w-20 bg-slate-700" />
+                                    ) : (
+                                        <div>
+                                            <div className="text-4xl font-black text-white mb-1">{activeEmployeesCount}</div>
+                                            <div className="text-xs text-slate-400 font-medium">идэвхтэй ажилтан</div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 2. Attendance */}
+                        <Link href="/dashboard/attendance" className="flex-shrink-0">
+                            <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Өнөөдрийн ирц</div>
+                                        <UserCheck className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    {isLoadingAttendance || isLoadingTimeOff ? (
+                                        <Skeleton className="h-10 w-32 bg-slate-700" />
+                                    ) : (
+                                        <div className="flex items-end gap-6">
+                                            <div>
+                                                <div className="text-3xl font-black text-white">{presentEmployees.size}</div>
+                                                <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wide">Ажил дээрээ</div>
+                                            </div>
+                                            <div className="h-12 w-px bg-slate-700" />
+                                            <div>
+                                                <div className="text-3xl font-black text-white">{onLeaveEmployees.size}</div>
+                                                <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wide">Чөлөөтэй</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 3. Posts */}
+                        <Link href="/dashboard/posts" className="flex-shrink-0">
+                            <Card className="h-full w-[180px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Мэдээлэл</div>
+                                        <Newspaper className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    {isLoadingPosts ? (
+                                        <Skeleton className="h-10 w-16 bg-slate-700" />
+                                    ) : (
+                                        <div>
+                                            <div className="text-4xl font-black text-white mb-1">{posts?.length || 0}</div>
+                                            <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 4. Onboarding */}
+                        <div className="flex-shrink-0">
+                            <Card className="h-full w-[280px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Дасан зохицох</div>
+                                        <Briefcase className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    <div className="flex items-end justify-between">
+                                        <div>
+                                            <div className="text-3xl font-black text-white">{onboardingStats.activePrograms}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium uppercase">Идэвхтэй</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-2xl font-black text-amber-400">{onboardingStats.pendingTasks}</div>
+                                            <div className="text-[9px] text-slate-400 uppercase font-medium">Хүлээгдэж буй</div>
+                                        </div>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                            style={{ width: `${onboardingStats.avgProgress}%` }}
+                                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-1000"
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                            {onboardingStats.pendingTasks} даалгавар хүлээгдэж байна
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 hover:shadow-md transition-all cursor-pointer">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-green-900 dark:text-green-100">Шинэ ажилтан</CardTitle>
-                        <User className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                            {newHiresStats.count} <span className="text-sm font-normal text-green-700 dark:text-green-300">хүн</span>
+
+                        {/* 5. New Hires */}
+                        <div className="flex-shrink-0">
+                            <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Шинэ ажилтнууд</div>
+                                        <User className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    <div className="flex items-end justify-between">
+                                        <div>
+                                            <div className="text-4xl font-black text-white">{newHiresStats.count}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium">Сүүлийн 30 хоногт</div>
+                                        </div>
+                                        <div className="px-3 py-2 bg-slate-800 dark:bg-slate-700 rounded-xl border border-slate-600">
+                                            <div className="text-lg font-black text-white">{newHiresStats.avgOnboardingProgress}%</div>
+                                            <div className="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Дундаж</div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                        <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                            Дасан зохицох: {newHiresStats.avgOnboardingProgress}% дундаж
-                        </p>
-                    </CardContent>
-                </Card>
-                <Link href="/dashboard/posts">
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Нийтлэл</CardTitle>
-                            <Newspaper className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingPosts ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-bold">{posts?.length || 0}</div>}
-                        </CardContent>
-                    </Card>
-                </Link>
+                    </div>
+                </div>
             </div>
 
-            <div className="relative w-full flex-1 flex gap-4">
-                {/* Organization Chart */}
-                <div className="flex-1 min-w-0">
-                    {isLoading ? <SkeletonChart /> : (
-                        <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            onNodesChange={onNodesChange}
-                            onEdgesChange={onEdgesChange}
-                            onConnect={onConnect}
-                            nodeTypes={nodeTypes}
-                            fitView>
-                            <Background />
-                            <Controls />
-                        </ReactFlow>
-                    )}
-                    <div className="absolute bottom-8 right-4 z-10 flex gap-2">
-                        <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
-                            <RotateCcw className="h-6 w-6" />
-                            <span className="sr-only">Байршлыг сэргээх</span>
-                        </Button>
-                        <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
-                            <Link href="/dashboard/employees/add">
-                                <User className="h-6 w-6" />
-                                <span className="sr-only">Ажилтан нэмэх</span>
-                            </Link>
-                        </Button>
-                        <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
-                            <PlusCircle className="h-6 w-6" />
-                            <span className="sr-only">Ажлын байр нэмэх</span>
-                        </Button>
-                    </div>
+            {/* Organization Chart - 80% height */}
+            <div className="flex-1 relative w-full">
+                {isLoading ? <SkeletonChart /> : (
+                    <ReactFlow
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        nodeTypes={nodeTypes}
+                        fitView>
+                        <Background />
+                        <Controls />
+                    </ReactFlow>
+                )}
+                <div className="absolute bottom-8 right-4 z-10 flex gap-2">
+                    <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
+                        <RotateCcw className="h-6 w-6" />
+                        <span className="sr-only">Байршлыг сэргээх</span>
+                    </Button>
+                    <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
+                        <Link href="/dashboard/employees/add">
+                            <User className="h-6 w-6" />
+                            <span className="sr-only">Ажилтан нэмэх</span>
+                        </Link>
+                    </Button>
+                    <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
+                        <PlusCircle className="h-6 w-6" />
+                        <span className="sr-only">Ажлын байр нэмэх</span>
+                    </Button>
                 </div>
             </div>
             <AssignEmployeeDialog

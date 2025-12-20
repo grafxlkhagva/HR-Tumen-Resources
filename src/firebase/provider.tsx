@@ -76,17 +76,30 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    // Safety timeout to prevent infinite loading if Firebase Auth hangs
+    const timeoutId = setTimeout(() => {
+      if (userAuthState.isUserLoading) {
+        console.warn("FirebaseProvider: Auth state check timed out after 10s.");
+        setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
+      }
+    }, 10000);
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => { // Auth state determined
+        clearTimeout(timeoutId);
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => { // Auth listener error
+        clearTimeout(timeoutId);
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
         setUserAuthState({ user: null, isUserLoading: false, userError: error });
       }
     );
-    return () => unsubscribe(); // Cleanup
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, [auth]); // Depends on the auth instance
 
   // Memoize the context value
@@ -101,7 +114,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       userError: userAuthState.userError,
     };
   }, [servicesAvailable, firebaseApp, firestore, auth, userAuthState.user, userAuthState.isUserLoading, userAuthState.userError]);
-  
+
   if (!servicesAvailable) {
     return null;
   }
@@ -188,6 +201,6 @@ export const useUser = (): UserHookResult => { // Renamed from useAuthUser
   if (context === undefined) {
     throw new Error('useUser must be used within a FirebaseProvider.');
   }
-  const { user, isUserLoading, userError } = context; 
+  const { user, isUserLoading, userError } = context;
   return { user, isUserLoading, userError };
 };
