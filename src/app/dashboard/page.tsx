@@ -5,32 +5,32 @@
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import ReactFlow, {
-  addEdge,
-  applyNodeChanges,
-  applyEdgeChanges,
-  Node,
-  Edge,
-  OnNodesChange,
-  OnEdgesChange,
-  OnConnect,
-  Background,
-  Controls,
-  MarkerType,
-  Handle,
-  Position,
-  NodePositionChange,
-  Connection,
+    addEdge,
+    applyNodeChanges,
+    applyEdgeChanges,
+    Node,
+    Edge,
+    OnNodesChange,
+    OnEdgesChange,
+    OnConnect,
+    Background,
+    Controls,
+    MarkerType,
+    Handle,
+    Position,
+    NodePositionChange,
+    Connection,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import Link from 'next/link';
 
 import {
-  useCollection,
-  useFirebase,
-  useMemoFirebase,
-  updateDocumentNonBlocking,
-  useDoc,
-  addDocumentNonBlocking,
+    useCollection,
+    useFirebase,
+    useMemoFirebase,
+    updateDocumentNonBlocking,
+    useDoc,
+    addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,41 +46,41 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import type { Employee as BaseEmployee } from './employees/data';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
 
 // --- Types ---
 type Employee = BaseEmployee & {
-  questionnaireCompletion?: number;
+    questionnaireCompletion?: number;
 };
 
 
 interface Department {
-  id: string;
-  name: string;
-  color?: string;
+    id: string;
+    name: string;
+    color?: string;
 }
 
 interface Position {
-  id: string;
-  title: string;
-  departmentId: string;
-  filled: number;
-  reportsTo?: string;
-  levelId?: string;
-  employmentTypeId?: string;
-  jobCategoryId?: string;
-  workScheduleId?: string;
-  isActive?: boolean;
+    id: string;
+    title: string;
+    departmentId: string;
+    filled: number;
+    reportsTo?: string;
+    levelId?: string;
+    employmentTypeId?: string;
+    jobCategoryId?: string;
+    workScheduleId?: string;
+    isActive?: boolean;
 }
 
 interface AttendanceRecord {
@@ -113,25 +113,25 @@ interface CompanyProfile {
 
 
 interface PositionNodeData {
-  label: string;
-  title: string;
-  department: string;
-  departmentColor?: string;
-  filled: number;
-  employees: Employee[];
-  workScheduleName?: string;
-  onAssignEmployee: (position: Position) => void;
-  onEditPosition: (position: Position) => void;
-  onDuplicatePosition: (position: Position) => void;
-  attendanceStatus?: AttendanceStatus;
+    label: string;
+    title: string;
+    department: string;
+    departmentColor?: string;
+    filled: number;
+    employees: Employee[];
+    workScheduleName?: string;
+    onAssignEmployee: (position: Position) => void;
+    onEditPosition: (position: Position) => void;
+    onDuplicatePosition: (position: Position) => void;
+    attendanceStatus?: AttendanceStatus;
 }
 
 interface EmployeeNodeData {
-  label: string;
-  name: string;
-  jobTitle: string;
-  avatar?: string;
-  employee: Employee;
+    label: string;
+    name: string;
+    jobTitle: string;
+    avatar?: string;
+    employee: Employee;
 }
 
 type CustomNode = Node<PositionNodeData | EmployeeNodeData>;
@@ -164,17 +164,17 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
     const offset = circumference - (progress / 100) * circumference;
 
     const progressColor = progress < 50 ? '#ef4444' : progress < 90 ? '#f59e0b' : '#22c55e';
-    
+
     const avatarContent = (
-         <div className="relative mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg" style={{ width: size, height: size }}>
+        <div className="relative mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg" style={{ width: size, height: size }}>
             <Avatar className="h-full w-full">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
                 <AvatarFallback className="text-3xl bg-muted">
-                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8 text-muted-foreground"/>}
+                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8 text-muted-foreground" />}
                 </AvatarFallback>
             </Avatar>
             {employee && (
-                 <svg
+                <svg
                     className="absolute top-0 left-0"
                     width={size}
                     height={size}
@@ -198,14 +198,14 @@ const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
                         r={radius}
                         cx={size / 2}
                         cy={size / 2}
-                        transform={`rotate(-90 ${size/2} ${size/2})`}
+                        transform={`rotate(-90 ${size / 2} ${size / 2})`}
                         style={{ stroke: progressColor, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
                     />
                 </svg>
             )}
         </div>
     );
-    
+
     if (employee) {
         return <Link href={`/dashboard/employees/${employee.id}`}>{avatarContent}</Link>
     }
@@ -222,7 +222,7 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
         'on-leave': { icon: CalendarCheck2, text: 'Чөлөөтэй', color: 'text-blue-500', time: '' },
         'absent': { icon: MinusCircle, text: 'Ирээгүй', color: 'text-muted-foreground', time: '' },
     }[status.status];
-    
+
     if (!config) return null;
 
     const Icon = config.icon;
@@ -236,72 +236,72 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
 }
 
 const PositionNode = ({ data }: { data: PositionNodeData }) => {
-  const employee = data.employees[0];
-  const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
-  const textColor = isDarkBg ? 'text-white' : 'text-foreground';
-  const mutedTextColor = isDarkBg ? 'text-gray-300' : 'text-muted-foreground';
+    const employee = data.employees[0];
+    const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
+    const textColor = isDarkBg ? 'text-white' : 'text-foreground';
+    const mutedTextColor = isDarkBg ? 'text-gray-300' : 'text-muted-foreground';
 
 
-  return (
-    <Card 
-        className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
-        style={{ backgroundColor: data.departmentColor }}
-    >
-      <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
-      <div className="absolute top-2 right-2 z-10">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn("h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
-                <MoreHorizontal className="h-4 w-4" />
-            </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => data.onDuplicatePosition(data as any)}><Copy className="mr-2 h-4 w-4" /> Хувилах</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => data.onAssignEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <CardContent className="p-4 text-center space-y-2">
-        <AvatarWithProgress employee={employee} />
-        
-        <div className="space-y-1">
-            {employee ? (
-                <>
-                <Link href={`/dashboard/employees/${employee.id}`}>
-                  <p className="font-semibold text-base hover:underline">{employee.firstName} {employee.lastName}</p>
-                  <p className={cn("text-sm font-mono", mutedTextColor)}>{employee.employeeCode}</p>
-                </Link>
-                {employee.questionnaireCompletion !== undefined && (
-                    <p className={cn("text-xs font-bold", mutedTextColor)}>
-                        Анкет: {Math.round(employee.questionnaireCompletion)}%
-                    </p>
-                )}
-                </>
-            ) : (
-                <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
-            )}
-            <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
-        </div>
-        
-        <AttendanceStatusIndicator status={data.attendanceStatus} />
-
-        <div className={cn("pt-3 mt-3 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
-            <div className="flex justify-between">
-                <span className={mutedTextColor}>Хэлтэс:</span>
-                <span className="font-medium">{data.department}</span>
+    return (
+        <Card
+            className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
+            style={{ backgroundColor: data.departmentColor }}
+        >
+            <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
+            <div className="absolute top-2 right-2 z-10">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className={cn("h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => data.onDuplicatePosition(data as any)}><Copy className="mr-2 h-4 w-4" /> Хувилах</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => data.onAssignEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
-             <div className="flex justify-between">
-                <span className={mutedTextColor}>Ажилчид:</span>
-                <span className="font-medium">{data.filled}</span>
-            </div>
-        </div>
-        
-      </CardContent>
-      <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
-    </Card>
-  );
+
+            <CardContent className="p-4 text-center space-y-2">
+                <AvatarWithProgress employee={employee} />
+
+                <div className="space-y-1">
+                    {employee ? (
+                        <>
+                            <Link href={`/dashboard/employees/${employee.id}`}>
+                                <p className="font-semibold text-base hover:underline">{employee.firstName} {employee.lastName}</p>
+                                <p className={cn("text-sm font-mono", mutedTextColor)}>{employee.employeeCode}</p>
+                            </Link>
+                            {employee.questionnaireCompletion !== undefined && (
+                                <p className={cn("text-xs font-bold", mutedTextColor)}>
+                                    Анкет: {Math.round(employee.questionnaireCompletion)}%
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
+                    )}
+                    <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
+                </div>
+
+                <AttendanceStatusIndicator status={data.attendanceStatus} />
+
+                <div className={cn("pt-3 mt-3 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
+                    <div className="flex justify-between">
+                        <span className={mutedTextColor}>Хэлтэс:</span>
+                        <span className="font-medium">{data.department}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className={mutedTextColor}>Ажилчид:</span>
+                        <span className="font-medium">{data.filled}</span>
+                    </div>
+                </div>
+
+            </CardContent>
+            <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
+        </Card>
+    );
 };
 
 
@@ -310,12 +310,12 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
         <Handle type="source" position={Position.Right} className="!bg-amber-500" />
         <div className="flex items-center gap-4">
             <div className="w-20 h-20 flex-shrink-0">
-               <AvatarWithProgress employee={data.employee} />
+                <AvatarWithProgress employee={data.employee} />
             </div>
             <Link href={`/dashboard/employees/${data.employee.id}`}>
                 <div className="space-y-0.5">
                     <p className="font-semibold text-lg hover:underline">{data.name}</p>
-                     <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
+                    <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
                     <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
                 </div>
             </Link>
@@ -347,17 +347,17 @@ function calculateLayout(positions: Position[]) {
         }
         return children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId), 0);
     };
-    
+
     function positionNodes(nodeId: string, x: number, y: number) {
         if (processedNodes.has(nodeId)) return;
         nodePositions[nodeId] = { x, y };
         processedNodes.add(nodeId);
 
         const children = childrenMap.get(nodeId) || [];
-        children.sort((a,b) => (positionMap.get(a)?.title || '').localeCompare(positionMap.get(b)?.title || ''));
-        
+        children.sort((a, b) => (positionMap.get(a)?.title || '').localeCompare(positionMap.get(b)?.title || ''));
+
         if (children.length === 0) return;
-        
+
         const totalWidth = children.reduce((sum, childId) => sum + calculateSubtreeWidth(childId), 0);
         let currentX = x - totalWidth / 2;
 
@@ -369,8 +369,8 @@ function calculateLayout(positions: Position[]) {
     }
 
     const rootNodes = positions.filter((p) => !p.reportsTo);
-    rootNodes.sort((a,b) => (a.title || '').localeCompare(b.title || ''));
-    
+    rootNodes.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+
     let currentX = 0;
     rootNodes.forEach(rootNode => {
         const rootWidth = calculateSubtreeWidth(rootNode.id);
@@ -383,93 +383,99 @@ function calculateLayout(positions: Position[]) {
 
 
 function useLayout(positions: Position[] | null) {
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number, y: number }>>({});
+    const [nodePositions, setNodePositions] = useState<Record<string, { x: number, y: number }>>({});
 
-  useEffect(() => {
-    if (!positions) return;
+    useEffect(() => {
+        if (!positions) return;
 
-    // Load saved layout from localStorage
-    const savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (savedLayout) {
-      try {
-        setNodePositions(JSON.parse(savedLayout));
-        return;
-      } catch (e) {
-        console.error("Failed to parse saved layout", e);
-      }
-    }
-    
-    // If no saved layout, calculate initial layout
-    const initialLayout = calculateLayout(positions);
-    setNodePositions(initialLayout);
-    
-  }, [positions]);
+        // Load saved layout from localStorage
+        const savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY);
+        if (savedLayout) {
+            try {
+                setNodePositions(JSON.parse(savedLayout));
+                return;
+            } catch (e) {
+                console.error("Failed to parse saved layout", e);
+            }
+        }
 
-  const saveLayout = useCallback((nodes: CustomNode[]) => {
-    const layoutToSave: Record<string, { x: number, y: number }> = {};
-    nodes.forEach(node => {
-      if(node.position) {
-          layoutToSave[node.id] = node.position;
-      }
-    });
-    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
-  }, []);
+        // If no saved layout, calculate initial layout
+        const initialLayout = calculateLayout(positions);
+        setNodePositions(initialLayout);
 
-  const resetLayout = useCallback(() => {
-      if (!positions) return;
-      const initialLayout = calculateLayout(positions);
-      setNodePositions(initialLayout);
-      localStorage.removeItem(LAYOUT_STORAGE_KEY);
-  }, [positions]);
-  
-  return { nodePositions, saveLayout, resetLayout };
+    }, [positions]);
+
+    const saveLayout = useCallback((nodes: CustomNode[]) => {
+        const layoutToSave: Record<string, { x: number, y: number }> = {};
+        nodes.forEach(node => {
+            if (node.position) {
+                layoutToSave[node.id] = node.position;
+            }
+        });
+        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+    }, []);
+
+    const resetLayout = useCallback(() => {
+        if (!positions) return;
+        const initialLayout = calculateLayout(positions);
+        setNodePositions(initialLayout);
+        localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    }, [positions]);
+
+    return { nodePositions, saveLayout, resetLayout };
 }
 
 
 // --- Main Component ---
 const OrganizationChart = () => {
-  const [nodes, setNodes] = useState<CustomNode[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
-  const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
-  const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
-  const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-  const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
-  
-  const { toast } = useToast();
-  const { firestore } = useFirebase();
+    const [nodes, setNodes] = useState<CustomNode[]>([]);
+    const [edges, setEdges] = useState<Edge[]>([]);
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+    const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+    const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
+    const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+    const [editingPosition, setEditingPosition] = useState<Position | null>(null);
+    const [duplicatingPosition, setDuplicatingPosition] = React.useState<Position | null>(null);
 
-  // Data fetching
-  const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-  const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
-  const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-  const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-  const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-  const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-  const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-  const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
-  
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
-  const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
-  const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
+    const { toast } = useToast();
+    const { firestore } = useFirebase();
 
-  const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
-  const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-  const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
-  const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
-  const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
-  const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
-  const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
-  const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
-  const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
-  const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
-  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
-  
-  const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
+    // Data fetching
+    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
+    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+    const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
+    const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
+    const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
 
-  const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
+    const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
+    const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
+
+    // Onboarding programs query
+    const onboardingProgramsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
+    const assignedProgramsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'assignedPrograms') : null, [firestore]);
+
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
+    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
+    const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
+    const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
+    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
+    const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
+    const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
+    const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
+    const { data: onboardingPrograms } = useCollection<any>(onboardingProgramsQuery);
+    const { data: assignedPrograms } = useCollection<any>(assignedProgramsQuery);
+
+    const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
+
+    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
 
     const onLeaveEmployees = useMemo(() => {
         if (!timeOffData) return new Set<string>();
@@ -488,241 +494,315 @@ const OrganizationChart = () => {
         return new Set(attendanceData.map(a => a.employeeId));
     }, [attendanceData]);
 
-  const handleAssignEmployeeClick = (position: Position) => {
-    setSelectedPosition(position);
-    setIsAssignDialogOpen(true);
-  };
-  
-  const handleEditPositionClick = (position: Position) => {
-    setEditingPosition(position);
-    setIsPositionDialogOpen(true);
-  };
-  
-  const handleOpenAddDialog = () => {
-    setEditingPosition(null);
-    setIsPositionDialogOpen(true);
-  };
-  
- const handleDuplicatePosition = (pos: Position) => {
-    if (!firestore) return;
-    
-    // Create a new object with only the fields we want to save to Firestore
-    const newPositionData = {
-        title: `${pos.title} (Хуулбар)`,
-        departmentId: pos.departmentId,
-        reportsTo: pos.reportsTo || null,
-        levelId: pos.levelId || null,
-        employmentTypeId: pos.employmentTypeId || null,
-        workScheduleId: pos.workScheduleId || null,
-        isActive: true, // Always create as active
-        jobCategoryId: pos.jobCategoryId || null,
-        createdAt: new Date().toISOString(),
-        canApproveAttendance: pos.canApproveAttendance || false,
-        filled: 0,
-    };
+    // Onboarding statistics
+    const onboardingStats = useMemo(() => {
+        if (!assignedPrograms) return { activePrograms: 0, pendingTasks: 0, avgProgress: 0 };
 
-    const positionsCollection = collection(firestore, 'positions');
-    addDocumentNonBlocking(positionsCollection, newPositionData);
+        const activePrograms = assignedPrograms.filter((p: any) => p.status === 'IN_PROGRESS');
+        let totalTasks = 0;
+        let completedTasks = 0;
 
-    toast({
-        title: "Амжилттай хувиллаа",
-        description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
-    });
-    setDuplicatingPosition(null);
-};
-
-
-  // Create nodes and edges based on data
-  useEffect(() => {
-    if (isLoading || !positions || !employees) return;
-
-    const deptMap = new Map(departments?.map(d => [d.id, d]));
-    const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
-
-    const posToEmployeeMap = new Map<string, Employee[]>();
-    employees?.forEach(e => {
-        if (e.positionId) {
-            if (!posToEmployeeMap.has(e.positionId)) posToEmployeeMap.set(e.positionId, []);
-            posToEmployeeMap.get(e.positionId)?.push(e);
-        }
-    });
-
-    const today = new Date();
-    const employeeAttendanceStatus = new Map<string, AttendanceStatus>();
-    employees.forEach(emp => {
-        if (onLeaveEmployees.has(emp.id)) {
-            employeeAttendanceStatus.set(emp.id, { status: 'on-leave' });
-            return;
-        }
-
-        const attendanceRecord = attendanceData?.find(rec => rec.employeeId === emp.id);
-        if (attendanceRecord) {
-            if(attendanceRecord.checkOutTime) {
-                employeeAttendanceStatus.set(emp.id, { status: 'checked-out', checkInTime: attendanceRecord.checkInTime, checkOutTime: attendanceRecord.checkOutTime });
-            } else {
-                employeeAttendanceStatus.set(emp.id, { status: 'checked-in', checkInTime: attendanceRecord.checkInTime });
+        activePrograms.forEach((program: any) => {
+            if (program.stages && Array.isArray(program.stages)) {
+                program.stages.forEach((stage: any) => {
+                    if (stage.tasks && Array.isArray(stage.tasks)) {
+                        totalTasks += stage.tasks.length;
+                        completedTasks += stage.tasks.filter((t: any) => t.status === 'DONE' || t.status === 'VERIFIED').length;
+                    }
+                });
             }
-        } else {
-            employeeAttendanceStatus.set(emp.id, { status: 'absent' });
-        }
-    });
+        });
 
+        const pendingTasks = totalTasks - completedTasks;
+        const avgProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    const newNodes: CustomNode[] = [];
-    const newEdges: Edge[] = [];
+        return { activePrograms: activePrograms.length, pendingTasks, avgProgress };
+    }, [assignedPrograms]);
 
-    positions.forEach(pos => {
-        const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
-        const department = deptMap.get(pos.departmentId);
-        const employee = assignedEmployees[0];
+    // New hires (last 30 days)
+    const newHiresStats = useMemo(() => {
+        if (!employees) return { count: 0, avgOnboardingProgress: 0 };
 
-        const node: Node<PositionNodeData> = {
-            id: pos.id,
-            type: 'position',
-            position: nodePositions[pos.id] || { x: 0, y: 0 },
-            data: {
-                ...pos, label: pos.title, title: pos.title,
-                department: department?.name || 'Unknown',
-                departmentColor: department?.color,
-                filled: posToEmployeeMap.get(pos.id)?.length || 0,
-                employees: assignedEmployees,
-                onAssignEmployee: handleAssignEmployeeClick,
-                onEditPosition: handleEditPositionClick,
-                onDuplicatePosition: (position) => setDuplicatingPosition(position),
-                workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
-                attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
-            },
-        };
-        newNodes.push(node);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        if (pos.reportsTo && positions.some(p => p.id === pos.reportsTo)) {
-            newEdges.push({ 
-                id: `e-${pos.reportsTo}-${pos.id}`,
-                source: pos.reportsTo,
-                target: pos.id,
-                type: 'smoothstep', 
-                animated: true, 
-                style: { stroke: '#2563eb', strokeWidth: 2 }
+        const newHires = employees.filter(emp => {
+            if (!emp.hireDate) return false;
+            const hireDate = new Date(emp.hireDate);
+            return hireDate >= thirtyDaysAgo && emp.status === 'Идэвхтэй';
+        });
+
+        // Calculate average onboarding progress for new hires
+        const newHireIds = new Set(newHires.map(e => e.id));
+        const newHirePrograms = assignedPrograms?.filter((p: any) => newHireIds.has(p.employeeId)) || [];
+
+        const avgOnboardingProgress = newHirePrograms.length > 0
+            ? Math.round(newHirePrograms.reduce((sum: number, p: any) => sum + (p.progress || 0), 0) / newHirePrograms.length)
+            : 0;
+
+        return { count: newHires.length, avgOnboardingProgress };
+    }, [employees, assignedPrograms]);
+
+    // Recent activities (last 10)
+    const recentActivities = useMemo(() => {
+        const activities: Array<{ id: string; type: string; employeeName: string; time: string; description: string }> = [];
+
+        // Add today's attendance check-ins
+        if (attendanceData && employees) {
+            const empMap = new Map(employees.map(e => [e.id, e]));
+            attendanceData.forEach(record => {
+                const emp = empMap.get(record.employeeId);
+                if (emp && record.checkInTime) {
+                    activities.push({
+                        id: `attendance-${record.id}`,
+                        type: 'check-in',
+                        employeeName: `${emp.firstName} ${emp.lastName}`,
+                        time: record.checkInTime,
+                        description: 'Ирлээ'
+                    });
+                }
             });
         }
-    });
-    
-    const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
-    unassignedEmployees.forEach((emp, index) => {
-        newNodes.push({
-            id: emp.id, type: 'unassigned', position: { x: -500, y: index * 120 },
-            data: { 
-              label: emp.firstName, 
-              name: `${emp.firstName} ${emp.lastName}`, 
-              jobTitle: emp.jobTitle, 
-              avatar: emp.photoURL,
-              employee: emp,
-            },
-        });
-    });
 
-    setNodes(newNodes);
-    setEdges(newEdges);
-  }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
+        // Sort by time and take last 10
+        activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        return activities.slice(0, 10);
+    }, [attendanceData, employees]);
 
-  const onNodesChange: OnNodesChange = useCallback(
-    (changes) => {
-        setNodes((nds) => {
-            const newNodes = applyNodeChanges(changes, nds);
-            // Save layout on drag stop
-            const dragChange = changes.find(c => c.type === 'position' && c.dragging === false);
-            if (dragChange) {
-                saveLayout(newNodes);
-            }
-            return newNodes;
-        });
-    },
-    [saveLayout]
-  );
-  const onEdgesChange: OnEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
-
-  const onConnect: OnConnect = useCallback(
-    (connection) => {
-        const employeeNode = nodes.find(n => n.id === connection.source);
-        const positionNode = nodes.find(n => n.id === connection.target);
-        
-        if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
-        
-        const posData = positionNode?.data as PositionNodeData;
-        if(posData.filled >= 1) { 
-            toast({
-                title: "Орон тоо дүүрсэн",
-                description: `"${posData.title}" ажлын байранд ажилтан томилогдсон байна.`,
-                variant: "destructive"
-            })
-            return;
-        }
-
-        setSelectedPosition(positionNode.data as Position);
-        setSelectedEmployeeForAssignment(employeeNode.data.employee);
+    const handleAssignEmployeeClick = (position: Position) => {
+        setSelectedPosition(position);
         setIsAssignDialogOpen(true);
-    },
-    [nodes, toast]
-  );
-  
-  const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
-  const inactiveEmployeesCount = employees?.filter(e => e.status !== 'Идэвхтэй').length || 0;
+    };
 
-  return (
-    <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
-      <div className="p-4 flex items-center justify-between">
-            <Link href="/dashboard/company" className="inline-block">
-                <div className="flex items-center gap-4 group">
+    const handleEditPositionClick = (position: Position) => {
+        setEditingPosition(position);
+        setIsPositionDialogOpen(true);
+    };
+
+    const handleOpenAddDialog = () => {
+        setEditingPosition(null);
+        setIsPositionDialogOpen(true);
+    };
+
+    const handleDuplicatePosition = (pos: Position) => {
+        if (!firestore) return;
+
+        // Create a new object with only the fields we want to save to Firestore
+        const newPositionData = {
+            title: `${pos.title} (Хуулбар)`,
+            departmentId: pos.departmentId,
+            reportsTo: pos.reportsTo || null,
+            levelId: pos.levelId || null,
+            employmentTypeId: pos.employmentTypeId || null,
+            workScheduleId: pos.workScheduleId || null,
+            isActive: true, // Always create as active
+            jobCategoryId: pos.jobCategoryId || null,
+            createdAt: new Date().toISOString(),
+            canApproveAttendance: pos.canApproveAttendance || false,
+            filled: 0,
+        };
+
+        const positionsCollection = collection(firestore, 'positions');
+        addDocumentNonBlocking(positionsCollection, newPositionData);
+
+        toast({
+            title: "Амжилттай хувиллаа",
+            description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
+        });
+        setDuplicatingPosition(null);
+    };
+
+
+    // Create nodes and edges based on data
+    useEffect(() => {
+        if (isLoading || !positions || !employees) return;
+
+        const deptMap = new Map(departments?.map(d => [d.id, d]));
+        const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
+
+        const posToEmployeeMap = new Map<string, Employee[]>();
+        employees?.forEach(e => {
+            if (e.positionId) {
+                if (!posToEmployeeMap.has(e.positionId)) posToEmployeeMap.set(e.positionId, []);
+                posToEmployeeMap.get(e.positionId)?.push(e);
+            }
+        });
+
+        const today = new Date();
+        const employeeAttendanceStatus = new Map<string, AttendanceStatus>();
+        employees.forEach(emp => {
+            if (onLeaveEmployees.has(emp.id)) {
+                employeeAttendanceStatus.set(emp.id, { status: 'on-leave' });
+                return;
+            }
+
+            const attendanceRecord = attendanceData?.find(rec => rec.employeeId === emp.id);
+            if (attendanceRecord) {
+                if (attendanceRecord.checkOutTime) {
+                    employeeAttendanceStatus.set(emp.id, { status: 'checked-out', checkInTime: attendanceRecord.checkInTime, checkOutTime: attendanceRecord.checkOutTime });
+                } else {
+                    employeeAttendanceStatus.set(emp.id, { status: 'checked-in', checkInTime: attendanceRecord.checkInTime });
+                }
+            } else {
+                employeeAttendanceStatus.set(emp.id, { status: 'absent' });
+            }
+        });
+
+
+        const newNodes: CustomNode[] = [];
+        const newEdges: Edge[] = [];
+
+        positions.forEach(pos => {
+            const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
+            const department = deptMap.get(pos.departmentId);
+            const employee = assignedEmployees[0];
+
+            const node: Node<PositionNodeData> = {
+                id: pos.id,
+                type: 'position',
+                position: nodePositions[pos.id] || { x: 0, y: 0 },
+                data: {
+                    ...pos, label: pos.title, title: pos.title,
+                    department: department?.name || 'Unknown',
+                    departmentColor: department?.color,
+                    filled: posToEmployeeMap.get(pos.id)?.length || 0,
+                    employees: assignedEmployees,
+                    onAssignEmployee: handleAssignEmployeeClick,
+                    onEditPosition: handleEditPositionClick,
+                    onDuplicatePosition: (position) => setDuplicatingPosition(position),
+                    workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
+                    attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
+                },
+            };
+            newNodes.push(node);
+
+            if (pos.reportsTo && positions.some(p => p.id === pos.reportsTo)) {
+                newEdges.push({
+                    id: `e-${pos.reportsTo}-${pos.id}`,
+                    source: pos.reportsTo,
+                    target: pos.id,
+                    type: 'smoothstep',
+                    animated: true,
+                    style: { stroke: '#2563eb', strokeWidth: 2 }
+                });
+            }
+        });
+
+        const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
+        unassignedEmployees.forEach((emp, index) => {
+            newNodes.push({
+                id: emp.id, type: 'unassigned', position: { x: -500, y: index * 120 },
+                data: {
+                    label: emp.firstName,
+                    name: `${emp.firstName} ${emp.lastName}`,
+                    jobTitle: emp.jobTitle,
+                    avatar: emp.photoURL,
+                    employee: emp,
+                },
+            });
+        });
+
+        setNodes(newNodes);
+        setEdges(newEdges);
+    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
+
+    const onNodesChange: OnNodesChange = useCallback(
+        (changes) => {
+            setNodes((nds) => {
+                const newNodes = applyNodeChanges(changes, nds);
+                // Save layout on drag stop
+                const dragChange = changes.find(c => c.type === 'position' && c.dragging === false);
+                if (dragChange) {
+                    saveLayout(newNodes);
+                }
+                return newNodes;
+            });
+        },
+        [saveLayout]
+    );
+    const onEdgesChange: OnEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
+
+    const onConnect: OnConnect = useCallback(
+        (connection) => {
+            const employeeNode = nodes.find(n => n.id === connection.source);
+            const positionNode = nodes.find(n => n.id === connection.target);
+
+            if (employeeNode?.type !== 'unassigned' || positionNode?.type !== 'position') return;
+
+            const posData = positionNode?.data as PositionNodeData;
+            if (posData.filled >= 1) {
+                toast({
+                    title: "Орон тоо дүүрсэн",
+                    description: `"${posData.title}" ажлын байранд ажилтан томилогдсон байна.`,
+                    variant: "destructive"
+                })
+                return;
+            }
+
+            setSelectedPosition(positionNode.data as Position);
+            setSelectedEmployeeForAssignment(employeeNode.data.employee);
+            setIsAssignDialogOpen(true);
+        },
+        [nodes, toast]
+    );
+
+    const activeEmployeesCount = employees?.filter(e => e.status === 'Идэвхтэй').length || 0;
+    const inactiveEmployeesCount = employees?.filter(e => e.status !== 'Идэвхтэй').length || 0;
+
+    return (
+        <div style={{ height: 'calc(100vh - 40px)' }} className="flex flex-col">
+            <div className="p-4 flex items-center justify-between">
+                <Link href="/dashboard/company" className="inline-block">
+                    <div className="flex items-center gap-4 group">
                         {isLoadingProfile ? (
-                        <>
-                            <Skeleton className="size-10 rounded-lg" />
-                            <Skeleton className="h-6 w-32" />
-                        </>
+                            <>
+                                <Skeleton className="size-10 rounded-lg" />
+                                <Skeleton className="h-6 w-32" />
+                            </>
                         ) : (
-                        <>
-                            <Avatar className="size-10 rounded-lg">
-                                <AvatarImage src={companyProfile?.logoUrl} className="object-contain"/>
-                                <AvatarFallback className="rounded-lg bg-muted">
-                                    <Building className="size-5" />
-                                </AvatarFallback>
-                            </Avatar>
-                            <h1 className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
-                        </>
-                    )}
+                            <>
+                                <Avatar className="size-10 rounded-lg">
+                                    <AvatarImage src={companyProfile?.logoUrl} className="object-contain" />
+                                    <AvatarFallback className="rounded-lg bg-muted">
+                                        <Building className="size-5" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <h1 className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
+                            </>
+                        )}
+                    </div>
+                </Link>
+                <div className="flex items-center gap-2">
+                    <UserNav />
+                    <Button asChild variant="ghost" size="icon">
+                        <Link href="/dashboard/settings/general">
+                            <Settings className="h-5 w-5" />
+                            <span className="sr-only">Тохиргоо</span>
+                        </Link>
+                    </Button>
                 </div>
-            </Link>
-            <div className="flex items-center gap-2">
-                <UserNav />
-                <Button asChild variant="ghost" size="icon">
-                    <Link href="/dashboard/settings/general">
-                        <Settings className="h-5 w-5" />
-                        <span className="sr-only">Тохиргоо</span>
-                    </Link>
-                </Button>
             </div>
-        </div>
 
-        <CardHeader>
-             <div className="grid gap-4 md:grid-cols-4">
+            <div className="px-4 pb-4 grid gap-4 md:grid-cols-5">
                 <Link href="/dashboard/employees">
-                    <Card className="hover:bg-muted/50 transition-colors">
+                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Нийт ажилчид</CardTitle>
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
+                            {isLoadingEmp ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-bold">{activeEmployeesCount}</div>}
                         </CardContent>
                     </Card>
                 </Link>
                 <Link href="/dashboard/attendance">
-                    <Card className="hover:bg-muted/50 transition-colors">
-                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Ирцийн тойм</CardTitle>
                             <UserCheck className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                             {isLoadingAttendance || isLoadingTimeOff ? (
+                            {isLoadingAttendance || isLoadingTimeOff ? (
                                 <Skeleton className="h-7 w-20" />
                             ) : (
                                 <div className="text-2xl font-bold">
@@ -732,98 +812,148 @@ const OrganizationChart = () => {
                         </CardContent>
                     </Card>
                 </Link>
-                 <Link href="/dashboard/employment-relations">
-                    <Card className="hover:bg-muted/50 transition-colors">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Хүлээгдэж буй</CardTitle>
-                            <UserMinusIcon className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                             {isLoadingEmp ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{inactiveEmployeesCount}</div>}
-                        </CardContent>
-                    </Card>
-                </Link>
+                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 hover:shadow-md transition-all cursor-pointer">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-100">Дасан зохицох</CardTitle>
+                        <Briefcase className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                            {onboardingStats.activePrograms} <span className="text-sm font-normal text-blue-700 dark:text-blue-300">идэвхтэй</span>
+                        </div>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            {onboardingStats.pendingTasks} даалгавар хүлээгдэж байна
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 hover:shadow-md transition-all cursor-pointer">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-green-900 dark:text-green-100">Шинэ ажилтан</CardTitle>
+                        <User className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                            {newHiresStats.count} <span className="text-sm font-normal text-green-700 dark:text-green-300">хүн</span>
+                        </div>
+                        <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                            Дасан зохицох: {newHiresStats.avgOnboardingProgress}% дундаж
+                        </p>
+                    </CardContent>
+                </Card>
                 <Link href="/dashboard/posts">
-                    <Card className="hover:bg-muted/50 transition-colors">
+                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Нийтлэл</CardTitle>
                             <Newspaper className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            {isLoadingPosts ? <Skeleton className="h-7 w-12"/> : <div className="text-2xl font-bold">{posts?.length || 0}</div>}
+                            {isLoadingPosts ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-bold">{posts?.length || 0}</div>}
                         </CardContent>
                     </Card>
                 </Link>
             </div>
-        </CardHeader>
-      <div className="relative w-full flex-1">
-        {isLoading ? <SkeletonChart/> : (
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                nodeTypes={nodeTypes}
-                fitView>
-                <Background />
-                <Controls />
-            </ReactFlow>
-        )}
-        <div className="absolute bottom-8 right-4 z-10 flex gap-2">
-            <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
-                <RotateCcw className="h-6 w-6" />
-                <span className="sr-only">Байршлыг сэргээх</span>
-            </Button>
-            <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
-                <Link href="/dashboard/employees/add">
-                    <User className="h-6 w-6" />
-                    <span className="sr-only">Ажилтан нэмэх</span>
-                </Link>
-            </Button>
-            <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
-                <PlusCircle className="h-6 w-6" />
-                <span className="sr-only">Ажлын байр нэмэх</span>
-            </Button>
+
+            <div className="relative w-full flex-1 flex gap-4">
+                {/* Activity Feed Sidebar */}
+                <div className="w-80 flex-shrink-0 px-4 pb-4">
+                    <Card className="h-full flex flex-col">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base font-semibold">Сүүлийн үйл ажиллагаа</CardTitle>
+                            <CardDescription className="text-xs">Өнөөдрийн идэвхтэй байдал</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-1 overflow-auto space-y-3 px-4">
+                            {recentActivities.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-8">Үйл ажиллагаа байхгүй байна</p>
+                            ) : (
+                                recentActivities.map(activity => (
+                                    <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-border/50 last:border-0">
+                                        <div className="mt-0.5">
+                                            {activity.type === 'check-in' && <div className="h-2 w-2 rounded-full bg-green-500" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">{activity.employeeName}</p>
+                                            <p className="text-xs text-muted-foreground">{activity.description}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {format(new Date(activity.time), 'HH:mm')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Organization Chart */}
+                <div className="flex-1 min-w-0">
+                    {isLoading ? <SkeletonChart /> : (
+                        <ReactFlow
+                            nodes={nodes}
+                            edges={edges}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            nodeTypes={nodeTypes}
+                            fitView>
+                            <Background />
+                            <Controls />
+                        </ReactFlow>
+                    )}
+                    <div className="absolute bottom-8 right-4 z-10 flex gap-2">
+                        <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
+                            <RotateCcw className="h-6 w-6" />
+                            <span className="sr-only">Байршлыг сэргээх</span>
+                        </Button>
+                        <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
+                            <Link href="/dashboard/employees/add">
+                                <User className="h-6 w-6" />
+                                <span className="sr-only">Ажилтан нэмэх</span>
+                            </Link>
+                        </Button>
+                        <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
+                            <PlusCircle className="h-6 w-6" />
+                            <span className="sr-only">Ажлын байр нэмэх</span>
+                        </Button>
+                    </div>
+                </div>
+            </div>
+            <AssignEmployeeDialog
+                open={isAssignDialogOpen}
+                onOpenChange={setIsAssignDialogOpen}
+                position={selectedPosition}
+                selectedEmployee={selectedEmployeeForAssignment}
+                onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
+                employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
+            />
+            <AddPositionDialog
+                open={isPositionDialogOpen}
+                onOpenChange={setIsPositionDialogOpen}
+                editingPosition={editingPosition}
+                allPositions={positions}
+                departments={departments || []}
+                positionLevels={positionLevels || []}
+                employmentTypes={employmentTypes || []}
+                jobCategories={jobCategories || []}
+                workSchedules={workSchedules || []}
+            />
+            <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
+                            Тийм, хувилах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
-       </div>
-       <AssignEmployeeDialog
-        open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
-        position={selectedPosition}
-        selectedEmployee={selectedEmployeeForAssignment}
-        onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
-        employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
-      />
-      <AddPositionDialog
-        open={isPositionDialogOpen}
-        onOpenChange={setIsPositionDialogOpen}
-        editingPosition={editingPosition}
-        allPositions={positions}
-        departments={departments || []}
-        positionLevels={positionLevels || []}
-        employmentTypes={employmentTypes || []}
-        jobCategories={jobCategories || []}
-        workSchedules={workSchedules || []}
-      />
-      <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
-                    Тийм, хувилах
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
+    );
 };
 
 export default OrganizationChart;
