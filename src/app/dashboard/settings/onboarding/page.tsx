@@ -3,12 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+    CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Pencil, Trash2, MoreHorizontal, Activity, Layers, ListTodo, Users, Briefcase } from 'lucide-react';
@@ -22,17 +22,17 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-  } from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddProgramDialog } from './add-program-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
 export type OnboardingProgram = {
@@ -80,7 +80,7 @@ function ProgramCardSkeleton() {
                 <Skeleton className="h-4 w-full mt-2" />
             </CardHeader>
             <CardContent className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                     <Skeleton className="h-20 w-full" />
                     <Skeleton className="h-20 w-full" />
                 </div>
@@ -90,14 +90,14 @@ function ProgramCardSkeleton() {
                 </div>
             </CardContent>
             <CardFooter>
-                 <Skeleton className="h-8 w-24 ml-auto" />
+                <Skeleton className="h-8 w-24 ml-auto" />
             </CardFooter>
         </Card>
     )
 }
 
 function ProgramCard({ program, lookups, onEdit, onDelete }: { program: OnboardingProgram, lookups: any, onEdit: () => void, onDelete: () => void }) {
-    
+
     const getAppliesToText = () => {
         if (!program.appliesTo || (!program.appliesTo.departmentIds?.length && !program.appliesTo.positionIds?.length)) {
             return { icon: Users, text: 'Бүх ажилтан' };
@@ -107,7 +107,7 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
             const count = program.appliesTo.departmentIds.length;
             return { icon: Users, text: count > 1 ? `${deptName} ба бусад ${count - 1}` : deptName };
         }
-         if (program.appliesTo.positionIds?.length) {
+        if (program.appliesTo.positionIds?.length) {
             const posName = lookups.positionMap[program.appliesTo.positionIds[0]] || 'Тодорхойгүй';
             const count = program.appliesTo.positionIds.length;
             return { icon: Briefcase, text: count > 1 ? `${posName} ба бусад ${count - 1}` : posName };
@@ -118,72 +118,84 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
     const { icon: AppliesToIcon, text: appliesToText } = getAppliesToText();
 
     return (
-        <Card className="flex flex-col transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1">
-             <Link href={`/dashboard/settings/onboarding/${program.id}`} className="flex-1 flex flex-col">
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <CardTitle>{program.title}</CardTitle>
-                            <CardDescription className="mt-1 line-clamp-2">{program.description || 'Тодорхойлолт байхгүй.'}</CardDescription>
+        <Card className="group relative flex flex-col transition-all duration-300 hover:shadow-xl border-border/60 bg-card hover:bg-accent/5 overflow-hidden">
+            {/* Decorative top accent */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+
+            <Link href={`/dashboard/settings/onboarding/${program.id}`} className="flex-1 flex flex-col p-6">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="space-y-1.5">
+                        <h3 className="font-bold text-xl tracking-tight text-foreground group-hover:text-primary transition-colors">
+                            {program.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                            {program.description || 'Тодорхойлолт байхгүй.'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-border/50 grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                            <Layers className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-foreground">{program.stageCount || 0}</span>
+                            <span className="text-xs">Үе шат</span>
                         </div>
                     </div>
-                </CardHeader>
-                <CardContent className="flex-1 grid grid-cols-2 gap-4">
-                    <Card className="bg-muted/50">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Үе шат</CardTitle>
-                            <Layers className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{program.stageCount || 0}</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-muted/50">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Даалгавар</CardTitle>
-                            <ListTodo className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{program.taskCount || 0}</div>
-                        </CardContent>
-                    </Card>
-                </CardContent>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                            <ListTodo className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-foreground">{program.taskCount || 0}</span>
+                            <span className="text-xs">Даалгавар</span>
+                        </div>
+                    </div>
+                </div>
             </Link>
-            <CardFooter className="flex justify-between items-center">
-                 <Badge variant="secondary" className="font-normal flex items-center gap-2">
-                    <AppliesToIcon className="h-4 w-4" />
-                    {appliesToText}
-                </Badge>
+
+            <div className="px-6 py-3 bg-muted/30 border-t border-border/50 flex justify-between items-center text-xs font-medium text-muted-foreground">
+                <div className="flex items-center gap-2">
+                    <AppliesToIcon className="h-3.5 w-3.5" />
+                    <span>{appliesToText}</span>
+                </div>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background hover:text-foreground">
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Засах</DropdownMenuItem>
-                            <AlertDialog>
+                    <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+                            <Pencil className="mr-2 h-4 w-4" /> Засах
+                        </DropdownMenuItem>
+                        <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive cursor-pointer">
                                     <Trash2 className="mr-2 h-4 w-4" /> Устгах
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{program.title}" хөтөлбөрийг бүх үе шат, даалгаврын хамт устгах болно.
-                                </AlertDialogDescription>
+                                    <AlertDialogTitle>Хөтөлбөр устгах</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Та "{program.title}" хөтөлбөрийг устгахдаа итгэлтэй байна уу?
+                                        <br />
+                                        Энэ үйлдэл нь хөтөлбөрийн бүх үе шат, даалгавруудыг устгана.
+                                    </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                <AlertDialogAction onClick={onDelete}>Тийм, устгах</AlertDialogAction>
+                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                    <AlertDialogAction onClick={onDelete} className="bg-destructive hover:bg-destructive/90">Тийм, устгах</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            </CardFooter>
+            </div>
         </Card>
     );
 }
@@ -195,9 +207,9 @@ export default function OnboardingSettingsPage() {
 
     const { firestore } = useFirebase();
 
-    const programsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'onboardingPrograms') : null, []);
-    const departmentsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'departments') : null, []);
-    const positionsQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'positions') : null, []);
+    const programsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'onboardingPrograms') : null, []);
+    const departmentsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'departments') : null, []);
+    const positionsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'positions') : null, []);
 
 
     const { data: programs, isLoading: isLoadingPrograms } = useCollection<OnboardingProgram>(programsQuery);
@@ -217,7 +229,7 @@ export default function OnboardingSettingsPage() {
         setEditingProgram(null);
         setIsDialogOpen(true);
     }
-    
+
     const handleEdit = (program: OnboardingProgram) => {
         setEditingProgram(program);
         setIsDialogOpen(true);
@@ -229,7 +241,7 @@ export default function OnboardingSettingsPage() {
         const docRef = doc(firestore, 'onboardingPrograms', program.id);
         deleteDocumentNonBlocking(docRef);
     }
-    
+
     return (
         <div className="py-8">
             <AddProgramDialog
@@ -259,12 +271,12 @@ export default function OnboardingSettingsPage() {
                     Шинэ хөтөлбөр нэмэх
                 </Button>
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {isLoading && Array.from({length: 3}).map((_, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {isLoading && Array.from({ length: 3 }).map((_, i) => (
                     <ProgramCardSkeleton key={i} />
                 ))}
                 {!isLoading && programs?.map((program) => (
-                    <ProgramCard 
+                    <ProgramCard
                         key={program.id}
                         program={program}
                         lookups={lookups}
@@ -272,7 +284,7 @@ export default function OnboardingSettingsPage() {
                         onDelete={() => handleDelete(program)}
                     />
                 ))}
-                 {!isLoading && (!programs || programs.length === 0) && (
+                {!isLoading && (!programs || programs.length === 0) && (
                     <div className="col-span-full py-24 text-center">
                         <Card className="max-w-md mx-auto">
                             <CardHeader>
@@ -287,7 +299,7 @@ export default function OnboardingSettingsPage() {
                         </Card>
                     </div>
                 )}
-             </div>
+            </div>
         </div>
     );
 }

@@ -27,13 +27,18 @@ interface TaskStatusDropdownProps {
   currentStatus: TaskStatus;
   onStatusChange: (newStatus: TaskStatus) => void;
   disabled?: boolean;
+  requiresVerification?: boolean;
 }
 
-export function TaskStatusDropdown({ currentStatus, onStatusChange, disabled = false }: TaskStatusDropdownProps) {
+export function TaskStatusDropdown({ currentStatus, onStatusChange, disabled = false, requiresVerification = false }: TaskStatusDropdownProps) {
   const currentConfig = statusConfig[currentStatus];
   const CurrentIcon = currentConfig.icon;
 
   const selectableStatuses: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'DONE'];
+
+  if (requiresVerification) {
+    selectableStatuses.push('VERIFIED');
+  }
 
   return (
     <DropdownMenu>
