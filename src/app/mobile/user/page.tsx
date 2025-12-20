@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, User, Bell, Lock } from 'lucide-react';
+import { ChevronRight, LogOut, User, Bell, Lock, Rocket, Shield, HelpCircle, FileText, Settings, Sparkles } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,51 +21,52 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 function SettingsItem({
   icon: Icon,
   label,
   href,
+  badge
 }: {
   icon: React.ElementType;
   label: string;
   href: string;
+  badge?: string;
 }) {
   return (
-    <Link href={href} className="flex w-full items-center justify-between rounded-lg bg-background p-4 text-left transition-colors hover:bg-muted/50">
-        <div className="flex items-center gap-4">
-            <Icon className="h-5 w-5 text-muted-foreground" />
-            <span className="font-medium">{label}</span>
+    <Link href={href} className="group flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left transition-all hover:shadow-md border border-slate-100 active:scale-[0.99] mb-3">
+      <div className="flex items-center gap-4">
+        <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+          <Icon className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
         </div>
-        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <span className="font-semibold text-slate-700">{label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        {badge && <Badge variant="secondary" className="bg-red-100 text-red-600">{badge}</Badge>}
+        <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-primary/50 transition-colors" />
+      </div>
     </Link>
   );
 }
 
-
 function PageSkeleton() {
-    return (
-        <div className="p-4 space-y-6">
-            <header className="py-4">
-                <Skeleton className="h-8 w-24" />
-            </header>
-            <div className="flex items-center gap-4">
-                <Skeleton className="h-16 w-16 rounded-full" />
-                <div className="space-y-2">
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-4 w-40" />
-                </div>
-            </div>
-             <div className="space-y-2">
-                <Skeleton className="h-14 w-full" />
-                <Skeleton className="h-14 w-full" />
-                <Skeleton className="h-14 w-full" />
-            </div>
-             <div className="space-y-2">
-                <Skeleton className="h-14 w-full" />
-            </div>
+  return (
+    <div className="p-6 space-y-8 bg-slate-50 min-h-screen">
+      <div className="flex flex-col items-center gap-4 pt-8">
+        <Skeleton className="h-24 w-24 rounded-full" />
+        <div className="space-y-2 text-center">
+          <Skeleton className="h-6 w-40 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
         </div>
-    )
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-16 w-full rounded-2xl" />
+      </div>
+    </div>
+  )
 }
 
 export default function MobileUserPage() {
@@ -85,59 +85,85 @@ export default function MobileUserPage() {
   }
 
   const { firstName, lastName, jobTitle, photoURL } = employeeProfile;
-  const fullName = `${firstName} ${lastName}`;
+  const fullName = `${lastName} ${firstName}`; // Mongolian convention often uses LastName Firstname order or reversed, sticking to standard display.
 
   return (
-    <div className="p-4">
-       <header className="py-4">
-            <h1 className="text-2xl font-bold">Хэрэглэгч</h1>
-        </header>
-        
-      <div className="flex items-center gap-4 rounded-lg bg-background p-4 mb-6">
-        <Avatar className="h-16 w-16">
-          <AvatarImage src={photoURL} alt={fullName} />
-          <AvatarFallback className="text-2xl">
-            {firstName?.charAt(0)}
-            {lastName?.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="text-xl font-semibold">{fullName}</p>
-          <p className="text-muted-foreground">{jobTitle}</p>
+    <div className="min-h-screen bg-slate-50/50 pb-20">
+      {/* Header Profile Section */}
+      <div className="bg-white pb-8 pt-12 rounded-b-[40px] shadow-sm border-b border-slate-100 px-6 relative overflow-hidden">
+        {/* Background Decor */}
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-10" />
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
+
+        <div className="flex flex-col items-center relative z-10">
+          <div className="relative">
+            <Avatar className="h-28 w-28 border-4 border-white shadow-xl ring-2 ring-primary/10">
+              <AvatarImage src={photoURL} alt={fullName} className="object-cover" />
+              <AvatarFallback className="text-3xl bg-slate-200 text-slate-500">
+                {firstName?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute bottom-1 right-1 bg-green-500 border-4 border-white w-6 h-6 rounded-full shadow-sm" />
+          </div>
+
+          <div className="mt-4 text-center">
+            <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
+            <p className="text-sm font-medium text-slate-500 mt-1">{jobTitle || 'Ажилтан'}</p>
+            <Badge variant="outline" className="mt-3 border-blue-200 text-blue-700 bg-blue-50 px-3 py-1">
+              <Sparkles className="w-3 h-3 mr-1" /> Баталгаажсан
+            </Badge>
+          </div>
         </div>
       </div>
-      
-      <div className="space-y-2">
-        <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
-        <SettingsItem icon={Bell} label="Мэдэгдэл" href="#" />
-        <SettingsItem icon={Lock} label="Нууц үг солих" href="#" />
-      </div>
 
-       <div className="mt-6 space-y-2">
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="ghost" className="flex w-full items-center justify-between rounded-lg bg-background p-4 text-left text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground">
-                        <div className="flex items-center gap-4">
-                            <LogOut className="h-5 w-5" />
-                            <span className="font-medium">Системээс гарах</span>
-                        </div>
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Та системээс гарахдаа итгэлтэй байна уу?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Таны сессшн дуусгавар болох ба дахин нэвтрэх шаардлагатай болно.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleLogout}>Тийм, гарах</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-      </div>
+      <div className="px-6 -mt-0 pt-8 space-y-6">
+        <div>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
+          <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
+          <SettingsItem icon={Rocket} label="Чиглүүлэх хөтөлбөр" href="/mobile/onboarding" badge="1" />
+        </div>
 
+        <div>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Тохиргоо</h3>
+          <SettingsItem icon={Bell} label="Мэдэгдэл" href="#" />
+          <SettingsItem icon={Lock} label="Нууц үг солих" href="#" />
+          <SettingsItem icon={Shield} label="Нууцлал" href="#" />
+        </div>
+
+        <div>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Бусад</h3>
+          <SettingsItem icon={HelpCircle} label="Тусламж" href="#" />
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="w-full flex items-center justify-between p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition-colors active:scale-[0.98]">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <LogOut className="h-5 w-5" />
+                  </div>
+                  <span className="font-semibold">Системээс гарах</span>
+                </div>
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Та системээс гарахдаа итгэлтэй байна уу?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Таны сессшн дуусгавар болох ба дахин нэвтрэх шаардлагатай болно.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="rounded-xl">Цуцлах</AlertDialogCancel>
+                <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700 rounded-xl">Тийм, гарах</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+
+        <div className="text-center pb-6">
+          <p className="text-xs text-slate-400">Хувилбар 2.0.1</p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -549,11 +549,11 @@ const OrganizationChart = () => {
     const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
     const { data: onboardingPrograms } = useCollection<any>(onboardingProgramsQuery);
-    const { data: assignedPrograms } = useCollection<any>(assignedProgramsQuery);
+    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<any>(assignedProgramsQuery);
 
     const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
+    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile || isLoadingAssigned;
 
     const onLeaveEmployees = useMemo(() => {
         if (!timeOffData) return new Set<string>();
@@ -733,7 +733,8 @@ const OrganizationChart = () => {
             // Path: employees/{empId}/assignedPrograms/{docId}
             let employeeId = program.employeeId;
             if (!employeeId && program.ref?.path) {
-                const parts = program.ref.path.split('/');
+                const path = program.ref.path.startsWith('/') ? program.ref.path.substring(1) : program.ref.path;
+                const parts = path.split('/');
                 if (parts.length >= 2 && parts[0] === 'employees') {
                     employeeId = parts[1];
                 }
@@ -962,36 +963,6 @@ const OrganizationChart = () => {
             </div>
 
             <div className="relative w-full flex-1 flex gap-4">
-                {/* Activity Feed Sidebar */}
-                <div className="w-80 flex-shrink-0 px-4 pb-4">
-                    <Card className="h-full flex flex-col">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base font-semibold">Сүүлийн үйл ажиллагаа</CardTitle>
-                            <CardDescription className="text-xs">Өнөөдрийн идэвхтэй байдал</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex-1 overflow-auto space-y-3 px-4">
-                            {recentActivities.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-8">Үйл ажиллагаа байхгүй байна</p>
-                            ) : (
-                                recentActivities.map(activity => (
-                                    <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-border/50 last:border-0">
-                                        <div className="mt-0.5">
-                                            {activity.type === 'check-in' && <div className="h-2 w-2 rounded-full bg-green-500" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{activity.employeeName}</p>
-                                            <p className="text-xs text-muted-foreground">{activity.description}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                {format(new Date(activity.time), 'HH:mm')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
                 {/* Organization Chart */}
                 <div className="flex-1 min-w-0">
                     {isLoading ? <SkeletonChart /> : (

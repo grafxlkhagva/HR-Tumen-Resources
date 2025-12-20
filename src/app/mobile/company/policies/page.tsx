@@ -8,20 +8,20 @@ import { collection } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ChevronRight, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, Shield, FileSearch } from 'lucide-react';
 import type { CompanyPolicy } from '@/app/dashboard/settings/policies/page';
 
 function PageSkeleton() {
     return (
-        <div className="p-4 space-y-4">
-             <header className="py-4 relative flex items-center justify-center">
-                <Skeleton className="h-9 w-9 absolute left-0" />
-                <Skeleton className="h-7 w-48" />
-            </header>
-            <div className="space-y-3">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
+        <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-6 w-32" />
+            </div>
+            <div className="space-y-4">
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
             </div>
         </div>
     )
@@ -29,27 +29,25 @@ function PageSkeleton() {
 
 function PolicyItem({ policy }: { policy: CompanyPolicy }) {
     return (
-        <Link href={`/mobile/company/policies/${policy.id}`} className="block">
-            <Card className="hover:bg-muted/50 transition-colors">
-                <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <FileText className="h-6 w-6 text-primary flex-shrink-0" />
-                        <div>
-                            <p className="font-semibold">{policy.title}</p>
-                            <p className="text-sm text-muted-foreground">{policy.description}</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </CardContent>
-            </Card>
+        <Link href={`/mobile/company/policies/${policy.id}`} className="block group">
+            <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md active:scale-[0.99] mb-3">
+                <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100 group-hover:bg-amber-100 transition-colors">
+                    <FileText className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-800 text-sm truncate">{policy.title}</h3>
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{policy.description}</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors" />
+            </div>
         </Link>
     );
 }
 
 export default function MobilePoliciesPage() {
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
-
-    const policiesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'companyPolicies') : null, []);
+    const router = useRouter(); // Forgot to import useRouter in previous thought block, fixing here.
+    const policiesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'companyPolicies') : null, []);
     const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
 
     const applicablePolicies = React.useMemo(() => {
@@ -58,39 +56,47 @@ export default function MobilePoliciesPage() {
             return policy.appliesToAll || (employeeProfile.positionId && policy.applicablePositionIds?.includes(employeeProfile.positionId));
         });
     }, [policies, employeeProfile]);
-    
+
     const isLoading = isProfileLoading || isLoadingPolicies;
 
     return (
-        <div className="p-4">
-             <header className="py-4 relative flex items-center justify-center">
-                <Button asChild variant="ghost" size="icon" className="absolute left-0">
-                    <Link href="/mobile/company">
-                        <ArrowLeft className="h-5 w-5" />
-                        <span className="sr-only">Буцах</span>
-                    </Link>
-                </Button>
-                <h1 className="text-xl font-bold">Дүрэм, журам</h1>
+        <div className="min-h-screen bg-slate-50 pb-12">
+            <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/50 px-4 py-4 flex items-center gap-3 shadow-sm">
+                <Link href="/mobile/company">
+                    <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                </Link>
+                <h1 className="font-bold text-lg text-slate-800">Дүрэм, журам</h1>
             </header>
 
-            {isLoading ? (
-                <div className="space-y-3 mt-4">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                </div>
-            ) : applicablePolicies.length > 0 ? (
-                <div className="space-y-3 mt-4">
-                    {applicablePolicies.map(policy => (
-                        <PolicyItem key={policy.id} policy={policy} />
-                    ))}
-                </div>
-            ) : (
-                <div className="mt-8 text-center text-muted-foreground">
-                    <FileText className="mx-auto h-12 w-12" />
-                    <p className="mt-4">Танд хамааралтай дүрэм, журам олдсонгүй.</p>
-                </div>
-            )}
+            <div className="p-6">
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-20 w-full rounded-2xl" />
+                        <Skeleton className="h-20 w-full rounded-2xl" />
+                    </div>
+                ) : applicablePolicies.length > 0 ? (
+                    <div className="space-y-1">
+                        {applicablePolicies.map(policy => (
+                            <PolicyItem key={policy.id} policy={policy} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                        <div className="bg-slate-100 p-6 rounded-full shadow-inner">
+                            <FileSearch className="w-12 h-12 text-slate-300" />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-lg text-slate-800">Мэдээлэл алга</h2>
+                            <p className="text-slate-500 text-sm mt-1 max-w-[250px] mx-auto">Танд хамааралтай дүрэм, журам одоогоор олдсонгүй.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
+
+// Helper to fix the missing import in the main block
+import { useRouter } from 'next/navigation';

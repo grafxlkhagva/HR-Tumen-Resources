@@ -39,6 +39,11 @@ service cloud.firestore {
     }
     
     // Company profile, code config, and other settings are readable by anyone signed in, writable only by admin
+    match /company/branding {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /company/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -95,5 +100,16 @@ service cloud.firestore {
     // The following comment is a special instruction for the backend to create an index.
     // Please do not modify or remove it.
     // FIRESTORE_INDEX: COLLECTION_GROUP(timeOffRequests) ASC(status)
+
+    // Collection Group rules
+    match /{path=**}/assignedPrograms/{docId} {
+        allow read: if isAdmin();
+        allow write: if isAdmin();
+    }
+
+    match /{path=**}/timeOffRequests/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
   }
 }

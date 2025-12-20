@@ -25,16 +25,13 @@ export interface UseDocResult<T = DocumentData> {
 export function useDoc<T = DocumentData>(
   docRef: DocumentReference<T> | null | undefined
 ): UseDocResult<T> {
-  const { firestore } = useFirebase();
   const [data, setData] = useState<(T & { id: string }) | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
   const [exists, setExists] = useState<boolean | null>(null);
 
-  const path = docRef ? docRef.path : null;
-
   useEffect(() => {
-    if (!firestore || !path) {
+    if (!docRef) {
       setData(null);
       setExists(null);
       setIsLoading(false);
@@ -44,13 +41,9 @@ export function useDoc<T = DocumentData>(
 
     setIsLoading(true);
 
-    // docRef is recreated on each render, so we need to use path to track changes.
-    // However, the onSnapshot needs the actual docRef object.
-    const docRefCurrent = doc(firestore, path) as any;
-
     const unsubscribe = onSnapshot(
-      docRefCurrent,
-      (snapshot: any) => {
+      docRef,
+      (snapshot) => {
         if (!snapshot.exists()) {
           setData(null);
           setExists(false);
@@ -73,8 +66,7 @@ export function useDoc<T = DocumentData>(
     return () => {
       unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firestore, path]);
+  }, [docRef]);
 
   return { data, isLoading, error, exists };
 }
