@@ -10,12 +10,14 @@ import {
 type TargetRef<T = DocumentData> =
   | Query<T>
   | CollectionReference<T>
+  | Query<DocumentData>
+  | CollectionReference<DocumentData>
   | null
   | undefined;
 
 export interface UseCollectionResult<T = DocumentData> {
   data: (T & { id: string })[];
-  loading: boolean;
+  isLoading: boolean;
   error: FirestoreError | null;
 }
 
@@ -28,7 +30,7 @@ export function useCollection<T = DocumentData>(
   target: TargetRef<T>
 ): UseCollectionResult<T> {
   const [data, setData] = useState<(T & { id: string })[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
   // Use path and type to create a stable dependency for the effect
@@ -36,39 +38,33 @@ export function useCollection<T = DocumentData>(
 
   useEffect(() => {
     // 🔒 target бэлэн биш үед: ямар ч асуулга явуулахгүй
-    if (!target) {
-      setLoading(false);
-      setData([]);
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
+    setIsLoading(true);
 
     const unsubscribe = onSnapshot(
-      target,
-      (snapshot) => {
+      target as any,
+      (snapshot: any) => {
         const docs = snapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as T & { id: string })
+          (doc: any) =>
+          ({
+            id: doc.id,
+            ref: doc.ref,
+            ...doc.data(),
+          } as T & { id: string; ref: any })
         );
         setData(docs);
-        setLoading(false);
+        setIsLoading(false);
         setError(null);
       },
       (err: FirestoreError) => {
         setError(err);
-        setLoading(false);
+        setIsLoading(false);
         // ❗ ЭНД ЯМАР Ч ЮМЫГ THROW ХИЙХГҮЙ.
       }
     );
 
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependency]); // Depend on the stable string representation
 
-  return { data, loading, error };
+  return { data, isLoading, error };
 }

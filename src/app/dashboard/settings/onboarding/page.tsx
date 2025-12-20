@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
 import { AddProgramDialog } from './add-program-dialog';
 import {
     DropdownMenu,
@@ -212,9 +213,9 @@ export default function OnboardingSettingsPage() {
     const positionsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'positions') : null, []);
 
 
-    const { data: programs, isLoading: isLoadingPrograms } = useCollection<OnboardingProgram>(programsQuery);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Reference>(departmentsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Reference>(positionsQuery);
+    const { data: programs, isLoading: isLoadingPrograms } = useCollection<OnboardingProgram>(programsQuery as any);
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Reference>(departmentsQuery as any);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<Reference>(positionsQuery as any);
 
 
     const isLoading = isLoadingPrograms || isLoadingDepts || isLoadingPos;
@@ -251,54 +252,50 @@ export default function OnboardingSettingsPage() {
                 departments={departments || []}
                 positions={positions || []}
             />
-            <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/settings/general">
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Буцах</span>
-                        </Link>
+
+            <PageHeader
+                title="Дасан зохицох хөтөлбөр"
+                description="Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна"
+                showBackButton
+                backHref="/dashboard/settings"
+                actions={
+                    <Button onClick={handleAddNew}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Шинэ хөтөлбөр нэмэх
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Дасан зохицох хөтөлбөрийн тохиргоо</h1>
-                        <p className="text-muted-foreground">
-                            Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна.
-                        </p>
-                    </div>
+                }
+            />
+
+            <div className="mt-6"> {/* Spacing for the header */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {isLoading && Array.from({ length: 3 }).map((_, i) => (
+                        <ProgramCardSkeleton key={i} />
+                    ))}
+                    {!isLoading && programs?.map((program) => (
+                        <ProgramCard
+                            key={program.id}
+                            program={program}
+                            lookups={lookups}
+                            onEdit={() => handleEdit(program)}
+                            onDelete={() => handleDelete(program)}
+                        />
+                    ))}
+                    {!isLoading && (!programs || programs.length === 0) && (
+                        <div className="col-span-full py-24 text-center">
+                            <Card className="max-w-md mx-auto">
+                                <CardHeader>
+                                    <CardTitle className="flex justify-center">
+                                        <Activity className="h-12 w-12 text-muted-foreground" />
+                                    </CardTitle>
+                                    <CardDescription>Хөтөлбөрийн загвар үүсээгүй байна.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button onClick={handleAddNew}>Анхны хөтөлбөрөө үүсгэх</Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div>
-                <Button onClick={handleAddNew}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Шинэ хөтөлбөр нэмэх
-                </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {isLoading && Array.from({ length: 3 }).map((_, i) => (
-                    <ProgramCardSkeleton key={i} />
-                ))}
-                {!isLoading && programs?.map((program) => (
-                    <ProgramCard
-                        key={program.id}
-                        program={program}
-                        lookups={lookups}
-                        onEdit={() => handleEdit(program)}
-                        onDelete={() => handleDelete(program)}
-                    />
-                ))}
-                {!isLoading && (!programs || programs.length === 0) && (
-                    <div className="col-span-full py-24 text-center">
-                        <Card className="max-w-md mx-auto">
-                            <CardHeader>
-                                <CardTitle className="flex justify-center">
-                                    <Activity className="h-12 w-12 text-muted-foreground" />
-                                </CardTitle>
-                                <CardDescription>Хөтөлбөрийн загвар үүсээгүй байна.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button onClick={handleAddNew}>Анхны хөтөлбөрөө үүсгэх</Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
             </div>
         </div>
     );

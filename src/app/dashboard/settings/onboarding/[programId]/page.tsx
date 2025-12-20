@@ -52,7 +52,7 @@ import {
     deleteDocumentNonBlocking,
 } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, WriteBatch, where } from 'firebase/firestore';
+import { collection, doc, increment, writeBatch, getDocs, DocumentReference, deleteDoc, query, orderBy, WriteBatch, where, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Search, CheckCircle, MoreHorizontal, Pencil, Paperclip, Upload, ShieldCheck, UserCheck } from 'lucide-react';
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
@@ -60,6 +60,7 @@ import type { Employee } from '@/app/dashboard/employees/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/page-header';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -82,13 +83,17 @@ type OnboardingStage = BaseOnboardingStage & {
     tasks?: OnboardingTaskTemplate[];
 };
 
-type OnboardingTaskTemplate = BaseOnboardingTaskTemplate & {
+type OnboardingTaskTemplate = {
+    id: string;
+    title: string;
+    description?: string;
     guideEmployeeIds?: string[];
     attachmentUrl?: string;
     attachmentName?: string;
     assigneeType?: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY' | 'SPECIFIC_PERSON' | 'DIRECT_MANAGER';
     requiresVerification?: boolean;
     verificationRole?: 'MANAGER' | 'HR' | 'BUDDY' | 'DIRECT_MANAGER';
+    dueDays: number;
 }
 
 // --- Task Dialog ---
@@ -116,7 +121,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
     const programDocRef = useMemoFirebase(({ firestore }) => doc(firestore, `onboardingPrograms/${programId}`), [programId]);
     const tasksCollectionRef = useMemoFirebase(({ firestore }) => collection(firestore, `onboardingPrograms/${programId}/stages/${stageId}/tasks`), [programId, stageId]);
     const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null, []);
-    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery as any);
 
     const filteredEmployees = React.useMemo(() => {
         if (!employees) return [];
@@ -415,7 +420,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Хэн баталгаажуулах вэ?</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                                                     <FormControl>
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="Сонгох..." />
@@ -695,7 +700,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, 
         firestore ? query(collection(firestore, `onboardingPrograms/${programId}/stages/${stage.id}/tasks`)) : null,
         [programId, stage.id]);
 
-    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery);
+    const { data: tasks, isLoading: isLoadingTasks } = useCollection<OnboardingTaskTemplate>(tasksQuery as any);
 
     const onAddTask = () => {
         onEditTask(stage.id, null); // Pass null to indicate a new task
@@ -829,11 +834,11 @@ export default function OnboardingProgramBuilderPage() {
 
     const [draggedStageId, setDraggedStageId] = React.useState<string | null>(null);
 
-    const programDocRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'onboardingPrograms', id) : null), [id]);
-    const stagesQuery = useMemoFirebase(({ firestore }) => (firestore ? query(collection(firestore, `onboardingPrograms/${id}/stages`), orderBy('order')) : null), [id]);
+    const programDocRef = useMemoFirebase(({ firestore }) => (firestore && id ? doc(firestore, 'onboardingPrograms', id as string) : null), [id]);
+    const stagesQuery = useMemoFirebase(({ firestore }) => (firestore && id ? query(collection(firestore, `onboardingPrograms/${id}/stages`), orderBy('order')) : null), [id]);
 
-    const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef);
-    const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery);
+    const { data: program, isLoading: isLoadingProgram } = useDoc<OnboardingProgram>(programDocRef as any);
+    const { data: stages, isLoading: isLoadingStages } = useCollection<OnboardingStage>(stagesQuery as any);
 
     const handleAddTask = (stageId: string) => {
         setSelectedStageIdForTask(stageId);
@@ -841,15 +846,16 @@ export default function OnboardingProgramBuilderPage() {
         setIsTaskDialogOpen(true);
     }
 
-    const handleEditTask = (stageId: string, task: OnboardingTaskTemplate) => {
+    const handleEditTask = (stageId: string, task: OnboardingTaskTemplate | null) => {
+        if (!task) return;
         setSelectedStageIdForTask(stageId);
         setSelectedTask(task);
         setIsTaskDialogOpen(true);
     }
 
     const handleDeleteTask = async (stageId: string, taskId: string) => {
-        if (!firestore || !programDocRef) return;
-        const docRef = doc(firestore, `onboardingPrograms/${id}/stages/${stageId}/tasks`, taskId);
+        if (!firestore || !programDocRef || !id) return;
+        const docRef = doc(firestore, `onboardingPrograms/${id as string}/stages/${stageId}/tasks`, taskId);
         await deleteDoc(docRef);
         updateDocumentNonBlocking(programDocRef, { taskCount: increment(-1) });
     }
@@ -888,7 +894,7 @@ export default function OnboardingProgramBuilderPage() {
             newOrder = afterOrder !== undefined ? (afterOrder + beforeOrder) / 2 : beforeOrder - 1;
         }
 
-        const draggedStageRef = doc(firestore, `onboardingPrograms/${id}/stages`, draggedStageId);
+        const draggedStageRef = doc(firestore, `onboardingPrograms/${id as string}/stages`, draggedStageId);
         updateDocumentNonBlocking(draggedStageRef, { order: newOrder });
     };
 
@@ -900,38 +906,32 @@ export default function OnboardingProgramBuilderPage() {
                 <TaskDialog
                     open={isTaskDialogOpen}
                     onOpenChange={setIsTaskDialogOpen}
-                    programId={id}
+                    programId={id as string}
                     stageId={selectedStageIdForTask}
                     editingTask={selectedTask}
                 />
             )}
-            <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id} editingStage={null} stages={stages} />
-            <header className="px-6 md:px-8 mb-6 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button asChild variant="outline" size="icon" className="h-9 w-9 rounded-full shadow-sm">
-                            <Link href="/dashboard/settings/onboarding">
-                                <ArrowLeft className="h-4 w-4" />
-                                <span className="sr-only">Буцах</span>
-                            </Link>
-                        </Button>
-                        <div>
-                            {isLoading ? <Skeleton className="h-7 w-48" /> : <h1 className="text-2xl font-bold tracking-tight text-foreground">{program?.title}</h1>}
-                            {isLoading ? <Skeleton className="h-4 w-64 mt-1" /> : <p className="text-muted-foreground text-sm">{program?.description}</p>}
-                        </div>
-                    </div>
-                    {/* Potential Action Buttons here */}
-                </div>
-            </header>
+            <StageDialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen} programId={id as string} editingStage={null} stages={stages} />
+            <PageHeader
+                title={isLoading ? 'Уншиж байна...' : program?.title || 'Хөтөлбөр'}
+                description={program?.description}
+                breadcrumbs={[
+                    { label: 'Тохиргоо', href: '/dashboard/settings' },
+                    { label: 'Дасан зохицох', href: '/dashboard/settings/onboarding' },
+                    { label: program?.title || 'Хөтөлбөр' }
+                ]}
+                showBackButton
+                backHref="/dashboard/settings/onboarding"
+            />
 
-            <div className="flex-1 min-h-0 overflow-x-auto pb-6">
+            <div className="flex-1 min-h-0 overflow-x-auto pb-6 mt-6">
                 <div className="inline-flex h-full items-start gap-6 px-6 md:px-8">
                     {isLoadingStages && Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-full w-80 rounded-2xl opacity-50" />)}
                     {stages?.map(stage => (
                         <StageColumn
                             key={stage.id}
                             stage={stage}
-                            programId={id}
+                            programId={id as string}
                             onEditTask={!programDocRef ? () => { } : handleEditTask}
                             onDeleteTask={!programDocRef ? () => { } : handleDeleteTask}
                             onDragStart={handleDragStart}

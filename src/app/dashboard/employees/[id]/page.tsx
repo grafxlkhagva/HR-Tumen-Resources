@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { PageHeader } from '@/components/page-header';
 import { collection, doc, query, orderBy, where, writeBatch, increment } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -257,7 +258,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
         [firestore, employee.id]
     );
 
-    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery);
+    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery as any);
 
     // --- Automatic Data Migration & Cleanup ---
     React.useEffect(() => {
@@ -312,12 +313,25 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
 
         if (taskToUpdate) {
             const isVerification = newStatus === 'VERIFIED';
-            updatedTasks[taskIndex] = {
+            const isDone = newStatus === 'DONE' || isVerification;
+
+            // Build the updated task object, only including timestamp fields when they have values
+            const updatedTask: AssignedTask = {
                 ...taskToUpdate,
                 status: newStatus,
-                completedAt: newStatus === 'DONE' || isVerification ? new Date().toISOString() : undefined,
-                verifiedAt: isVerification ? new Date().toISOString() : undefined,
             };
+
+            // Only add completedAt if the task is done or verified
+            if (isDone) {
+                updatedTask.completedAt = new Date().toISOString();
+            }
+
+            // Only add verifiedAt if the task is verified
+            if (isVerification) {
+                updatedTask.verifiedAt = new Date().toISOString();
+            }
+
+            updatedTasks[taskIndex] = updatedTask;
 
             updatedStages[stageIndex] = { ...stage, tasks: updatedTasks };
 
@@ -538,8 +552,8 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
 
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
 
-    const { data: history, isLoading: isLoadingHistory } = useCollection<EmploymentHistoryEvent>(historyQuery);
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
+    const { data: history, isLoading: isLoadingHistory } = useCollection<EmploymentHistoryEvent>(historyQuery as any);
+    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery as any);
 
     const allDocuments = React.useMemo(() => {
         const employeeDocs = (history || [])
@@ -658,7 +672,7 @@ const OverviewTabContent = ({ employeeId }: { employeeId: string }) => {
         [employeeId]
     );
 
-    const { data: questionnaire, isLoading } = useDoc(questionnaireRef);
+    const { data: questionnaire, isLoading } = useDoc(questionnaireRef as any);
 
     const { completionPercentage, filledCount, totalCount } = React.useMemo(() => {
         if (!questionnaire) return { completionPercentage: 0, filledCount: 0, totalCount: 0 };
@@ -763,24 +777,24 @@ export default function EmployeeProfilePage() {
         [firestore]
     );
 
-    const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
+    const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef as any);
 
     const positionDocRef = useMemoFirebase(
         ({ firestore }) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
         [employee]
     );
 
-    const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef);
+    const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef as any);
 
     const workScheduleDocRef = useMemoFirebase(
         ({ firestore }) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
         [position?.workScheduleId]
     );
 
-    const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef);
+    const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef as any);
 
 
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
 
     const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule;
 
@@ -850,30 +864,31 @@ export default function EmployeeProfilePage() {
                 employee={employee}
             />
 
-            {/* Breadcrumb & Header */}
-            <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <Link href="/dashboard/employees" className="hover:text-foreground transition-colors">Баг хамт олон</Link>
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="font-medium text-foreground">{fullName}</span>
-                </div>
+            {/* Page Header */}
+            <PageHeader
+                title={employee.firstName}
+                description={employee.lastName ? `${employee.lastName}-ийн мэдээлэл` : undefined}
+                breadcrumbs={[
+                    { label: 'Ажилтан', href: '/dashboard/employees' },
+                    { label: employee.firstName }
+                ]}
+                showBackButton
+                backHref="/dashboard/employees"
+            />
 
-                {!isActive && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-4 text-amber-900 shadow-sm animate-in fade-in slide-in-from-top-2">
-                        <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
-                        <div className="flex-1">
-                            <p className="font-semibold text-sm">Анхааруулга</p>
-                            <p className="text-sm opacity-90">Энэ ажилтан одоогоор <strong>{statusInfo.label.toLowerCase()}</strong> төлөвтэй байна. Системд нэвтрэх эрх хязгаарлагдмал.</p>
-                        </div>
-                        <Button onClick={handleReactivate} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white border-none shadow-none">
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Идэвхжүүлэх
-                        </Button>
+            {!isActive && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-4 text-amber-900 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
+                    <div className="flex-1">
+                        <p className="font-semibold text-sm">Анхааруулга</p>
+                        <p className="text-sm opacity-90">Энэ ажилтан одоогоор <strong>{statusInfo.label.toLowerCase()}</strong> төлөвтэй байна. Системд нэвтрэх эрх хязгаарлагдмал.</p>
                     </div>
-                )}
-            </div>
+                    <Button onClick={handleReactivate} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white border-none shadow-none">
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Идэвхжүүлэх
+                    </Button>
+                </div>
+            )}
 
             {/* Main Profile Section */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -989,13 +1004,13 @@ export default function EmployeeProfilePage() {
 
                         <div className="min-h-[400px]">
                             <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
-                                <OverviewTabContent employeeId={employeeId} />
+                                <OverviewTabContent employeeId={employeeId || ''} />
                             </TabsContent>
                             <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
                                 <OnboardingTabContent employee={employee} />
                             </TabsContent>
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                                <HistoryTabContent employeeId={employeeId} />
+                                <HistoryTabContent employeeId={employeeId || ''} />
                             </TabsContent>
                             <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
                                 <Card className="shadow-sm">
@@ -1015,7 +1030,7 @@ export default function EmployeeProfilePage() {
                                 <DocumentsTabContent employee={employee} />
                             </TabsContent>
                             <TabsContent value="cv" className="mt-0 focus-visible:outline-none">
-                                <CVDisplay employeeId={employeeId} />
+                                <CVDisplay employeeId={employeeId || ''} />
                             </TabsContent>
                         </div>
                     </Tabs>

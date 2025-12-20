@@ -261,6 +261,7 @@ export function AssignProgramDialog({
       await addDocumentNonBlocking(assignedProgramsCollectionRef, {
         programId: programTemplate.id,
         programName: programTemplate.title || 'Untitled Program',
+        employeeId: employee.id,
         status: 'IN_PROGRESS',
         startDate: new Date().toISOString(),
         progress: 0,

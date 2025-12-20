@@ -124,6 +124,8 @@ interface PositionNodeData {
     onEditPosition: (position: Position) => void;
     onDuplicatePosition: (position: Position) => void;
     attendanceStatus?: AttendanceStatus;
+    onboardingProgress?: number; // 0-100
+    hasActiveOnboarding?: boolean;
 }
 
 interface EmployeeNodeData {
@@ -155,54 +157,91 @@ function isColorDark(hex: string): boolean {
 
 // --- Node Components ---
 
-const AvatarWithProgress = ({ employee }: { employee?: Employee; }) => {
-    const progress = employee?.questionnaireCompletion || 0;
+const AvatarWithProgress = ({ employee, onboardingProgress }: { employee?: Employee; onboardingProgress?: number }) => {
     const size = 80;
-    const strokeWidth = 4;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (progress / 100) * circumference;
 
-    const progressColor = progress < 50 ? '#ef4444' : progress < 90 ? '#f59e0b' : '#22c55e';
+    // Onboarding Progress (Outer Ring)
+    const onbProgress = onboardingProgress || 0;
+    const outerRadius = 38;
+    const outerCircum = 2 * Math.PI * outerRadius;
+    const outerOffset = outerCircum - (onbProgress / 100) * outerCircum;
+    const outerColor = onbProgress >= 100 ? '#22c55e' : '#3b82f6';
+
+    // Questionnaire Completion (Inner Ring)
+    const quesProgress = employee?.questionnaireCompletion || 0;
+    const innerRadius = 33;
+    const innerCircum = 2 * Math.PI * innerRadius;
+    const innerOffset = innerCircum - (quesProgress / 100) * innerCircum;
+    const innerColor = quesProgress < 50 ? '#ef4444' : quesProgress < 90 ? '#f59e0b' : '#22c55e';
 
     const avatarContent = (
         <div className="relative mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg" style={{ width: size, height: size }}>
-            <Avatar className="h-full w-full">
-                <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
-                <AvatarFallback className="text-3xl bg-muted">
-                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8 text-muted-foreground" />}
-                </AvatarFallback>
-            </Avatar>
-            {employee && (
-                <svg
-                    className="absolute top-0 left-0"
-                    width={size}
-                    height={size}
-                    viewBox={`0 0 ${size} ${size}`}
-                >
-                    <circle
-                        className="text-muted/30"
-                        stroke="currentColor"
-                        strokeWidth={strokeWidth}
-                        fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
-                    />
-                    <circle
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={offset}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
-                        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                        style={{ stroke: progressColor, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
-                    />
-                </svg>
-            )}
+            {/* Avatar - Centered and slightly smaller to fit inside rings */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <Avatar className="h-[60px] w-[60px]">
+                    <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
+                    <AvatarFallback className="text-xl bg-muted">
+                        {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-6 w-6 text-muted-foreground" />}
+                    </AvatarFallback>
+                </Avatar>
+            </div>
+
+            <svg
+                className="absolute top-0 left-0 pointer-events-none"
+                width={size}
+                height={size}
+                viewBox={`0 0 ${size} ${size}`}
+            >
+                {/* Outer Ring Background (Onboarding Track) */}
+                <circle
+                    className="text-muted/10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    r={outerRadius}
+                    cx={size / 2}
+                    cy={size / 2}
+                />
+                {/* Outer Ring (Onboarding Progress) */}
+                <circle
+                    stroke={outerColor}
+                    strokeWidth="3"
+                    strokeDasharray={outerCircum}
+                    strokeDashoffset={outerOffset}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r={outerRadius}
+                    cx={size / 2}
+                    cy={size / 2}
+                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                    style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+                />
+
+                {/* Inner Ring Background (Questionnaire Track) */}
+                <circle
+                    className="text-muted/10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    r={innerRadius}
+                    cx={size / 2}
+                    cy={size / 2}
+                />
+                {/* Inner Ring (Questionnaire Progress) */}
+                <circle
+                    stroke={innerColor}
+                    strokeWidth="3"
+                    strokeDasharray={innerCircum}
+                    strokeDashoffset={innerOffset}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r={innerRadius}
+                    cx={size / 2}
+                    cy={size / 2}
+                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                    style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+                />
+            </svg>
         </div>
     );
 
@@ -264,7 +303,10 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
             </div>
 
             <CardContent className="p-4 text-center space-y-2">
-                <AvatarWithProgress employee={employee} />
+                <AvatarWithProgress
+                    employee={employee}
+                    onboardingProgress={data.onboardingProgress}
+                />
 
                 <div className="space-y-1">
                     {employee ? (
@@ -297,6 +339,42 @@ const PositionNode = ({ data }: { data: PositionNodeData }) => {
                         <span className="font-medium">{data.filled}</span>
                     </div>
                 </div>
+
+                {/* Onboarding Progress Indicator */}
+                {data.onboardingProgress !== undefined && (
+                    <div className={cn("pt-2 mt-2 border-t", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <Briefcase className={cn("h-3 w-3", data.onboardingProgress >= 100 ? 'text-green-500' : 'text-blue-500')} />
+                                <span className={cn("text-xs font-medium", mutedTextColor)}>
+                                    {data.onboardingProgress >= 100 ? 'Дасан зохицсон' : 'Дасан зохицох'}
+                                </span>
+                            </div>
+                            <span className={cn("text-xs font-bold", data.onboardingProgress >= 100 ? 'text-green-600' : 'text-blue-600')}>
+                                {Math.round(data.onboardingProgress)}%
+                            </span>
+                        </div>
+                        <div className="relative h-1.5 bg-gray-200/50 rounded-full overflow-hidden">
+                            <div
+                                className={cn(
+                                    "absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out",
+                                    data.onboardingProgress >= 100
+                                        ? "bg-gradient-to-r from-green-400 to-green-600"
+                                        : "bg-gradient-to-r from-blue-400 to-blue-600"
+                                )}
+                                style={{ width: `${Math.min(data.onboardingProgress, 100)}%` }}
+                            >
+                                {/* Animated shimmer effect */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                                    style={{
+                                        backgroundSize: '200% 100%',
+                                        animation: 'shimmer 2s infinite'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </CardContent>
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
@@ -648,6 +726,24 @@ const OrganizationChart = () => {
             }
         });
 
+        // Map employee onboarding programs
+        const employeeOnboardingMap = new Map<string, { progress: number; hasActive: boolean }>();
+        assignedPrograms?.forEach((program: any) => {
+            // Fallback for employeeId if it's missing from the document data (legacy data)
+            const employeeId = program.employeeId || program.ref?.parent?.parent?.id;
+
+            if (employeeId && (program.status === 'IN_PROGRESS' || program.status === 'COMPLETED')) {
+                const existing = employeeOnboardingMap.get(employeeId);
+                // Keep the highest progress or the active one
+                if (!existing || program.progress > existing.progress) {
+                    employeeOnboardingMap.set(employeeId, {
+                        progress: program.progress || 0,
+                        hasActive: program.status === 'IN_PROGRESS'
+                    });
+                }
+            }
+        });
+
 
         const newNodes: CustomNode[] = [];
         const newEdges: Edge[] = [];
@@ -656,6 +752,9 @@ const OrganizationChart = () => {
             const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
             const department = deptMap.get(pos.departmentId);
             const employee = assignedEmployees[0];
+
+            // Get onboarding data for the employee
+            const onboardingData = employee ? employeeOnboardingMap.get(employee.id) : undefined;
 
             const node: Node<PositionNodeData> = {
                 id: pos.id,
@@ -672,6 +771,8 @@ const OrganizationChart = () => {
                     onDuplicatePosition: (position) => setDuplicatingPosition(position),
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
+                    onboardingProgress: onboardingData?.progress,
+                    hasActiveOnboarding: onboardingData?.hasActive,
                 },
             };
             newNodes.push(node);
@@ -704,7 +805,7 @@ const OrganizationChart = () => {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
+    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees, assignedPrograms]);
 
     const onNodesChange: OnNodesChange = useCallback(
         (changes) => {

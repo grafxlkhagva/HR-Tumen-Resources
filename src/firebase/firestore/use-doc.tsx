@@ -12,7 +12,7 @@ import { FirestorePermissionError } from "../errors";
 
 export interface UseDocResult<T = DocumentData> {
   data: (T & { id: string }) | null;
-  loading: boolean;
+  isLoading: boolean;
   error: FirestoreError | null;
   exists: boolean | null;
 }
@@ -27,7 +27,7 @@ export function useDoc<T = DocumentData>(
 ): UseDocResult<T> {
   const { firestore } = useFirebase();
   const [data, setData] = useState<(T & { id: string }) | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);
   const [exists, setExists] = useState<boolean | null>(null);
 
@@ -37,44 +37,44 @@ export function useDoc<T = DocumentData>(
     if (!firestore || !path) {
       setData(null);
       setExists(null);
-      setLoading(false);
+      setIsLoading(false);
       setError(null);
       return;
     }
 
-    setLoading(true);
-    
+    setIsLoading(true);
+
     // docRef is recreated on each render, so we need to use path to track changes.
     // However, the onSnapshot needs the actual docRef object.
-    const docRefCurrent = doc(firestore, path) as DocumentReference<T>;
+    const docRefCurrent = doc(firestore, path) as any;
 
     const unsubscribe = onSnapshot(
       docRefCurrent,
-      (snapshot) => {
-          if (!snapshot.exists()) {
-            setData(null);
-            setExists(false);
-          } else {
-            setData({
-              id: snapshot.id,
-              ...(snapshot.data() as T),
-            });
-            setExists(true);
-          }
-          setLoading(false);
-          setError(null);
+      (snapshot: any) => {
+        if (!snapshot.exists()) {
+          setData(null);
+          setExists(false);
+        } else {
+          setData({
+            id: snapshot.id,
+            ...(snapshot.data() as T),
+          });
+          setExists(true);
+        }
+        setIsLoading(false);
+        setError(null);
       },
       (err: FirestoreError) => {
         setError(err);
-        setLoading(false);
+        setIsLoading(false);
       }
     );
 
     return () => {
       unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firestore, path]);
 
-  return { data, loading, error, exists };
+  return { data, isLoading, error, exists };
 }
