@@ -58,6 +58,7 @@ import { ArrowLeft, PlusCircle, Trash2, GripVertical, Loader2, User, Clock, Sear
 import type { OnboardingProgram, OnboardingStage as BaseOnboardingStage, OnboardingTaskTemplate as BaseOnboardingTaskTemplate } from '../page';
 import type { Employee } from '@/app/dashboard/employees/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
@@ -107,6 +108,9 @@ const taskSchema = z.object({
     dueDays: z.coerce.number().min(0, 'Хугацаа 0-ээс бага байж болохгүй.'),
     attachmentUrl: z.string().optional().nullable(),
     attachmentName: z.string().optional().nullable(),
+}).refine(data => !data.requiresVerification || (data.requiresVerification && data.verificationRole), {
+    message: "Баталгаажуулах эрх бүхий албан тушаалыг сонгоно уу.",
+    path: ["verificationRole"]
 });
 type TaskFormValues = z.infer<typeof taskSchema>;
 
@@ -921,18 +925,7 @@ export default function OnboardingProgramBuilderPage() {
                     });
 
                     if (changed) {
-                        // Recalculate progress
-                        let totalTasks = 0;
-                        let completedTasks = 0;
-                        updatedStages.forEach((s: any) => {
-                            s.tasks.forEach((t: any) => {
-                                totalTasks++;
-                                if (t.status === 'VERIFIED') completedTasks++;
-                                else if (t.status === 'DONE') completedTasks += t.requiresVerification ? 0.8 : 1;
-                                else if (t.status === 'IN_PROGRESS') completedTasks += 0.4;
-                            });
-                        });
-                        const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                        const progress = calculateOnboardingProgress(updatedStages);
                         batch.update(assignedDoc.ref, {
                             stages: updatedStages,
                             progress,

@@ -3,19 +3,10 @@
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
-export type EmployeeProfile = {
-  id: string;
+import { Employee } from '@/types';
+
+export type EmployeeProfile = Employee & {
   role: 'admin' | 'employee';
-  firstName: string;
-  lastName: string;
-  jobTitle: string;
-  email: string;
-  employeeCode: string;
-  avatarId?: string;
-  photoURL?: string;
-  deviceId?: string;
-  positionId?: string;
-  // Add other fields as needed
 };
 
 export const useEmployeeProfile = () => {

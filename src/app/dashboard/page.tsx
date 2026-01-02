@@ -38,14 +38,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon, ArrowLeft, Home } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
+import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
 import { isWithinInterval, format, startOfToday, endOfToday, isToday } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { Employee as BaseEmployee } from './employees/data';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -58,42 +58,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
+import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
+import {
+    Department,
+    Position as JobPosition,
+    Employee,
+    AttendanceRecord,
+    ReferenceItem
+} from '@/types';
 
-// --- Types ---
-type Employee = BaseEmployee & {
-    questionnaireCompletion?: number;
-};
-
-
-interface Department {
-    id: string;
-    name: string;
-    color?: string;
-}
-
-interface JobPosition {
-    id: string;
-    title: string;
-    departmentId: string;
-    filled: number;
-    reportsTo?: string;
-    levelId?: string;
-    employmentTypeId?: string;
-    jobCategoryId?: string;
-    workScheduleId?: string;
-    isActive?: boolean;
-    canApproveAttendance?: boolean;
-}
-
-interface AttendanceRecord {
-    id: string;
-    employeeId: string;
-    date: string; // yyyy-MM-dd
-    checkInTime: string;
-    checkOutTime?: string;
-    status: 'PRESENT' | 'LEFT';
-}
-
+// Local types for the chart
 interface TimeOffRequest {
     id: string;
     employeeId: string;
@@ -135,7 +109,9 @@ interface EmployeeNodeData {
     name: string;
     jobTitle: string;
     avatar?: string;
-    employee: Employee;
+    employee?: Employee;
+    isMore?: boolean;
+    onClick?: () => void;
 }
 
 type CustomNode = Node<JobPositionNodeData | EmployeeNodeData>;
@@ -385,23 +361,46 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
 };
 
 
-const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData }) => (
-    <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
-        <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-        <div className="flex items-center gap-4">
-            <div className="w-20 h-20 flex-shrink-0">
-                <AvatarWithProgress employee={data.employee} />
-            </div>
-            <Link href={`/dashboard/employees/${data.employee.id}`}>
-                <div className="space-y-0.5">
-                    <p className="font-semibold text-lg hover:underline">{data.name}</p>
-                    <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
-                    <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
+const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: boolean, onClick?: () => void } }) => {
+    if (data.isMore) {
+        return (
+            <Card
+                className="w-80 bg-slate-900 border-slate-700 shadow-xl p-4 cursor-pointer hover:bg-slate-800 transition-all border-dashed"
+                onClick={data.onClick}
+            >
+                <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border-2 border-slate-700">
+                        <MoreHorizontal className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-lg text-white">{data.name}</p>
+                        <p className="text-sm text-slate-400">{data.jobTitle}</p>
+                    </div>
                 </div>
-            </Link>
-        </div>
-    </Card>
-)
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
+            <Handle type="source" position={Position.Right} className="!bg-amber-500" />
+            <div className="flex items-center gap-4">
+                <div className="w-20 h-20 flex-shrink-0">
+                    <AvatarWithProgress employee={data.employee} />
+                </div>
+                {data.employee && (
+                    <Link href={`/dashboard/employees/${data.employee.id}`}>
+                        <div className="space-y-0.5">
+                            <p className="font-semibold text-lg hover:underline">{data.name}</p>
+                            <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
+                            <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
+                        </div>
+                    </Link>
+                )}
+            </div>
+        </Card>
+    );
+}
 
 const nodeTypes = { position: JobPositionNode, unassigned: UnassignedEmployeeNode };
 const SkeletonChart = () => <div className="relative h-[80vh] w-full"><Skeleton className="h-32 w-64 absolute top-10 left-10" /><Skeleton className="h-32 w-64 absolute top-60 left-80" /><Skeleton className="h-32 w-64 absolute top-10 right-10" /></div>
@@ -521,7 +520,8 @@ const OrganizationChart = () => {
     const [edges, setEdges] = useState<Edge[]>([]);
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
     const [selectedPosition, setSelectedPosition] = useState<JobPosition | null>(null);
-    const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = useState<Employee | null>(null);
+    const [isUnassignedDialogOpen, setIsUnassignedDialogOpen] = React.useState(false);
+    const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = React.useState<Employee | null>(null);
     const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
     const [editingPosition, setEditingPosition] = useState<JobPosition | null>(null);
     const [duplicatingPosition, setDuplicatingPosition] = React.useState<JobPosition | null>(null);
@@ -564,10 +564,20 @@ const OrganizationChart = () => {
 
     const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
-    const isLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingProfile;
+    // Critical loading states for the organization chart
+    const isCriticalLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingProfile;
+    // Secondary loading states for statistics
+    const isStatsLoading = isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingAssigned;
+
+    // For visual skeleton of the chart
+    const isLoading = isCriticalLoading;
 
     const activeEmployeesCount = useMemo(() => {
         return (employees || []).filter(emp => emp.status === 'Идэвхтэй').length;
+    }, [employees]);
+
+    const unassignedEmployees = useMemo(() => {
+        return (employees || []).filter(e => !e.positionId && e.status === 'Идэвхтэй');
     }, [employees]);
 
     const onLeaveEmployees = useMemo(() => {
@@ -593,21 +603,25 @@ const OrganizationChart = () => {
 
         const activePrograms = assignedPrograms.filter((p: any) => p.status === 'IN_PROGRESS');
         let totalTasks = 0;
-        let completedTasks = 0;
+        let totalProgress = 0;
+        let completedTasksCount = 0;
 
         activePrograms.forEach((program: any) => {
             if (program.stages && Array.isArray(program.stages)) {
+                const progress = calculateOnboardingProgress(program.stages);
+                totalProgress += progress;
+
                 program.stages.forEach((stage: any) => {
                     if (stage.tasks && Array.isArray(stage.tasks)) {
                         totalTasks += stage.tasks.length;
-                        completedTasks += stage.tasks.filter((t: any) => t.status === 'DONE' || t.status === 'VERIFIED').length;
+                        completedTasksCount += stage.tasks.filter((t: any) => t.status === 'DONE' || t.status === 'VERIFIED').length;
                     }
                 });
             }
         });
 
-        const pendingTasks = totalTasks - completedTasks;
-        const avgProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const pendingTasks = totalTasks - completedTasksCount;
+        const avgProgress = activePrograms.length > 0 ? Math.round(totalProgress / activePrograms.length) : 0;
 
         return { activePrograms: activePrograms.length, pendingTasks, avgProgress };
     }, [assignedPrograms]);
@@ -708,7 +722,7 @@ const OrganizationChart = () => {
 
     // Create nodes and edges based on data
     useEffect(() => {
-        if (isLoading || !positions || !employees) return;
+        if (isCriticalLoading || !departments || !positions) return;
 
         const deptMap = new Map(departments?.map(d => [d.id, d]));
         const workScheduleMap = new Map(workSchedules?.map(ws => [ws.id, ws.name]));
@@ -812,10 +826,11 @@ const OrganizationChart = () => {
             }
         });
 
-        const unassignedEmployees = employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || [];
-        unassignedEmployees.forEach((emp, index) => {
+        // Limit unassigned nodes to 10 on the chart to prevent clutter
+        const visibleUnassigned = unassignedEmployees.slice(0, 10);
+        visibleUnassigned.forEach((emp, index) => {
             newNodes.push({
-                id: emp.id, type: 'unassigned', position: { x: -500, y: index * 120 },
+                id: emp.id, type: 'unassigned', position: { x: -600, y: index * 120 },
                 data: {
                     label: emp.firstName,
                     name: `${emp.firstName} ${emp.lastName}`,
@@ -825,6 +840,21 @@ const OrganizationChart = () => {
                 },
             });
         });
+
+        if (unassignedEmployees.length > 10) {
+            newNodes.push({
+                id: 'unassigned-more',
+                type: 'unassigned',
+                position: { x: -600, y: 10 * 120 },
+                data: {
+                    label: `Бусад ${unassignedEmployees.length - 10}...`,
+                    name: `+${unassignedEmployees.length - 10} ажилтан`,
+                    jobTitle: 'Бүгдийг харах',
+                    isMore: true,
+                    onClick: () => setIsUnassignedDialogOpen(true)
+                }
+            });
+        }
 
         setNodes(newNodes);
         setEdges(newEdges);
@@ -979,7 +1009,7 @@ const OrganizationChart = () => {
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Шинэ ажилтнууд</div>
-                                        <User className="h-5 w-5 text-slate-500" />
+                                        <UserPlus className="h-5 w-5 text-slate-500" />
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div>
@@ -990,6 +1020,24 @@ const OrganizationChart = () => {
                                             <div className="text-lg font-black text-white">{newHiresStats.avgOnboardingProgress}%</div>
                                             <div className="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Дундаж</div>
                                         </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* 6. Unassigned Employees */}
+                        <div className="flex-shrink-0 cursor-pointer" onClick={() => setIsUnassignedDialogOpen(true)}>
+                            <Card className="h-full w-[220px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Томилогдоогүй</div>
+                                        <UserMinus className="h-5 w-5 text-slate-400" />
+                                    </div>
+                                    <div>
+                                        <div className="text-4xl font-black text-rose-500 mb-1">
+                                            {unassignedEmployees.length}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">ажил томилох шаардлагатай</div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1030,6 +1078,16 @@ const OrganizationChart = () => {
                     </Button>
                 </div>
             </div>
+            <UnassignedEmployeesDialog
+                open={isUnassignedDialogOpen}
+                onOpenChange={setIsUnassignedDialogOpen}
+                employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
+                onAssign={(emp) => {
+                    setSelectedEmployeeForAssignment(emp);
+                    setIsAssignDialogOpen(true);
+                    setIsUnassignedDialogOpen(false);
+                }}
+            />
             <AssignEmployeeDialog
                 open={isAssignDialogOpen}
                 onOpenChange={setIsAssignDialogOpen}

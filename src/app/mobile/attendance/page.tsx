@@ -560,7 +560,7 @@ export default function AttendancePage() {
         setIsSubmitting(true);
         setError(null);
 
-        if (!config || !employeeProfile || !firestore) {
+        if (!locations || !employeeProfile || !firestore) {
             setError("Системийн тохиргоог уншиж чадсангүй.");
             setIsSubmitting(false);
             return;

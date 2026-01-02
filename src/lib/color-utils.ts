@@ -4,25 +4,20 @@
  * @returns A string in the format "H S% L%" or null if invalid
  */
 export function hexToHsl(hex: string): string | null {
-    let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    let r = 0, g = 0, b = 0;
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
 
-    // Handle short hex like #000
-    if (!result) {
+    if (result) {
+        r = parseInt(result[1], 16);
+        g = parseInt(result[2], 16);
+        b = parseInt(result[3], 16);
+    } else {
         const shortResult = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(hex);
-        if (shortResult) {
-            // Manually construct the full hex string to avoid type issues with RegExpExecArray
-            const r = shortResult[1] + shortResult[1];
-            const g = shortResult[2] + shortResult[2];
-            const b = shortResult[3] + shortResult[3];
-            result = [`#${r}${g}${b}`, r, g, b] as RegExpExecArray;
-        }
+        if (!shortResult) return null;
+        r = parseInt(shortResult[1] + shortResult[1], 16);
+        g = parseInt(shortResult[2] + shortResult[2], 16);
+        b = parseInt(shortResult[3] + shortResult[3], 16);
     }
-
-    if (!result) return null;
-
-    let r = parseInt(result[1], 16);
-    let g = parseInt(result[2], 16);
-    let b = parseInt(result[3], 16);
 
     r /= 255;
     g /= 255;

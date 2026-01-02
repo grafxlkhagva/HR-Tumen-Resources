@@ -16,16 +16,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-  } from "@/components/ui/alert-dialog"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Form,
   FormControl,
@@ -84,41 +84,18 @@ const positionSchema = z.object({
 
 type PositionFormValues = z.infer<typeof positionSchema>;
 
-interface Reference {
-    id: string;
-    name: string;
-}
-
-interface JobCategoryReference extends Reference {
-    code: string;
-}
-
-interface Position {
-  id: string;
-  title: string;
-  departmentId: string;
-  filled: number;
-  reportsTo?: string;
-  levelId?: string;
-  employmentTypeId?: string;
-  jobCategoryId?: string;
-  workScheduleId?: string;
-  onboardingProgramIds?: string[];
-  isActive?: boolean;
-  createdAt?: string;
-  canApproveAttendance?: boolean;
-}
+import { Position as JobPosition, ReferenceItem as Reference } from '@/types';
 
 interface AddPositionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: Reference[];
-  allPositions: Position[] | null;
+  allPositions: JobPosition[] | null;
   positionLevels: Reference[];
   employmentTypes: Reference[];
-  jobCategories: JobCategoryReference[];
+  jobCategories: any[];
   workSchedules: Reference[];
-  editingPosition?: Position | null;
+  editingPosition?: JobPosition | null;
 }
 
 export function AddPositionDialog({
@@ -155,34 +132,34 @@ export function AddPositionDialog({
       canApproveAttendance: false,
     },
   });
-  
+
   const watchedDepartmentId = form.watch('departmentId');
 
   const availablePrograms = React.useMemo(() => {
     if (!onboardingPrograms || !watchedDepartmentId) return [];
 
     return onboardingPrograms.filter(p => {
-        const appliesTo = p.appliesTo;
+      const appliesTo = p.appliesTo;
 
-        // 1. Program is global (applies to all)
-        const isGlobal = !appliesTo || (!appliesTo.departmentIds?.length && !appliesTo.positionIds?.length);
-        if (isGlobal) {
-            return true;
-        }
+      // 1. Program is global (applies to all)
+      const isGlobal = !appliesTo || (!appliesTo.departmentIds?.length && !appliesTo.positionIds?.length);
+      if (isGlobal) {
+        return true;
+      }
 
-        // 2. Program applies to the selected department
-        if (appliesTo.departmentIds?.includes(watchedDepartmentId)) {
-            return true;
-        }
+      // 2. Program applies to the selected department
+      if (appliesTo.departmentIds?.includes(watchedDepartmentId)) {
+        return true;
+      }
 
-        // 3. (Only in edit mode) Program applies specifically to this position being edited
-        if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
-            return true;
-        }
+      // 3. (Only in edit mode) Program applies specifically to this position being edited
+      if (isEditMode && editingPosition && appliesTo.positionIds?.includes(editingPosition.id)) {
+        return true;
+      }
 
-        return false;
+      return false;
     });
-}, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
+  }, [onboardingPrograms, watchedDepartmentId, isEditMode, editingPosition]);
 
   React.useEffect(() => {
     if (editingPosition) {
@@ -221,11 +198,11 @@ export function AddPositionDialog({
     () => (firestore ? collection(firestore, 'positions') : null),
     [firestore]
   );
-  
+
 
   const onSubmit = (data: PositionFormValues) => {
     if (!firestore) return;
-    
+
     const baseData: any = {
       title: data.title,
       departmentId: data.departmentId,
@@ -244,408 +221,408 @@ export function AddPositionDialog({
     } else {
       baseData.reportsTo = null;
     }
-    
+
     if (isEditMode && editingPosition) {
-        const docRef = doc(firestore, 'positions', editingPosition.id);
-        updateDocumentNonBlocking(docRef, baseData);
-        toast({ title: 'Амжилттай шинэчлэгдлээ' });
+      const docRef = doc(firestore, 'positions', editingPosition.id);
+      updateDocumentNonBlocking(docRef, baseData);
+      toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {
-        if (!positionsCollection) return;
-        const finalData = { ...baseData, filled: 0 };
-        addDocumentNonBlocking(positionsCollection, finalData);
-        toast({ title: 'Амжилттай нэмэгдлээ' });
+      if (!positionsCollection) return;
+      const finalData = { ...baseData, filled: 0 };
+      addDocumentNonBlocking(positionsCollection, finalData);
+      toast({ title: 'Амжилттай нэмэгдлээ' });
     }
 
     onOpenChange(false);
   };
-  
+
   const handleDelete = () => {
     if (!firestore || !editingPosition || editingPosition.filled > 0) return;
-    
+
     const docRef = doc(firestore, 'positions', editingPosition.id);
     deleteDocumentNonBlocking(docRef);
-    
+
     toast({
       variant: 'destructive',
       title: 'Амжилттай устгагдлаа',
       description: `"${editingPosition.title}" ажлын байр устгагдлаа.`,
     });
-    
+
     onOpenChange(false);
   }
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
-          <DialogDescription>
-            Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col">
-            <div className="flex-1 space-y-6 overflow-y-auto p-6">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
+            <DialogDescription>
+              Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col">
+              <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Үндсэн мэдээлэл</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="title"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Албан тушаалын нэр</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                             <FormField
-                                control={form.control}
-                                name="departmentId"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Харьяалагдах хэлтэс</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Хэлтэс сонгох" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {departments.map((dept) => (
-                                        <SelectItem key={dept.id} value={dept.id}>
-                                            {dept.name}
-                                        </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="reportsTo"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Удирдах албан тушаал сонгох" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
-                                        {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
-                                        <SelectItem key={pos.id} value={pos.id}>
-                                            {pos.title}
-                                        </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        </div>
-                    </CardContent>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Үндсэн мэдээлэл</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Албан тушаалын нэр</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="departmentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Харьяалагдах хэлтэс</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Хэлтэс сонгох" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="reportsTo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Удирдах албан тушаал сонгох" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
+                                {(allPositions || []).filter(p => p.id !== editingPosition?.id).map((pos) => (
+                                  <SelectItem key={pos.id} value={pos.id}>
+                                    {pos.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Ангилал</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField
-                            control={form.control}
-                            name="levelId"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Зэрэглэл сонгох" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {positionLevels.map((level) => (
-                                        <SelectItem key={level.id} value={level.id}>
-                                        {level.name}
-                                        </SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                            <FormField
-                            control={form.control}
-                            name="employmentTypeId"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Төрөл сонгох" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {employmentTypes.map((type) => (
-                                        <SelectItem key={type.id} value={type.id}>
-                                        {type.name}
-                                        </SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                        </div>
-                        <FormField
-                            control={form.control}
-                            name="jobCategoryId"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Ажил мэргэжлийн ангилал (ҮАМАТ)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="ҮАМАТ сонгох" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {jobCategories.map((cat) => (
-                                        <SelectItem key={cat.id} value={cat.id}>
-                                        {cat.code} - {cat.name}
-                                        </SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                </Card>
-                
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Нэмэлт тохиргоо</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                         <FormField
-                          control={form.control}
-                          name="onboardingProgramIds"
-                          render={() => (
-                            <FormItem>
-                                <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
-                                <ScrollArea className="h-40 rounded-md border">
-                                    <div className="p-4 space-y-2">
-                                        {availablePrograms.map((program) => (
-                                            <FormField
-                                                key={program.id}
-                                                control={form.control}
-                                                name="onboardingProgramIds"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                                        <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value?.includes(program.id)}
-                                                                onCheckedChange={(checked) => {
-                                                                    return checked
-                                                                    ? field.onChange([...(field.value || []), program.id])
-                                                                    : field.onChange(field.value?.filter((value) => value !== program.id))
-                                                                }}
-                                                            />
-                                                        </FormControl>
-                                                        <FormLabel className="font-normal">{program.title}</FormLabel>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-                               <FormDescription>Энэ албан тушаалд ажилтан томилогдоход автоматаар оноогдох хөтөлбөрүүд.</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="workScheduleId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Ажлын цагийн хуваарь</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Цагийн хуваарь сонгох" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                   <SelectItem value="none">(Сонгоогүй)</SelectItem>
-                                  {workSchedules.map((schedule) => (
-                                    <SelectItem key={schedule.id} value={schedule.id}>
-                                      {schedule.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="createdAt"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>Батлагдсан огноо</FormLabel>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant={"outline"}
-                                      className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, "yyyy-MM-dd")
-                                      ) : (
-                                        <span>Огноо сонгох</span>
-                                      )}
-                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                      date > new Date()
-                                    }
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="isActive"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
-                              </div>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Ангилал</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="levelId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Албан тушаалын зэрэглэл</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Зэрэглэл сонгох" />
+                                </SelectTrigger>
                               </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="canApproveAttendance"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
-                                <FormDescription>
-                                  Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
-                                </FormDescription>
-                              </div>
+                              <SelectContent>
+                                {positionLevels.map((level) => (
+                                  <SelectItem key={level.id} value={level.id}>
+                                    {level.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="employmentTypeId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ажил эрхлэлтийн төрөл</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Төрөл сонгох" />
+                                </SelectTrigger>
                               </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                    </CardContent>
+                              <SelectContent>
+                                {employmentTypes.map((type) => (
+                                  <SelectItem key={type.id} value={type.id}>
+                                    {type.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="jobCategoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ажил мэргэжлийн ангилал (ҮАМАТ)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="ҮАМАТ сонгох" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {jobCategories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  {cat.code} - {cat.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
                 </Card>
-            </div>
 
-            <DialogFooter className="p-6 pt-4 border-t sticky bottom-0 bg-background z-10 flex justify-between">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Нэмэлт тохиргоо</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="onboardingProgramIds"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel>Дасан зохицох хөтөлбөр (Автомат)</FormLabel>
+                          <ScrollArea className="h-40 rounded-md border">
+                            <div className="p-4 space-y-2">
+                              {availablePrograms.map((program) => (
+                                <FormField
+                                  key={program.id}
+                                  control={form.control}
+                                  name="onboardingProgramIds"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value?.includes(program.id)}
+                                          onCheckedChange={(checked) => {
+                                            return checked
+                                              ? field.onChange([...(field.value || []), program.id])
+                                              : field.onChange(field.value?.filter((value) => value !== program.id))
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="font-normal">{program.title}</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </ScrollArea>
+                          <FormDescription>Энэ албан тушаалд ажилтан томилогдоход автоматаар оноогдох хөтөлбөрүүд.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="workScheduleId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ажлын цагийн хуваарь</FormLabel>
+                          <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Цагийн хуваарь сонгох" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">(Сонгоогүй)</SelectItem>
+                              {workSchedules.map((schedule) => (
+                                <SelectItem key={schedule.id} value={schedule.id}>
+                                  {schedule.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="createdAt"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Батлагдсан огноо</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "yyyy-MM-dd")
+                                  ) : (
+                                    <span>Огноо сонгох</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date > new Date()
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Идэвхтэй эсэх</FormLabel>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="canApproveAttendance"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
+                            <FormDescription>
+                              Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <DialogFooter className="p-6 pt-4 border-t sticky bottom-0 bg-background z-10 flex justify-between">
                 <div>
-                     {isEditMode && (
-                        <AlertDialog>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        {/* This div is necessary for the tooltip to work on a disabled button */}
-                                        <div> 
-                                            <AlertDialogTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    disabled={(editingPosition?.filled || 0) > 0}
-                                                >
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                        </div>
-                                    </TooltipTrigger>
-                                    {(editingPosition?.filled || 0) > 0 && (
-                                        <TooltipContent>
-                                            <p>Энэ ажлын байранд ажилтан томилогдсон тул устгах боломжгүй.</p>
-                                        </TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </TooltipProvider>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{editingPosition?.title}" ажлын байрыг бүрмөсөн устгах болно.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDelete}>Тийм, устгах</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    )}
+                  {isEditMode && (
+                    <AlertDialog>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* This div is necessary for the tooltip to work on a disabled button */}
+                            <div>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  disabled={(editingPosition?.filled || 0) > 0}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                </Button>
+                              </AlertDialogTrigger>
+                            </div>
+                          </TooltipTrigger>
+                          {(editingPosition?.filled || 0) > 0 && (
+                            <TooltipContent>
+                              <p>Энэ ажлын байранд ажилтан томилогдсон тул устгах боломжгүй.</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{editingPosition?.title}" ажлын байрыг бүрмөсөн устгах болно.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDelete}>Тийм, устгах</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                        Цуцлах
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
-                    </Button>
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                    Цуцлах
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
+                  </Button>
                 </div>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -13,6 +13,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
 
 // Types (Ideally these should be in a shared file if possible)
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'VERIFIED';
@@ -70,20 +71,8 @@ export default function MobileTaskDetailsPage() {
             tasks: stage.tasks.map((t: any, i: number) => i === tIndex ? updatedTask : t)
         };
 
-        // Recalculate progress logic
-        let totalTasks = 0;
-        let completedTasksCount = 0;
-        updatedStages.forEach((s: any) => {
-            s.tasks.forEach((t: any) => {
-                totalTasks++;
-                if (t.status === 'VERIFIED') completedTasksCount++;
-                else if (t.status === 'DONE') completedTasksCount += t.requiresVerification ? 0.8 : 1;
-                else if (t.status === 'IN_PROGRESS') completedTasksCount += 0.4;
-            });
-        });
-
-        const progress = totalTasks > 0 ? (completedTasksCount / totalTasks) * 100 : 0;
-        const status = progress >= 100 ? 'COMPLETED' : 'IN_PROGRESS';
+        const progress = calculateOnboardingProgress(updatedStages);
+        const status = progress === 100 ? 'COMPLETED' : 'IN_PROGRESS';
 
         await updateDocumentNonBlocking(docRef!, {
             stages: updatedStages,

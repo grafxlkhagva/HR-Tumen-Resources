@@ -151,6 +151,32 @@ export default function MobileOnboardingProgramPage() {
                     </div>
                 </div>
 
+                {/* Progress Explanation */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                        Явцын тооцоолол
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                            <div className="text-[9px] text-slate-500 font-medium mb-0.5">Баталгаажсан</div>
+                            <div className="text-xs font-black text-green-600">100%</div>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                            <div className="text-[9px] text-slate-500 font-medium mb-0.5">Дууссан (Хүлээгдэж буй)</div>
+                            <div className="text-xs font-black text-amber-600">80%</div>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                            <div className="text-[9px] text-slate-500 font-medium mb-0.5">Хийгдэж буй</div>
+                            <div className="text-xs font-black text-blue-600">40%</div>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                            <div className="text-[9px] text-slate-500 font-medium mb-0.5">Хийгээгүй</div>
+                            <div className="text-xs font-black text-slate-400">0%</div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Timeline & Stages */}
                 <div className="relative space-y-8">
                     {/* Vertical connecting line */}
