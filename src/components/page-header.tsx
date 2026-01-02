@@ -70,10 +70,13 @@ export function PageHeader({
 
             label = labelMap[path] || label;
 
-            // Don't add href for the last item (current page)
+            // Disable link for 'settings' to prevent redundant navigation/404
+            const isClickable = path !== 'settings';
+
+            // Don't add href for the last item (current page) or disabled paths
             crumbs.push({
                 label,
-                href: index < paths.length - 1 ? currentPath : undefined,
+                href: (index < paths.length - 1 && isClickable) ? currentPath : undefined,
             });
         });
 
@@ -108,7 +111,7 @@ export function PageHeader({
                     </Button>
                 )}
 
-                {generatedBreadcrumbs.map((crumb, index) => (
+                {generatedBreadcrumbs.slice(1).map((crumb, index) => (
                     <React.Fragment key={index}>
                         {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
                         {crumb.href ? (
@@ -116,11 +119,7 @@ export function PageHeader({
                                 href={crumb.href}
                                 className="hover:text-foreground transition-colors font-medium"
                             >
-                                {index === 0 ? (
-                                    <Home className="h-4 w-4" />
-                                ) : (
-                                    crumb.label
-                                )}
+                                {crumb.label}
                             </Link>
                         ) : (
                             <span className="text-foreground font-medium">{crumb.label}</span>

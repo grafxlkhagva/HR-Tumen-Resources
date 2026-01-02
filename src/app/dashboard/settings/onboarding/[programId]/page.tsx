@@ -308,13 +308,13 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-                        <DialogHeader>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full overflow-hidden">
+                        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
                             <DialogTitle>{isEditMode ? 'Даалгавар засах' : 'Шинэ даалгавар нэмэх'}</DialogTitle>
                         </DialogHeader>
-                        <div className="py-4 space-y-4 flex-1 overflow-y-auto pr-4">
+                        <div className="px-6 py-2 flex-1 overflow-y-auto min-h-0 space-y-4">
                             <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Компанийн дотоод журамтай танилцах" {...field} /></FormControl><FormMessage /></FormItem>)} />
 
                             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Тайлбар</FormLabel><FormControl><Textarea placeholder="Даалгаврын дэлгэрэнгүй тайлбар..." {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -464,7 +464,7 @@ function TaskDialog({ open, onOpenChange, programId, stageId, editingTask }: { o
                                 <FormMessage />
                             </FormItem>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="px-6 pb-6 pt-2 shrink-0">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
                             <Button type="submit" disabled={isSubmitting || isUploading}>
                                 {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

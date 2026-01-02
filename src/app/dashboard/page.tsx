@@ -38,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon, ArrowLeft } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus as UserMinusIcon, ArrowLeft, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -873,40 +873,7 @@ const OrganizationChart = () => {
     const inactiveEmployeesCount = (employees || []).filter(e => e.status !== 'Идэвхтэй').length;
 
     return (
-        <div className="flex flex-col h-screen">
-            {/* Header - Compact */}
-            <div className="px-4 py-2 flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <Link href="/dashboard/company" className="inline-block">
-                    <div className="flex items-center gap-3 group">
-                        {isLoadingProfile ? (
-                            <>
-                                <Skeleton className="size-8 rounded-lg" />
-                                <Skeleton className="h-5 w-24" />
-                            </>
-                        ) : (
-                            <>
-                                <Avatar className="size-8 rounded-lg">
-                                    <AvatarImage src={companyProfile?.logoUrl} className="object-contain" />
-                                    <AvatarFallback className="rounded-lg bg-muted">
-                                        <Building className="size-4" />
-                                    </AvatarFallback>
-                                </Avatar>
-                                <h1 className="text-base font-bold tracking-tight group-hover:text-primary transition-colors">{companyProfile?.name || 'Компани'}</h1>
-                            </>
-                        )}
-                    </div>
-                </Link>
-                <div className="flex items-center gap-2">
-                    <UserNav />
-                    <Button asChild variant="ghost" size="icon">
-                        <Link href="/dashboard/settings/general">
-                            <Settings className="h-4 w-4" />
-                            <span className="sr-only">Тохиргоо</span>
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
+        <div className="flex flex-col h-full">
             {/* Stats Bar - 20% height, horizontal scroll */}
             <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950">
                 <div className="h-full overflow-x-auto overflow-y-hidden px-6 py-4">
@@ -979,7 +946,7 @@ const OrganizationChart = () => {
                         </Link>
 
                         {/* 4. Onboarding */}
-                        <div className="flex-shrink-0">
+                        <Link href="/dashboard/settings/onboarding" className="flex-shrink-0">
                             <Card className="h-full w-[280px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
@@ -1004,7 +971,7 @@ const OrganizationChart = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-                        </div>
+                        </Link>
 
                         {/* 5. New Hires */}
                         <div className="flex-shrink-0">
