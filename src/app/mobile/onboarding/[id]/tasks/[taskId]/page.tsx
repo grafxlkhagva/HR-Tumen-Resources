@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
+import { Textarea } from '@/components/ui/textarea';
 
 // Types (Ideally these should be in a shared file if possible)
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'VERIFIED';
@@ -26,6 +27,7 @@ export default function MobileTaskDetailsPage() {
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
+    const [comment, setComment] = React.useState('');
 
     // Re-fetch the program. Finding the specific task.
     // Since we don't know the exact indices, we need to search the stages array.
@@ -64,6 +66,7 @@ export default function MobileTaskDetailsPage() {
             ...task,
             status: newStatus,
             completedAt: (newStatus === 'DONE' || newStatus === 'VERIFIED') ? new Date().toISOString() : task.completedAt,
+            comment: comment
         };
 
         updatedStages[sIndex] = {
@@ -95,6 +98,12 @@ export default function MobileTaskDetailsPage() {
     const { task } = foundData;
     const isVerified = task.status === 'VERIFIED';
     const isCompleted = task.status === 'DONE';
+
+    React.useEffect(() => {
+        if (task?.comment) {
+            setComment(task.comment);
+        }
+    }, [task]);
 
     return (
         <div className="min-h-dvh bg-background pb-8 flex flex-col">
@@ -166,6 +175,17 @@ export default function MobileTaskDetailsPage() {
             </div>
 
             <div className="p-4 border-t bg-background sticky bottom-0">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Тэмдэглэл / Тайлан</label>
+                    <Textarea
+                        placeholder="Ажлын явц, үр дүнгийн талаар бичнэ үү..."
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        className="bg-muted/50 resize-none min-h-[100px]"
+                        disabled={task.status === 'DONE' || task.status === 'VERIFIED'}
+                    />
+                </div>
+
                 {task.status !== 'VERIFIED' && (
                     <>
                         {task.status !== 'DONE' ? (

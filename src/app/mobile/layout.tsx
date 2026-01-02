@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, User, Building } from 'lucide-react';
+import { Home, Clock, User, Building, Users } from 'lucide-react';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
@@ -36,8 +36,8 @@ export default function MobileLayout({
                   key={item.href}
                   href={item.href}
                   className={`flex flex-col items-center gap-1 text-xs transition-colors active:scale-95 ${isActive
-                      ? 'text-primary font-bold'
-                      : 'text-muted-foreground hover:text-primary'
+                    ? 'text-primary font-bold'
+                    : 'text-muted-foreground hover:text-primary'
                     }`}
                 >
                   <item.icon

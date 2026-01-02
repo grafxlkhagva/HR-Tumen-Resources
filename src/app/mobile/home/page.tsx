@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -429,18 +429,19 @@ function QuickActions() {
     const actions = [
         { label: 'Чөлөө', icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-50', onClick: () => router.push('/mobile/attendance?tab=requests') },
         { label: 'Цалин', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => { } },
+        { label: 'Чиглүүлэг', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/mentoring') },
         { label: 'Дүрэм', icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => router.push('/mobile/company/policies') },
         { label: 'Тусламж', icon: MessageSquare, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => { } },
     ];
 
     return (
-        <div className="px-6 grid grid-cols-4 gap-4">
+        <div className="px-6 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {actions.map((action, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform" onClick={action.onClick}>
+                <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform min-w-[3.5rem]" onClick={action.onClick}>
                     <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-sm group-hover:shadow-md border border-slate-100 bg-white", action.color)}>
                         <action.icon className="w-6 h-6" />
                     </div>
-                    <span className="text-xs font-bold text-slate-600 text-center">{action.label}</span>
+                    <span className="text-xs font-bold text-slate-600 text-center whitespace-nowrap">{action.label}</span>
                 </div>
             ))}
         </div>

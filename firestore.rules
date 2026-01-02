@@ -28,7 +28,7 @@ service cloud.firestore {
     // Employees can read their own data, admins can read any
     match /employees/{employeeId} {
       allow get: if isOwner(employeeId) || isAdmin();
-      allow list: if isAdmin();
+      allow list: if isSignedIn();
       allow create: if isSignedIn(); // Signup
       allow update: if isOwner(employeeId) || isAdmin();
     }
@@ -103,7 +103,7 @@ service cloud.firestore {
 
     // Collection Group rules
     match /{path=**}/assignedPrograms/{docId} {
-        allow read: if isAdmin();
+        allow read: if isSignedIn();
         allow write: if isAdmin();
     }
 

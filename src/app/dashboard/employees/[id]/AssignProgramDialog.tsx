@@ -52,6 +52,7 @@ export type AssignedTask = {
   assigneeName?: string;
   // Resources
   attachments?: { name: string; url: string; type: string }[];
+  comment?: string;
 };
 
 export type AssignedStage = {
@@ -64,6 +65,7 @@ export type AssignedStage = {
 export type AssignedProgram = {
   id: string;
   programId: string;
+  employeeId: string;
   programName: string;
   status: 'IN_PROGRESS' | 'COMPLETED';
   startDate: string;
@@ -81,7 +83,7 @@ interface AssignProgramDialogProps {
 }
 
 // Extend interface locally to ensure safety and fix missing properties
-interface TaskWithTemplate extends OnboardingTaskTemplate {
+interface TaskWithTemplate extends Omit<OnboardingTaskTemplate, 'assigneeType' | 'dueDays'> {
   id: string;
   assigneeType?: string;
   requiresVerification?: boolean;
