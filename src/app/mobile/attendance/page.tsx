@@ -65,10 +65,13 @@ type AttendanceRequest = {
     approverName: string;
 }
 
-type AttendanceConfig = {
+type AttendanceLocation = {
+    id: string;
+    name: string;
     latitude: number;
     longitude: number;
     radius: number;
+    isActive: boolean;
 }
 
 type Position = {
@@ -515,11 +518,11 @@ export default function AttendancePage() {
     const todayString = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
     const attendanceQuery = useMemoFirebase(() => employeeProfile ? query(collection(firestore, 'attendance'), where('employeeId', '==', employeeProfile.id), where('date', '==', todayString)) : null, [firestore, employeeProfile, todayString]);
-    const configQuery = useMemoFirebase(() => doc(firestore, 'company', 'attendanceConfig'), [firestore]);
+    const locationsQuery = useMemoFirebase(() => query(collection(firestore, 'attendanceLocations'), where('isActive', '==', true)), [firestore]);
     const timeOffConfigQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), [firestore]);
 
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
-    const { data: config, isLoading: isConfigLoading } = useDoc<AttendanceConfig>(configQuery);
+    const { data: locations, isLoading: isConfigLoading } = useCollection<AttendanceLocation>(locationsQuery);
     const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
 
     const todaysRecord = attendanceRecords?.[0];
@@ -578,18 +581,37 @@ export default function AttendancePage() {
                 navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
             });
             const { latitude, longitude } = position.coords;
-            const distance = getDistance(latitude, longitude, config.latitude, config.longitude);
 
-            if (distance > config.radius) {
-                setError(`Оффисоос хол байна (${Math.round(distance)}м).`);
+            // Check if user is within any active location
+            let isWithinRange = false;
+            let closestDistance = Infinity;
+            let matchedLocationName = '';
+
+            locations?.forEach(loc => {
+                const dist = getDistance(latitude, longitude, loc.latitude, loc.longitude);
+                if (dist <= loc.radius) {
+                    isWithinRange = true;
+                    matchedLocationName = loc.name;
+                }
+                if (dist < closestDistance) closestDistance = dist;
+            });
+
+            if (!isWithinRange) {
+                setError(`Оффисоос хол байна (Ойрх: ${Math.round(closestDistance)}м).`);
                 setIsSubmitting(false);
                 return;
             }
 
             if (type === 'check-in') {
                 const attendanceCollection = collection(firestore, 'attendance');
-                await addDocumentNonBlocking(attendanceCollection, { employeeId: employeeProfile.id, date: todayString, checkInTime: new Date().toISOString(), status: 'PRESENT' });
-                toast({ title: 'Ирц бүртгэгдлээ' });
+                await addDocumentNonBlocking(attendanceCollection, {
+                    employeeId: employeeProfile.id,
+                    date: todayString,
+                    checkInTime: new Date().toISOString(),
+                    status: 'PRESENT',
+                    locationName: matchedLocationName
+                });
+                toast({ title: `${matchedLocationName} салбарт ирц бүртгэгдлээ` });
             } else if (type === 'check-out' && todaysRecord) {
                 const recordDocRef = doc(firestore, 'attendance', todaysRecord.id);
                 await updateDocumentNonBlocking(recordDocRef, { checkOutTime: new Date().toISOString(), status: 'LEFT' });

@@ -105,7 +105,7 @@ export default function CompanyPage() {
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
 
-    const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef);
+    const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: departments, isLoading: isLoadingDepts } = useCollection(departmentsQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection(positionsQuery);
     const { data: policies, isLoading: isLoadingPolicies } = useCollection(policiesQuery);
@@ -310,7 +310,7 @@ export default function CompanyPage() {
                             </CardContent>
                             <CardFooter>
                                 <Button asChild variant="secondary" className="w-full">
-                                    <Link href="/dashboard/settings/policies">Журам удирдах</Link>
+                                    <Link href="/dashboard/company/policies">Журам удирдах</Link>
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -338,7 +338,7 @@ export default function CompanyPage() {
                         </Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="shadow-lg bg-background/80 backdrop-blur hover:bg-background">
-                        <Link href="/dashboard/settings/policies">
+                        <Link href="/dashboard/company/policies">
                             <ScrollText className="mr-2 h-4 w-4" />
                             Журам
                         </Link>

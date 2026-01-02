@@ -50,12 +50,6 @@ const settingsNavItems = [
         href: "/dashboard/settings/attendance",
         icon: Clock,
         description: "Цагийн хуваарь"
-    },
-    {
-        title: "Бодлого",
-        href: "/dashboard/settings/policies",
-        icon: Shield,
-        description: "Дотоод журам"
     }
 ]
 
