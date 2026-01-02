@@ -4,14 +4,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -218,127 +210,153 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow>
-              <TableHead className="w-[100px] font-semibold">Код</TableHead>
-              <TableHead className="font-semibold">Ажилтан</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold">Албан тушаал</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold">Хэлтэс</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold">Төлөв</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-40" />
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))}
-
-            {error && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-destructive">
-                  Алдаа гарлаа: {error.message}
-                </TableCell>
-              </TableRow>
-            )}
-
-            {!isLoading && filteredEmployees.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <Users className="h-8 w-8 opacity-20" />
-                    <p>Илэрц олдсонгүй</p>
+      {/* Main Content - Card Grid */}
+      {isLoading && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-40" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
-                </TableCell>
-              </TableRow>
-            )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-            {!isLoading && filteredEmployees.map((employee) => {
-              const statusStyle = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
-              return (
-                <TableRow key={employee.id} className="group hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-mono text-xs text-muted-foreground">#{employee.employeeCode}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10 border border-border shadow-sm">
-                        <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                        <AvatarFallback className="bg-primary/5 text-primary">
-                          {employee.firstName?.[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-sm group-hover:text-primary transition-colors">
-                          {employee.lastName?.substr(0, 1)}.{employee.firstName}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{employee.email}</span>
+      {error && (
+        <Card className="border-destructive/50">
+          <CardContent className="py-12 text-center text-destructive">
+            <p>Алдаа гарлаа: {error.message}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && filteredEmployees.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-4 bg-muted/50 rounded-full">
+                <Users className="h-10 w-10 opacity-30" />
+              </div>
+              <div>
+                <p className="font-medium text-lg">Илэрц олдсонгүй</p>
+                <p className="text-sm mt-1">Хайлтын үр дүн хоосон байна</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && filteredEmployees.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredEmployees.map((employee) => {
+            const statusStyle = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
+            const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
+
+            return (
+              <Card
+                key={employee.id}
+                className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-primary/50 cursor-pointer"
+              >
+                <Link href={`/dashboard/employees/${employee.id}`}>
+                  <CardContent className="p-6">
+                    {/* Header with Avatar and Actions */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-16 w-16 border-2 border-border shadow-sm ring-2 ring-background group-hover:ring-primary/20 transition-all">
+                          <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                            {employee.firstName?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-base group-hover:text-primary transition-colors">
+                            {employee.lastName?.substring(0, 1)}.{employee.firstName}
+                          </h3>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                            #{employee.employeeCode}
+                          </p>
+                        </div>
                       </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Цэс</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/${employee.id}`} className="cursor-pointer">
+                              Харах
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/${employee.id}/edit`} className="cursor-pointer">
+                              Засварлах
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleSelectDelete(employee);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Устгах / Идэвхгүй
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm">{employee.jobTitle}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge variant="outline" className="font-normal bg-background/50">
-                      {departmentMap.get(employee.departmentId) || 'Тодорхойгүй'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge variant="outline" className={`font-medium border-0 px-2 py-0.5 ${statusStyle.className}`}>
-                      {statusStyle.label || employee.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Цэс</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/employees/${employee.id}`} className="cursor-pointer">
-                            Харах
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/employees/${employee.id}/edit`} className="cursor-pointer">
-                            Засварлах
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive cursor-pointer"
-                          onClick={() => handleSelectDelete(employee)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Устгах / Идэвхгүй
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
+
+                    {/* Job Title */}
+                    <div className="mb-3">
+                      <p className="text-sm font-medium text-foreground/90 flex items-center gap-2">
+                        <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                        {employee.jobTitle || 'Албан тушаал тодорхойгүй'}
+                      </p>
+                    </div>
+
+                    {/* Email */}
+                    <div className="mb-4">
+                      <p className="text-xs text-muted-foreground truncate">
+                        {employee.email}
+                      </p>
+                    </div>
+
+                    {/* Department and Status Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="font-normal bg-background/50 text-xs">
+                        {departmentName}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`font-medium border-0 px-2 py-0.5 text-xs ${statusStyle.className}`}
+                      >
+                        {statusStyle.label || employee.status}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Link>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -882,7 +882,7 @@ export default function OnboardingProgramBuilderPage() {
     }
 
     const handleEditTask = (stageId: string, task: OnboardingTaskTemplate | null) => {
-        if (!task) return;
+        // if (!task) return; // Allow null for new task
         setSelectedStageIdForTask(stageId);
         setSelectedTask(task);
         setIsTaskDialogOpen(true);

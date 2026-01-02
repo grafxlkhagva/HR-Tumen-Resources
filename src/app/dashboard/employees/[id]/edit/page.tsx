@@ -129,6 +129,15 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
         },
     });
 
+    // Update form values if employeeData changes (e.g. updated from elsewhere)
+    React.useEffect(() => {
+        form.reset({
+            ...employeeData,
+            positionId: employeeData.positionId || '(none)',
+            hireDate: employeeData.hireDate ? new Date(employeeData.hireDate) : new Date(),
+        });
+    }, [employeeData, form]);
+
     const { isSubmitting } = form.formState;
 
     const watchedDepartmentId = form.watch('departmentId');
@@ -153,12 +162,15 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
 
 
     React.useEffect(() => {
+        // Prevent clearing position if positions are not loaded yet
+        if (!positions || positions.length === 0) return;
+
         const currentPositionId = form.getValues('positionId');
         if (currentPositionId && currentPositionId !== '(none)' && !filteredPositions.some(p => p.id === currentPositionId)) {
             form.setValue('positionId', '(none)');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [watchedDepartmentId]);
+    }, [watchedDepartmentId, filteredPositions, positions]);
 
     const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -380,6 +392,12 @@ export default function EditEmployeePage() {
                 description={`${employee.firstName} ${employee.lastName}-ийн мэдээллийг шинэчлэх`}
                 showBackButton
                 backHref={`/dashboard/employees/${employeeId}`}
+                breadcrumbs={[
+                    { label: 'Dashboard', href: '/dashboard' },
+                    { label: 'Ажилтан', href: '/dashboard/employees' },
+                    { label: `${employee.firstName} ${employee.lastName}`, href: `/dashboard/employees/${employeeId}` },
+                    { label: 'Засах' }
+                ]}
             />
             <EditEmployeeForm employeeData={employee} />
         </div>

@@ -62,6 +62,10 @@ export function PageHeader({
                 'add': 'Нэмэх',
                 'edit': 'Засах',
                 'questionnaire': 'Анкет',
+                'documents': 'Бичиг баримт',
+                'profile': 'Профайл',
+                'requests': 'Хүсэлтүүд',
+                'time-off': 'Чөлөө',
             };
 
             label = labelMap[path] || label;
@@ -76,6 +80,16 @@ export function PageHeader({
         return crumbs;
     }, [pathname, breadcrumbs]);
 
+    const effectiveBackHref = React.useMemo(() => {
+        if (backHref) return backHref;
+        // If we have breadcrumbs, try to go to the parent (second to last item)
+        if (generatedBreadcrumbs.length > 1) {
+            const parentCrumb = generatedBreadcrumbs[generatedBreadcrumbs.length - 2];
+            return parentCrumb.href || '/dashboard';
+        }
+        return '/dashboard';
+    }, [backHref, generatedBreadcrumbs]);
+
     return (
         <div className={cn('flex flex-col gap-4', className)}>
             {/* Breadcrumbs */}
@@ -87,7 +101,7 @@ export function PageHeader({
                         className="h-8 gap-2 px-2 hover:bg-muted/50"
                         asChild
                     >
-                        <Link href={backHref || '/dashboard'}>
+                        <Link href={effectiveBackHref}>
                             <ArrowLeft className="h-4 w-4" />
                             <span className="hidden sm:inline">Буцах</span>
                         </Link>

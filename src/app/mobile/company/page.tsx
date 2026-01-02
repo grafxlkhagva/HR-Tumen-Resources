@@ -105,7 +105,7 @@ export default function MobileCompanyPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
+        <div className="min-h-screen bg-slate-50">{/* Removed pb-24, will add to inner container */}
             {/* Dynamic Hero Section */}
             <div className="relative h-64 bg-gradient-to-br from-indigo-900 via-primary to-indigo-800 overflow-hidden">
                 {/* Abstract Shapes */}

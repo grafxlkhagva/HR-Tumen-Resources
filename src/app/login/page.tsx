@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Building } from 'lucide-react';
+import { Loader2, Building, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDoc, doc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -35,9 +35,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const companyProfileRef = useMemoFirebase(
-    ({firestore}) => (firestore ? doc(firestore, 'company', 'profile') : null),
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
     []
   );
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
@@ -56,8 +57,8 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
 
       toast({
-          title: 'Амжилттай нэвтэрлээ',
-          description: 'Хуудас руу шилжиж байна.',
+        title: 'Амжилттай нэвтэрлээ',
+        description: 'Хуудас руу шилжиж байна.',
       });
 
       // Redirect to home page, which will handle role-based redirection
@@ -67,24 +68,24 @@ export default function LoginPage() {
       setIsLoading(false);
       let errorMessage = 'Нэвтрэх үед тооцоолоогүй алдаа гарлаа.';
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-          errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
+        errorMessage = 'Нэвтрэх нэр эсвэл нууц үг буруу байна.';
       } else {
         errorMessage = err.message || errorMessage;
       }
       setError(errorMessage);
-       toast({
+      toast({
         variant: 'destructive',
         title: 'Нэвтрэхэд алдаа гарлаа',
         description: errorMessage,
       });
     }
   };
-  
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-            <div className="mb-4 flex flex-col items-center gap-3">
+          <div className="mb-4 flex flex-col items-center gap-3">
             {isLoadingProfile ? (
               <>
                 <Skeleton className="h-16 w-16 rounded-full" />
@@ -95,10 +96,10 @@ export default function LoginPage() {
                 <Avatar className="h-16 w-16">
                   <AvatarImage src={companyProfile?.logoUrl} alt={companyProfile?.name} />
                   <AvatarFallback className="rounded-lg bg-muted">
-                      <Building className="h-8 w-8 text-muted-foreground" />
+                    <Building className="h-8 w-8 text-muted-foreground" />
                   </AvatarFallback>
                 </Avatar>
-                 <CardTitle className="text-2xl">{companyProfile?.name || 'Teal HR'}-т нэвтрэх</CardTitle>
+                <CardTitle className="text-2xl">{companyProfile?.name || 'Teal HR'}-т нэвтрэх</CardTitle>
               </>
             )}
           </div>
@@ -122,14 +123,33 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Нууц үг</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">
+                    {showPassword ? 'Нууц үг нуух' : 'Нууц үг харах'}
+                  </span>
+                </Button>
+              </div>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isLoading}>

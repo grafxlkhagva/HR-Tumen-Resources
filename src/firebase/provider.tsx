@@ -79,10 +79,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     // Safety timeout to prevent infinite loading if Firebase Auth hangs
     const timeoutId = setTimeout(() => {
       if (userAuthState.isUserLoading) {
-        console.warn("FirebaseProvider: Auth state check timed out after 10s.");
+        console.warn("FirebaseProvider: Auth state check timed out after 5s. Setting loading to false.");
         setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
       }
-    }, 10000);
+    }, 5000);
 
     const unsubscribe = onAuthStateChanged(
       auth,

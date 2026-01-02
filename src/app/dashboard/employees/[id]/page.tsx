@@ -855,7 +855,9 @@ export default function EmployeeProfilePage() {
         )
     }
 
-    const fullName = `${employee.lastName?.substring(0, 1)}.${employee.firstName}`;
+    const fullName = employee.lastName
+        ? `${employee.lastName.substring(0, 1)}.${employee.firstName}`
+        : employee.firstName;
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
     const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
@@ -892,7 +894,7 @@ export default function EmployeeProfilePage() {
                     <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
                     <div className="flex-1">
                         <p className="font-semibold text-sm">Анхааруулга</p>
-                        <p className="text-sm opacity-90">Энэ ажилтан одоогоор <strong>{statusInfo.label.toLowerCase()}</strong> төлөвтэй байна. Системд нэвтрэх эрх хязгаарлагдмал.</p>
+                        <p className="text-sm opacity-90">Энэ ажилтан одоогоор <strong>{statusInfo.label?.toLowerCase() || employee.status}</strong> төлөвтэй байна. Системд нэвтрэх эрх хязгаарлагдмал.</p>
                     </div>
                     <Button onClick={handleReactivate} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white border-none shadow-none">
                         <CheckCircle className="mr-2 h-4 w-4" />

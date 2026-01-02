@@ -34,12 +34,37 @@ export function getSdks(firebaseApp: FirebaseApp) {
   // Initialize Firestore with proper cache settings to prevent internal errors
   let firestore;
   try {
+    // Check if firestore is already initialized to avoid "already exists" error
     firestore = getFirestore(firebaseApp);
   } catch (e) {
-    // If getFirestore fails, initialize with explicit cache settings
+    // Not initialized yet, or failed. Actually, getFirestore() doesn't throw if not initialized, it initializes with defaults.
+    // However, we WANT customized settings. 
+    // The safest way in modular SDK to enforce settings is use initializeFirestore eagerly if we can't detect it.
+    // But since getFirestore returns the existing instance if any, we might be stuck with default settings if we are not careful.
+
+    // In many setups, calling initializeFirestore twice throws.
+    // So we try initializeFirestore first. If it fails, we fall back to getFirestore.
+
+    // Actually, the previous logic was: try get, if fail init. 
+    // But getFirestore() usually SUCCEEDS and uses default persistence (IndexedDB) which causes the error you saw.
+
+    // So we FLIP it: Try to initialize with Memory Cache first.
+  }
+
+  // Improved logic:
+  try {
+    // Force memory cache to avoid "Unexpected state" in dev environment
     firestore = initializeFirestore(firebaseApp, {
       localCache: memoryLocalCache()
     });
+  } catch (e: any) {
+    // If it says "Firestore has already been started", then we just get the existing instance
+    if (e.code === 'failed-precondition' || e.message?.includes('already been started')) {
+      firestore = getFirestore(firebaseApp);
+    } else {
+      console.error("Error initializing Firestore:", e);
+      throw e;
+    }
   }
 
   return {
