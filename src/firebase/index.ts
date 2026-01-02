@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Persistent singleton to prevent re-initialization during HMR
@@ -51,19 +51,27 @@ export function getSdks(firebaseApp: FirebaseApp) {
     // So we FLIP it: Try to initialize with Memory Cache first.
   }
 
-  // Improved logic:
+  // Force-initialize Firestore with persistent cache to avoid "Unexpected state" errors
+  // persistentLocalCache is generally more stable for web apps with multiple tabs/HMR
   try {
-    // Force memory cache to avoid "Unexpected state" in dev environment
     firestore = initializeFirestore(firebaseApp, {
-      localCache: memoryLocalCache()
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     });
   } catch (e: any) {
-    // If it says "Firestore has already been started", then we just get the existing instance
+    // If it fails (e.g. "already been started" or environment doesn't support it), fall back to getFirestore
     if (e.code === 'failed-precondition' || e.message?.includes('already been started')) {
       firestore = getFirestore(firebaseApp);
     } else {
-      console.error("Error initializing Firestore:", e);
-      throw e;
+      // Last resort fallback to memory cache if persistent fails
+      try {
+        firestore = initializeFirestore(firebaseApp, {
+          localCache: memoryLocalCache()
+        });
+      } catch (innerE) {
+        firestore = getFirestore(firebaseApp);
+      }
     }
   }
 
