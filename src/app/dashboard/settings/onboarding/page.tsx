@@ -244,7 +244,7 @@ export default function OnboardingSettingsPage() {
     }
 
     return (
-        <div className="py-8">
+        <div className="space-y-6">
             <AddProgramDialog
                 open={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
@@ -256,8 +256,7 @@ export default function OnboardingSettingsPage() {
             <PageHeader
                 title="Дасан зохицох хөтөлбөр"
                 description="Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг эндээс тохируулна"
-                showBackButton
-                backHref="/dashboard/settings"
+                breadcrumbs={[]}
                 actions={
                     <Button onClick={handleAddNew}>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -266,36 +265,34 @@ export default function OnboardingSettingsPage() {
                 }
             />
 
-            <div className="mt-6"> {/* Spacing for the header */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {isLoading && Array.from({ length: 3 }).map((_, i) => (
-                        <ProgramCardSkeleton key={i} />
-                    ))}
-                    {!isLoading && programs?.map((program) => (
-                        <ProgramCard
-                            key={program.id}
-                            program={program}
-                            lookups={lookups}
-                            onEdit={() => handleEdit(program)}
-                            onDelete={() => handleDelete(program)}
-                        />
-                    ))}
-                    {!isLoading && (!programs || programs.length === 0) && (
-                        <div className="col-span-full py-24 text-center">
-                            <Card className="max-w-md mx-auto">
-                                <CardHeader>
-                                    <CardTitle className="flex justify-center">
-                                        <Activity className="h-12 w-12 text-muted-foreground" />
-                                    </CardTitle>
-                                    <CardDescription>Хөтөлбөрийн загвар үүсээгүй байна.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button onClick={handleAddNew}>Анхны хөтөлбөрөө үүсгэх</Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {isLoading && Array.from({ length: 3 }).map((_, i) => (
+                    <ProgramCardSkeleton key={i} />
+                ))}
+                {!isLoading && programs?.map((program) => (
+                    <ProgramCard
+                        key={program.id}
+                        program={program}
+                        lookups={lookups}
+                        onEdit={() => handleEdit(program)}
+                        onDelete={() => handleDelete(program)}
+                    />
+                ))}
+                {!isLoading && (!programs || programs.length === 0) && (
+                    <div className="col-span-full py-24 text-center">
+                        <Card className="max-w-md mx-auto">
+                            <CardHeader>
+                                <CardTitle className="flex justify-center">
+                                    <Activity className="h-12 w-12 text-muted-foreground" />
+                                </CardTitle>
+                                <CardDescription>Хөтөлбөрийн загвар үүсээгүй байна.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Button onClick={handleAddNew}>Анхны хөтөлбөрөө үүсгэх</Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </div>
     );

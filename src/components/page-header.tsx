@@ -96,37 +96,40 @@ export function PageHeader({
     return (
         <div className={cn('flex flex-col gap-4', className)}>
             {/* Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-                {showBackButton && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-2 px-2 hover:bg-muted/50"
-                        asChild
-                    >
-                        <Link href={effectiveBackHref}>
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="hidden sm:inline">Буцах</span>
-                        </Link>
-                    </Button>
-                )}
-
-                {generatedBreadcrumbs.slice(1).map((crumb, index) => (
-                    <React.Fragment key={index}>
-                        {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
-                        {crumb.href ? (
-                            <Link
-                                href={crumb.href}
-                                className="hover:text-foreground transition-colors font-medium"
-                            >
-                                {crumb.label}
+            {/* Breadcrumbs */}
+            {(showBackButton || generatedBreadcrumbs.length > 1) && (
+                <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {showBackButton && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-2 px-2 hover:bg-muted/50"
+                            asChild
+                        >
+                            <Link href={effectiveBackHref}>
+                                <ArrowLeft className="h-4 w-4" />
+                                <span className="hidden sm:inline">Буцах</span>
                             </Link>
-                        ) : (
-                            <span className="text-foreground font-medium">{crumb.label}</span>
-                        )}
-                    </React.Fragment>
-                ))}
-            </nav>
+                        </Button>
+                    )}
+
+                    {generatedBreadcrumbs.slice(1).map((crumb, index) => (
+                        <React.Fragment key={index}>
+                            {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
+                            {crumb.href ? (
+                                <Link
+                                    href={crumb.href}
+                                    className="hover:text-foreground transition-colors font-medium"
+                                >
+                                    {crumb.label}
+                                </Link>
+                            ) : (
+                                <span className="text-foreground font-medium">{crumb.label}</span>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </nav>
+            )}
 
             {/* Header Content */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
