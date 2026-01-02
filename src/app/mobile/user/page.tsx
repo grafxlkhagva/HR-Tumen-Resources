@@ -22,20 +22,23 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ChangePasswordDialog } from '@/components/change-password-dialog';
 
 function SettingsItem({
   icon: Icon,
   label,
   href,
-  badge
+  badge,
+  onClick
 }: {
   icon: React.ElementType;
   label: string;
-  href: string;
+  href?: string;
   badge?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <Link href={href} className="group flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left transition-all hover:shadow-md border border-slate-100 active:scale-[0.99] mb-3">
+  const content = (
+    <div className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left transition-all hover:shadow-md border border-slate-100 active:scale-[0.99] mb-3 cursor-pointer group">
       <div className="flex items-center gap-4">
         <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
           <Icon className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
@@ -46,8 +49,14 @@ function SettingsItem({
         {badge && <Badge variant="secondary" className="bg-red-100 text-red-600">{badge}</Badge>}
         <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-primary/50 transition-colors" />
       </div>
-    </Link>
+    </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return <div onClick={onClick}>{content}</div>;
 }
 
 function PageSkeleton() {
@@ -73,6 +82,7 @@ export default function MobileUserPage() {
   const { employeeProfile, isProfileLoading } = useEmployeeProfile();
   const auth = useAuth();
   const router = useRouter();
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = React.useState(false);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -126,7 +136,7 @@ export default function MobileUserPage() {
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Тохиргоо</h3>
           <SettingsItem icon={Bell} label="Мэдэгдэл" href="#" />
-          <SettingsItem icon={Lock} label="Нууц үг солих" href="#" />
+          <SettingsItem icon={Lock} label="Нууц үг солих" onClick={() => setIsPasswordDialogOpen(true)} />
           <SettingsItem icon={Shield} label="Нууцлал" href="#" />
         </div>
 
@@ -159,6 +169,8 @@ export default function MobileUserPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+
+        <ChangePasswordDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen} />
 
         <div className="text-center pb-6">
           <p className="text-xs text-slate-400">Хувилбар 2.0.1</p>
