@@ -656,14 +656,14 @@ const OrganizationChart = () => {
 
         // Add today's attendance check-ins
         if (attendanceData && employees) {
-            const empMap = new Map(employees.map(e => [e.id, e]));
+            const empMap = new Map((employees as Employee[]).map(e => [e.id, e]));
             attendanceData.forEach(record => {
                 const emp = empMap.get(record.employeeId);
                 if (emp && record.checkInTime) {
                     activities.push({
                         id: `attendance-${record.id}`,
                         type: 'check-in',
-                        employeeName: `${emp.firstName} ${emp.lastName}`,
+                        employeeName: `${emp.firstName || ''} ${emp.lastName || ''}`,
                         time: record.checkInTime,
                         description: 'Ирлээ'
                     });
@@ -1035,7 +1035,7 @@ const OrganizationChart = () => {
                                     </div>
                                     <div>
                                         <div className="text-4xl font-black text-rose-500 mb-1">
-                                            {unassignedEmployees.length}
+                                            {unassignedEmployees?.length || 0}
                                         </div>
                                         <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">ажил томилох шаардлагатай</div>
                                     </div>
