@@ -37,6 +37,13 @@ service cloud.firestore {
     match /employees/{employeeId}/{subcollection}/{docId} {
        allow read, write: if isOwner(employeeId) || isAdmin();
     }
+
+    // Allow mentors/buddies to update assigned programs (e.g. mark tasks as done)
+    match /employees/{employeeId}/assignedPrograms/{programId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isSignedIn();
+    }
     
     // Company profile, code config, and other settings are readable by anyone signed in, writable only by admin
     match /company/branding {

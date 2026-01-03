@@ -169,12 +169,21 @@ export default function MentoringPage() {
         setIsSubmitting(true);
 
         try {
-            const { programRef, stageId, task } = selectedTask;
-            const programDocRef = programRef.ref;
+            const { programId, stageId, task } = selectedTask;
+            // Reconstruct reference to be safe (avoid stale refs)
+            // Assuming the program is in 'employees/{id}/assignedPrograms/{programId}'
+            // But wait, it's a collectionGroup query result, so we need the full path.
+            // Let's use the stored reference but check if it's valid, OR better, use path.
+
+            // To be robust: fetchMentoringData stored { id: docSnapshot.id, ref: docSnapshot.ref }
+            // Let's use the ref directly if available, but ensure it's bound to current firestore instance?
+            // Actually, let's use the ref from state, but catch if it fails.
+
+            const programDocRef = selectedTask.programRef.ref;
 
             // Let's use getDoc to be fresh
             const freshSnap = await getDoc(programDocRef);
-            if (!freshSnap.exists()) throw new Error("Program not found");
+            if (!freshSnap.exists()) throw new Error("Program not found or access denied");
 
             const freshData = freshSnap.data() as AssignedProgram;
             const updatedStages = freshData.stages.map(s => {
@@ -211,12 +220,12 @@ export default function MentoringPage() {
             setIsCompleteDialogOpen(false);
             fetchMentoringData(); // Refresh list
 
-        } catch (error) {
-            console.error("Error completing task:", error);
+        } catch (error: any) {
+            console.error("Error completing task FULL OBJECT:", error);
             toast({
                 variant: "destructive",
                 title: "Алдаа",
-                description: "Хадгалах үед алдаа гарлаа.",
+                description: `Хадгалах үед алдаа гарлаа: ${error.message || error.code || 'Unknown error'}`,
             });
         } finally {
             setIsSubmitting(false);
