@@ -17,6 +17,10 @@ export type Employee = {
   jobHistory?: { title: string; company: string; duration: string }[];
   deviceId?: string;
   questionnaireCompletion?: number;
+  // Vacation Module
+  vacationConfig?: {
+    baseDays: number;
+  };
 };
 
 export const employees: Employee[] = [];

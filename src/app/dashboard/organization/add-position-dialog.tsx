@@ -80,6 +80,7 @@ const positionSchema = z.object({
     required_error: 'Батлагдсан огноог сонгоно уу.',
   }),
   canApproveAttendance: z.boolean().default(false),
+  canApproveVacation: z.boolean().default(false),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -130,6 +131,7 @@ export function AddPositionDialog({
       jobCategoryId: '',
       createdAt: new Date(),
       canApproveAttendance: false,
+      canApproveVacation: false,
     },
   });
 
@@ -174,6 +176,7 @@ export function AddPositionDialog({
         jobCategoryId: editingPosition.jobCategoryId || '',
         createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
         canApproveAttendance: editingPosition.canApproveAttendance || false,
+        canApproveVacation: editingPosition.canApproveVacation || false,
       });
     } else {
       form.reset({
@@ -188,6 +191,7 @@ export function AddPositionDialog({
         isActive: true,
         createdAt: new Date(),
         canApproveAttendance: false,
+        canApproveVacation: false,
       });
     }
   }, [editingPosition, open, form]);
@@ -214,6 +218,7 @@ export function AddPositionDialog({
       jobCategoryId: data.jobCategoryId,
       createdAt: data.createdAt.toISOString(),
       canApproveAttendance: data.canApproveAttendance,
+      canApproveVacation: data.canApproveVacation,
     };
 
     if (data.reportsTo && data.reportsTo !== '(none)') {
@@ -552,6 +557,26 @@ export function AddPositionDialog({
                             <FormLabel className="text-base">Ирцийн хүсэлт батлах эсэх</FormLabel>
                             <FormDescription>
                               Энэ ажлын байр нь доод албан тушаалтнуудынхаа ирцийн хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="canApproveVacation"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Амралтын хүсэлт батлах эсэх</FormLabel>
+                            <FormDescription>
+                              Энэ ажлын байр нь ажилчдын ээлжийн амралтын хүсэлтийг батлах эрхтэй эсэхийг тодорхойлно.
                             </FormDescription>
                           </div>
                           <FormControl>

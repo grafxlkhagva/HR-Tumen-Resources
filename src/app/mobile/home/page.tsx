@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles, Palmtree } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -428,6 +428,7 @@ function QuickActions() {
 
     const actions = [
         { label: 'Чөлөө', icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-50', onClick: () => router.push('/mobile/attendance?tab=requests') },
+        { label: 'Амралт', icon: Palmtree, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => router.push('/mobile/vacation') },
         { label: 'Цалин', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => { } },
         { label: 'Чиглүүлэг', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/mentoring') },
         { label: 'Дүрэм', icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => router.push('/mobile/company/policies') },

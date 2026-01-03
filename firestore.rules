@@ -44,6 +44,14 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isSignedIn();
     }
+
+    // Vacation requests rules
+    match /employees/{employeeId}/vacationRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(employeeId);
+      allow update: if isOwner(employeeId) || isAdmin() || request.auth.uid == resource.data.approverId;
+      allow delete: if isAdmin() || isOwner(employeeId);
+    }
     
     // Company profile, code config, and other settings are readable by anyone signed in, writable only by admin
     match /company/branding {
@@ -117,6 +125,11 @@ service cloud.firestore {
     match /{path=**}/timeOffRequests/{docId} {
         allow read: if isSignedIn();
         allow write: if isAdmin();
+    }
+
+    match /{path=**}/vacationRequests/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.approverId);
     }
   }
 }

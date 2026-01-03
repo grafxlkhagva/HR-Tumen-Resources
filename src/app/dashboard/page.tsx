@@ -38,12 +38,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
 import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
-import { isWithinInterval, format, startOfToday, endOfToday, isToday } from 'date-fns';
+import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
+import { VacationRequest } from '@/types/vacation';
 import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
 import {
     Department,
@@ -556,6 +557,27 @@ const OrganizationChart = () => {
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
     const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+
+    // Vacation Statistics for Dashboard
+    const vacationRequestsQuery = useMemoFirebase(() =>
+        firestore ? query(collectionGroup(firestore, 'vacationRequests'), where('status', '==', 'APPROVED')) : null
+        , [firestore]);
+    const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
+
+    const onLeaveCount = useMemo(() => {
+        if (!vacationRequests) return 0;
+        const now = startOfDay(new Date());
+        return vacationRequests.filter(r => {
+            try {
+                return isWithinInterval(now, {
+                    start: startOfDay(parseISO(r.startDate)),
+                    end: endOfDay(parseISO(r.endDate))
+                });
+            } catch (e) {
+                return false;
+            }
+        }).length;
+    }, [vacationRequests]);
     const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
     const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
@@ -949,6 +971,26 @@ const OrganizationChart = () => {
                                                 <div className="text-3xl font-black text-white">{onLeaveEmployees.size}</div>
                                                 <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wide">Чөлөөтэй</div>
                                             </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 3. Vacation (New) */}
+                        <Link href="/dashboard/vacation" className="flex-shrink-0">
+                            <Card className="h-full w-[200px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ээлжийн амралт</div>
+                                        <Palmtree className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    {isLoadingTimeOff ? (
+                                        <Skeleton className="h-10 w-16 bg-slate-700" />
+                                    ) : (
+                                        <div>
+                                            <div className="text-4xl font-black text-amber-500 mb-1">{onLeaveCount}</div>
+                                            <div className="text-xs text-slate-400 font-medium">ажилтан амарч байна</div>
                                         </div>
                                     )}
                                 </CardContent>

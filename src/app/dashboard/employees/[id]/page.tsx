@@ -65,6 +65,7 @@ import {
 
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask, type AssignedStage } from './AssignProgramDialog';
+import { VacationTabContent } from './vacation-tab-content';
 import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { OffboardingDialog } from './OffboardingDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -1008,6 +1009,12 @@ export default function EmployeeProfilePage() {
                                 Чөлөө
                             </TabsTrigger>
                             <TabsTrigger
+                                value="vacation"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium"
+                            >
+                                Ээлжийн амралт
+                            </TabsTrigger>
+                            <TabsTrigger
                                 value="cv"
                                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium"
                             >
@@ -1024,6 +1031,9 @@ export default function EmployeeProfilePage() {
                             </TabsContent>
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
                                 <HistoryTabContent employeeId={employeeId || ''} />
+                            </TabsContent>
+                            <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
+                                <VacationTabContent employee={employee} />
                             </TabsContent>
                             <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
                                 <Card className="shadow-sm">

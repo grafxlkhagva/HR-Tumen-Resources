@@ -22,6 +22,8 @@ export interface Position {
     workScheduleId?: string;
     isActive?: boolean;
     canApproveAttendance?: boolean;
+    canApproveVacation?: boolean;
+    onboardingProgramIds?: string[];
     filled: number;
     description?: string;
     createdAt?: any;
@@ -67,6 +69,9 @@ export interface Employee {
     jobHistory?: { title: string; company: string; duration: string }[];
     deviceId?: string;
     questionnaireCompletion?: number;
+    vacationConfig?: {
+        baseDays: number;
+    };
 }
 
 export interface OnboardingProgram {

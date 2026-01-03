@@ -14,13 +14,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -32,13 +32,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // --- Type Definitions ---
 
-type WorkScheduleItem = ReferenceItem & { 
-  name: string;
-  category: string;
-  workingDays: string[];
-  isActive: boolean;
-  startTime?: string;
-  endTime?: string;
+type WorkScheduleItem = ReferenceItem & {
+    name: string;
+    category: string;
+    workingDays: string[];
+    isActive: boolean;
+    startTime?: string;
+    endTime?: string;
 };
 
 type TimeOffRequestTypeItem = ReferenceItem & {
@@ -57,6 +57,10 @@ type TimeConfig = {
 
 type TimeOffRequestConfig = {
     requestDeadlineDays: number;
+}
+
+type VacationConfig = {
+    maxSplits: number;
 }
 
 // --- Zod Schemas ---
@@ -111,7 +115,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
         setDocumentNonBlocking(configRef, data, { merge: true });
         toast({ title: 'Амжилттай хадгаллаа' });
     }
-    
+
     const periodType = form.watch('periodType');
 
     return (
@@ -124,10 +128,10 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                     <CardContent className="space-y-6">
                         <div>
                             <h3 className="text-base font-medium">Цагийн тайлангийн үе</h3>
-                             <p className="text-sm text-muted-foreground mb-4">
+                            <p className="text-sm text-muted-foreground mb-4">
                                 Цалин бодох эсвэл цагийн тайлан гаргах үеийг тохируулна уу. 'Календарийн сар' нь тухайн сарын 1-нээс эхэлж сарын сүүлийн өдөр дуусна. 'Тодорхой өдрөөр' нь өмнөх сарын X-нээс тухайн сарын Y-нд дуусах хугацааг тохируулна.
                             </p>
-                             <FormField control={form.control} name="periodType" render={({ field }) => (
+                            <FormField control={form.control} name="periodType" render={({ field }) => (
                                 <FormItem><FormLabel>Үеийн төрөл</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
@@ -136,7 +140,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                                             <SelectItem value="SHIFTED_MONTH">Тодорхой өдрөөр</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                <FormMessage /></FormItem>
+                                    <FormMessage /></FormItem>
                             )} />
                             {periodType === 'SHIFTED_MONTH' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -150,7 +154,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                             )}
                         </div>
                         <div>
-                             <h3 className="text-base font-medium">Шөнийн цаг</h3>
+                            <h3 className="text-base font-medium">Шөнийн цаг</h3>
                             <p className="text-sm text-muted-foreground mb-4">Энд тохируулсан цагийн хооронд ажилласан тохиолдолд шөнийн цагийн нэмэгдэл тооцно.</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField control={form.control} name="nightShiftStartTime" render={({ field }) => (
@@ -161,7 +165,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                                 )} />
                             </div>
                         </div>
-                         <div>
+                        <div>
                             <h3 className="text-base font-medium">Нөхөн амралтын бодлого</h3>
                             <p className="text-sm text-muted-foreground mb-4">Ажиллах ёстой цагаас хэтрүүлэн ажилласан цагийг сонгосон улирал эсвэл жилийн хугацаанд багтаан тооцож, нөхөн амраана.</p>
                             <FormField control={form.control} name="compensatoryOffPeriod" render={({ field }) => (
@@ -173,12 +177,12 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
                                             <SelectItem value="yearly">Жил бүр</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                <FormMessage /></FormItem>
+                                    <FormMessage /></FormItem>
                             )} />
                         </div>
                     </CardContent>
                     <CardFooter>
-                         <Button type="submit" disabled={form.formState.isSubmitting}>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
                             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Хадгалах
                         </Button>
@@ -201,7 +205,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
         },
     });
 
-     React.useEffect(() => {
+    React.useEffect(() => {
         form.reset({
             requestDeadlineDays: initialData.requestDeadlineDays || 0,
         });
@@ -214,7 +218,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
     }
 
     return (
-         <Form {...form}>
+        <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
                 <Card>
                     <CardHeader>
@@ -222,7 +226,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
                         <CardDescription>Чөлөө авахтай холбоотой ерөнхий дүрмүүдийг энд тохируулна уу.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <FormField
+                        <FormField
                             control={form.control}
                             name="requestDeadlineDays"
                             render={({ field }) => (
@@ -240,7 +244,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
                         />
                     </CardContent>
                     <CardFooter>
-                         <Button type="submit" disabled={form.formState.isSubmitting}>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
                             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Хадгалах
                         </Button>
@@ -252,131 +256,204 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
 }
 
 export default function TimeAndAttendanceSettingsPage() {
-  const timeOffRequestTypesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
-  const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<TimeOffRequestTypeItem>(timeOffRequestTypesQuery);
-  
-  const workSchedulesQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'workSchedules') : null, []);
-  const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
+    const timeOffRequestTypesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
+    const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<TimeOffRequestTypeItem>(timeOffRequestTypesQuery);
 
-  const timeConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
-  const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
-  
-  const timeOffConfigRef = useMemoFirebase(({firestore}) => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), []);
-  const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef);
-  
-  const workScheduleColumns = [
-    { key: 'name', header: 'Нэр' },
-    { key: 'category', header: 'Ангилал' },
-    { 
-        key: 'schedule', 
-        header: 'Цагийн хуваарь',
-        render: (item: WorkScheduleItem) => {
-            if (item.category === 'fixed' || item.category === 'shift') {
-                return `${item.startTime} - ${item.endTime}`;
+    const workSchedulesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'workSchedules') : null, []);
+    const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
+
+    const timeConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
+    const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
+
+    const timeOffConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), []);
+    const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef);
+
+    const vacationConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'vacationConfig') : null), []);
+    const { data: vacationConfigData, isLoading: loadingVacationConfig } = useDoc<VacationConfig>(vacationConfigRef);
+
+    const workScheduleColumns = [
+        { key: 'name', header: 'Нэр' },
+        { key: 'category', header: 'Ангилал' },
+        {
+            key: 'schedule',
+            header: 'Цагийн хуваарь',
+            render: (item: WorkScheduleItem) => {
+                if (item.category === 'fixed' || item.category === 'shift') {
+                    return `${item.startTime} - ${item.endTime}`;
+                }
+                return '-';
             }
-            return '-';
-        }
-    },
-    { 
-        key: 'workingDays', 
-        header: 'Ажлын өдөр',
-        render: (item: WorkScheduleItem) => (
-            <div className="flex flex-wrap gap-1">
-                {item.workingDays?.map(day => <Badge key={day} variant="secondary" className="font-normal">{day.substring(0,2)}</Badge>)}
+        },
+        {
+            key: 'workingDays',
+            header: 'Ажлын өдөр',
+            render: (item: WorkScheduleItem) => (
+                <div className="flex flex-wrap gap-1">
+                    {item.workingDays?.map(day => <Badge key={day} variant="secondary" className="font-normal">{day.substring(0, 2)}</Badge>)}
+                </div>
+            )
+        },
+        {
+            key: 'isActive',
+            header: 'Төлөв',
+            render: (item: WorkScheduleItem) => (
+                <Badge variant={item.isActive ? 'default' : 'destructive'}>{item.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</Badge>
+            )
+        },
+    ];
+
+    const timeOffRequestTypeColumns = [
+        { key: 'name', header: 'Нэр' },
+        {
+            key: 'paid',
+            header: 'Төлбөр',
+            render: (item: TimeOffRequestTypeItem) => (
+                <Badge variant={item.paid ? 'secondary' : 'outline'}>{item.paid ? 'Цалинтай' : 'Цалингүй'}</Badge>
+            )
+        },
+    ];
+
+    const isLoading = loadingTimeOffConfig || loadingTimeConfig || loadingVacationConfig;
+
+    return (
+        <div className="py-8">
+            <div className="mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button asChild variant="outline" size="icon">
+                        <Link href="/dashboard/settings/general">
+                            <ArrowLeft className="h-4 w-4" />
+                            <span className="sr-only">Буцах</span>
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Цаг бүртгэлийн тохиргоо</h1>
+                        <p className="text-muted-foreground">Чөлөө, цаг бүртгэлтэй холбоотой тохиргоог удирдах.</p>
+                    </div>
+                </div>
             </div>
-        )
-    },
-    { 
-        key: 'isActive', 
-        header: 'Төлөв',
-        render: (item: WorkScheduleItem) => (
-             <Badge variant={item.isActive ? 'default' : 'destructive'}>{item.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</Badge>
-        )
-    },
-  ];
+            <div className="space-y-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Ажлын цагийн хуваарь</CardTitle>
+                        <CardDescription>Байгууллагын нийтлэг ажлын цагийн төрлүүдийг үүсгэж удирдах.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ReferenceTable
+                            collectionName="workSchedules"
+                            columns={workScheduleColumns}
+                            itemData={workSchedules}
+                            isLoading={loadingWorkSchedules}
+                            dialogTitle="Ажлын цагийн хуваарь"
+                            dialogComponent={AddWorkScheduleDialog}
+                        />
+                    </CardContent>
+                </Card>
 
-   const timeOffRequestTypeColumns = [
-    { key: 'name', header: 'Нэр' },
-    { 
-        key: 'paid', 
-        header: 'Төлбөр',
-        render: (item: TimeOffRequestTypeItem) => (
-            <Badge variant={item.paid ? 'secondary' : 'outline'}>{item.paid ? 'Цалинтай' : 'Цалингүй'}</Badge>
-        )
-    },
-  ];
-  
-  const isLoading = loadingTimeOffConfig || loadingTimeConfig;
+                {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeOffRequestConfigForm initialData={timeOffConfigData || {}} />}
 
-  return (
-    <div className="py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-                <Link href="/dashboard/settings/general">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Буцах</span>
-                </Link>
-            </Button>
-            <div>
-                 <h1 className="text-3xl font-bold tracking-tight">Цаг бүртгэлийн тохиргоо</h1>
-                <p className="text-muted-foreground">Чөлөө, цаг бүртгэлтэй холбоотой тохиргоог удирдах.</p>
+                {isLoading ? <Skeleton className="h-64 w-full" /> : <VacationConfigForm initialData={vacationConfigData || {}} />}
+
+                {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Бүх нийтийн амралтын өдрүүд</CardTitle>
+                        <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэж, удирдах.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/dashboard/settings/time-off/holidays">
+                                <CalendarDays className="mr-2 h-4 w-4" />
+                                Амралтын өдрийн тохиргоо
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Ирцийн хүсэлтийн төрөл</CardTitle>
+                        <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ReferenceTable
+                            collectionName="timeOffRequestTypes"
+                            columns={timeOffRequestTypeColumns}
+                            itemData={timeOffRequestTypes}
+                            isLoading={loadingTimeOffRequestTypes}
+                            dialogTitle="Хүсэлтийн төрөл"
+                        />
+                    </CardContent>
+                </Card>
             </div>
         </div>
-      </div>
-      <div className="space-y-8">
-        <Card>
-            <CardHeader>
-                <CardTitle>Ажлын цагийн хуваарь</CardTitle>
-                <CardDescription>Байгууллагын нийтлэг ажлын цагийн төрлүүдийг үүсгэж удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                    collectionName="workSchedules"
-                    columns={workScheduleColumns}
-                    itemData={workSchedules}
-                    isLoading={loadingWorkSchedules}
-                    dialogTitle="Ажлын цагийн хуваарь"
-                    dialogComponent={AddWorkScheduleDialog}
-                />
-            </CardContent>
-        </Card>
+    );
+}
 
-        {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeOffRequestConfigForm initialData={timeOffConfigData || {}} />}
+const vacationConfigSchema = z.object({
+    maxSplits: z.coerce.number().min(1, "Хамгийн багадаа 1 байх ёстой.").max(10, "Хэт олон хуваах боломжгүй."),
+});
 
-        {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Бүх нийтийн амралтын өдрүүд</CardTitle>
-                <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэж, удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button asChild>
-                    <Link href="/dashboard/settings/time-off/holidays">
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Амралтын өдрийн тохиргоо
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Ирцийн хүсэлтийн төрөл</CardTitle>
-                <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ReferenceTable 
-                    collectionName="timeOffRequestTypes"
-                    columns={timeOffRequestTypeColumns}
-                    itemData={timeOffRequestTypes}
-                    isLoading={loadingTimeOffRequestTypes}
-                    dialogTitle="Хүсэлтийн төрөл"
-                />
-            </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+type VacationConfigFormValues = z.infer<typeof vacationConfigSchema>;
+
+function VacationConfigForm({ initialData }: { initialData: Partial<VacationConfigFormValues> }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'vacationConfig') : null), [firestore]);
+
+    const form = useForm<VacationConfigFormValues>({
+        resolver: zodResolver(vacationConfigSchema),
+        defaultValues: {
+            maxSplits: initialData.maxSplits || 1,
+        },
+    });
+
+    React.useEffect(() => {
+        form.reset({
+            maxSplits: initialData.maxSplits || 1,
+        });
+    }, [initialData, form]);
+
+    const onSubmit = (data: VacationConfigFormValues) => {
+        if (!configRef) return;
+        setDocumentNonBlocking(configRef, data, { merge: true });
+        toast({ title: 'Амжилттай хадгаллаа' });
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Ээлжийн амралтын тохиргоо</CardTitle>
+                        <CardDescription>Ээлжийн амралтыг хэд хувааж авах боломжтойг энд тохируулна уу.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            control={form.control}
+                            name="maxSplits"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Амралтыг хувааж авах дээд хязгаар</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="Жишээ нь: 2" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Ажилтан жилийн ээлжийн амралтаа нийт хэдэн удаа хувааж авах боломжтойг заана.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Хадгалах
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </form>
+        </Form>
+    )
 }
