@@ -870,7 +870,7 @@ export default function EmployeeProfilePage() {
     ) : null;
 
     return (
-        <div className="py-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <OffboardingDialog
                 open={isOffboardingOpen}
                 onOpenChange={setIsOffboardingOpen}

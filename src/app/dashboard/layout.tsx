@@ -90,7 +90,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-hidden">
+      <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
         {children}
       </main>
     </div>
