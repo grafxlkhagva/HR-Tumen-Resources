@@ -38,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -1045,7 +1045,30 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
-                        {/* 5. New Hires */}
+                        {/* 5. Point Module - NEW */}
+                        <Link href="/dashboard/points" className="flex-shrink-0">
+                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                                    {/* Decorative background accent */}
+                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full blur-2xl group-hover:from-yellow-500/30 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Пойнт Модул</div>
+                                        <Sparkles className="h-5 w-5 text-yellow-500" />
+                                    </div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <div className="text-3xl font-black text-white">Points</div>
+                                            <Rocket className="w-5 h-5 text-orange-400" />
+                                        </div>
+                                        <div className="text-xs text-slate-400 font-medium">Recognition System</div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 6. New Hires */}
                         <div className="flex-shrink-0">
                             <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">

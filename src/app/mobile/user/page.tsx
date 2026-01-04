@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, User, Bell, Lock, Rocket, Shield, HelpCircle, FileText, Settings, Sparkles } from 'lucide-react';
+import { ChevronRight, LogOut, User, Bell, Lock, Rocket, Shield, HelpCircle, Sparkles, Award } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,9 +20,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
+
+// Components
+import { UserWalletCard } from './components/user-wallet-card';
 
 function SettingsItem({
   icon: Icon,
@@ -95,38 +97,47 @@ export default function MobileUserPage() {
   }
 
   const { firstName, lastName, jobTitle, photoURL } = employeeProfile;
-  const fullName = `${lastName} ${firstName}`; // Mongolian convention often uses LastName Firstname order or reversed, sticking to standard display.
+  const fullName = `${lastName} ${firstName}`;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
+    <div className="min-h-screen bg-slate-50/50 flex flex-col pb-24">
       {/* Header Profile Section */}
-      <div className="bg-white pb-8 pt-12 rounded-b-[40px] shadow-sm border-b border-slate-100 px-6 relative overflow-hidden">
+      <div className="bg-white pt-10 pb-6 shadow-sm border-b border-slate-100 px-6 relative overflow-hidden">
         {/* Background Decor */}
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-10" />
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
 
-        <div className="flex flex-col items-center relative z-10">
+        <div className="flex items-center gap-5 relative z-10">
           <div className="relative">
-            <Avatar className="h-28 w-28 border-4 border-white shadow-xl ring-2 ring-primary/10">
+            <Avatar className="h-20 w-20 border-4 border-white shadow-xl ring-2 ring-primary/10">
               <AvatarImage src={photoURL} alt={fullName} className="object-cover" />
-              <AvatarFallback className="text-3xl bg-slate-200 text-slate-500">
+              <AvatarFallback className="text-2xl bg-slate-200 text-slate-500">
                 {firstName?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="absolute bottom-1 right-1 bg-green-500 border-4 border-white w-6 h-6 rounded-full shadow-sm" />
+            <div className="absolute bottom-1 right-1 bg-green-500 border-4 border-white w-5 h-5 rounded-full shadow-sm" />
           </div>
 
-          <div className="mt-4 text-center">
-            <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
-            <p className="text-sm font-medium text-slate-500 mt-1">{jobTitle || 'Ажилтан'}</p>
-            <Badge variant="outline" className="mt-3 border-blue-200 text-blue-700 bg-blue-50 px-3 py-1">
-              <Sparkles className="w-3 h-3 mr-1" /> Баталгаажсан
-            </Badge>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-slate-900 leading-tight">{fullName}</h1>
+            <p className="text-sm font-medium text-slate-500">{jobTitle || 'Ажилтан'}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 px-2 py-0.5 text-xs">
+                <Sparkles className="w-3 h-3 mr-1" /> Баталгаажсан
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-6 -mt-0 pt-8 space-y-6">
+      <div className="flex-1 px-6 space-y-6 pt-4">
+
+        {/* 1. Wallet Card (Navigation to detailed culture page) */}
+        <Link href="/mobile/points" className="block outline-none">
+          <UserWalletCard />
+        </Link>
+
+        {/* 2. Settings Groups */}
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
           <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
@@ -169,13 +180,12 @@ export default function MobileUserPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-
-        <ChangePasswordDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen} />
-
         <div className="text-center pb-6">
-          <p className="text-xs text-slate-400">Хувилбар 2.0.1</p>
+          <p className="text-xs text-slate-400">Хувилбар 2.2.0 (Direct Wallet Link)</p>
         </div>
       </div>
+
+      <ChangePasswordDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen} />
     </div>
   );
 }

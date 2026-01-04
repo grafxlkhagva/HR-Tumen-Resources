@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, User, Building, Users } from 'lucide-react';
+import { Home, Clock, User, Building, Users, Heart } from 'lucide-react';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },

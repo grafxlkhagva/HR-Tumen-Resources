@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Pencil, Trash2, Copy, Power, PowerOff } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Pencil, Trash2, Copy, Power, PowerOff, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
@@ -44,6 +44,7 @@ import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '
 import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { AddPositionDialog } from '../../add-position-dialog';
 import { StructureConfigDialog } from '../../structure-config-dialog';
@@ -243,7 +244,36 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
                     const isActive = pos.isActive === undefined ? true : pos.isActive;
                     return (
                         <TableRow key={pos.id} className={cn(!isActive && 'text-muted-foreground')}>
-                            <TableCell className="font-medium pl-6">{pos.title}</TableCell>
+                            <TableCell className="font-medium pl-6">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        {pos.title}
+                                        {pos.hasPointBudget && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger>
+                                                        <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Онооны төсөвтэй</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
+                                    </div>
+                                    {pos.hasPointBudget && (
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <div className="h-1 w-20 bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-yellow-400"
+                                                    style={{ width: `${Math.min(100, ((pos.remainingPointBudget ?? 0) / (pos.yearlyPointBudget ?? 1)) * 100)}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground font-medium">
+                                                {(pos.remainingPointBudget ?? 0).toLocaleString()} / {(pos.yearlyPointBudget ?? 0).toLocaleString()}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </TableCell>
                             <TableCell>
                                 {lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}
                             </TableCell>

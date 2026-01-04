@@ -28,6 +28,9 @@ export type Position = {
     isActive?: boolean;
     createdAt?: string;
     canApproveAttendance?: boolean;
+    hasPointBudget?: boolean;
+    yearlyPointBudget?: number;
+    remainingPointBudget?: number;
 };
 
 export type PositionLevel = {

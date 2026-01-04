@@ -12,12 +12,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/employees/$(userId)).data.role;
-    }
-
     function isAdmin() {
-      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
     }
 
     // Default deny all
@@ -34,6 +32,12 @@ service cloud.firestore {
     }
     
     // Subcollections of employees are only accessible by the owner or an admin
+    // Exception: point_profile needs to be readable by others for recognition and writable for transfers
+    match /employees/{employeeId}/point_profile/{docId} {
+       allow read: if isSignedIn();
+       allow write: if isSignedIn();
+    }
+
     match /employees/{employeeId}/{subcollection}/{docId} {
        allow read, write: if isOwner(employeeId) || isAdmin();
     }
@@ -45,6 +49,52 @@ service cloud.firestore {
       allow update: if isSignedIn();
     }
 
+    // --- Points & Social System Rules ---
+    match /recognition_posts/{postId} {
+      allow read, create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        request.auth.uid == (resource.data.fromUserId) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+      );
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == (resource.data.fromUserId));
+    }
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || 
+                    (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+    }
+
+    match /points_config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /point_transactions/{txId} {
+      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
+      allow create: if isSignedIn();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /redemption_requests/{requestId} {
+      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+    }
+
+    match /budget_point_requests/{requestId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.fromUserId);
+    }
+
+
+
     // Vacation requests rules
     match /employees/{employeeId}/vacationRequests/{requestId} {
       allow read: if isSignedIn();
@@ -53,14 +103,9 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwner(employeeId);
     }
     
-    // Company profile, code config, and other settings are readable by anyone signed in, writable only by admin
-    match /company/branding {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /company/{docId} {
-      allow read: if isSignedIn();
+    // Company profile and branding settings
+    match /company/{allPaths=**} {
+      allow read: if isSignedIn() || true;
       allow write: if isAdmin();
     }
 
@@ -88,12 +133,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Posts are readable by all signed-in users
-    // Writing/deleting posts can be restricted, e.g., to admins or authors
-    match /posts/{postId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin(); // Or check against post author
-    }
 
     // Onboarding program templates are managed by admins
     match /onboardingPrograms/{programId}/{document=**} {

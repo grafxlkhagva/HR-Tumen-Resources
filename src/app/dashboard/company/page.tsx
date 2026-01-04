@@ -19,6 +19,8 @@ import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
+import { CoreValue } from '@/types/points';
+import { query, orderBy } from 'firebase/firestore';
 
 const videoSchema = z.object({
     title: z.string(),
@@ -38,11 +40,6 @@ const companyProfileSchema = z.object({
     website: z.string().url({ message: 'Вэбсайтын хаяг буруу байна.' }).optional().or(z.literal('')),
     mission: z.string().optional(),
     vision: z.string().optional(),
-    values: z.array(z.object({
-        title: z.string(),
-        description: z.string(),
-        icon: z.string(),
-    })).optional(),
     videos: z.array(videoSchema).optional(),
     phoneNumber: z.string().optional(),
     contactEmail: z.string().email().optional().or(z.literal('')),
@@ -105,12 +102,14 @@ export default function CompanyPage() {
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
 
+    const valuesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: departments, isLoading: isLoadingDepts } = useCollection(departmentsQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection(positionsQuery);
     const { data: policies, isLoading: isLoadingPolicies } = useCollection(policiesQuery);
+    const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
 
-    const isLoading = isLoadingProfile || isLoadingDepts || isLoadingPos || isLoadingPolicies;
+    const isLoading = isLoadingProfile || isLoadingDepts || isLoadingPos || isLoadingPolicies || isLoadingValues;
 
     if (error) {
         return (
@@ -168,8 +167,8 @@ export default function CompanyPage() {
                 <PageHeader
                     showBackButton
                     backHref="/dashboard"
-                // title and description are visually handled by the Hero Section below, so we can keep them empty or use them. 
-                // Let's use them for consistency but keep the hero section for branding impact.
+                    title="Компанийн танилцуулга"
+                    description="Байгууллагын соёл, бүтэц болон үндсэн мэдээлэл."
                 />
 
                 {/* Hero Section */}
@@ -209,19 +208,25 @@ export default function CompanyPage() {
                 </div>
 
                 {/* Values */}
-                {companyProfile.values && companyProfile.values.length > 0 && (
+                {coreValues && coreValues.length > 0 && (
                     <div>
                         <div className="flex items-center gap-4 mb-8">
                             <div className="h-8 w-1 bg-primary rounded-full"></div>
                             <h2 className="text-2xl font-bold">Үнэт зүйлс</h2>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {companyProfile.values.map((value, index) => {
-                                const Icon = valueIcons[value.icon] || valueIcons.default;
+                            {coreValues.filter(v => v.isActive).map((value, index) => {
                                 return (
-                                    <Card key={index} className="p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-muted/60">
-                                        <div className="mb-6 inline-flex rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-4 mx-auto">
-                                            <Icon className="h-8 w-8 text-primary" />
+                                    <Card key={value.id} className="p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-muted/60 relative overflow-hidden group">
+                                        <div
+                                            className="absolute top-0 left-0 w-full h-1"
+                                            style={{ backgroundColor: value.color || '#3b82f6' }}
+                                        />
+                                        <div
+                                            className="mb-6 inline-flex rounded-2xl p-4 mx-auto text-4xl shadow-sm border bg-muted/30 group-hover:scale-110 transition-transform"
+                                            style={{ borderColor: `${value.color}20` }}
+                                        >
+                                            {value.emoji || '⭐'}
                                         </div>
                                         <h3 className="text-lg font-bold mb-2">{value.title}</h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">{value.description}</p>

@@ -53,7 +53,7 @@ import {
   useCollection,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2, Calendar as CalendarIcon, Trash2, PlusCircle } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Trash2, PlusCircle, Sparkles } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -81,6 +81,8 @@ const positionSchema = z.object({
   }),
   canApproveAttendance: z.boolean().default(false),
   canApproveVacation: z.boolean().default(false),
+  hasPointBudget: z.boolean().default(false),
+  yearlyPointBudget: z.number().min(0).default(0),
 });
 
 type PositionFormValues = z.infer<typeof positionSchema>;
@@ -132,6 +134,8 @@ export function AddPositionDialog({
       createdAt: new Date(),
       canApproveAttendance: false,
       canApproveVacation: false,
+      hasPointBudget: false,
+      yearlyPointBudget: 0,
     },
   });
 
@@ -177,6 +181,8 @@ export function AddPositionDialog({
         createdAt: editingPosition.createdAt ? new Date(editingPosition.createdAt) : new Date(),
         canApproveAttendance: editingPosition.canApproveAttendance || false,
         canApproveVacation: editingPosition.canApproveVacation || false,
+        hasPointBudget: editingPosition.hasPointBudget || false,
+        yearlyPointBudget: editingPosition.yearlyPointBudget || 0,
       });
     } else {
       form.reset({
@@ -192,6 +198,8 @@ export function AddPositionDialog({
         createdAt: new Date(),
         canApproveAttendance: false,
         canApproveVacation: false,
+        hasPointBudget: false,
+        yearlyPointBudget: 0,
       });
     }
   }, [editingPosition, open, form]);
@@ -219,6 +227,9 @@ export function AddPositionDialog({
       createdAt: data.createdAt.toISOString(),
       canApproveAttendance: data.canApproveAttendance,
       canApproveVacation: data.canApproveVacation,
+      hasPointBudget: data.hasPointBudget,
+      yearlyPointBudget: data.yearlyPointBudget,
+      remainingPointBudget: isEditMode ? (editingPosition?.remainingPointBudget ?? data.yearlyPointBudget) : data.yearlyPointBudget,
     };
 
     if (data.reportsTo && data.reportsTo !== '(none)') {
@@ -588,6 +599,57 @@ export function AddPositionDialog({
                         </FormItem>
                       )}
                     />
+
+                    {/* Point Budget Section */}
+                    <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="hasPointBudget"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-yellow-500" />
+                                Онооны төсөвтэй эсэх
+                              </FormLabel>
+                              <FormDescription>
+                                Энэ ажлын байр нь ажилчдад өгөх онооны төсөвтэй байх эсэх.
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      {form.watch('hasPointBudget') && (
+                        <FormField
+                          control={form.control}
+                          name="yearlyPointBudget"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Жилийн онооны төсөв</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="Жишээ нь: 50000"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Тухайн ажлын байрны ажилтан жилд бусад руу хуваарилах боломжтой нийт оноо.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>

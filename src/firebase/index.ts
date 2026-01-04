@@ -1,9 +1,9 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Persistent singleton to prevent re-initialization during HMR
@@ -12,67 +12,56 @@ let cachedSdks: ReturnType<typeof getSdks> | null = null;
 export function initializeFirebase() {
   if (cachedSdks) return cachedSdks;
 
-  if (!getApps().length) {
-    let firebaseApp;
-    try {
-      firebaseApp = initializeApp();
-    } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  // Use a customized app name in development to ensure we get a fresh Firestore instance
+  // with the correct cache settings, bypassing any corrupted IndexedDB state on the default app.
+  // This essentially "sandboxes" the dev session's Firestore connection.
+  const appName = isDev ? 'HR_DEV_CLIENT' : undefined;
+
+  // Search for existing app with strict name matching
+  const targetAppName = appName || '[DEFAULT]';
+  const existingApp = getApps().find(app => app.name === targetAppName);
+
+  let firebaseApp: FirebaseApp;
+
+  if (!existingApp) {
+    // If no existing app found, initialize a new one
+    if (appName) {
+      // Development: Explicitly named app
+      firebaseApp = initializeApp(firebaseConfig, appName);
+    } else {
+      // Production: Default app
+      // Try auto-init first (for hosting environments), then fall back to config
+      try {
+        firebaseApp = initializeApp();
+      } catch (e) {
+        firebaseApp = initializeApp(firebaseConfig);
       }
-      firebaseApp = initializeApp(firebaseConfig);
     }
-    cachedSdks = getSdks(firebaseApp);
   } else {
-    cachedSdks = getSdks(getApp());
+    firebaseApp = existingApp;
   }
 
+  // Initialize SDKs using the determined app instance
+  cachedSdks = getSdks(firebaseApp);
   return cachedSdks;
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
-  // Initialize Firestore with proper cache settings to prevent internal errors
+  // Always try to initialize Firestore with MEMORY cache first.
+  // This is the most stable configuration for solving "Unexpected state" errors.
   let firestore;
   try {
-    // Check if firestore is already initialized to avoid "already exists" error
-    firestore = getFirestore(firebaseApp);
-  } catch (e) {
-    // Not initialized yet, or failed. Actually, getFirestore() doesn't throw if not initialized, it initializes with defaults.
-    // However, we WANT customized settings. 
-    // The safest way in modular SDK to enforce settings is use initializeFirestore eagerly if we can't detect it.
-    // But since getFirestore returns the existing instance if any, we might be stuck with default settings if we are not careful.
-
-    // In many setups, calling initializeFirestore twice throws.
-    // So we try initializeFirestore first. If it fails, we fall back to getFirestore.
-
-    // Actually, the previous logic was: try get, if fail init. 
-    // But getFirestore() usually SUCCEEDS and uses default persistence (IndexedDB) which causes the error you saw.
-
-    // So we FLIP it: Try to initialize with Memory Cache first.
-  }
-
-  // Force-initialize Firestore with persistent cache to avoid "Unexpected state" errors
-  // persistentLocalCache is generally more stable for web apps with multiple tabs/HMR
-  try {
     firestore = initializeFirestore(firebaseApp, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
+      localCache: memoryLocalCache()
     });
   } catch (e: any) {
-    // If it fails (e.g. "already been started" or environment doesn't support it), fall back to getFirestore
-    if (e.code === 'failed-precondition' || e.message?.includes('already been started')) {
-      firestore = getFirestore(firebaseApp);
-    } else {
-      // Last resort fallback to memory cache if persistent fails
-      try {
-        firestore = initializeFirestore(firebaseApp, {
-          localCache: memoryLocalCache()
-        });
-      } catch (innerE) {
-        firestore = getFirestore(firebaseApp);
-      }
-    }
+    // If initialization fails (e.g. app already has Firestore attached from before),
+    // we fall back to retrieving the existing instance.
+    // In our Dev setup ('HR_DEV_CLIENT'), this existing instance would have been
+    // created by us with memoryLocalCache properly, so it's safe.
+    firestore = getFirestore(firebaseApp);
   }
 
   return {

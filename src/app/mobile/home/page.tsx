@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles, Palmtree } from 'lucide-react';
@@ -20,6 +20,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Employee } from '@/app/dashboard/employees/data';
 import { Badge } from '@/components/ui/badge';
+import { RecognitionPost, CoreValue } from '@/types/points';
+import { GivePointsDialog } from '../points/_components/give-points-dialog';
+import { formatDistanceToNow } from 'date-fns';
+import { mn } from 'date-fns/locale';
 
 // --- Types ---
 
@@ -87,7 +91,11 @@ function PostSkeleton() {
 }
 
 function PostCard({ post, userId }: { post: Post, userId: string | null }) {
-    const postDate = new Date(post.createdAt);
+    const postDate = React.useMemo(() => {
+        if (!post.createdAt) return new Date();
+        if (typeof post.createdAt === 'object' && 'toDate' in post.createdAt) return (post.createdAt as any).toDate();
+        return new Date(post.createdAt);
+    }, [post.createdAt]);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [isReactionsOpen, setIsReactionsOpen] = React.useState(false);
     const [reactionDetails, setReactionDetails] = React.useState<{ employee: Employee; reaction: ReactionType }[]>([]);
@@ -96,21 +104,16 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const reactions = post.reactions || {};
     const userReaction = userId ? reactions[userId] : null;
 
-    const toggleExpand = () => setIsExpanded(!isExpanded);
-
     const handleReaction = (reaction: ReactionType) => {
         if (!firestore || !userId) return;
         const postRef = doc(firestore, 'posts', post.id);
-
         const currentReaction = reactions[userId];
-
         let newReactions = { ...reactions };
         if (currentReaction === reaction) {
             delete newReactions[userId];
         } else {
             newReactions[userId] = reaction;
         }
-
         updateDocumentNonBlocking(postRef, { reactions: newReactions });
     }
 
@@ -118,10 +121,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
         if (!firestore || Object.keys(reactions).length === 0) return;
         const employeeCollection = collection(firestore, 'employees');
         const details: { employee: Employee; reaction: ReactionType }[] = [];
-
-        // In a real app, query by IDs properly or cache users. For now, fetch individually.
         for (const uid in reactions) {
-            // Optimization: In a real scenario, we'd batch fetch.
             const userDoc = await getDoc(doc(employeeCollection, uid));
             if (userDoc.exists()) {
                 details.push({ employee: userDoc.data() as Employee, reaction: reactions[uid] });
@@ -138,7 +138,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
     return (
-        <Card className="overflow-hidden rounded-3xl shadow-sm border border-slate-100 bg-white mb-6 hover:shadow-md transition-shadow">
+        <Card className="overflow-hidden rounded-3xl shadow-sm border border-slate-100 bg-white mb-6 animate-in fade-in slide-in-from-bottom-3">
             <Dialog open={isReactionsOpen} onOpenChange={setIsReactionsOpen}>
                 <DialogContent className="rounded-2xl w-[90vw]">
                     <DialogHeader>
@@ -163,26 +163,25 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
 
             <CardHeader className="flex flex-row items-center gap-3 p-4 pb-3">
                 <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                    {/* Placeholder for author image - in a real app would be fetched */}
                     <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
                         {post.authorName.charAt(0)}
                     </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
                     <span className="text-sm font-bold text-slate-900">{post.authorName}</span>
-                    <span className="text-xs text-muted-foreground">{format(postDate, 'yyyy.MM.dd HH:mm')}</span>
+                    <span className="text-[10px] text-muted-foreground">{format(postDate, 'yyyy.MM.dd HH:mm')}</span>
                 </div>
             </CardHeader>
 
             <CardContent className="p-4 pt-0 space-y-3">
                 <h3 className="text-base font-bold text-slate-800 leading-tight">{post.title}</h3>
                 <div
-                    className={cn("text-sm text-slate-600 leading-relaxed transition-all", !isExpanded && "line-clamp-3")}
+                    className={cn("text-sm text-slate-600 leading-relaxed", !isExpanded && "line-clamp-3")}
                     dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
                 />
                 {post.content.length > 200 && (
-                    <button onClick={toggleExpand} className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-1">
-                        {isExpanded ? <>Хураах <ChevronsUp className="h-3 w-3" /></> : <>Цааш унших <ChevronsDown className="h-3 w-3" /></>}
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="text-xs font-semibold text-primary">
+                        {isExpanded ? 'Хураах' : 'Цааш унших'}
                     </button>
                 )}
 
@@ -193,58 +192,203 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                                 {post.imageUrls.map((url, index) => (
                                     <CarouselItem key={index}>
                                         <div className="relative aspect-video w-full bg-slate-50">
-                                            <Image src={url} alt={`Post attachment ${index + 1}`} fill className="object-cover" />
+                                            <Image src={url} alt="Post" fill className="object-cover" />
                                         </div>
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            {post.imageUrls.length > 1 && (
-                                <>
-                                    <CarouselPrevious className="left-2 bg-white/80 backdrop-blur-sm border-0" />
-                                    <CarouselNext className="right-2 bg-white/80 backdrop-blur-sm border-0" />
-                                </>
-                            )}
                         </Carousel>
                     </div>
                 )}
             </CardContent>
 
             <CardFooter className="p-4 pt-0 flex flex-col items-start gap-4">
-                {/* Reaction Counts */}
                 {totalReactions > 0 && (
-                    <button onClick={showReactions} className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-slate-50 transition-colors">
+                    <button onClick={showReactions} className="flex items-center gap-2 px-2 py-1">
                         <div className="flex -space-x-2">
-                            {(Object.keys(reactionCounts) as ReactionType[]).sort().map(r => (
+                            {(Object.keys(reactionCounts) as ReactionType[]).map(r => (
                                 <div key={r} className="ring-2 ring-white rounded-full">
                                     <ReactionIcon type={r} />
                                 </div>
                             ))}
                         </div>
-                        <span className="text-xs font-medium text-slate-500">{totalReactions}</span>
+                        <span className="text-[10px] font-medium text-slate-500">{totalReactions}</span>
                     </button>
                 )}
 
-                {/* Action Bar */}
                 <div className="flex w-full items-center justify-between border-t border-slate-100 pt-3">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl transition-all hover:bg-slate-50",
-                                userReaction ? "text-primary bg-primary/5" : "text-slate-500"
-                            )}>
+                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl", userReaction && "text-primary")}>
                                 {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-5 w-5" />}
-                                <span className="text-sm font-medium">{userReaction ? 'Таалагдлаа' : 'Таалагдлаа'}</span>
+                                <span className="text-xs">Таалагдлаа</span>
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-2 rounded-full shadow-xl border-none bg-white flex gap-2" align="start" sideOffset={-10}>
-                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-125"><ThumbsUp className="h-6 w-6 text-blue-500 fill-blue-500" /></button>
-                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-125"><Heart className="h-6 w-6 text-red-500 fill-red-500" /></button>
-                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full transition-transform hover:scale-125 text-2xl leading-none">🤗</button>
+                        <PopoverContent className="w-auto p-2 rounded-full flex gap-2" align="start">
+                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-125"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
+                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-125"><Heart className="h-6 w-6 text-red-500" /></button>
+                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-2xl">🤗</button>
                         </PopoverContent>
                     </Popover>
-
-                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500 hover:bg-slate-50">
+                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
                         <MessageSquare className="h-5 w-5" />
-                        <span className="text-sm font-medium">Сэтгэгдэл</span>
+                        <span className="text-xs">Сэтгэгдэл</span>
+                    </Button>
+                </div>
+            </CardFooter>
+        </Card>
+    );
+}
+
+function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: string | null }) {
+    const { firestore } = useFirebase();
+    const [sender, setSender] = React.useState<any>(null);
+    const [receivers, setReceivers] = React.useState<any[]>([]);
+    const [valueData, setValueData] = React.useState<CoreValue | null>(null);
+    const [isReactionsOpen, setIsReactionsOpen] = React.useState(false);
+    const [reactionDetails, setReactionDetails] = React.useState<{ employee: Employee; reaction: ReactionType }[]>([]);
+
+    const postDate = React.useMemo(() => {
+        if (!post.createdAt) return new Date();
+        if (typeof post.createdAt === 'object' && 'toDate' in post.createdAt) return (post.createdAt as any).toDate();
+        return new Date(post.createdAt);
+    }, [post.createdAt]);
+    const reactions = post.reactions || {};
+    const userReaction = userId ? reactions[userId] : null;
+
+    React.useEffect(() => {
+        if (!firestore) return;
+        getDoc(doc(firestore, 'employees', post.fromUserId)).then(s => setSender(s.data()));
+        Promise.all(post.toUserId.map(id => getDoc(doc(firestore, 'employees', id)))).then(snaps => {
+            setReceivers(snaps.map(s => s.data()));
+        });
+        getDoc(doc(firestore, 'company', 'branding', 'values', post.valueId)).then(v => setValueData({ id: v.id, ...v.data() } as CoreValue));
+    }, [post, firestore]);
+
+    const handleReaction = (reaction: ReactionType) => {
+        if (!firestore || !userId) return;
+        const postRef = doc(firestore, 'recognition_posts', post.id);
+        const currentReaction = reactions[userId];
+        let newReactions = { ...reactions };
+        if (currentReaction === reaction) {
+            delete newReactions[userId];
+        } else {
+            newReactions[userId] = reaction;
+        }
+        updateDocumentNonBlocking(postRef, { reactions: newReactions });
+    }
+
+    const showReactions = async () => {
+        if (!firestore || Object.keys(reactions).length === 0) return;
+        const employeeCollection = collection(firestore, 'employees');
+        const details: { employee: Employee; reaction: ReactionType }[] = [];
+        for (const uid in reactions) {
+            const userDoc = await getDoc(doc(employeeCollection, uid));
+            if (userDoc.exists()) {
+                details.push({ employee: userDoc.data() as Employee, reaction: reactions[uid] });
+            }
+        }
+        setReactionDetails(details);
+        setIsReactionsOpen(true);
+    };
+
+    const reactionCounts = Object.values(reactions).reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+    }, {} as Record<ReactionType, number>);
+    const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
+
+    if (!sender || receivers.length === 0) return null;
+
+    const receiverNames = receivers.map(r => `${r?.lastName?.[0]}. ${r?.firstName}`).join(', ');
+
+    return (
+        <Card className="overflow-hidden rounded-3xl shadow-sm border border-slate-100 bg-white mb-6 animate-in fade-in slide-in-from-bottom-3">
+            <Dialog open={isReactionsOpen} onOpenChange={setIsReactionsOpen}>
+                <DialogContent className="rounded-2xl w-[90vw]">
+                    <DialogHeader>
+                        <DialogTitle>Реакцууд</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                        {reactionDetails.map(({ employee, reaction }) => (
+                            <div key={employee.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={employee.photoURL} />
+                                        <AvatarFallback>{employee.firstName?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm font-medium">{employee.firstName} {employee.lastName}</span>
+                                </div>
+                                <ReactionIcon type={reaction} />
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-3">
+                <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                        <AvatarImage src={sender.photoURL} />
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
+                            {sender.firstName?.[0]}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1 text-sm font-bold">
+                            <span className="text-slate-900">{sender.firstName}</span>
+                            <span className="text-primary mx-0.5">➜</span>
+                            <span className="text-slate-900 line-clamp-1">{receiverNames}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(postDate, { addSuffix: true, locale: mn })}</span>
+                    </div>
+                </div>
+                <Badge variant="secondary" className="font-black text-xs text-primary bg-primary/10">
+                    +{post.pointAmount} ⭐
+                </Badge>
+            </CardHeader>
+
+            <CardContent className="p-4 pt-0 space-y-3">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border inline-flex uppercase tracking-tighter"
+                    style={{ borderColor: valueData?.color || '#eee', color: valueData?.color || '#666', backgroundColor: `${valueData?.color}10` }}>
+                    <span>{valueData?.emoji}</span> {valueData?.title}
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed italic">
+                    "{post.message}"
+                </p>
+            </CardContent>
+
+            <CardFooter className="p-4 pt-0 flex flex-col items-start gap-4">
+                {totalReactions > 0 && (
+                    <button onClick={showReactions} className="flex items-center gap-2 px-2 py-1">
+                        <div className="flex -space-x-2">
+                            {(Object.keys(reactionCounts) as ReactionType[]).map(r => (
+                                <div key={r} className="ring-2 ring-white rounded-full">
+                                    <ReactionIcon type={r} />
+                                </div>
+                            ))}
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-500">{totalReactions}</span>
+                    </button>
+                )}
+
+                <div className="flex w-full items-center justify-between border-t border-slate-100 pt-3">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl", userReaction && "text-primary")}>
+                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-5 w-5" />}
+                                <span className="text-xs">Таалагдлаа</span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2 rounded-full flex gap-2" align="start">
+                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-125"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
+                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-125"><Heart className="h-6 w-6 text-red-500" /></button>
+                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-2xl">🤗</button>
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
+                        <MessageSquare className="h-5 w-5" />
+                        <span className="text-xs">Сэтгэгдэл</span>
                     </Button>
                 </div>
             </CardFooter>
@@ -454,12 +598,34 @@ export default function MobileHomePage() {
     const { employeeProfile } = useEmployeeProfile();
 
     const postsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc')) : null,
+        () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
+        [firestore]
+    );
+    const recognitionQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
         [firestore]
     );
 
-    const { data: posts, isLoading, error } = useCollection<Post>(postsQuery);
-    const { data: companyProfile } = useDoc<{ name: string; logoUrl?: string }>(
+    const { data: posts, isLoading: isPostsLoading } = useCollection<Post>(postsQuery);
+    const { data: recPosts, isLoading: isRecLoading } = useCollection<RecognitionPost>(recognitionQuery);
+
+    const unifiedFeed = React.useMemo(() => {
+        if (!posts && !recPosts) return [];
+        const combined = [
+            ...(posts?.map(p => ({ ...p, feedType: 'post' as const })) || []),
+            ...(recPosts?.map(p => ({ ...p, feedType: 'recognition' as const })) || [])
+        ];
+
+        return combined.sort((a, b) => {
+            const dateA = a.createdAt instanceof Object && 'toDate' in a.createdAt ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
+            const dateB = b.createdAt instanceof Object && 'toDate' in b.createdAt ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+            return dateB - dateA;
+        });
+    }, [posts, recPosts]);
+
+    const isLoading = isPostsLoading || isRecLoading;
+
+    const { data: companyProfile } = useDoc<any>(
         useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore])
     );
 
@@ -516,6 +682,33 @@ export default function MobileHomePage() {
                     <EmployeeCarousel />
                 </div>
 
+                {/* Social Creation Bar */}
+                <div className="px-6">
+                    <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-slate-100 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                                <AvatarImage src={employeeProfile?.photoURL} />
+                                <AvatarFallback>{employeeProfile?.firstName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 bg-slate-50 rounded-2xl px-4 py-2 text-sm text-slate-400 font-medium">
+                                Таны бодол...
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 border-t border-slate-50 pt-3">
+                            <GivePointsDialog triggerButton={
+                                <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-primary bg-primary/5 hover:bg-primary/10">
+                                    <Sparkles className="w-4 h-4" />
+                                    <span className="text-xs font-bold">Талархал</span>
+                                </Button>
+                            } />
+                            <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
+                                <MessageSquare className="w-4 h-4" />
+                                <span className="text-xs font-bold">Мэдээ</span>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* News Feed */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-bold text-slate-800 px-6">Шинэ мэдээ</h2>
@@ -527,21 +720,19 @@ export default function MobileHomePage() {
                         </div>
                     )}
 
-                    {error && (
-                        <div className="px-6">
-                            <Card className="bg-red-50 border-red-100 p-6 text-center rounded-3xl">
-                                <p className="text-red-600 text-sm font-medium">Мэдээлэл ачаалахад алдаа гарлаа.</p>
-                            </Card>
-                        </div>
-                    )}
-
-                    {!isLoading && !error && posts && posts.length > 0 && (
+                    {!isLoading && unifiedFeed.length > 0 && (
                         <div className="px-6 pb-6">
-                            {posts.map(post => <PostCard key={post.id} post={post} userId={employeeProfile?.id || null} />)}
+                            {unifiedFeed.map(item => (
+                                item.feedType === 'post' ? (
+                                    <PostCard key={item.id} post={item as Post} userId={employeeProfile?.id || null} />
+                                ) : (
+                                    <RecognitionPostCard key={item.id} post={item as RecognitionPost} userId={employeeProfile?.id || null} />
+                                )
+                            ))}
                         </div>
                     )}
 
-                    {!isLoading && !error && (!posts || posts.length === 0) && (
+                    {!isLoading && unifiedFeed.length === 0 && (
                         <div className="px-6">
                             <Card className="bg-slate-50 border-dashed border-2 border-slate-200 p-12 text-center rounded-3xl">
                                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
