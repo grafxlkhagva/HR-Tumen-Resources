@@ -186,6 +186,41 @@ function EditMissionVisionForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSave)} className="space-y-12 pb-32">
+        <PageHeader
+          title="Байгууллагын Соёл"
+          description="Эрхэм зорилго, алсын хараа болон үнэт зүйлсийг удирдах."
+          showBackButton
+          backHref="/dashboard/company"
+          hideBreadcrumbs
+          actions={
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={isSubmitting} size="sm">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Түр хүлээнэ үү...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Хадгалах
+                  </>
+                )}
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                disabled={isSubmitting}
+              >
+                <Link href="/dashboard/company">
+                  <X className="mr-2 h-4 w-4" />
+                  Цуцлах
+                </Link>
+              </Button>
+            </div>
+          }
+        />
         {/* Mission & Vision Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card className="border-none shadow-xl bg-gradient-to-br from-white to-slate-50 overflow-hidden group">
@@ -433,48 +468,6 @@ function EditMissionVisionForm({
           </div>
         </div>
 
-        {/* Floating Sticky Action Bar */}
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4 animate-in slide-in-from-bottom-10 duration-500">
-          <div className="bg-white/80 backdrop-blur-xl border border-white shadow-2xl rounded-full p-2 flex items-center justify-between gap-4 ring-1 ring-black/5">
-            <div className="flex items-center gap-4 pl-4">
-              <div className="hidden md:flex flex-col">
-                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none">Status</span>
-                <span className="text-xs font-bold text-slate-900">Бэлэн байна</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="rounded-full px-6 font-bold hover:bg-slate-100"
-                disabled={isSubmitting}
-              >
-                <Link href="/dashboard/company">
-                  Цуцлах
-                </Link>
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-11 rounded-full px-8 font-black shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Хадгалж байна...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Хадгалах
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
       </form>
     </Form>
   );
@@ -514,16 +507,10 @@ export default function EditMissionPage() {
   const values = coreValues || [];
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-6 py-12">
-      <div className="mb-10">
-        <PageHeader
-          title="Байгууллагын Соёл"
-          description="Эрхэм зорилго, алсын хараа болон үнэт зүйлсийг удирдах."
-          showBackButton
-          backHref="/dashboard/company"
-        />
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 scroll-smooth">
+        <EditMissionVisionForm initialData={initialData} coreValues={values} />
       </div>
-      <EditMissionVisionForm initialData={initialData} coreValues={values} />
     </div>
   );
 }

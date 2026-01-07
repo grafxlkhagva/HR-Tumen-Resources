@@ -18,6 +18,7 @@ interface PageHeaderProps {
     description?: string;
     breadcrumbs?: Breadcrumb[];
     showBackButton?: boolean;
+    hideBreadcrumbs?: boolean;
     backHref?: string;
     actions?: React.ReactNode;
     className?: string;
@@ -28,6 +29,7 @@ export function PageHeader({
     description,
     breadcrumbs,
     showBackButton = false,
+    hideBreadcrumbs = false,
     backHref,
     actions,
     className,
@@ -41,7 +43,7 @@ export function PageHeader({
         const paths = pathname.split('/').filter(Boolean);
         const crumbs: Breadcrumb[] = [{ label: 'Dashboard', href: '/dashboard' }];
 
-        let currentPath = '';
+        let currentPath = '/dashboard';
         paths.forEach((path, index) => {
             if (path === 'dashboard') return; // Skip dashboard as it's already added
 
@@ -66,6 +68,8 @@ export function PageHeader({
                 'profile': 'Профайл',
                 'requests': 'Хүсэлтүүд',
                 'time-off': 'Чөлөө',
+                'policies': 'Журам',
+                'branding': 'Брэндинг',
             };
 
             label = labelMap[path] || label;
@@ -94,10 +98,12 @@ export function PageHeader({
     }, [backHref, generatedBreadcrumbs]);
 
     return (
-        <div className={cn('flex flex-col gap-4', className)}>
-            {/* Breadcrumbs */}
-            {/* Breadcrumbs */}
-            {(showBackButton || generatedBreadcrumbs.length > 1) && (
+        <div className={cn(
+            'flex flex-col gap-4 sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 mb-6 border-b -mx-6 px-6 md:-mx-8 md:px-8 animate-in fade-in duration-500',
+            className
+        )}>
+            {/* Breadcrumbs & Back Button */}
+            {(showBackButton || (!hideBreadcrumbs && generatedBreadcrumbs.length > 1)) && (
                 <nav className="flex items-center gap-2 text-sm text-muted-foreground">
                     {showBackButton && (
                         <Button
@@ -113,9 +119,9 @@ export function PageHeader({
                         </Button>
                     )}
 
-                    {generatedBreadcrumbs.slice(1).map((crumb, index) => (
+                    {!hideBreadcrumbs && generatedBreadcrumbs.slice(1).map((crumb, index) => (
                         <React.Fragment key={index}>
-                            {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
+                            {(index > 0 || showBackButton) && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
                             {crumb.href ? (
                                 <Link
                                     href={crumb.href}
@@ -134,14 +140,14 @@ export function PageHeader({
             {/* Header Content */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
                         {title}
                     </h1>
                     {description && (
-                        <p className="text-muted-foreground">{description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-1">{description}</p>
                     )}
                 </div>
-                {actions && <div className="flex items-center gap-2">{actions}</div>}
+                {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
             </div>
         </div>
     );

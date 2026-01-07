@@ -10,10 +10,16 @@ import {
     CardTitle,
     CardFooter
 } from '@/components/ui/card';
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselApi
+} from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft, Handshake, Zap, Users2, Network, ScrollText, Settings } from 'lucide-react';
+import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft, Handshake, Zap, Users2, Network, ScrollText, Settings, Quote } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +27,23 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
 import { CoreValue } from '@/types/points';
 import { query, orderBy } from 'firebase/firestore';
+import { hexToHsl } from '@/lib/color-utils';
+
+interface BrandColor {
+    id: string;
+    name: string;
+    hex: string;
+}
+
+interface CompanyBranding {
+    brandColors: BrandColor[];
+    themeMapping: {
+        primary: string;
+        secondary: string;
+        accent: string;
+    };
+}
+
 
 const videoSchema = z.object({
     title: z.string(),
@@ -44,6 +67,8 @@ const companyProfileSchema = z.object({
     phoneNumber: z.string().optional(),
     contactEmail: z.string().email().optional().or(z.literal('')),
     address: z.string().optional(),
+    introduction: z.string().optional(),
+    coverUrls: z.array(z.string()).optional(),
 });
 
 type CompanyProfileValues = z.infer<typeof companyProfileSchema>;
@@ -102,14 +127,50 @@ export default function CompanyPage() {
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
 
+    const brandingRef = useMemoFirebase(
+        () => (firestore ? doc(firestore, 'company', 'branding') : null),
+        [firestore]
+    );
+
     const valuesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
+    const { data: branding, isLoading: isLoadingBranding } = useDoc<CompanyBranding>(brandingRef as any);
     const { data: departments, isLoading: isLoadingDepts } = useCollection(departmentsQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection(positionsQuery);
     const { data: policies, isLoading: isLoadingPolicies } = useCollection(policiesQuery);
     const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
 
-    const isLoading = isLoadingProfile || isLoadingDepts || isLoadingPos || isLoadingPolicies || isLoadingValues;
+    const [api, setApi] = React.useState<CarouselApi>();
+
+    React.useEffect(() => {
+        if (!api) return;
+
+        const intervalId = setInterval(() => {
+            api.scrollNext();
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [api]);
+
+    const isLoading = isLoadingProfile || isLoadingDepts || isLoadingPos || isLoadingPolicies || isLoadingValues || isLoadingBranding;
+
+    const brandStyles = React.useMemo(() => {
+        if (!branding || !branding.brandColors || !branding.themeMapping) return {};
+
+        const { brandColors, themeMapping } = branding;
+        const styles: any = {};
+
+        const primaryColor = brandColors.find(c => c.id === themeMapping.primary);
+        const secondaryColor = brandColors.find(c => c.id === themeMapping.secondary);
+        const accentColor = brandColors.find(c => c.id === themeMapping.accent);
+
+        if (primaryColor) styles['--primary'] = hexToHsl(primaryColor.hex);
+        if (secondaryColor) styles['--secondary'] = hexToHsl(secondaryColor.hex);
+        if (accentColor) styles['--accent'] = hexToHsl(accentColor.hex);
+
+        return styles;
+    }, [branding]);
+
 
     if (error) {
         return (
@@ -161,29 +222,63 @@ export default function CompanyPage() {
     }
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-12 pb-32 scroll-smooth">
+        <div className="flex flex-col h-full overflow-hidden" style={brandStyles}>
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 space-y-12 pb-32 scroll-smooth">
 
                 <PageHeader
                     showBackButton
+                    hideBreadcrumbs
                     backHref="/dashboard"
                     title="Компанийн танилцуулга"
-                    description="Байгууллагын соёл, бүтэц болон үндсэн мэдээлэл."
                 />
 
-                {/* Hero Section */}
-                <div className="flex flex-col items-center text-center space-y-6 pt-4">
-                    <Avatar className="h-32 w-32 rounded-2xl border-4 border-background shadow-xl ring-1 ring-border/50 p-2 bg-card">
-                        <AvatarImage src={companyProfile.logoUrl} className="object-contain rounded-xl" />
-                        <AvatarFallback className="rounded-xl bg-muted">
-                            <Building className="h-12 w-12 text-muted-foreground" />
-                        </AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-2">
-                        <h1 className="text-4xl font-black tracking-tight text-foreground">{companyProfile.name}</h1>
-                        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{companyProfile.industry}</p>
+                {/* Hero Slider Section */}
+                <div className="relative -mx-6 md:-mx-8">
+                    {companyProfile.coverUrls && companyProfile.coverUrls.length > 0 ? (
+                        <Carousel setApi={setApi} className="w-full" opts={{ loop: true }}>
+                            <CarouselContent className="-ml-0">
+                                {companyProfile.coverUrls.map((url, index) => (
+                                    <CarouselItem key={index} className="pl-0">
+                                        <div className="relative h-[300px] md:h-[400px] w-full bg-muted overflow-hidden">
+                                            <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                                        </div>
+                                    </CarouselItem>
+                                ))}
+                            </CarouselContent>
+                        </Carousel>
+                    ) : (
+                        <div className="h-[200px] bg-gradient-to-r from-primary/10 to-primary/5 w-full" />
+                    )}
+
+                    <div className="absolute -bottom-16 left-0 right-0 flex flex-col items-center text-center space-y-4 z-10 px-6">
+                        <Avatar className="h-32 w-32 rounded-2xl border-[6px] border-background shadow-2xl ring-1 ring-border/50 p-2 bg-card animate-in zoom-in duration-700">
+                            <AvatarImage src={companyProfile.logoUrl} className="object-contain rounded-xl" />
+                            <AvatarFallback className="rounded-xl bg-muted">
+                                <Building className="h-12 w-12 text-muted-foreground" />
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-1">
+                            <h1 className="text-4xl font-black tracking-tight text-foreground drop-shadow-sm">{companyProfile.name}</h1>
+                            <p className="text-lg text-muted-foreground font-medium">{companyProfile.industry}</p>
+                        </div>
                     </div>
                 </div>
+
+                <div className="h-16" /> {/* Spacing for the overlapping avatar */}
+
+                {/* Introduction Section */}
+                {companyProfile.introduction && (
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="relative">
+                            <Quote className="absolute -top-4 -left-8 h-12 w-12 text-primary/10 -scale-x-100" />
+                            <p className="text-xl text-center text-muted-foreground leading-relaxed italic relative z-10">
+                                {companyProfile.introduction}
+                            </p>
+                            <Quote className="absolute -bottom-4 -right-8 h-12 w-12 text-primary/10" />
+                        </div>
+                    </div>
+                )}
 
                 {/* Mission & Vision */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -294,20 +389,6 @@ export default function CompanyPage() {
                         </Card>
                         <Card className="shadow-sm flex flex-col">
                             <CardHeader className="pb-3">
-                                <CardTitle className="text-base font-semibold">Байгууллагын бүтэц</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-5 flex-1">
-                                <InfoRow icon={Network} label="Нийт хэлтэс" value={departments?.length.toString() ?? '0'} />
-                                <InfoRow icon={Briefcase} label="Нийт ажлын байр" value={positions?.length.toString() ?? '0'} />
-                            </CardContent>
-                            <CardFooter>
-                                <Button asChild variant="secondary" className="w-full">
-                                    <Link href="/dashboard/organization">Бүтцийн дэлгэрэнгүй</Link>
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                        <Card className="shadow-sm flex flex-col">
-                            <CardHeader className="pb-3">
                                 <CardTitle className="text-base font-semibold">Дүрэм, журам</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-5 flex-1">
@@ -349,7 +430,7 @@ export default function CompanyPage() {
                         </Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="shadow-lg border-purple-200 text-purple-700 hover:bg-purple-50 bg-background/80 backdrop-blur">
-                        <Link href="/dashboard/settings/branding">
+                        <Link href="/dashboard/company/branding">
                             <Settings className="mr-2 h-4 w-4" />
                             Брэндинг
                         </Link>

@@ -571,12 +571,8 @@ function QuickActions() {
     const router = useRouter();
 
     const actions = [
-        { label: 'Чөлөө', icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-50', onClick: () => router.push('/mobile/attendance?tab=requests') },
         { label: 'Амралт', icon: Palmtree, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => router.push('/mobile/vacation') },
-        { label: 'Цалин', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => { } },
         { label: 'Чиглүүлэг', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/mentoring') },
-        { label: 'Дүрэм', icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => router.push('/mobile/company/policies') },
-        { label: 'Тусламж', icon: MessageSquare, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => { } },
     ];
 
     return (

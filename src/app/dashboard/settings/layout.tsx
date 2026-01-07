@@ -5,14 +5,9 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
     Settings,
-    Building2,
-    BookOpen,
-    LayoutTemplate,
     Briefcase,
-    Palette,
     FileText,
-    Clock,
-    Shield
+    Clock
 } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 
@@ -34,12 +29,6 @@ const settingsNavItems = [
         description: "Шинэ ажилтан"
     },
     {
-        title: "Брэнд",
-        href: "/dashboard/settings/branding",
-        icon: Palette,
-        description: "Лого, өнгө"
-    },
-    {
         title: "Бичиг баримт",
         href: "/dashboard/settings/documents",
         icon: FileText,
@@ -51,7 +40,7 @@ const settingsNavItems = [
         icon: Clock,
         description: "Цагийн хуваарь"
     }
-]
+];
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
     const pathname = usePathname();
@@ -59,48 +48,35 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
     return (
         <div className="flex flex-col h-full bg-background animate-in fade-in duration-300 overflow-hidden">
             {/* Consolidated Modern Header for Settings */}
-            {/* Hide Header on Detail Pages to avoid duplication */}
             {!pathname.match(/\/dashboard\/settings\/onboarding\/[^/]+/) && (
                 <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-20 sticky top-0 flex-none">
-                    <div className="px-6 pt-6 pb-0 w-full max-w-screen-2xl mx-auto">
+                    <div className="px-6 md:px-8 w-full max-w-screen-2xl mx-auto">
                         <PageHeader
                             title="Системийн тохиргоо"
                             description="Байгууллагын процессыг удирдах нэгдсэн төв."
                             showBackButton={true}
                             backHref="/dashboard"
-                            className="mb-6"
+                            className="mb-0 border-b-0 sticky-none shadow-none"
+                            hideBreadcrumbs
                         />
-
-                        {/* Horizontal Navigation Tabs */}
-                        <div className="flex items-center space-x-6 overflow-x-auto no-scrollbar -mb-px">
+                        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2">
                             {settingsNavItems.map((item) => {
-                                const isActive = pathname.startsWith(item.href);
-                                const Icon = item.icon;
+                                const isActive = pathname === item.href;
                                 return (
                                     <Link
                                         key={item.href}
                                         href={item.href}
                                         className={cn(
-                                            "group flex items-center gap-2.5 pb-3 px-1 border-b-2 transition-all whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-sm",
+                                            "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap",
                                             isActive
-                                                ? "border-primary"
-                                                : "border-transparent hover:border-muted-foreground/30"
+                                                ? "bg-primary text-primary-foreground shadow-sm"
+                                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                         )}
                                     >
-                                        <div className={cn(
-                                            "p-1.5 rounded-md transition-colors",
-                                            isActive ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground"
-                                        )}>
-                                            <Icon className="h-4 w-4" />
-                                        </div>
-                                        <span className={cn(
-                                            "text-sm font-medium",
-                                            isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                                        )}>
-                                            {item.title}
-                                        </span>
+                                        <item.icon className="h-4 w-4" />
+                                        {item.title}
                                     </Link>
-                                )
+                                );
                             })}
                         </div>
                     </div>

@@ -9,14 +9,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Building, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail,
-    MapPin, Video, ScrollText, Network, Briefcase, Globe, ChevronRight
+    MapPin, Video, ScrollText, Network, Briefcase, Globe, ChevronRight, Info, Hash, User, Quote
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselApi
+} from '@/components/ui/carousel';
 
 // Types
+import { CoreValue } from '@/types/points';
+import { query, orderBy, where } from 'firebase/firestore';
+
 const videoSchema = z.object({
     title: z.string(),
     description: z.string().optional(),
@@ -28,11 +37,6 @@ const companyProfileSchema = z.object({
     logoUrl: z.string().optional(),
     mission: z.string().optional(),
     vision: z.string().optional(),
-    values: z.array(z.object({
-        title: z.string(),
-        description: z.string(),
-        icon: z.string(),
-    })).optional(),
     videos: z.array(videoSchema).optional(),
     phoneNumber: z.string().optional(),
     contactEmail: z.string().email().optional().or(z.literal('')),
@@ -40,16 +44,15 @@ const companyProfileSchema = z.object({
     website: z.string().optional(),
     employeeCount: z.string().optional(),
     industry: z.string().optional(),
+    legalName: z.string().optional(),
+    registrationNumber: z.string().optional(),
+    taxId: z.string().optional(),
+    ceo: z.string().optional(),
+    introduction: z.string().optional(),
+    coverUrls: z.array(z.string()).optional(),
 });
 
 type CompanyProfileValues = z.infer<typeof companyProfileSchema>;
-
-const valueIcons: { [key: string]: React.ElementType } = {
-    responsibility: Handshake,
-    innovation: Zap,
-    collaboration: Users2,
-    default: Shield,
-};
 
 function PageSkeleton() {
     return (
@@ -80,11 +83,28 @@ export default function MobileCompanyPage() {
     );
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
+    const valuesQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'company', 'branding', 'values') : null),
+        [firestore]
+    );
 
     // Data Fetching
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileValues>(companyProfileRef);
     const { data: departments } = useCollection(departmentsQuery);
     const { data: policies } = useCollection(policiesQuery);
+    const { data: coreValues } = useCollection<CoreValue>(valuesQuery);
+
+    const [api, setApi] = React.useState<CarouselApi>();
+
+    React.useEffect(() => {
+        if (!api) return;
+
+        const intervalId = setInterval(() => {
+            api.scrollNext();
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [api]);
 
     if (isLoadingProfile) return <PageSkeleton />;
 
@@ -106,11 +126,28 @@ export default function MobileCompanyPage() {
 
     return (
         <div className="min-h-screen bg-slate-50">{/* Removed pb-24, will add to inner container */}
-            {/* Dynamic Hero Section */}
-            <div className="relative h-64 bg-gradient-to-br from-indigo-900 via-primary to-indigo-800 overflow-hidden">
-                {/* Abstract Shapes */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+            {/* Dynamic Hero Section with Slider */}
+            <div className="relative h-72 bg-slate-900 overflow-hidden">
+                {companyProfile.coverUrls && companyProfile.coverUrls.length > 0 ? (
+                    <Carousel setApi={setApi} className="w-full h-full" opts={{ loop: true }}>
+                        <CarouselContent className="-ml-0 h-full">
+                            {companyProfile.coverUrls.map((url, index) => (
+                                <CarouselItem key={index} className="pl-0 h-full">
+                                    <div className="relative h-full w-full">
+                                        <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40" />
+                                    </div>
+                                </CarouselItem>
+                            ))}
+                        </CarouselContent>
+                    </Carousel>
+                ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-indigo-900 via-primary to-indigo-800">
+                        {/* Abstract Shapes fallback */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+                    </div>
+                )}
 
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 pt-12 text-center z-10">
                     <Badge variant="outline" className="border-white/30 text-white/80 mb-3 backdrop-blur-md">
@@ -138,6 +175,21 @@ export default function MobileCompanyPage() {
                         </Avatar>
                     </div>
                 </div>
+
+                {/* Introduction Section */}
+                {companyProfile.introduction && (
+                    <div className="relative px-2">
+                        <div className="absolute top-0 -left-1 opacity-10">
+                            <Quote className="h-10 w-10 text-primary -scale-x-100" />
+                        </div>
+                        <p className="text-base text-slate-600 leading-relaxed italic text-center px-4 pt-2">
+                            {companyProfile.introduction}
+                        </p>
+                        <div className="absolute bottom-0 -right-1 opacity-10">
+                            <Quote className="h-10 w-10 text-primary" />
+                        </div>
+                    </div>
+                )}
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3">
@@ -205,24 +257,32 @@ export default function MobileCompanyPage() {
                 )}
 
                 {/* Values Section */}
-                {companyProfile.values && companyProfile.values.length > 0 && (
+                {coreValues && coreValues.filter(v => v.isActive !== false).length > 0 && (
                     <div className="space-y-4">
                         <h3 className="font-semibold text-lg px-1">Үнэт зүйлс</h3>
                         <div className="flex overflow-x-auto pb-4 gap-4 -mx-6 px-6 snap-x snap-mandatory scrollbar-hide">
-                            {companyProfile.values.map((value, index) => {
-                                const Icon = valueIcons[value.icon] || valueIcons.default;
-                                return (
-                                    <div key={index} className="snap-center min-w-[200px] max-w-[200px] bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
-                                            <Icon className="h-5 w-5 text-slate-700" />
+                            {coreValues
+                                .filter(v => v.isActive !== false)
+                                .sort((a, b) => {
+                                    const getTime = (val: any) => {
+                                        if (!val) return 0;
+                                        if (typeof val.toDate === 'function') return val.toDate().getTime();
+                                        if (val instanceof Date) return val.getTime();
+                                        return new Date(val).getTime() || 0;
+                                    };
+                                    return getTime(a.createdAt) - getTime(b.createdAt);
+                                })
+                                .map((value, index) => (
+                                    <div key={value.id || index} className="snap-center min-w-[200px] max-w-[200px] bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-3">
+                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-slate-50" style={{ backgroundColor: `${value.color}10` }}>
+                                            {value.emoji || '⭐'}
                                         </div>
                                         <div>
                                             <h4 className="font-semibold text-sm mb-1">{value.title}</h4>
-                                            <p className="text-xs text-muted-foreground line-clamp-3">{value.description}</p>
+                                            <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">{value.description}</p>
                                         </div>
                                     </div>
-                                )
-                            })}
+                                ))}
                         </div>
                     </div>
                 )}
@@ -242,6 +302,67 @@ export default function MobileCompanyPage() {
                         <ChevronRight className="h-5 w-5 text-muted-foreground group-active:translate-x-1 transition-transform" />
                     </div>
                 </Link>
+
+                {/* General Information */}
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg px-1">Ерөнхий мэдээлэл</h3>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
+                        {companyProfile.legalName && (
+                            <div className="p-4 flex items-center gap-4">
+                                <Info className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Хуулийн этгээдийн нэр</p>
+                                    <p className="text-sm font-medium">{companyProfile.legalName}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.registrationNumber && (
+                            <div className="p-4 flex items-center gap-4">
+                                <Hash className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Регистрийн дугаар</p>
+                                    <p className="text-sm font-medium">{companyProfile.registrationNumber}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.taxId && (
+                            <div className="p-4 flex items-center gap-4">
+                                <Hash className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Татвар төлөгчийн дугаар</p>
+                                    <p className="text-sm font-medium">{companyProfile.taxId}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.industry && (
+                            <div className="p-4 flex items-center gap-4">
+                                <Briefcase className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Үйл ажиллагааны чиглэл</p>
+                                    <p className="text-sm font-medium">{companyProfile.industry}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.ceo && (
+                            <div className="p-4 flex items-center gap-4">
+                                <User className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Гүйцэтгэх захирал</p>
+                                    <p className="text-sm font-medium">{companyProfile.ceo}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.employeeCount && (
+                            <div className="p-4 flex items-center gap-4">
+                                <Users2 className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Ажилтны тоо</p>
+                                    <p className="text-sm font-medium">{companyProfile.employeeCount}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 {/* Contact Information */}
                 <div className="space-y-4 pb-8">

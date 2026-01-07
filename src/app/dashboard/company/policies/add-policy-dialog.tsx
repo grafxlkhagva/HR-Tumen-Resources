@@ -31,20 +31,38 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Upload, File as FileIcon, Search } from 'lucide-react';
+import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { CompanyPolicy, Position } from './types';
 
 const policySchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
+    type: z.string().min(1, 'Төрөл сонгоно уу.'),
+    effectiveDate: z.string().min(1, 'Батлагдсан огноо сонгоно уу.'),
     description: z.string().optional(),
     documentUrl: z.string().optional(),
     appliesToAll: z.boolean().default(true),
     applicablePositionIds: z.array(z.string()).optional(),
 });
+
+export const POLICY_TYPES = [
+    "Бодлогын баримт бичиг",
+    "Журам",
+    "Дүрэм",
+    "Аргачлал",
+    "Заавар",
+    "Бусад"
+];
 
 type PolicyFormValues = z.infer<typeof policySchema>;
 
@@ -82,6 +100,8 @@ export function AddPolicyDialog({
             if (isEditMode && editingPolicy) {
                 form.reset({
                     title: editingPolicy.title,
+                    type: editingPolicy.type || '',
+                    effectiveDate: editingPolicy.effectiveDate || '',
                     description: editingPolicy.description || '',
                     documentUrl: editingPolicy.documentUrl,
                     appliesToAll: editingPolicy.appliesToAll || false,
@@ -94,6 +114,8 @@ export function AddPolicyDialog({
             } else {
                 form.reset({
                     title: '',
+                    type: '',
+                    effectiveDate: '',
                     description: '',
                     documentUrl: '',
                     appliesToAll: true,
@@ -164,6 +186,46 @@ export function AddPolicyDialog({
                         </DialogHeader>
                         <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
                             <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Жишээ нь: Дотоод журам" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="type"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Төрөл</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Төрөл сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {POLICY_TYPES.map(type => (
+                                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="effectiveDate"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Батлагдсан огноо</FormLabel>
+                                            <FormControl>
+                                                <div className="relative">
+                                                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                                    <Input type="date" className="pl-9" {...field} />
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Тайлбар</FormLabel><FormControl><Textarea placeholder="Энэ журам юуны тухай болох талаар товч тайлбар..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormItem>
                                 <FormLabel>Баримт бичиг</FormLabel>

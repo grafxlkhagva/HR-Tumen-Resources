@@ -3,6 +3,8 @@ export interface CompanyPolicy {
     title: string;
     description?: string;
     documentUrl: string;
+    type?: string;
+    effectiveDate?: string;
     uploadDate: string;
     appliesToAll?: boolean;
     applicablePositionIds?: string[];
