@@ -5,7 +5,7 @@ import { useUser, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { Loader2, Home, Building, Settings } from 'lucide-react';
+import { Loader2, Home, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
