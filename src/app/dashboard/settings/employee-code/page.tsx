@@ -76,7 +76,7 @@ function EmployeeCodeConfigForm({
   const { toast } = useToast();
 
   const codeConfigRef = useMemoFirebase(
-    ({firestore}) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
     []
   );
 
@@ -219,7 +219,7 @@ function ConfigCardSkeleton() {
 
 export default function EmployeeCodeSettingsPage() {
   const codeConfigRef = useMemoFirebase(
-    ({firestore}) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
     []
   );
 
@@ -235,7 +235,7 @@ export default function EmployeeCodeSettingsPage() {
     <div className="py-8">
       <div className="mb-4 flex items-center gap-4">
         <Button asChild variant="outline" size="icon">
-          <Link href="/dashboard/settings/general">
+          <Link href="/dashboard/settings/structure">
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Буцах</span>
           </Link>

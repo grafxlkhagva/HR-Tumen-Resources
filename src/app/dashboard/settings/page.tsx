@@ -7,7 +7,7 @@ export default function SettingsPage() {
     const router = useRouter();
 
     useEffect(() => {
-        router.replace('/dashboard/settings/general');
+        router.replace('/dashboard/settings/structure');
     }, [router]);
 
     return null;

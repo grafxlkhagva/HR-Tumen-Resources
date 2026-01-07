@@ -25,15 +25,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2, ArrowLeft } from 'lucide-react';
@@ -57,8 +57,8 @@ export interface CompanyPolicy {
 }
 
 interface Position {
-    id: string;
-    title: string;
+  id: string;
+  title: string;
 }
 
 
@@ -76,8 +76,8 @@ export default function CompanyPoliciesPage() {
   const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
 
   const positionMap = React.useMemo(() => {
-      if (!positions) return new Map();
-      return new Map(positions.map(p => [p.id, p.title]));
+    if (!positions) return new Map();
+    return new Map(positions.map(p => [p.id, p.title]));
   }, [positions]);
 
   const handleAddNew = () => {
@@ -94,38 +94,38 @@ export default function CompanyPoliciesPage() {
     if (!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'companyPolicies', policy.id));
     toast({
-        title: 'Амжилттай устгагдлаа',
-        description: `"${policy.title}" дүрэм устгагдлаа.`,
-        variant: 'destructive',
+      title: 'Амжилттай устгагдлаа',
+      description: `"${policy.title}" дүрэм устгагдлаа.`,
+      variant: 'destructive',
     })
   };
-  
+
   const isLoading = isLoadingPolicies || isLoadingPositions;
 
   return (
     <div className="py-8">
-        <AddPolicyDialog 
-            open={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            editingPolicy={editingPolicy}
-            positions={positions || []}
-        />
-       <div className="mb-4 flex items-center justify-between">
+      <AddPolicyDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        editingPolicy={editingPolicy}
+        positions={positions || []}
+      />
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-                <Link href="/dashboard/settings/general">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Буцах</span>
-                </Link>
-            </Button>
-            <div>
-                 <h1 className="text-2xl font-bold tracking-tight">Компанийн дүрэм, журам</h1>
-                <p className="text-muted-foreground">Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.</p>
-            </div>
+          <Button asChild variant="outline" size="icon">
+            <Link href="/dashboard/settings/onboarding">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Буцах</span>
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Компанийн дүрэм, журам</h1>
+            <p className="text-muted-foreground">Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.</p>
+          </div>
         </div>
         <Button size="sm" onClick={handleAddNew}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Шинэ журам нэмэх
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Шинэ журам нэмэх
         </Button>
       </div>
       <Card>
@@ -146,70 +146,70 @@ export default function CompanyPoliciesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-                 {isLoading && Array.from({length: 3}).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                ))}
-                {!isLoading && policies?.map((policy) => (
-                    <TableRow key={policy.id}>
-                        <TableCell className="font-medium">{policy.title}</TableCell>
-                        <TableCell>
-                            {policy.appliesToAll ? <Badge>Бүх ажилтан</Badge> : (
-                                <div className="flex flex-wrap gap-1">
-                                    {(policy.applicablePositionIds || []).map(id => (
-                                        <Badge key={id} variant="secondary">{positionMap.get(id) || 'Тодорхойгүй'}</Badge>
-                                    ))}
-                                    {(policy.applicablePositionIds || []).length === 0 && <Badge variant="outline">Тохируулаагүй</Badge>}
-                                </div>
-                            )}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{format(new Date(policy.uploadDate), 'yyyy.MM.dd')}</TableCell>
-                        <TableCell className="text-right">
-                           <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleEdit(policy)}>
-                                        <Pencil className="mr-2 h-4 w-4" /> Засах
-                                    </DropdownMenuItem>
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                                <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Энэ үйлдлийг буцаах боломжгүй. Та "{policy.title}" журмыг устгах гэж байна.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(policy)}>Тийм, устгах</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </DropdownMenuContent>
-                           </DropdownMenu>
-                        </TableCell>
-                    </TableRow>
-                ))}
-                 {!isLoading && !policies?.length && (
-                    <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                            Бүртгэлтэй дүрэм, журам байхгүй байна.
-                        </TableCell>
-                    </TableRow>
-                )}
+              {isLoading && Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && policies?.map((policy) => (
+                <TableRow key={policy.id}>
+                  <TableCell className="font-medium">{policy.title}</TableCell>
+                  <TableCell>
+                    {policy.appliesToAll ? <Badge>Бүх ажилтан</Badge> : (
+                      <div className="flex flex-wrap gap-1">
+                        {(policy.applicablePositionIds || []).map(id => (
+                          <Badge key={id} variant="secondary">{positionMap.get(id) || 'Тодорхойгүй'}</Badge>
+                        ))}
+                        {(policy.applicablePositionIds || []).length === 0 && <Badge variant="outline">Тохируулаагүй</Badge>}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{format(new Date(policy.uploadDate), 'yyyy.MM.dd')}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(policy)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Засах
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Энэ үйлдлийг буцаах боломжгүй. Та "{policy.title}" журмыг устгах гэж байна.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(policy)}>Тийм, устгах</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && !policies?.length && (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    Бүртгэлтэй дүрэм, журам байхгүй байна.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

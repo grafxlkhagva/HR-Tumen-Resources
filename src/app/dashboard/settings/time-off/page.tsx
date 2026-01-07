@@ -320,7 +320,7 @@ export default function TimeAndAttendanceSettingsPage() {
             <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/settings/general">
+                        <Link href="/dashboard">
                             <ArrowLeft className="h-4 w-4" />
                             <span className="sr-only">Буцах</span>
                         </Link>

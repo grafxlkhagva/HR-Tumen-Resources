@@ -17,28 +17,22 @@ interface SettingsLayoutProps {
 
 const settingsNavItems = [
     {
-        title: "Ерөнхий",
-        href: "/dashboard/settings/general",
-        icon: Settings,
-        description: "Үндсэн мэдээлэл"
-    },
-    {
-        title: "Дасан зохицох",
-        href: "/dashboard/settings/onboarding",
+        title: "Байгууллага",
+        href: "/dashboard/settings/structure",
         icon: Briefcase,
-        description: "Шинэ ажилтан"
+        description: "Бүтэц, ажилтны код"
     },
     {
-        title: "Бичиг баримт",
-        href: "/dashboard/settings/documents",
+        title: "Хүний нөөц",
+        href: "/dashboard/settings/onboarding",
         icon: FileText,
-        description: "Загварууд"
+        description: "Дасан зохицох, дүрэм"
     },
     {
-        title: "Ирц & Цаг",
-        href: "/dashboard/settings/attendance",
+        title: "Цаг ашиглалт",
+        href: "/dashboard/settings/time-off",
         icon: Clock,
-        description: "Цагийн хуваарь"
+        description: "Ирц, чөлөө, амралт"
     }
 ];
 
@@ -61,15 +55,15 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
                         />
                         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2">
                             {settingsNavItems.map((item) => {
-                                const isActive = pathname === item.href;
+                                const isActive = pathname.startsWith(item.href);
                                 return (
                                     <Link
                                         key={item.href}
                                         href={item.href}
                                         className={cn(
-                                            "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap",
+                                            "flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 whitespace-nowrap",
                                             isActive
-                                                ? "bg-primary text-primary-foreground shadow-sm"
+                                                ? "bg-primary text-primary-foreground shadow-md scale-105"
                                                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                         )}
                                     >
