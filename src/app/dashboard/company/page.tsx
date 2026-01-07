@@ -233,25 +233,27 @@ export default function CompanyPage() {
                 />
 
                 {/* Hero / Cover Section */}
-                <div className="relative -mx-6 md:-mx-8 group overflow-hidden">
-                    {companyProfile.coverUrls && companyProfile.coverUrls.length > 0 ? (
-                        <Carousel setApi={setApi} className="w-full" opts={{ loop: true }}>
-                            <CarouselContent className="-ml-0">
-                                {companyProfile.coverUrls.map((url, index) => (
-                                    <CarouselItem key={index} className="pl-0">
-                                        <div className="relative h-[350px] md:h-[450px] w-full bg-slate-100 overflow-hidden">
-                                            <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-                                        </div>
-                                    </CarouselItem>
-                                ))}
-                            </CarouselContent>
-                        </Carousel>
-                    ) : (
-                        <div className="h-[250px] bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 w-full" />
-                    )}
+                <div className="relative -mx-6 md:-mx-8 group">
+                    <div className="overflow-hidden rounded-none md:rounded-b-[2rem]">
+                        {companyProfile.coverUrls && companyProfile.coverUrls.length > 0 ? (
+                            <Carousel setApi={setApi} className="w-full" opts={{ loop: true }}>
+                                <CarouselContent className="-ml-0">
+                                    {companyProfile.coverUrls.map((url, index) => (
+                                        <CarouselItem key={index} className="pl-0">
+                                            <div className="relative h-[350px] md:h-[450px] w-full bg-slate-100 overflow-hidden">
+                                                <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                                            </div>
+                                        </CarouselItem>
+                                    ))}
+                                </CarouselContent>
+                            </Carousel>
+                        ) : (
+                            <div className="h-[250px] bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 w-full" />
+                        )}
+                    </div>
 
-                    {/* Logo - 50% Overlap */}
+                    {/* Logo - 50% Overlap - Now outside overflow-hidden */}
                     <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-30">
                         <div className="relative group/logo">
                             <div className="absolute inset-0 bg-primary/20 rounded-[3rem] blur-2xl opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500" />
