@@ -79,12 +79,6 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2">
             <UserNav />
-            <Button asChild variant="ghost" size="icon">
-              <Link href="/dashboard/settings/general">
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Тохиргоо</span>
-              </Link>
-            </Button>
           </div>
         </div>
       </header>
