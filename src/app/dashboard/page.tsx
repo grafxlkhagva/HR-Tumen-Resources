@@ -1117,6 +1117,32 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
+                        {/* 8. System Settings */}
+                        <Link href="/dashboard/settings" className="flex-shrink-0">
+                            <Card className="h-full w-[240px] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-700 border-slate-600 hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-600 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl group-hover:from-indigo-500/20 group-hover:to-purple-500/20 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Системийн тохиргоо</div>
+                                        <Settings className="h-5 w-5 text-indigo-400 group-hover:rotate-90 transition-transform duration-500" />
+                                    </div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <div className="text-2xl font-black text-white">3</div>
+                                            <div className="text-sm text-slate-400 font-medium">категори</div>
+                                        </div>
+                                        <div className="flex gap-1 mt-2">
+                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">Байгууллага</div>
+                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">ХН</div>
+                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">Цаг</div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
                         {/* 6. New Hires */}
                         <div className="flex-shrink-0">
                             <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
