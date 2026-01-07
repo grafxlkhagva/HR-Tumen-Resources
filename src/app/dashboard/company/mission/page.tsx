@@ -35,6 +35,11 @@ import { PointsService } from '@/lib/points/points-service';
 import { CoreValue } from '@/types/points';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import dynamic from 'next/dynamic';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
+
 
 const valueSchema = z.object({
   id: z.string().optional(),
@@ -188,7 +193,6 @@ function EditMissionVisionForm({
       <form onSubmit={form.handleSubmit(handleSave)} className="space-y-12 pb-32">
         <PageHeader
           title="Байгууллагын Соёл"
-          description="Эрхэм зорилго, алсын хараа болон үнэт зүйлсийг удирдах."
           showBackButton
           backHref="/dashboard/company"
           hideBreadcrumbs
@@ -296,16 +300,16 @@ function EditMissionVisionForm({
                 <div className="h-8 w-1 bg-primary rounded-full"></div>
                 <h2 className="text-2xl font-black tracking-tight">Үнэт зүйлс</h2>
               </div>
-              <p className="text-muted-foreground text-sm">Байгууллагын соёл, пойнт системд ашиглагдах үнэт зүйлс</p>
+              <p className="text-amber-600 font-medium text-xs">Үнэт зүйлс нь байгууллагын соёлыг төлөвшүүлэх, пойнт системтэй шууд холбоотой тул заавал тодорхойлсон байх шаардлагатайг анхаарна уу.</p>
             </div>
             <Button
               type="button"
-              variant="outline"
-              className="h-11 rounded-xl px-6 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all shadow-sm group"
+              size="icon"
+              className="h-11 w-11 rounded-xl shadow-lg shadow-primary/20 transition-all group"
               onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
+              title="Үнэт зүйл нэмэх"
             >
-              <PlusCircle className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
-              Үнэт зүйл нэмэх
+              <PlusCircle className="h-5 w-5 group-hover:scale-110 transition-transform" />
             </Button>
           </div>
 
@@ -319,131 +323,149 @@ function EditMissionVisionForm({
                     style={{ backgroundColor: form.watch(`values.${index}.color`) || '#3b82f6' }}
                   />
 
-                  <div className="flex-1 p-6 flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 p-5 flex flex-col md:flex-row gap-6">
                     {/* Visual Selector */}
-                    <div className="flex flex-row md:flex-col items-center justify-center gap-4 bg-slate-50 rounded-2xl p-4 min-w-[120px]">
-                      <FormField
-                        control={form.control}
-                        name={`values.${index}.emoji`}
-                        render={({ field: emojiField }) => (
-                          <FormItem>
-                            <FormControl>
-                              <div className="relative">
-                                <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-white text-4xl shadow-md border group-hover/item:scale-110 transition-transform cursor-pointer">
-                                  {emojiField.value || '⭐'}
-                                  <Input
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                    {...emojiField}
-                                    placeholder="⭐"
-                                  />
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 p-1 bg-primary rounded-full text-white shadow-lg pointer-events-none">
-                                  <Smile className="h-3 w-3" />
-                                </div>
-                              </div>
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`values.${index}.color`}
-                        render={({ field: colorField }) => (
-                          <FormItem>
-                            <FormControl>
-                              <div className="relative flex items-center gap-2">
-                                <div
-                                  className="w-8 h-8 rounded-full border-2 border-white shadow-md cursor-pointer relative overflow-hidden ring-2 ring-transparent group-hover/item:ring-primary/20"
-                                  style={{ backgroundColor: colorField.value }}
-                                >
-                                  <Input
-                                    type="color"
-                                    className="absolute inset-0 w-full h-full p-0 border-0 cursor-pointer scale-150"
-                                    {...colorField}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                  {colorField.value}
-                                </span>
-                              </div>
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Content Inputs */}
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex md:flex-col items-center justify-start gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Дүрс</label>
                         <FormField
                           control={form.control}
-                          name={`values.${index}.title`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
+                          name={`values.${index}.emoji`}
+                          render={({ field: emojiField }) => (
+                            <FormItem>
                               <FormControl>
-                                <Input
-                                  className="text-xl font-black border-none bg-transparent focus-visible:ring-0 p-0 h-auto placeholder:opacity-30"
-                                  placeholder="Үнэт зүйлийн нэр..."
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.isActive`}
-                          render={({ field }) => (
-                            <FormItem className="flex items-center gap-2 space-y-0">
-                              <FormControl>
-                                <Button
-                                  type="button"
-                                  variant={field.value ? "default" : "outline"}
-                                  size="sm"
-                                  className={cn(
-                                    "h-8 px-3 text-[11px] font-bold rounded-full transition-all",
-                                    field.value ? "bg-primary shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-muted"
-                                  )}
-                                  onClick={() => field.onChange(!field.value)}
-                                >
-                                  {field.value && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
-                                  {field.value ? "Идэвхтэй" : "Идэвхгүй"}
-                                </Button>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <div className="h-14 w-14 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-3xl hover:border-primary hover:shadow-md transition-all relative cursor-pointer shadow-sm">
+                                      {emojiField.value || '⭐'}
+                                      <div className="absolute -bottom-1 -right-1 p-1 bg-primary rounded-full text-white shadow-lg pointer-events-none">
+                                        <Smile className="h-3 w-3" />
+                                      </div>
+                                    </div>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-full p-0 border-none shadow-2xl overflow-hidden" align="start">
+                                    <EmojiPicker
+                                      onEmojiClick={(emojiData) => {
+                                        emojiField.onChange(emojiData.emoji);
+                                      }}
+                                      autoFocusSearch={false}
+                                      theme={"light" as any}
+                                      width={350}
+                                      height={400}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
                               </FormControl>
                             </FormItem>
                           )}
                         />
                       </div>
-                      <FormField
-                        control={form.control}
-                        name={`values.${index}.description`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Textarea
-                                className="resize-none min-h-[80px] bg-slate-50/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20 text-sm leading-relaxed p-4 rounded-xl"
-                                placeholder="Энэ үнэт зүйл нь байгууллагын соёлд ямар үүрэгтэй вэ?"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Өнгө</label>
+                        <FormField
+                          control={form.control}
+                          name={`values.${index}.color`}
+                          render={({ field: colorField }) => (
+                            <FormItem>
+                              <FormControl>
+                                <div
+                                  className="w-14 h-10 rounded-xl border border-slate-200 p-1 bg-white cursor-pointer hover:border-primary/50 transition-all flex items-center justify-center"
+                                >
+                                  <div
+                                    className="w-full h-full rounded-lg shadow-inner relative overflow-hidden"
+                                    style={{ backgroundColor: colorField.value }}
+                                  >
+                                    <Input
+                                      type="color"
+                                      className="absolute inset-0 w-full h-full p-0 border-0 cursor-pointer scale-[3] origin-center"
+                                      {...colorField}
+                                    />
+                                  </div>
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex md:flex-col justify-end items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-xl"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
+                    {/* Content Inputs */}
+                    <div className="flex-1 space-y-4">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                        <div className="flex-1 space-y-4">
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.title`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Үнэт зүйлийн нэр</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    className="text-lg font-bold bg-white border-slate-200 focus-visible:ring-primary/20 h-11 px-4 rounded-xl"
+                                    placeholder="Жишээ: Хариуцлага..."
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Тайлбар</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    className="resize-none min-h-[100px] bg-white border-slate-200 focus-visible:ring-primary/20 text-sm leading-relaxed p-4 rounded-xl"
+                                    placeholder="Энэ үнэт зүйлийн ач холбогдлыг тайлбарлана уу..."
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex flex-row md:flex-col items-center gap-3 md:pt-6">
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.isActive`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Button
+                                    type="button"
+                                    variant={field.value ? "default" : "outline"}
+                                    size="sm"
+                                    className={cn(
+                                      "h-9 px-4 text-[11px] font-bold rounded-xl transition-all",
+                                      field.value ? "bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 border-none" : "text-muted-foreground hover:bg-slate-100"
+                                    )}
+                                    onClick={() => field.onChange(!field.value)}
+                                  >
+                                    {field.value ? "Идэвхтэй" : "Идэвхгүй"}
+                                  </Button>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

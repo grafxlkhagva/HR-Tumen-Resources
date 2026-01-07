@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    Building, Rocket, Eye, Shield, Handshake, Zap, Users2, Phone, Mail,
-    MapPin, Video, ScrollText, Network, Briefcase, Globe, ChevronRight, Info, Hash, User, Quote
+    Building, Rocket, Eye, Users2, Phone, Mail,
+    MapPin, ScrollText, Briefcase, Globe, ChevronRight, Info, Hash, User, Quote
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -81,17 +81,13 @@ export default function MobileCompanyPage() {
         () => (firestore ? doc(firestore, 'company', 'profile') : null),
         [firestore]
     );
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
     const valuesQuery = useMemoFirebase(
         () => (firestore ? collection(firestore, 'company', 'branding', 'values') : null),
         [firestore]
     );
 
     // Data Fetching
-    const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileValues>(companyProfileRef);
-    const { data: departments } = useCollection(departmentsQuery);
-    const { data: policies } = useCollection(policiesQuery);
+    const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: coreValues } = useCollection<CoreValue>(valuesQuery);
 
     const [api, setApi] = React.useState<CarouselApi>();
@@ -117,12 +113,6 @@ export default function MobileCompanyPage() {
         )
     }
 
-    const sections = [
-        { id: 'mission', icon: Rocket, label: 'Зорилго', color: 'text-blue-600', bg: 'bg-blue-50' },
-        { id: 'culture', icon: Shield, label: 'Соёл', color: 'text-purple-600', bg: 'bg-purple-50' },
-        { id: 'policies', icon: ScrollText, label: 'Журам', color: 'text-amber-600', bg: 'bg-amber-50' },
-        { id: 'contact', icon: Phone, label: 'Холбоо барих', color: 'text-green-600', bg: 'bg-green-50' },
-    ];
 
     return (
         <div className="min-h-screen bg-slate-50">{/* Removed pb-24, will add to inner container */}
@@ -176,39 +166,6 @@ export default function MobileCompanyPage() {
                     </div>
                 </div>
 
-                {/* Introduction Section */}
-                {companyProfile.introduction && (
-                    <div className="relative px-2">
-                        <div className="absolute top-0 -left-1 opacity-10">
-                            <Quote className="h-10 w-10 text-primary -scale-x-100" />
-                        </div>
-                        <p className="text-base text-slate-600 leading-relaxed italic text-center px-4 pt-2">
-                            {companyProfile.introduction}
-                        </p>
-                        <div className="absolute bottom-0 -right-1 opacity-10">
-                            <Quote className="h-10 w-10 text-primary" />
-                        </div>
-                    </div>
-                )}
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                    <Link href="/mobile/company/policies">
-                        <Card className="border-none shadow-sm hover:shadow-md transition-all active:scale-95 bg-white overflow-hidden group">
-                            <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1 relative">
-                                <div className="absolute top-0 right-0 p-2 opacity-5">
-                                    <ScrollText className="h-10 w-10" />
-                                </div>
-                                <span className="text-3xl font-bold text-slate-800 group-hover:text-primary transition-colors">{policies?.length || 0}</span>
-                                <span className="text-xs text-muted-foreground font-medium">Журам</span>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                    <div className="bg-white rounded-xl p-4 flex flex-col items-center justify-center text-center gap-1 shadow-sm border border-slate-100">
-                        <span className="text-3xl font-bold text-slate-800">{departments?.length || 0}</span>
-                        <span className="text-xs text-muted-foreground font-medium">Хэлтэс</span>
-                    </div>
-                </div>
 
                 {/* Mission & Vision Carousel */}
                 {(companyProfile.mission || companyProfile.vision) && (
@@ -287,21 +244,21 @@ export default function MobileCompanyPage() {
                     </div>
                 )}
 
-                {/* Policies Shortcut */}
-                <Link href="/mobile/company/policies">
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between group active:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
-                                <ScrollText className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-sm">Дотоод журам</h4>
-                                <p className="text-xs text-muted-foreground">Байгууллагын дүрэмтэй танилцах</p>
-                            </div>
+                {/* Introduction Section */}
+                {companyProfile.introduction && (
+                    <div className="relative px-2">
+                        <div className="absolute top-0 -left-1 opacity-10">
+                            <Quote className="h-10 w-10 text-primary -scale-x-100" />
                         </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-active:translate-x-1 transition-transform" />
+                        <p className="text-base text-slate-600 leading-relaxed italic text-center px-4 pt-2">
+                            {companyProfile.introduction}
+                        </p>
+                        <div className="absolute bottom-0 -right-1 opacity-10">
+                            <Quote className="h-10 w-10 text-primary" />
+                        </div>
                     </div>
-                </Link>
+                )}
+
 
                 {/* General Information */}
                 <div className="space-y-4">

@@ -13,6 +13,17 @@ import {
     CardTitle,
     CardDescription,
 } from '@/components/ui/card';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -151,8 +162,7 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 pb-32">
                 <PageHeader
-                    title="Видео контент засах"
-                    description="Компанийн танилцуулга, соёлын видеонуудыг энд оруулна уу."
+                    title="Видео контент"
                     showBackButton
                     backHref="/dashboard/company"
                     hideBreadcrumbs
@@ -183,7 +193,7 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                             <Card key={field.id} className="p-4 bg-muted/20">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-4">
-                                        <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Видеоны гарчиг</FormLabel><FormControl><Input placeholder="Компанийн танилцуулга" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                        <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Компанийн танилцуулга" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                         <FormField control={form.control} name={`videos.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Товч тайлбар</FormLabel><FormControl><Textarea placeholder="Энэ видеонд юу гардаг вэ?" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                     </div>
                                     <div className="space-y-2">
@@ -203,21 +213,42 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                                         <div className="flex gap-2 items-center">
                                             <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`video-upload-${index}`)?.click()} disabled={uploadingVideoIndex === index}>
                                                 {uploadingVideoIndex === index ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                                Видео солих
+                                                Шинээр оруулах
                                             </Button>
                                             <input id={`video-upload-${index}`} type="file" accept="video/*" className="hidden" onChange={(e) => handleVideoUpload(e, index)} />
-                                            <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                            </Button>
+
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button type="button" variant="destructive" size="sm">
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Энэ видеог устгаснаар дахин сэргээх боломжгүй болно.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={() => remove(index)}
+                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                        >
+                                                            Устгах
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
                                         <FormField control={form.control} name={`videos.${index}.url`} render={() => (<FormMessage />)} />
                                     </div>
                                 </div>
                             </Card>
                         ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ title: '', description: '', url: '' })}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Видео нэмэх
+                        <Button type="button" size="icon" onClick={() => append({ title: '', description: '', url: '' })} title="Видео нэмэх">
+                            <PlusCircle className="h-5 w-5" />
                         </Button>
                     </CardContent>
                 </Card>

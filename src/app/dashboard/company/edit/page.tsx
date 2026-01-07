@@ -174,8 +174,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 pb-32">
                 <PageHeader
-                    title="Ерөнхий мэдээлэл засах"
-                    description="Компанийнхаа үндсэн мэдээллийг эндээс шинэчилнэ үү."
+                    title="Байгууллагын үндсэн мэдээлэл"
                     showBackButton
                     backHref="/dashboard/company"
                     hideBreadcrumbs
@@ -199,7 +198,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
 
                 <Card>
                     <CardHeader className="hidden">
-                        <CardTitle>Ерөнхий мэдээлэл засах</CardTitle>
+                        <CardTitle>Үндсэн мэдээлэл</CardTitle>
                         <CardDescription>Компанийнхаа үндсэн мэдээллийг эндээс шинэчилнэ үү.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -415,7 +414,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Холбоо барих мэдээлэл засах</CardTitle>
+                        <CardTitle>Холбоо барих</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <FormField
