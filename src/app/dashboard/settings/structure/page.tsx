@@ -3,13 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReferenceTable, type ReferenceItem } from "../reference-table";
-import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection } from "firebase/firestore";
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Network, ArrowUpRight } from 'lucide-react';
-
-type SimpleReferenceItem = ReferenceItem & { name: string };
+import { Code, Network, ArrowUpRight } from 'lucide-react';
 
 export default function OrganizationSettingsHub() {
   const employmentTypesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employmentTypes') : null, []);
