@@ -6,77 +6,75 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Code, Network, ArrowUpRight } from 'lucide-react';
 
 export default function OrganizationSettingsHub() {
-  const employmentTypesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employmentTypes') : null, []);
-  const positionLevelsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'positionLevels') : null, []);
-
-  const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(employmentTypesQuery);
-  const { data: positionLevels, isLoading: loadingLevels } = useCollection<SimpleReferenceItem>(positionLevelsQuery);
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Байгууллагын тохиргоо</h1>
-        <p className="text-muted-foreground mt-2">Бүтэц, албан тушаалын зэрэглэл болон кодчлолын тохиргоог удирдах.</p>
+        <p className="text-muted-foreground mt-2">Ажилтны кодчлолын тохиргоог удирдах.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Employee Code Hub Link */}
-        <Link href="/dashboard/settings/employee-code" className="group block lg:col-span-2">
-          <Card className="h-full transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1 border-primary/20 bg-primary/5 hover:bg-primary/10">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary text-primary-foreground">
-                  <Code className="h-6 w-6" />
+      <div className="max-w-3xl">
+        {/* Employee Code Configuration - Primary Feature */}
+        <Link href="/dashboard/settings/employee-code" className="group block">
+          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15">
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 rounded-xl bg-primary text-primary-foreground shadow-lg">
+                    <Code className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-bold">Ажилтны кодчлол</CardTitle>
+                    <CardDescription className="mt-1.5 text-base">
+                      Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-xl font-bold">Ажилтны кодчлол</CardTitle>
-                  <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.</CardDescription>
-                </div>
+                <ArrowUpRight className="h-6 w-6 text-primary transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
-              <ArrowUpRight className="h-6 w-6 text-primary transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Жишээ: EMP0001, STAFF-101 гэх мэт форматыг энд тохируулна.</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span>Префикс тохируулах (жишээ: EMP, STAFF)</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span>Оронгийн тоог тодорхойлох</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span>Дараагийн дугаарыг удирдах</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold">Жишээ форматууд:</span> EMP0001, STAFF-101, E-2024-001
+                </p>
+              </div>
             </CardContent>
           </Card>
         </Link>
 
-        {/* Reference Tables */}
-        <Card className="border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Network className="h-5 w-5 text-primary" />
-              <CardTitle>Ажил эрхлэлтийн төрөл</CardTitle>
+        {/* Info Card - Reference to Organization Page */}
+        <Card className="mt-6 border-dashed bg-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Network className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm mb-1">Бүтцийн лавлах сангууд</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Ажил эрхлэлтийн төрөл, албан тушаалын зэрэглэл зэрэг лавлах сангууд <Link href="/dashboard/organization" className="text-primary hover:underline font-medium">Байгууллагын бүтэц</Link> хуудсанд байрладаг.
+                </p>
+                <Link href="/dashboard/organization" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+                  Байгууллагын бүтэц руу очих
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
-            <CardDescription>Үндсэн, гэрээт, цагийн гэх мэт төрлүүдийг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable
-              collectionName="employmentTypes"
-              columns={[{ key: 'name', header: 'Нэр' }]}
-              itemData={employmentTypes}
-              isLoading={loadingEmpTypes}
-              dialogTitle="Ажил эрхлэлтийн төрөл"
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Network className="h-5 w-5 text-primary" />
-              <CardTitle>Ажлын байрны зэрэглэл</CardTitle>
-            </div>
-            <CardDescription>Удирдах, ахлах, мэргэжилтэн гэх мэт зэрэглэлүүдийг удирдах.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReferenceTable
-              collectionName="positionLevels"
-              columns={[{ key: 'name', header: 'Нэр' }]}
-              itemData={positionLevels}
-              isLoading={loadingLevels}
-              dialogTitle="Албан тушаалын зэрэглэл"
-            />
           </CardContent>
         </Card>
       </div>
