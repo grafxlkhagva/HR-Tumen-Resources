@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code, Network, ArrowUpRight } from 'lucide-react';
+import { Code, ArrowUpRight } from 'lucide-react';
 
 export default function OrganizationSettingsHub() {
   return (
