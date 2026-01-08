@@ -1212,10 +1212,6 @@ const OrganizationChart = () => {
                             <span className="sr-only">Ажилтан нэмэх</span>
                         </Link>
                     </Button>
-                    <Button size="icon" onClick={handleOpenAddDialog} className="rounded-full h-12 w-12 shadow-lg">
-                        <PlusCircle className="h-6 w-6" />
-                        <span className="sr-only">Ажлын байр нэмэх</span>
-                    </Button>
                 </div>
             </div>
             <UnassignedEmployeesDialog
