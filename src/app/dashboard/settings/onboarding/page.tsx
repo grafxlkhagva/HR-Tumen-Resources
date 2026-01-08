@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ClipboardList, FileText, Activity, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { ClipboardList, FileText, Activity, ArrowUpRight } from 'lucide-react';
 
 interface SettingsCardProps {
     icon: React.ElementType;
@@ -43,12 +43,6 @@ export default function HROperationsHub() {
             title: "Дасан зохицох хөтөлбөр",
             description: "Шинэ ажилтны дадлагын үеийн шат, даалгавруудыг тохируулах.",
             href: "/dashboard/settings/onboarding/management"
-        },
-        {
-            icon: ShieldCheck,
-            title: "Компанийн дүрэм журам",
-            description: "Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.",
-            href: "/dashboard/settings/policies"
         },
         {
             icon: ClipboardList,
