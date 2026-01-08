@@ -56,27 +56,6 @@ export default function OrganizationSettingsHub() {
             </CardContent>
           </Card>
         </Link>
-
-        {/* Info Card - Reference to Organization Page */}
-        <Card className="mt-6 border-dashed bg-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <Network className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-sm mb-1">Бүтцийн лавлах сангууд</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Ажил эрхлэлтийн төрөл, албан тушаалын зэрэглэл зэрэг лавлах сангууд <Link href="/dashboard/organization" className="text-primary hover:underline font-medium">Байгууллагын бүтэц</Link> хуудсанд байрладаг.
-                </p>
-                <Link href="/dashboard/organization" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-                  Байгууллагын бүтэц руу очих
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
