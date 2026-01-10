@@ -36,8 +36,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, ArrowLeft } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -94,10 +95,10 @@ function VideoFormSkeleton() {
 
 function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
     const router = useRouter();
-    const { firestore } = useFirebase();
+    const { firestore, storage } = useFirebase();
     const { toast } = useToast();
 
-    const [uploadingVideoIndex, setUploadingVideoIndex] = React.useState<number | null>(null);
+    const [uploadingVideos, setUploadingVideos] = React.useState<{ [key: number]: number }>({});
 
     const companyProfileRef = useMemoFirebase(
         () => (firestore ? doc(firestore, 'company', 'profile') : null),
@@ -124,21 +125,37 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        setUploadingVideoIndex(index);
-        const storage = getStorage();
-        const storageRef = ref(storage, `company-videos/${Date.now()}-${file.name}`);
+        // Reset progress for this index
+        setUploadingVideos(prev => ({ ...prev, [index]: 0 }));
 
-        try {
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
-            form.setValue(`videos.${index}.url`, downloadURL, { shouldValidate: true });
-            toast({ title: 'Видео амжилттай байршлаа.' });
-        } catch (error) {
-            console.error("Видео байршуулахад алдаа гарлаа: ", error);
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Видео байршуулахад алдаа гарлаа.' });
-        } finally {
-            setUploadingVideoIndex(null);
-        }
+        const storageRef = ref(storage, `company-videos/${Date.now()}-${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadingVideos(prev => ({ ...prev, [index]: Math.round(progress) }));
+            },
+            (error) => {
+                console.error("Видео байршуулахад алдаа гарлаа: ", error);
+                toast({ variant: 'destructive', title: 'Алдаа', description: 'Видео байршуулахад алдаа гарлаа.' });
+                setUploadingVideos(prev => {
+                    const next = { ...prev };
+                    delete next[index];
+                    return next;
+                });
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                form.setValue(`videos.${index}.url`, downloadURL, { shouldValidate: true });
+                toast({ title: 'Видео амжилттай байршлаа.' });
+                setUploadingVideos(prev => {
+                    const next = { ...prev };
+                    delete next[index];
+                    return next;
+                });
+            }
+        );
     };
 
 
@@ -168,15 +185,15 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                     hideBreadcrumbs
                     actions={
                         <div className="flex items-center gap-2">
-                            <Button type="submit" disabled={isSubmitting || uploadingVideoIndex !== null} size="sm">
-                                {isSubmitting || uploadingVideoIndex !== null ? (
+                            <Button type="submit" disabled={isSubmitting || Object.keys(uploadingVideos).length > 0} size="sm">
+                                {isSubmitting || Object.keys(uploadingVideos).length > 0 ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     <Save className="mr-2 h-4 w-4" />
                                 )}
                                 Хадгалах
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || uploadingVideoIndex !== null}>
+                            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
                                 <X className="mr-2 h-4 w-4" />
                                 Цуцлах
                             </Button>
@@ -210,39 +227,53 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex gap-2 items-center">
-                                            <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`video-upload-${index}`)?.click()} disabled={uploadingVideoIndex === index}>
-                                                {uploadingVideoIndex === index ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                                Шинээр оруулах
-                                            </Button>
-                                            <input id={`video-upload-${index}`} type="file" accept="video/*" className="hidden" onChange={(e) => handleVideoUpload(e, index)} />
+                                        <div className="flex flex-col gap-3">
+                                            {uploadingVideos[index] !== undefined && (
+                                                <div className="space-y-2 p-3 border rounded-md bg-background/50">
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-medium text-primary flex items-center gap-2">
+                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                            Байршуулж байна...
+                                                        </span>
+                                                        <span className="text-muted-foreground">{uploadingVideos[index]}%</span>
+                                                    </div>
+                                                    <Progress value={uploadingVideos[index]} className="h-1.5" />
+                                                </div>
+                                            )}
+                                            <div className="flex gap-2 items-center">
+                                                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`video-upload-${index}`)?.click()} disabled={uploadingVideos[index] !== undefined}>
+                                                    {uploadingVideos[index] !== undefined ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                                    Шинээр оруулах
+                                                </Button>
+                                                <input id={`video-upload-${index}`} type="file" accept="video/*" className="hidden" onChange={(e) => handleVideoUpload(e, index)} />
 
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button type="button" variant="destructive" size="sm">
-                                                        <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Энэ видеог устгаснаар дахин сэргээх боломжгүй болно.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={() => remove(index)}
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                        >
-                                                            Устгах
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button type="button" variant="destructive" size="sm">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Энэ видеог устгаснаар дахин сэргээх боломжгүй болно.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={() => remove(index)}
+                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            >
+                                                                Устгах
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                            <FormField control={form.control} name={`videos.${index}.url`} render={() => (<FormMessage />)} />
                                         </div>
-                                        <FormField control={form.control} name={`videos.${index}.url`} render={() => (<FormMessage />)} />
                                     </div>
                                 </div>
                             </Card>

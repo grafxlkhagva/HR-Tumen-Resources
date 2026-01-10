@@ -59,6 +59,7 @@ const companyProfileSchema = z.object({
     taxId: z.string().optional(),
     industry: z.string().optional(),
     employeeCount: z.string().optional(),
+    establishedDate: z.string().optional(),
     ceo: z.string().optional(),
     website: z.string().url({ message: 'Вэбсайтын хаяг буруу байна.' }).optional().or(z.literal('')),
     mission: z.string().optional(),
@@ -270,9 +271,7 @@ export default function CompanyPage() {
                 <div className="pt-24 pb-12 px-6 flex flex-col items-center animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
                     <div className="text-center space-y-6 max-w-4xl mx-auto">
                         <div className="space-y-2">
-                            <p className="text-primary font-bold tracking-[0.3em] uppercase text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-2 delay-300 duration-700">
-                                {companyProfile.industry}
-                            </p>
+
                             <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
                                 {companyProfile.name}
                             </h1>
@@ -317,8 +316,20 @@ export default function CompanyPage() {
                             )}
                             {companyProfile.registrationNumber && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Регистр</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Регистрийн дугаар</p>
                                     <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.registrationNumber}</p>
+                                </div>
+                            )}
+                            {companyProfile.taxId && (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Хувийн хэргийн дугаар</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.taxId}</p>
+                                </div>
+                            )}
+                            {companyProfile.establishedDate && (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Байгуулагдсан</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.establishedDate}</p>
                                 </div>
                             )}
                             {companyProfile.contactEmail && (
@@ -330,7 +341,7 @@ export default function CompanyPage() {
                             {companyProfile.website && (
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Вэбсайт</p>
-                                    <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors block truncate max-w-[150px] mx-auto">
+                                    <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors block mx-auto">
                                         {companyProfile.website.replace(/^https?:\/\//, '')}
                                     </a>
                                 </div>

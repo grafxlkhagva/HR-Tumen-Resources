@@ -49,6 +49,7 @@ const companyProfileSchema = z.object({
     taxId: z.string().optional(),
     ceo: z.string().optional(),
     introduction: z.string().optional(),
+    establishedDate: z.string().optional(),
     coverUrls: z.array(z.string()).optional(),
 });
 
@@ -140,9 +141,7 @@ export default function MobileCompanyPage() {
                 )}
 
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 pt-12 text-center z-10">
-                    <Badge variant="outline" className="border-white/30 text-white/80 mb-3 backdrop-blur-md">
-                        {companyProfile.industry || 'Байгууллага'}
-                    </Badge>
+
                     <h1 className="text-3xl font-bold tracking-tight mb-2 drop-shadow-md">{companyProfile.name}</h1>
                     {companyProfile.website && (
                         <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-white/70 hover:text-white transition-colors bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
@@ -286,8 +285,17 @@ export default function MobileCompanyPage() {
                             <div className="p-4 flex items-center gap-4">
                                 <Hash className="h-5 w-5 text-muted-foreground" />
                                 <div className="flex-1">
-                                    <p className="text-xs text-muted-foreground">Татвар төлөгчийн дугаар</p>
+                                    <p className="text-xs text-muted-foreground">Хувийн хэргийн дугаар</p>
                                     <p className="text-sm font-medium">{companyProfile.taxId}</p>
+                                </div>
+                            </div>
+                        )}
+                        {companyProfile.establishedDate && (
+                            <div className="p-4 flex items-center gap-4">
+                                <ScrollText className="h-5 w-5 text-muted-foreground" />
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">Байгуулагдсан огноо</p>
+                                    <p className="text-sm font-medium">{companyProfile.establishedDate}</p>
                                 </div>
                             </div>
                         )}
@@ -309,15 +317,7 @@ export default function MobileCompanyPage() {
                                 </div>
                             </div>
                         )}
-                        {companyProfile.employeeCount && (
-                            <div className="p-4 flex items-center gap-4">
-                                <Users2 className="h-5 w-5 text-muted-foreground" />
-                                <div className="flex-1">
-                                    <p className="text-xs text-muted-foreground">Ажилтны тоо</p>
-                                    <p className="text-sm font-medium">{companyProfile.employeeCount}</p>
-                                </div>
-                            </div>
-                        )}
+
                     </div>
                 </div>
 
@@ -330,7 +330,7 @@ export default function MobileCompanyPage() {
                                 <Phone className="h-5 w-5 text-muted-foreground" />
                                 <div className="flex-1">
                                     <p className="text-xs text-muted-foreground">Утасны дугаар</p>
-                                    <a href={`tel:${companyProfile.phoneNumber}`} className="text-sm font-medium hover:text-primary">{companyProfile.phoneNumber}</a>
+                                    <a href={`tel:+976${companyProfile.phoneNumber}`} className="text-sm font-medium hover:text-primary">+976 {companyProfile.phoneNumber}</a>
                                 </div>
                             </div>
                         )}

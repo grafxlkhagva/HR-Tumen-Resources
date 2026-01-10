@@ -48,7 +48,8 @@ const companyProfileSchema = z.object({
     contactEmail: z.string().email({ message: 'Имэйл хаяг буруу байна.' }).optional().or(z.literal('')),
     address: z.string().optional(),
     introduction: z.string().optional(),
-    coverUrls: z.array(z.string()).optional(),
+    establishedDate: z.string().optional(),
+    coverUrls: z.array(z.string()).max(5, { message: 'Дээд тал нь 5 зураг оруулах боломжтой.' }).optional(),
 });
 
 type CompanyProfileFormValues = z.infer<typeof companyProfileSchema>;
@@ -224,7 +225,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                         </div>
 
                         <div className="md:col-span-2 space-y-4">
-                            <FormLabel>Байгууллагын ковер зураг (Олон зураг байж болно)</FormLabel>
+                            <FormLabel>Байгууллагын ковер зураг (5 зураг оруулах боломжтой)</FormLabel>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {(form.watch('coverUrls') || []).map((url, index) => (
                                     <div key={index} className="relative aspect-video rounded-lg border overflow-hidden bg-muted group">
@@ -245,45 +246,59 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                                         </div>
                                     </div>
                                 ))}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const input = document.createElement('input');
-                                        input.type = 'file';
-                                        input.accept = 'image/*';
-                                        input.multiple = true;
-                                        input.onchange = async (e) => {
-                                            const files = (e.target as HTMLInputElement).files;
-                                            if (!files?.length) return;
+                                {(form.watch('coverUrls') || []).length < 5 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const input = document.createElement('input');
+                                            input.type = 'file';
+                                            input.accept = 'image/*';
+                                            input.multiple = true;
+                                            input.onchange = async (e) => {
+                                                const files = (e.target as HTMLInputElement).files;
+                                                if (!files?.length) return;
 
-                                            setIsUploading(true);
-                                            const newUrls = [...(form.getValues('coverUrls') || [])];
+                                                const currentUrls = form.getValues('coverUrls') || [];
+                                                const remainingSlots = 5 - currentUrls.length;
+                                                const filesToUpload = Array.from(files).slice(0, remainingSlots);
 
-                                            try {
-                                                for (let i = 0; i < files.length; i++) {
-                                                    const file = files[i];
-                                                    const storageRef = ref(storage, `company-assets/cover-${Date.now()}-${i}`);
-                                                    await uploadBytes(storageRef, file);
-                                                    const downloadURL = await getDownloadURL(storageRef);
-                                                    newUrls.push(downloadURL);
+                                                if (files.length > remainingSlots) {
+                                                    toast({
+                                                        variant: 'destructive',
+                                                        title: 'Хязгаар',
+                                                        description: `Зөвхөн ${remainingSlots} зураг нэмж оруулах боломжтой.`
+                                                    });
                                                 }
-                                                form.setValue('coverUrls', newUrls);
-                                                toast({ title: 'Зургууд амжилттай байршлаа.' });
-                                            } catch (error) {
-                                                console.error("Cover upload error:", error);
-                                                toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг байршуулахад алдаа гарлаа.' });
-                                            } finally {
-                                                setIsUploading(false);
-                                            }
-                                        };
-                                        input.click();
-                                    }}
-                                    className="aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 hover:bg-muted/50 transition-colors"
-                                    disabled={isUploading}
-                                >
-                                    {isUploading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
-                                    <span className="text-xs text-muted-foreground">Зураг нэмэх</span>
-                                </button>
+
+                                                setIsUploading(true);
+                                                const newUrls = [...currentUrls];
+
+                                                try {
+                                                    for (let i = 0; i < filesToUpload.length; i++) {
+                                                        const file = filesToUpload[i];
+                                                        const storageRef = ref(storage, `company-assets/cover-${Date.now()}-${i}`);
+                                                        await uploadBytes(storageRef, file);
+                                                        const downloadURL = await getDownloadURL(storageRef);
+                                                        newUrls.push(downloadURL);
+                                                    }
+                                                    form.setValue('coverUrls', newUrls);
+                                                    toast({ title: 'Зургууд амжилттай байршлаа.' });
+                                                } catch (error) {
+                                                    console.error("Cover upload error:", error);
+                                                    toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг байршуулахад алдаа гарлаа.' });
+                                                } finally {
+                                                    setIsUploading(false);
+                                                }
+                                            };
+                                            input.click();
+                                        }}
+                                        className="aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 hover:bg-muted/50 transition-colors"
+                                        disabled={isUploading}
+                                    >
+                                        {isUploading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+                                        <span className="text-xs text-muted-foreground">Зураг нэмэх</span>
+                                    </button>
+                                )}
                             </div>
                             <p className="text-[0.8rem] text-muted-foreground">Зургууд нь слайд хэлбэрээр харагдах болно.</p>
                         </div>
@@ -319,7 +334,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                             name="registrationNumber"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Улсын бүртгэлийн дугаар</FormLabel>
+                                    <FormLabel>Регистрийн дугаар</FormLabel>
                                     <FormControl>
                                         <Input placeholder="1234567" {...field} />
                                     </FormControl>
@@ -332,7 +347,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                             name="taxId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Татвар төлөгчийн дугаар</FormLabel>
+                                    <FormLabel>Хувийн хэргийн дугаар</FormLabel>
                                     <FormControl>
                                         <Input placeholder="901234567" {...field} />
                                     </FormControl>
@@ -361,6 +376,19 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                                     <FormLabel>Ажилтны тоо</FormLabel>
                                     <FormControl>
                                         <Input placeholder="51-100 ажилтан" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="establishedDate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Үүсгэн байгуулагдсан огноо</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -424,7 +452,24 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                                 <FormItem>
                                     <FormLabel>Утасны дугаар</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="+976 7700 8800" {...field} />
+                                        <div className="flex items-center">
+                                            <span className="h-10 px-3 flex items-center bg-muted border border-r-0 rounded-l-md text-sm text-muted-foreground font-medium">
+                                                +976
+                                            </span>
+                                            <Input
+                                                className="rounded-l-none"
+                                                placeholder="7700 8800"
+                                                {...field}
+                                                onChange={(e) => {
+                                                    // Remove prefix if user tries to paste it
+                                                    let val = e.target.value;
+                                                    if (val.startsWith('+976')) {
+                                                        val = val.replace('+976', '').trim();
+                                                    }
+                                                    field.onChange(val);
+                                                }}
+                                            />
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -478,6 +523,7 @@ const defaultFormValues: CompanyProfileFormValues = {
     contactEmail: '',
     address: '',
     introduction: '',
+    establishedDate: '',
     coverUrls: [],
 };
 
@@ -499,7 +545,10 @@ export default function EditCompanyPage() {
         )
     }
 
-    const initialData = companyProfile || defaultFormValues;
+    const initialData = {
+        ...defaultFormValues,
+        ...(companyProfile || {})
+    };
     const docExists = !!companyProfile;
 
     return (
