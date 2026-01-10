@@ -36,30 +36,59 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RootOrgChartNode } from '../org-chart-node';
 import { Department, DepartmentType, Position, CompanyProfile } from '../../types';
+import { OrganizationFilters } from '@/hooks/use-organization-filters';
+import { Building2 } from 'lucide-react';
+import { EmptyState } from '@/components/organization/empty-state';
+import { OrgChartContainer } from '@/components/organization/org-chart-container';
 
 interface StructureTabProps {
     departments: Department[] | null;
     departmentTypes: DepartmentType[] | null;
     positions: Position[] | null;
+    filters: OrganizationFilters;
+    onAddDepartment: () => void;
+    onClearFilters: () => void;
+    onDepartmentClick: (deptId: string) => void;
 }
 
-export const StructureTab = ({ departments, departmentTypes, positions }: StructureTabProps) => {
-    const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
-    const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false);
+export const StructureTab = ({ departments, departmentTypes, positions, filters, onAddDepartment, onClearFilters, onDepartmentClick }: StructureTabProps) => {
     const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+    const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+    const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
 
     const { firestore } = useFirebase();
     const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery as any);
 
+    // Apply filters
+    const filteredDepartments = useMemo(() => {
+        if (!departments) return null;
+
+        return departments.filter(dept => {
+            // Search filter
+            if (filters.search) {
+                const searchLower = filters.search.toLowerCase();
+                const matchesName = dept.name.toLowerCase().includes(searchLower);
+                if (!matchesName) return false;
+            }
+
+            // Department filter
+            if (filters.departments.length > 0 && !filters.departments.includes(dept.id)) {
+                return false;
+            }
+
+            return true;
+        });
+    }, [departments, filters]);
+
     const { orgTree, deptsWithData } = useMemo(() => {
-        if (!departments || !departmentTypes || !positions) {
+        if (!filteredDepartments || !departmentTypes || !positions) {
             return { orgTree: [], deptsWithData: [] };
         }
 
         const typeMap = new Map(departmentTypes.map(t => [t.id, t.name]));
 
-        const deptsWithData: Department[] = departments.map(d => ({
+        const deptsWithData: Department[] = filteredDepartments.map(d => ({
             ...d,
             positions: [],
             typeName: typeMap.get(d.typeId || ''),
@@ -68,9 +97,11 @@ export const StructureTab = ({ departments, departmentTypes, positions }: Struct
         }));
 
         positions.forEach(p => {
-            const dept = deptsWithData.find(d => d.id === p.departmentId);
-            if (dept) {
-                dept.filled = (dept.filled || 0) + (p.filled || 0);
+            if (p.isApproved !== false) { // Only count official (approved) positions
+                const dept = deptsWithData.find(d => d.id === p.departmentId);
+                if (dept) {
+                    dept.filled = (dept.filled || 0) + (p.filled || 0);
+                }
             }
         });
 
@@ -92,7 +123,7 @@ export const StructureTab = ({ departments, departmentTypes, positions }: Struct
         });
 
         return { orgTree: rootNodes, deptsWithData: deptsWithData };
-    }, [departments, departmentTypes, positions]);
+    }, [filteredDepartments, departmentTypes, positions]);
 
     const departmentNameMap = useMemo(() => {
         if (!departments) return new Map();
@@ -101,14 +132,9 @@ export const StructureTab = ({ departments, departmentTypes, positions }: Struct
 
     const isLoading = !departments || !departmentTypes || !positions || isLoadingProfile;
 
-    const handleOpenAddDialog = () => {
-        setEditingDepartment(null);
-        setIsDeptDialogOpen(true);
-    }
-
     const handleOpenEditDialog = (dept: Department) => {
         setEditingDepartment(dept);
-        setIsDeptDialogOpen(true);
+        setIsEditDeptOpen(true);
     }
 
     const handleDeleteDepartment = (deptId: string) => {
@@ -123,9 +149,10 @@ export const StructureTab = ({ departments, departmentTypes, positions }: Struct
                 open={isAddTypeOpen}
                 onOpenChange={setIsAddTypeOpen}
             />
+            {/* Local dialog for Editing only */}
             <AddDepartmentDialog
-                open={isDeptDialogOpen}
-                onOpenChange={setIsDeptDialogOpen}
+                open={isEditDeptOpen}
+                onOpenChange={setIsEditDeptOpen}
                 departments={departments || []}
                 departmentTypes={departmentTypes || []}
                 editingDepartment={editingDepartment}
@@ -147,103 +174,52 @@ export const StructureTab = ({ departments, departmentTypes, positions }: Struct
                                 <Settings className="mr-2 h-4 w-4" />
                                 Төрөл удирдах
                             </Button>
-                            <Button variant="default" size="sm" onClick={handleOpenAddDialog}>
+                            <Button variant="default" size="sm" onClick={onAddDepartment}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Нэгж нэмэх
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="overflow-x-auto p-4 md:p-8 min-h-[400px] flex items-center justify-center bg-muted/5">
+                <CardContent className="p-0 md:p-0 bg-muted/5 relative">
                     {isLoading && (
-                        <div className="flex flex-col items-center">
-                            <Skeleton className="h-24 w-56" />
-                            <div className="w-px h-8 mt-1 bg-border" />
-                            <div className="flex gap-8 mt-8">
+                        <div className="flex flex-col items-center justify-center min-h-[400px]">
+                            <div className="flex flex-col items-center justify-center">
                                 <Skeleton className="h-24 w-56" />
-                                <Skeleton className="h-24 w-56" />
+                                <div className="w-px h-8 mt-1 bg-border" />
+                                <div className="flex gap-8 mt-8">
+                                    <Skeleton className="h-24 w-56" />
+                                    <Skeleton className="h-24 w-56" />
+                                </div>
                             </div>
                         </div>
                     )}
-                    {!isLoading && orgTree.length > 0 && (
-                        <ul className="flex justify-center">
-                            {orgTree.map(rootNode => <RootOrgChartNode key={rootNode.id} node={rootNode} />)}
-                        </ul>
-                    )}
-                    {!isLoading && orgTree.length === 0 && (
-                        <div className="text-center py-10">
-                            <p className="text-muted-foreground">Байгууллагын бүтэц үүсээгүй байна.</p>
-                            <Button className="mt-4" onClick={handleOpenAddDialog}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Анхны нэгжийг нэмэх
-                            </Button>
-                        </div>
+                    {!isLoading && orgTree.length > 0 ? (
+                        <OrgChartContainer className="w-full h-[600px] border-none bg-muted/5 shadow-inner">
+                            <ul className="flex justify-center gap-16 py-10">
+                                {orgTree.map(rootNode => <RootOrgChartNode key={rootNode.id} node={rootNode} onDepartmentClick={onDepartmentClick} />)}
+                            </ul>
+                        </OrgChartContainer>
+                    ) : (
+                        !isLoading && (
+                            <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
+                                <EmptyState
+                                    icon={Building2}
+                                    title="Байгууллагын бүтэц үүсээгүй байна"
+                                    description="Эхлэхийн тулд эхний нэгжээ үүсгээрэй. Компанийн үндсэн хэлтсээс эхэлнэ."
+                                    action={{
+                                        label: "Анхны нэгжийг нэмэх",
+                                        onClick: onAddDepartment
+                                    }}
+                                    tip="Компанийн үндсэн хэлтсээс эхлээд дэд хэлтсүүдийг нэмнэ үү."
+                                />
+                            </div>
+                        )
                     )}
                 </CardContent>
             </Card>
 
-            {/* List View */}
-            <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                    <CardTitle className="text-lg font-medium">Бүх нэгжийн жагсаалт</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                                <TableHead className="pl-6">Нэгжийн нэр</TableHead>
-                                <TableHead>Төрөл</TableHead>
-                                <TableHead>Харьяалагдах дээд нэгж</TableHead>
-                                <TableHead className="w-[100px] text-right pr-6">Үйлдэл</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading && Array.from({ length: 3 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell className="pl-6"><Skeleton className="h-5 w-32" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                                    <TableCell className="text-right pr-6"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                </TableRow>
-                            ))}
-                            {!isLoading && deptsWithData.map((dept) => (
-                                <TableRow key={dept.id}>
-                                    <TableCell className="font-medium pl-6">{dept.name}</TableCell>
-                                    <TableCell>{dept.typeName || 'Тодорхойгүй'}</TableCell>
-                                    <TableCell>{dept.parentId ? departmentNameMap.get(dept.parentId) : '-'}</TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    <span className="sr-only">Үйлдлүүд</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => handleOpenEditDialog(dept)}>
-                                                    <Pencil className="mr-2 h-4 w-4" />
-                                                    Засах
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDeleteDepartment(dept.id)} className="text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Устгах
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {!isLoading && deptsWithData.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
-                                        Бүртгэгдсэн нэгж байхгүй.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+
         </div>
     );
 };

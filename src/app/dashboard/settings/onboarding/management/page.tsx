@@ -28,7 +28,7 @@ import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking 
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/page-header';
-import { AddProgramDialog } from './add-program-dialog';
+import { AddProgramDialog } from '../add-program-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,

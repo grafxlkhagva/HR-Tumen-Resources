@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRouter } from 'next/navigation';
 import {
     useCollection,
     useFirebase,
@@ -21,13 +21,33 @@ import {
     WorkSchedule
 } from './types';
 
+// Components
+
+
 // Tab Components
 import { StructureTab } from './components/tabs/structure-tab';
-import { PositionsTab } from './components/tabs/positions-tab';
-import { HeadcountTab } from './components/tabs/headcount-tab';
+
+// Dialogs
+import { AddDepartmentDialog } from './add-department-dialog';
+import { AddPositionDialog } from './add-position-dialog';
+
+// Hooks
+import { useOrganizationFilters } from '@/hooks/use-organization-filters';
 
 export default function OrganizationPage() {
     const { firestore } = useFirebase();
+    const router = useRouter();
+    const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false);
+    const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+
+    // Filter state
+    const {
+        filters,
+        updateFilters,
+        clearFilters,
+        hasActiveFilters,
+        activeFilterCount,
+    } = useOrganizationFilters();
 
     // -- Data Fetching Strategy: Fetch commonly used collections at the page level --
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -46,9 +66,14 @@ export default function OrganizationPage() {
     const { data: jobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
     const { data: workSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
 
+
+
+    const handleAddDepartment = () => setIsDeptDialogOpen(true);
+    const handleAddPosition = () => setIsPositionDialogOpen(true);
+
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 pb-32">
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title="Байгууллагын бүтэц"
                     description="Компанийн дотоод бүтэц, албан тушаал, хүн хүчний төлөвлөлт."
@@ -56,39 +81,41 @@ export default function OrganizationPage() {
                     backHref="/dashboard"
                 />
 
-                <Tabs defaultValue="structure" className="space-y-6">
-                    <TabsList className="bg-muted/50 p-1">
-                        <TabsTrigger value="structure" className="px-6">Бүтэц & Зураглал</TabsTrigger>
-                        <TabsTrigger value="positions" className="px-6">Албан тушаал</TabsTrigger>
-                        <TabsTrigger value="headcount" className="px-6">Хүн хүч</TabsTrigger>
-                    </TabsList>
+                <div className="flex-1 min-h-0">
+                    <StructureTab
+                        departments={departments}
+                        departmentTypes={departmentTypes}
+                        positions={positions}
+                        filters={filters}
+                        onAddDepartment={handleAddDepartment}
+                        onClearFilters={clearFilters}
+                        onDepartmentClick={(deptId) => {
+                            router.push(`/dashboard/organization/${deptId}`);
+                        }}
+                    />
+                </div>
 
-                    <TabsContent value="structure" className="outline-none">
-                        <StructureTab
-                            departments={departments}
-                            departmentTypes={departmentTypes}
-                            positions={positions}
-                        />
-                    </TabsContent>
+                {/* Quick Actions (Floating or Fixed) - Integrated into UI or via QuickActionsBar */}
 
-                    <TabsContent value="positions" className="outline-none">
-                        <PositionsTab
-                            departments={departments}
-                            departmentTypes={departmentTypes}
-                            positions={positions}
-                            levels={levels}
-                            employmentTypes={employmentTypes}
-                            jobCategories={jobCategories}
-                            workSchedules={workSchedules}
-                        />
-                    </TabsContent>
 
-                    <TabsContent value="headcount" className="outline-none">
-                        <HeadcountTab />
-                        {/* HeadcountTab internally fetches employees+positions+departments again 
-                             to run its report logic independently. */}
-                    </TabsContent>
-                </Tabs>
+                {/* Global Dialogs */}
+                <AddDepartmentDialog
+                    open={isDeptDialogOpen}
+                    onOpenChange={setIsDeptDialogOpen}
+                    departments={departments || []}
+                    departmentTypes={departmentTypes || []}
+                />
+
+                <AddPositionDialog
+                    open={isPositionDialogOpen}
+                    onOpenChange={setIsPositionDialogOpen}
+                    departments={departments || []}
+                    allPositions={positions || []}
+                    positionLevels={levels || []}
+                    employmentTypes={employmentTypes || []}
+                    jobCategories={jobCategories || []}
+                    workSchedules={workSchedules || []}
+                />
             </div>
         </div>
     );

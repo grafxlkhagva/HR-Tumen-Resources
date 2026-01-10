@@ -69,7 +69,7 @@ const editEmployeeSchema = z.object({
 
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
-type Position = { id: string; title: string; departmentId: string; isActive: boolean; };
+type Position = { id: string; title: string; departmentId: string; isActive: boolean; filled?: number; };
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
 
@@ -145,19 +145,12 @@ function EditEmployeeForm({ employeeData }: { employeeData: Employee }) {
     const filteredPositions = React.useMemo(() => {
         if (!positions) return [];
 
-        // Get active positions for the selected department
-        const departmentPositions = positions.filter(p => p.isActive && p.departmentId === watchedDepartmentId);
-
-        // Find the employee's current position if it exists
-        if (employeeData.positionId) {
-            const currentPosition = positions.find(p => p.id === employeeData.positionId);
-            // If the current position exists and is NOT in the list already (e.g., it's inactive), add it.
-            if (currentPosition && !departmentPositions.some(p => p.id === currentPosition.id)) {
-                departmentPositions.push(currentPosition);
-            }
-        }
-
-        return departmentPositions;
+        // Filter for active positions in the department that are either vacant OR the employee's own current position
+        return positions.filter(p =>
+            p.isActive &&
+            p.departmentId === watchedDepartmentId &&
+            ((p.filled || 0) === 0 || p.id === employeeData.positionId)
+        );
     }, [positions, watchedDepartmentId, employeeData.positionId]);
 
 
@@ -362,7 +355,7 @@ export default function EditEmployeePage() {
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
         [firestore, employeeId]
-    );
+    ) as any;
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
 

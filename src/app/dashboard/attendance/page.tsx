@@ -36,7 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import type { Employee } from '../employees/data';
 import type { WorkSchedule } from '../settings/time-off/add-work-schedule-dialog';
-import type { Department } from '../organization/page';
+import type { Department } from '../organization/types';
 import { PageHeader } from '@/components/page-header';
 
 // --- Type Definitions ---

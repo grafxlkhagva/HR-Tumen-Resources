@@ -314,8 +314,18 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                         <span className="font-medium">{data.department}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className={mutedTextColor}>Ажилчид:</span>
-                        <span className="font-medium">{data.filled}</span>
+                        <span className={mutedTextColor}>Төлөв:</span>
+                        <span className="font-medium text-[11px]">
+                            {(data.filled || 0) > 0 ? (
+                                <Badge variant="secondary" className="text-[10px] bg-blue-50/20 text-blue-100 border-blue-200/20 py-0 h-5 font-bold">
+                                    Томилогдсон
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="text-[10px] bg-slate-50/20 text-slate-100 border-slate-200/20 py-0 h-5 font-bold">
+                                    Сул
+                                </Badge>
+                            )}
+                        </span>
                     </div>
                 </div>
 
@@ -731,6 +741,7 @@ const OrganizationChart = () => {
             createdAt: new Date().toISOString(),
             canApproveAttendance: pos.canApproveAttendance || false,
             filled: 0,
+            isApproved: false,
         };
 
         const positionsCollection = collection(firestore, 'positions');
@@ -809,7 +820,10 @@ const OrganizationChart = () => {
         const newNodes: CustomNode[] = [];
         const newEdges: Edge[] = [];
 
-        positions.forEach(pos => {
+        // Filter positions to only show approved ones on the dashboard chart
+        const approvedPositions = positions.filter(pos => pos.isApproved !== false);
+
+        approvedPositions.forEach(pos => {
             const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
             const department = deptMap.get(pos.departmentId);
             const employee = assignedEmployees[0];
@@ -838,7 +852,7 @@ const OrganizationChart = () => {
             };
             newNodes.push(node);
 
-            if (pos.reportsTo && positions.some(p => p.id === pos.reportsTo)) {
+            if (pos.reportsTo && approvedPositions.some(p => p.id === pos.reportsTo)) {
                 newEdges.push({
                     id: `e-${pos.reportsTo}-${pos.id}`,
                     source: pos.reportsTo,

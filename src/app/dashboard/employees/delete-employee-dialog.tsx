@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import type { Employee } from './data';
 import { useRouter } from 'next/navigation';
 
@@ -64,18 +64,18 @@ export function DeleteEmployeeDialog({
 
   const onSubmit = async (data: DeleteFormValues) => {
     if (!employee || !firestore) return;
-    
+
     setIsSubmitting(true);
 
     let newStatus: Employee['status'];
     switch (data.reason) {
-        case 'Ажлаас чөлөөлөгдсөн':
-        case 'Алдаатай бүртгэл':
-            newStatus = 'Ажлаас гарсан';
-            break;
-        case 'Түр чөлөөлсөн':
-            newStatus = 'Түр түдгэлзүүлсэн';
-            break;
+      case 'Ажлаас чөлөөлөгдсөн':
+      case 'Алдаатай бүртгэл':
+        newStatus = 'Ажлаас гарсан';
+        break;
+      case 'Түр чөлөөлсөн':
+        newStatus = 'Түр түдгэлзүүлсэн';
+        break;
     }
 
     try {
@@ -94,12 +94,26 @@ export function DeleteEmployeeDialog({
       //   throw new Error(errorData.error || 'Failed to disable user account.');
       // }
 
-      // Step 2: Update Firestore document status
+      // Step 2: Update Firestore document status and position counts
+      const batch = writeBatch(firestore);
       const employeeDocRef = doc(firestore, 'employees', employee.id);
-      await updateDocumentNonBlocking(employeeDocRef, { 
-          status: newStatus,
-          terminationDate: new Date().toISOString() 
+
+      batch.update(employeeDocRef, {
+        status: newStatus,
+        terminationDate: new Date().toISOString()
       });
+
+      // 3. Decrement position filled count if employee was assigned
+      if (employee.positionId && newStatus === 'Ажлаас гарсан') {
+        const posRef = doc(firestore, 'positions', employee.positionId);
+        const posSnap = await getDoc(posRef);
+        if (posSnap.exists()) {
+          const currentFilled = posSnap.data().filled || 0;
+          batch.update(posRef, { filled: Math.max(0, currentFilled - 1) });
+        }
+      }
+
+      await batch.commit();
 
       toast({
         title: 'Ажилтан идэвхгүйжлээ',
@@ -119,7 +133,7 @@ export function DeleteEmployeeDialog({
         description: error.message || 'Ажилтныг идэвхгүй болгоход алдаа гарлаа.',
       });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 

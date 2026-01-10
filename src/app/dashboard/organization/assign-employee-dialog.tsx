@@ -41,7 +41,23 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { add, format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onboarding/page';
+// import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onboarding/page';
+// defining local interface to avoid import issues
+interface OnboardingProgram {
+    id: string;
+    title: string;
+    description: string;
+    appliesTo?: {
+        departmentIds?: string[];
+        positionIds?: string[];
+    }
+}
+interface OnboardingTaskTemplate {
+    title: string;
+    dueDays: number;
+    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY';
+    // other fields as needed for the logic below
+}
 import { Checkbox } from '@/components/ui/checkbox';
 import type { AssignedProgram } from '../employees/[id]/AssignProgramDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -355,7 +371,13 @@ export function AssignEmployeeDialog({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>"{position?.title}" ажлын байранд томилгоо хийх</DialogTitle>
-                    <DialogDescription>
+                    {position?.isApproved === false && (
+                        <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-xs font-medium flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 shrink-0" />
+                            Анхааруулга: Энэ албан тушаал батлагдаагүй бүтцэд хамаарч байна. Ийм ажлын байранд хүн томилох нь эрсдэлтэй байж болзошгүй.
+                        </div>
+                    )}
+                    <DialogDescription className="mt-2">
                         {step === 1 && 'Томилох ажилтнаа сонгоно уу.'}
                         {step === 2 && 'Томилгооны мэдээллийг оруулна уу.'}
                     </DialogDescription>

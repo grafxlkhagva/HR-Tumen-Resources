@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -10,7 +9,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Pencil, Trash2, Copy, Power, PowerOff, Sparkles } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Pencil, Trash2, Copy, Power, PowerOff, Sparkles, Briefcase } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
@@ -49,6 +48,8 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { AddPositionDialog } from '../../add-position-dialog';
 import { StructureConfigDialog } from '../../structure-config-dialog';
 import { Department, DepartmentType, Position, PositionLevel, EmploymentType, JobCategory, WorkSchedule } from '../../types';
+import { OrganizationFilters } from '@/hooks/use-organization-filters';
+import { EmptyState } from '@/components/organization/empty-state';
 
 interface PositionsTabProps {
     departmentTypes: DepartmentType[] | null;
@@ -58,6 +59,9 @@ interface PositionsTabProps {
     employmentTypes: EmploymentType[] | null;
     jobCategories: JobCategory[] | null;
     workSchedules: WorkSchedule[] | null;
+    filters: OrganizationFilters;
+    onAddPosition: () => void;
+    onClearFilters: () => void;
 }
 
 export const PositionsTab = ({
@@ -67,11 +71,19 @@ export const PositionsTab = ({
     levels,
     employmentTypes,
     jobCategories,
-    workSchedules
+    workSchedules,
+    filters,
+    onAddPosition,
+    onClearFilters
 }: PositionsTabProps) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+    const [activePositionsCount, setActivePositionsCount] = useState(0);
+    const [inactivePositionsCount, setInactivePositionsCount] = useState(0);
+    const [currentTab, setCurrentTab] = useState<'active' | 'inactive'>('active');
+
+    // Local state for Editing
+    const [isEditPositionOpen, setIsEditPositionOpen] = useState(false);
     const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
     const isLoading = !positions || !departments || !levels || !employmentTypes || !jobCategories || !workSchedules;
@@ -80,10 +92,50 @@ export const PositionsTab = ({
         if (!positions) {
             return { activePositions: [], inactivePositions: [] };
         }
-        const active = positions.filter(p => p.isActive !== false);
-        const inactive = positions.filter(p => p.isActive === false);
+
+        // Apply Filters
+        const filtered = positions.filter(pos => {
+            // Search filter
+            if (filters.search) {
+                const searchLower = filters.search.toLowerCase();
+                const matchesName = pos.title.toLowerCase().includes(searchLower);
+                if (!matchesName) return false;
+            }
+
+            // Department filter
+            if (filters.departments.length > 0 && !filters.departments.includes(pos.departmentId)) {
+                return false;
+            }
+
+            // Level filter
+            if (filters.levels.length > 0 && (!pos.levelId || !filters.levels.includes(pos.levelId))) {
+                return false;
+            }
+
+            // Employment Type filter
+            if (filters.employmentTypes.length > 0 && (!pos.employmentTypeId || !filters.employmentTypes.includes(pos.employmentTypeId))) {
+                return false;
+            }
+
+            // Status filter is handled by the tab split, but we can double check if needed,
+            // though usually 'status' filter might overlap with the tabs.
+            // For now, let's respect the tabs (active/inactive) split primarily,
+            // AND the filter from the bar if it filters specifically for active/inactive.
+            if (filters.statuses.length > 0) {
+                const isActive = pos.isActive !== false;
+                const statusStr = isActive ? 'active' : 'inactive';
+                if (!filters.statuses.includes(statusStr)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        const active = filtered.filter(p => p.isActive !== false);
+        const inactive = filtered.filter(p => p.isActive === false);
         return { activePositions: active, inactivePositions: inactive };
-    }, [positions]);
+    }, [positions, filters]);
 
     const lookups = useMemo(() => {
         const departmentMap = departments?.reduce((acc, dept) => { acc[dept.id] = dept.name; return acc; }, {} as Record<string, string>) || {};
@@ -94,13 +146,12 @@ export const PositionsTab = ({
     }, [departments, levels, employmentTypes, jobCategories]);
 
     const handleOpenAddDialog = () => {
-        setEditingPosition(null);
-        setIsPositionDialogOpen(true);
+        onAddPosition();
     };
 
-    const handleOpenEditDialog = (pos: Position) => {
-        setEditingPosition(pos);
-        setIsPositionDialogOpen(true);
+    const handleOpenEditDialog = (position: Position) => {
+        setEditingPosition(position);
+        setIsEditPositionOpen(true);
     };
 
     const handleToggleActive = (pos: Position) => {
@@ -150,9 +201,10 @@ export const PositionsTab = ({
 
     return (
         <div className="space-y-6">
+            {/* Dialog for Editing Only (Adding is handled by parent/QuickActions) */}
             <AddPositionDialog
-                open={isPositionDialogOpen}
-                onOpenChange={setIsPositionDialogOpen}
+                open={isEditPositionOpen}
+                onOpenChange={setIsEditPositionOpen}
                 departments={departments || []}
                 allPositions={positions || []}
                 positionLevels={levels || []}
@@ -197,6 +249,7 @@ export const PositionsTab = ({
                                 onToggleActive={handleToggleActive}
                                 onReactivate={handleReactivate}
                                 onDuplicate={handleDuplicatePosition}
+                                onClearFilters={onClearFilters}
                             />
                         </TabsContent>
                         <TabsContent value="inactive" className="mt-0">
@@ -208,6 +261,7 @@ export const PositionsTab = ({
                                 onToggleActive={handleToggleActive}
                                 onReactivate={handleReactivate}
                                 onDuplicate={handleDuplicatePosition}
+                                onClearFilters={onClearFilters}
                             />
                         </TabsContent>
                     </Tabs>
@@ -217,7 +271,7 @@ export const PositionsTab = ({
     );
 };
 
-const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate, onDuplicate }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void, onDuplicate: (pos: Position) => void }) => {
+const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, onReactivate, onDuplicate, onClearFilters }: { positions: Position[] | null, lookups: any, isLoading: boolean, onEdit: (pos: Position) => void, onToggleActive: (pos: Position) => void, onReactivate: (pos: Position) => void, onDuplicate: (pos: Position) => void, onClearFilters: () => void }) => {
     return (
         <Table>
             <TableHeader>
@@ -331,8 +385,17 @@ const PositionsList = ({ positions, lookups, isLoading, onEdit, onToggleActive, 
                 })}
                 {!isLoading && !positions?.length && (
                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                            Ажлын байрны жагсаалт хоосон байна.
+                        <TableCell colSpan={5} className="p-0">
+                            <EmptyState
+                                icon={Briefcase}
+                                title="Ажлын байр олдсонгүй"
+                                description="Хайлт болон шүүлтэд тохирох ажлын байр олдсонгүй, эсвэл бүртгэгдээгүй байна."
+                                className="py-12"
+                                action={{
+                                    label: "Шүүлтүүдийг цэвэрлэх",
+                                    onClick: onClearFilters
+                                }}
+                            />
                         </TableCell>
                     </TableRow>
                 )}

@@ -40,6 +40,7 @@ import { collection } from 'firebase/firestore';
 
 import { Department, Position } from '../../types';
 import type { Employee } from '../../../employees/data';
+import { EmptyState } from '@/components/organization/empty-state';
 
 export const HeadcountTab = () => {
     const { firestore } = useFirebase();
@@ -321,8 +322,12 @@ export const HeadcountTab = () => {
                             </Collapsible>
                         ))}
                         {departmentsWithHeadcount.length === 0 && (
-                            <div className="p-8 text-center text-muted-foreground">
-                                Мэдээлэл олдсонгүй.
+                            <div className="p-8">
+                                <EmptyState
+                                    icon={Users}
+                                    title="Мэдээлэл олдсонгүй"
+                                    description="Хайлт, шүүлтэд тохирох нэгж эсвэл мэдээлэл байхгүй байна."
+                                />
                             </div>
                         )}
                     </div>

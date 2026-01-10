@@ -39,7 +39,7 @@ import {
     useAuth,
     useDoc,
 } from '@/firebase';
-import { collection, getDocs, query, where, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, setDoc, writeBatch, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -75,7 +75,7 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
-type Position = { id: string; title: string; departmentId: string; };
+type Position = { id: string; title: string; departmentId: string; filled?: number; };
 type Department = { id: string; name: string };
 type WorkSchedule = { id: string; name: string };
 type EmployeeCodeConfig = {
@@ -138,7 +138,7 @@ export function AddEmployeeDialog({
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]);
+    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]) as any;
     const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
 
 
@@ -164,7 +164,7 @@ export function AddEmployeeDialog({
     const filteredPositions = React.useMemo(() => {
         if (!positions) return [];
         if (!watchedDepartmentId) return [];
-        return positions.filter(pos => pos.departmentId === watchedDepartmentId);
+        return positions.filter(pos => pos.departmentId === watchedDepartmentId && (pos.filled || 0) === 0);
     }, [positions, watchedDepartmentId]);
 
     React.useEffect(() => {
@@ -250,8 +250,21 @@ export function AddEmployeeDialog({
                 photoURL: photoURL,
             };
 
-            const docRef = doc(firestore, 'employees', newUser.uid);
-            await setDoc(docRef, employeeData);
+            const batch = writeBatch(firestore);
+
+            // 1. Create employee document
+            const employeeDocRef = doc(firestore, 'employees', newUser.uid);
+            batch.set(employeeDocRef, employeeData);
+
+            // 2. Increment position filled count
+            if (values.positionId) {
+                const posRef = doc(firestore, 'positions', values.positionId);
+                batch.update(posRef, {
+                    filled: increment(1)
+                });
+            }
+
+            await batch.commit();
 
             if (auth.currentUser?.uid !== originalUser.uid) {
                 await signOut(auth);
