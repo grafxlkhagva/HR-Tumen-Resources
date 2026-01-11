@@ -77,7 +77,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 md:p-8 pb-32">
-                <div className="max-w-[1600px] mx-auto space-y-8">
+                <div className="max-w-[1200px] mx-auto space-y-8">
                     <PageHeader
                         title={department.name}
                         description={`${department.code || 'Кодгүй'} • ${department.typeName || 'Нэгж'}`}
@@ -90,45 +90,30 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                         ]}
                     />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                        {/* Left Column: Info Card */}
-                        <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                            <DepartmentInfo
-                                department={department}
-                                positions={positions || []}
-                            />
-                        </div>
+                    <Tabs defaultValue="approved" className="w-full">
+                        <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 mb-8 overflow-x-auto">
+                            <TabsTrigger
+                                value="approved"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 font-medium text-sm transition-all"
+                            >
+                                Батлагдсан
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="planning"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 font-medium text-sm transition-all"
+                            >
+                                Төлөвлөлт
+                            </TabsTrigger>
+                        </TabsList>
 
-                        {/* Right Column: Tabs */}
-                        <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                            <Tabs defaultValue="approved" className="space-y-6">
-                                <div className="bg-slate-50/50 p-1.5 rounded-xl inline-flex border border-slate-100/50">
-                                    <TabsList className="bg-transparent h-auto p-0 gap-1">
-                                        <TabsTrigger
-                                            value="approved"
-                                            className="px-6 py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm font-semibold tracking-tight transition-all duration-300"
-                                        >
-                                            Батлагдсан бүтэц
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                            value="planning"
-                                            className="px-6 py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm font-semibold tracking-tight transition-all duration-300"
-                                        >
-                                            Төлөвлөгдөж буй бүтэц
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </div>
+                        <TabsContent value="approved" className="outline-none space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <ApprovedStructureTab department={department} />
+                        </TabsContent>
 
-                                <TabsContent value="approved" className="outline-none space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
-                                    <ApprovedStructureTab department={department} />
-                                </TabsContent>
-
-                                <TabsContent value="planning" className="outline-none space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                    <PositionsManagementTab department={department} />
-                                </TabsContent>
-                            </Tabs>
-                        </div>
-                    </div>
+                        <TabsContent value="planning" className="outline-none space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <PositionsManagementTab department={department} />
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </div>
         </div>

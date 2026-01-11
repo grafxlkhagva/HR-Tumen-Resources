@@ -101,47 +101,45 @@ export function PositionCompetency({
     };
 
     return (
-        <div className="space-y-8">
-            <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                        <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h3 className="text-base font-semibold text-slate-900 tracking-tight">Ажлын байрны тодорхойлолт</h3>
-                        <p className="text-xs text-slate-400 font-medium">Зорилго, чиг үүрэг болон баримт бичгүүд</p>
-                    </div>
+        <section className="space-y-8">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                    <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold tracking-tight">Ажлын байрны тодорхойлолт</h3>
+                    <p className="text-xs text-muted-foreground font-semibold">Зорилго, чиг үүрэг болон баримт бичгүүд</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
                 {/* Purpose */}
-                <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/60 overflow-hidden bg-white rounded-3xl">
-                    <CardHeader className="bg-slate-50/30 border-b border-slate-100 flex flex-row items-center justify-between px-8 py-6">
-                        <CardTitle className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2.5">
-                            <Target className="w-4 h-4 text-primary/60" /> Ажлын байрны зорилго
+                <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                    <CardHeader className="bg-muted/10 border-b p-6">
+                        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <Target className="w-4 h-4 text-primary" /> Ажлын байрны зорилго
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-8">
+                    <CardContent className="p-6">
                         {isEditing ? (
                             <Textarea
                                 value={formData.purpose}
                                 onChange={(e) => handleFieldUpdate('purpose', e.target.value)}
-                                className="min-h-[180px] rounded-2xl border-slate-200 bg-slate-50/30 focus-visible:ring-primary/20 transition-all p-5 text-[15px] leading-relaxed"
+                                className="min-h-[140px] rounded-xl border bg-muted/30 focus-visible:ring-primary/20 transition-all p-4 text-sm leading-relaxed"
                                 placeholder="Энэхүү ажлын байрны үндсэн зорилгыг оруулна уу..."
                             />
                         ) : (
-                            <div className="relative group/content">
+                            <div className="relative">
                                 {position.purpose ? (
-                                    <p className="text-[15px] text-slate-600 leading-relaxed font-medium">
+                                    <p className="text-sm text-foreground leading-relaxed font-medium">
                                         {position.purpose}
                                     </p>
                                 ) : (
-                                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
-                                        <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-                                            <Target className="w-8 h-8 text-slate-300" />
+                                    <div className="py-8 flex flex-col items-center justify-center text-center">
+                                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                                            <Target className="w-6 h-6 text-muted-foreground/30" />
                                         </div>
-                                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Зорилго тодорхойлогдоогүй</p>
+                                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Зорилго тодорхойлогдоогүй</p>
                                     </div>
                                 )}
                             </div>
@@ -150,127 +148,127 @@ export function PositionCompetency({
                 </Card>
 
                 {/* Responsibilities */}
-                <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/60 overflow-hidden bg-white rounded-3xl">
-                    <CardHeader className="bg-slate-50/30 border-b border-slate-100 flex flex-row items-center justify-between px-8 py-6">
-                        <CardTitle className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2.5">
-                            <MapPin className="w-4 h-4 text-primary/60" /> Үндсэн чиг үүрэг
+                <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                    <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center justify-between">
+                        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-primary" /> Үндсэн чиг үүрэг
                         </CardTitle>
-                        {isEditing && (
-                            <Badge variant="outline" className="rounded-lg text-[9px] px-2 h-5 border-slate-200 text-slate-400 font-semibold uppercase">
-                                {formData.responsibilities.length} ЧИГ ҮҮРЭГ
-                            </Badge>
-                        )}
+                        <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[10px] font-bold">
+                            {formData.responsibilities.length}
+                        </Badge>
                     </CardHeader>
-                    <CardContent className="p-8">
+                    <CardContent className="p-6">
                         {isEditing ? (
-                            <div className="space-y-6">
-                                <div className="space-y-3">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
                                     {formData.responsibilities.map((req, i) => (
-                                        <div key={i} className="flex gap-3 items-center group/item">
-                                            <div className="h-10 w-full flex items-center relative">
-                                                <Input
-                                                    value={req}
-                                                    onChange={(e) => {
-                                                        const newReqs = [...formData.responsibilities];
-                                                        newReqs[i] = e.target.value;
-                                                        setFormData(prev => ({ ...prev, responsibilities: newReqs }));
-                                                        onUpdate({ responsibilities: newReqs });
-                                                    }}
-                                                    className="h-12 w-full rounded-xl border-slate-200 bg-slate-50/30 pl-4 pr-10 focus-visible:ring-primary/20 transition-all font-medium text-sm"
-                                                />
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => removeResponsibility(i)}
-                                                    className="absolute right-1.5 h-9 w-9 opacity-0 group-hover/item:opacity-100 hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-all rounded-lg"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
+                                        <div key={i} className="flex gap-2 items-center group/item">
+                                            <Input
+                                                value={req}
+                                                onChange={(e) => {
+                                                    const newReqs = [...formData.responsibilities];
+                                                    newReqs[i] = e.target.value;
+                                                    setFormData(prev => ({ ...prev, responsibilities: newReqs }));
+                                                    onUpdate({ responsibilities: newReqs });
+                                                }}
+                                                className="h-10 rounded-xl border bg-muted/30 px-4 focus-visible:ring-primary/20 transition-all text-sm font-medium"
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeResponsibility(i)}
+                                                className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                <div className="flex gap-2 pt-4 border-t border-dashed">
                                     <Input
                                         value={newResponsibility}
                                         onChange={(e) => setNewResponsibility(e.target.value)}
                                         placeholder="Шинэ чиг үүрэг нэмэх..."
                                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addResponsibility())}
-                                        className="h-12 rounded-xl border-slate-200 bg-white shadow-sm focus-visible:ring-primary/20 transition-all font-medium text-sm"
+                                        className="h-10 rounded-xl border bg-background shadow-sm focus-visible:ring-primary/20 transition-all text-sm font-medium"
                                     />
                                     <Button
                                         variant="outline"
                                         size="icon"
                                         onClick={addResponsibility}
-                                        className="h-12 w-12 rounded-xl border-primary/20 text-primary hover:bg-primary/5 hover:border-primary/40 transition-all shrink-0"
+                                        className="h-10 w-10 rounded-xl border-dashed hover:bg-primary/5 hover:text-primary transition-all shrink-0"
                                     >
-                                        <Plus className="w-5 h-5 text-primary" />
+                                        <Plus className="w-4 h-4" />
                                     </Button>
                                 </div>
                             </div>
                         ) : (
                             position.responsibilities && position.responsibilities.length > 0 ? (
-                                <ul className="space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {position.responsibilities.map((req, i) => (
-                                        <li key={i} className="flex gap-4 group/item">
-                                            <div className="h-6 w-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform duration-300">
+                                        <div key={i} className="flex gap-3 p-3 rounded-xl border bg-muted/5 group hover:bg-muted/10 transition-colors">
+                                            <div className="h-6 w-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
                                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                             </div>
-                                            <p className="text-[14px] text-slate-600 font-medium leading-[1.6]">
+                                            <p className="text-sm font-medium leading-relaxed">
                                                 {req}
                                             </p>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             ) : (
-                                <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
-                                    <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-                                        <MapPin className="w-8 h-8 text-slate-300" />
+                                <div className="py-8 flex flex-col items-center justify-center text-center">
+                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                                        <MapPin className="w-6 h-6 text-muted-foreground/30" />
                                     </div>
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Чиг үүрэг бүртгэгдээгүй</p>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Чиг үүрэг бүртгэгдээгүй</p>
                                 </div>
                             )
                         )}
                     </CardContent>
                 </Card>
 
-                {/* Job Description File Upload */}
-                <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/60 overflow-hidden bg-white rounded-3xl md:col-span-2">
-                    <CardHeader className="bg-slate-50/30 border-b border-slate-100 flex flex-row items-center justify-between px-8 py-6">
-                        <CardTitle className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2.5">
-                            <FileText className="w-4 h-4 text-primary/60" /> Ажлын байрны тодорхойлолт (Баримт бичиг)
+                {/* Job Description File */}
+                <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                    <CardHeader className="bg-muted/10 border-b p-6">
+                        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-primary" /> Хавсралт файл
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-8">
+                    <CardContent className="p-6">
                         {position.jobDescriptionFile ? (
-                            <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 group/file hover:bg-white hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500">
-                                <div className="flex items-center gap-5">
-                                    <div className="h-16 w-16 rounded-[22px] bg-white flex items-center justify-center text-primary shadow-xl shadow-slate-200/50 border border-slate-100 transition-transform group-hover/file:scale-105 duration-500">
+                            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/10 group/file hover:bg-muted/20 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-14 w-14 rounded-xl bg-background border flex items-center justify-center text-primary shadow-sm group-hover/file:scale-105 transition-transform">
                                         <FileText className="w-8 h-8" />
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[15px] font-semibold text-slate-900 tracking-tight leading-tight">{position.jobDescriptionFile.name}</p>
-                                        <p className="text-[11px] text-slate-400 font-semibold flex items-center gap-2">
-                                            <Upload className="w-3 h-3" />
-                                            {format(new Date(position.jobDescriptionFile.uploadedAt), 'yyyy-MM-dd HH:mm')}
-                                        </p>
+                                        <p className="text-sm font-bold truncate max-w-[200px] md:max-w-md">{position.jobDescriptionFile.name}</p>
+                                        <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground uppercase">
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                {format(new Date(position.jobDescriptionFile.uploadedAt), 'yyyy.MM.dd')}
+                                            </span>
+                                            <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                                            <span>PDF / DOCX</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="rounded-xl h-10 px-5 font-semibold text-xs border-slate-200 bg-white hover:bg-primary hover:text-white hover:border-primary transition-all active:scale-95"
+                                        className="rounded-lg h-9 px-4 font-bold text-xs"
                                         asChild
                                     >
                                         <a href={position.jobDescriptionFile.url} target="_blank" rel="noopener noreferrer">
-                                            <Download className="w-4 h-4 mr-2" /> Татах
+                                            <Download className="w-4 h-4 mr-2 text-primary" /> Татах
                                         </a>
                                     </Button>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/5 border border-transparent hover:border-destructive/10 transition-all"
+                                        className="h-9 w-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                         onClick={handleFileDelete}
                                         disabled={isUploading}
                                     >
@@ -279,27 +277,20 @@ export function PositionCompetency({
                                 </div>
                             </div>
                         ) : (
-                            <div className="relative border-2 border-dashed border-slate-100 rounded-[32px] p-16 transition-all hover:border-primary/40 hover:bg-primary/5 group/dropzone bg-slate-50/20">
+                            <div className="relative border-2 border-dashed rounded-2xl p-10 transition-all hover:border-primary/40 hover:bg-primary/5 group/dropzone bg-muted/5">
                                 <input
                                     type="file"
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     onChange={handleFileUpload}
                                     disabled={isUploading}
                                 />
-                                <div className="flex flex-col items-center justify-center text-center space-y-6">
-                                    <div className="h-24 w-24 rounded-full bg-white flex items-center justify-center text-slate-200 group-hover/dropzone:scale-110 group-hover/dropzone:text-primary transition-all duration-500 shadow-sm ring-1 ring-slate-100">
-                                        {isUploading ? <Loader2 className="h-12 w-12 animate-spin text-primary" /> : <Upload className="h-12 w-12" />}
+                                <div className="flex flex-col items-center justify-center text-center space-y-4">
+                                    <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-muted-foreground group-hover/dropzone:scale-110 group-hover/dropzone:text-primary transition-all shadow-sm">
+                                        {isUploading ? <Loader2 className="h-8 w-8 animate-spin text-primary" /> : <Upload className="h-8 w-8" />}
                                     </div>
-                                    <div className="space-y-2">
-                                        <p className="text-lg font-semibold text-slate-900 tracking-tight">Ажлын байрны тодорхойлолт хавсаргах</p>
-                                        <p className="text-sm text-slate-400 px-8 leading-relaxed max-w-sm">Файлаа энд чирч оруулна уу, эсвэл <span className="text-primary font-semibold">компьютерээсээ сонгох</span></p>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[10px] uppercase font-bold text-slate-300 tracking-[0.2em] pt-4">
-                                        <span>PDF</span>
-                                        <span className="h-1 w-1 rounded-full bg-slate-200"></span>
-                                        <span>DOCX</span>
-                                        <span className="h-1 w-1 rounded-full bg-slate-200"></span>
-                                        <span>MAX 10MB</span>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-bold">Ажлын байрны тодорхойлолт хавсаргах</p>
+                                        <p className="text-xs text-muted-foreground">PDF, DOCX файлууд, дээд тал нь 10MB</p>
                                     </div>
                                 </div>
                             </div>
@@ -307,6 +298,6 @@ export function PositionCompetency({
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </section>
     );
 }

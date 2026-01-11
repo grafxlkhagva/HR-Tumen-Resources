@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Settings, Target, Hash, Save } from 'lucide-react';
+import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Settings, Target, Hash, Save, Trash2, GitBranch, Palette, FileText } from 'lucide-react';
 import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, increment, arrayUnion } from 'firebase/firestore';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +43,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet"
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
@@ -56,20 +57,36 @@ interface PositionsManagementTabProps {
 }
 
 const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
-    <div className="flex items-center gap-2 py-0.5">
+    <div className="flex items-center gap-2.5 py-1">
         {isDone ? (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
         ) : (
-            <XCircle className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+            <XCircle className="w-4 h-4 text-muted-foreground/30 shrink-0" />
         )}
         <span className={cn(
-            "text-[10px] font-medium transition-colors",
-            isDone ? "text-slate-600" : "text-slate-400"
+            "text-xs font-medium transition-colors",
+            isDone ? "text-foreground" : "text-muted-foreground"
         )}>
             {label}
         </span>
-    </div>
+    </div >
 );
+
+function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200">
+            <div className="p-2 bg-primary/10 rounded-full shrink-0">
+                <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                <div className="text-sm font-semibold text-foreground truncate">
+                    {value || '-'}
+                </div>
+            </div>
+        </div>
+    )
+}
 
 export const PositionsManagementTab = ({ department }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
@@ -170,10 +187,12 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     const { data: jobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
     const { data: workSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
     const { data: employees } = useCollection<Employee>(employeesQuery);
-    const { data: deptTypes } = useCollection<DepartmentType>(deptTypesQuery);
+    const { data: departmentTypes } = useCollection<DepartmentType>(deptTypesQuery);
 
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const isLoading = isPositionsLoading || !levels || !empTypes;
 
@@ -190,9 +209,9 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         const levelMap = levels?.reduce((acc, level) => { acc[level.id] = level.name; return acc; }, {} as Record<string, string>) || {};
         const empTypeMap = empTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
         const jobCategoryMap = jobCategories?.reduce((acc, cat) => { acc[cat.id] = `${cat.code} - ${cat.name}`; return acc; }, {} as Record<string, string>) || {};
-        const typeName = deptTypes?.find(t => t.id === department.typeId)?.name || department.typeName || 'Нэгж';
+        const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || department.typeName || 'Нэгж';
         return { departmentMap, levelMap, empTypeMap, jobCategoryMap, typeName, departmentColor: department.color };
-    }, [department, levels, empTypes, allDepartments, jobCategories, deptTypes]);
+    }, [department, levels, empTypes, allDepartments, jobCategories, departmentTypes]);
 
     const validationChecklist = useMemo(() => {
         const dept = department.draftData || department;
@@ -531,31 +550,57 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (!firestore || selectedPositionIds.length === 0) return;
+        setIsDeleting(true);
+        try {
+            const batch = writeBatch(firestore);
+            selectedPositionIds.forEach(id => {
+                batch.delete(doc(firestore, 'positions', id));
+            });
+            await batch.commit();
+            toast({ title: "Сонгосон ажлын байрнуудыг устгалаа" });
+            setIsDeleteConfirmOpen(false);
+            setSelectedPositionIds([]);
+        } catch (error) {
+            toast({ title: "Алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const parentName = department.draftData?.parentId
+        ? (allDepartments?.find(d => d.id === department.draftData?.parentId)?.name || 'Үндсэн нэгж')
+        : (department.parentId ? (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж') : 'Үндсэн нэгж');
+    const typeName = departmentTypes?.find(t => t.id === (department.draftData?.typeId || department.typeId))?.name || 'Нэгж';
+
+
     return (
         <div className="space-y-6">
             {/* Approval Checklist & Action Card */}
-            <Card className="overflow-hidden border-none shadow-xl bg-white ring-1 ring-slate-200/60 p-5">
-                <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-5 relative">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
+                <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
                     {/* Stats Summary */}
-                    <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-50/80 rounded-[20px] ring-1 ring-slate-200/50">
-                        <div className="px-5 py-2 text-center min-w-[80px]">
-                            <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-0.5">Нийт</p>
-                            <p className="text-lg font-bold text-slate-800 tabular-nums">{stats.total}</p>
+                    <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-xl border border-border/50">
+                        <div className="text-center px-2">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Нийт</p>
+                            <p className="text-xl font-bold text-foreground tabular-nums">{stats.total}</p>
                         </div>
-                        <div className="w-px h-8 bg-slate-200/60" />
-                        <div className="px-5 py-2 text-center min-w-[80px]">
-                            <p className="text-[9px] uppercase font-bold text-emerald-500 tracking-widest mb-0.5">Батлагдсан</p>
-                            <p className="text-lg font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
+                        <Separator orientation="vertical" className="h-8" />
+                        <div className="text-center px-2">
+                            <p className="text-xs font-medium text-emerald-500 mb-1">Батлагдсан</p>
+                            <p className="text-xl font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
                         </div>
-                        <div className="w-px h-8 bg-slate-200/60" />
-                        <div className="px-5 py-2 text-center min-w-[80px]">
-                            <p className="text-[9px] uppercase font-bold text-amber-500 tracking-widest mb-0.5">Төсөл</p>
-                            <p className="text-lg font-bold text-amber-600 tabular-nums">{stats.pending}</p>
+                        <Separator orientation="vertical" className="h-8" />
+                        <div className="text-center px-2">
+                            <p className="text-xs font-medium text-amber-500 mb-1">Төсөл</p>
+                            <p className="text-xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
                         </div>
                     </div>
 
                     {/* Validation Checklist UI */}
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
                         <ChecklistItem label="Нэгжийн нэр" isDone={validationChecklist.hasName} />
                         <ChecklistItem label="Нэгжийн код" isDone={validationChecklist.hasCode} />
                         <ChecklistItem label="Нэгжийн төрөл" isDone={validationChecklist.hasType} />
@@ -563,32 +608,30 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         <ChecklistItem label="Чиг үүрэг" isDone={validationChecklist.hasDescription} />
                         <ChecklistItem label="Систем өнгө" isDone={validationChecklist.hasColor} />
                         <ChecklistItem label="Ажлын байр бүртгэсэн" isDone={validationChecklist.hasPositions} />
-                        <ChecklistItem label="Бүх албан тушаал батлагдсан" isDone={validationChecklist.allPositionsApproved} />
+                        <ChecklistItem label="Албан тушаал батлагдсан" isDone={validationChecklist.allPositionsApproved} />
                     </div>
 
                     {/* Action Button */}
-                    <div className="flex items-center gap-3 shrink-0 self-center">
+                    <div className="shrink-0 self-center">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div className="inline-block">
-                                        <Button
-                                            className={cn(
-                                                "rounded-xl font-bold h-12 px-8 shadow-lg gap-2 transition-all",
-                                                validationChecklist.isComplete
-                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50"
-                                                    : "bg-slate-100 text-slate-400 shadow-none cursor-not-allowed border border-slate-200"
-                                            )}
-                                            onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
-                                            disabled={!validationChecklist.isComplete}
-                                        >
-                                            <Sparkles className={cn("w-4 h-4", !validationChecklist.isComplete && "opacity-50")} />
-                                            Бүтэц батлах
-                                        </Button>
-                                    </div>
+                                    <Button
+                                        variant={validationChecklist.isComplete ? "success" : "secondary"}
+                                        size="lg"
+                                        className={cn(
+                                            "gap-2 px-8 font-bold",
+                                            !validationChecklist.isComplete && "bg-muted text-muted-foreground cursor-not-allowed"
+                                        )}
+                                        onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
+                                        disabled={!validationChecklist.isComplete}
+                                    >
+                                        <Sparkles className="w-4 h-4" />
+                                        Бүтэц батлах
+                                    </Button>
                                 </TooltipTrigger>
                                 {!validationChecklist.isComplete && (
-                                    <TooltipContent side="top" className="bg-slate-800 text-white border-none text-[10px] py-1.5 px-3">
+                                    <TooltipContent side="top" className="text-xs">
                                         Мэдээлэл дутуу тул батлах боломжгүй
                                     </TooltipContent>
                                 )}
@@ -598,275 +641,258 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 </div>
             </Card>
 
-            {/* Department Details Summary Card with Inline Edit Support */}
-            <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-muted/30 relative">
-                <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: isEditInfoOpen ? editFormData.color : ((department.draftData?.color || department.color) || 'var(--primary)') }} />
+            {/* Department Details Summary Card */}
+            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl relative">
+                <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
+                    {isEditInfoOpen ? (
+                        <>
+                            <Button
+                                variant="success"
+                                size="sm"
+                                className="h-9 px-4 font-bold"
+                                onClick={handleSaveInlineInfo}
+                                disabled={isSavingInfo}
+                            >
+                                {isSavingInfo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Хадгалах
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-4 font-bold"
+                                onClick={() => setIsEditInfoOpen(false)}
+                                disabled={isSavingInfo}
+                            >
+                                Болих
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-9 px-4 font-bold border border-border/50 gap-2"
+                            onClick={() => setIsEditInfoOpen(true)}
+                        >
+                            <Settings className="w-4 h-4" />
+                            Засах
+                        </Button>
+                    )}
+                </div>
 
-                <CardHeader className="pb-4">
-                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                        <div className="flex-1 space-y-4 w-full">
-                            <div className="flex items-center gap-3 flex-wrap">
-                                {isEditInfoOpen ? (
-                                    <Input
-                                        className="text-xl font-bold uppercase tracking-tight text-slate-800 bg-white/50 h-10 min-w-[300px]"
-                                        value={editFormData.name}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="Нэгжийн нэр"
-                                    />
-                                ) : (
-                                    <CardTitle className="text-xl font-bold uppercase tracking-tight text-slate-800">
-                                        {department.draftData?.name || department.name}
-                                    </CardTitle>
-                                )}
-
-                                {!isEditInfoOpen && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={cn(
-                                            "h-8 rounded-lg border-primary/20 bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all gap-1.5 px-3 font-semibold text-[11px]",
-                                            department.draftData && "bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-600"
-                                        )}
-                                        onClick={() => setIsEditInfoOpen(true)}
-                                    >
-                                        <Settings className="w-3.5 h-3.5" />
-                                        {department.draftData ? "Мэдээлэл засах" : "Мэдээлэл төлөвлөх"}
-                                    </Button>
-                                )}
-
-                                {isEditInfoOpen ? (
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            size="sm"
-                                            className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-4 font-bold text-[11px] shadow-md shadow-emerald-100"
-                                            onClick={handleSaveInlineInfo}
-                                            disabled={isSavingInfo}
-                                        >
-                                            {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                            Хадгалах
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 rounded-lg text-slate-500 hover:text-slate-700 font-bold text-[11px]"
-                                            onClick={() => setIsEditInfoOpen(false)}
-                                            disabled={isSavingInfo}
-                                        >
-                                            Цуцлах
-                                        </Button>
+                <CardContent className="p-8">
+                    {/* Header Section */}
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            {isEditInfoOpen ? (
+                                <div className="space-y-4 max-w-xl">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-medium text-muted-foreground">Нэгжийн нэр</Label>
+                                        <Input
+                                            className="text-lg font-bold bg-muted/30 border-border/50 h-12 rounded-xl"
+                                            value={editFormData.name}
+                                            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                                            placeholder="Нэгжийн нэр..."
+                                        />
                                     </div>
-                                ) : (
-                                    department.draftData && (
-                                        <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 text-[10px] font-bold">
-                                            Төсөл / Draft
-                                        </Badge>
-                                    )
-                                )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                                {/* Type Selector */}
-                                {isEditInfoOpen ? (
-                                    <div className="flex items-center gap-2">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-400">Төрөл:</Label>
-                                        <Select
-                                            value={editFormData.typeId}
-                                            onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, typeId: val }))}
-                                        >
-                                            <SelectTrigger className="h-8 text-xs font-bold bg-white/50 border-slate-200 w-[140px]">
-                                                <SelectValue placeholder="Төрөл" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {deptTypes?.map(t => (
-                                                    <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                ) : (
-                                    <Badge variant="secondary" className="font-bold bg-white/80 shadow-sm border-slate-200/50">
-                                        {department.draftData?.typeId ? (allDepartments?.find(d => d.id === department.draftData?.typeId)?.name || lookups.typeName) : lookups.typeName}
-                                    </Badge>
-                                )}
-
-                                {/* Code Input */}
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
-                                    <Hash className="w-3.5 h-3.5" />
-                                    {isEditInfoOpen ? (
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Код:</Label>
-                                            <Input
-                                                className="h-6 w-20 text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0"
-                                                value={editFormData.code}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, code: e.target.value }))}
-                                                placeholder="Код"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <span>Код: {department.draftData?.code || department.code || '-'}</span>
-                                    )}
-                                </div>
-
-                                {/* Parent Selector */}
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
-                                    <Network className="w-3.5 h-3.5 text-slate-400" />
-                                    {isEditInfoOpen ? (
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Дээд нэгж:</Label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-medium text-muted-foreground">Төрөл</Label>
                                             <Select
-                                                value={editFormData.parentId || "root"}
-                                                onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, parentId: val === "root" ? "" : val }))}
+                                                value={editFormData.typeId}
+                                                onValueChange={(v) => setEditFormData({ ...editFormData, typeId: v })}
                                             >
-                                                <SelectTrigger className="h-6 w-[160px] text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0">
-                                                    <SelectValue placeholder="Дээд нэгж" />
+                                                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
+                                                    <SelectValue placeholder="Төрөл сонгох..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="root" className="text-xs">Үндсэн нэгж</SelectItem>
-                                                    {allDepartments?.filter(d => d.id !== department.id).map(d => (
-                                                        <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                                                    {departmentTypes?.map(t => (
+                                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                    ) : (
-                                        <span>Дээд нэгж: {department.draftData?.parentId ? (allDepartments?.find(d => d.id === department.draftData?.parentId)?.name || 'Үндсэн нэгж') : (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж')}</span>
-                                    )}
-                                </div>
-
-                                {/* Status Selector */}
-                                <div className="h-8 flex items-center">
-                                    {isEditInfoOpen ? (
-                                        <div className="flex items-center gap-2 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
-                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Төлөв:</Label>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-medium text-muted-foreground">Төлөв</Label>
                                             <Select
                                                 value={editFormData.status}
-                                                onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, status: val as 'active' | 'inactive' }))}
+                                                onValueChange={(v) => setEditFormData({ ...editFormData, status: v as any })}
                                             >
-                                                <SelectTrigger className="h-6 w-[100px] text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0">
+                                                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="active" className="text-xs text-emerald-600">Идэвхтэй</SelectItem>
-                                                    <SelectItem value="inactive" className="text-xs text-slate-600">Идэвхгүй</SelectItem>
+                                                    <SelectItem value="active">Идэвхтэй</SelectItem>
+                                                    <SelectItem value="inactive">Идэвхгүй</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                    ) : (
-                                        (department.draftData?.status || department.status) ? (
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-[10px] font-bold border-none px-2 h-6",
-                                                    (department.draftData?.status || department.status) === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
-                                                )}
-                                            >
-                                                {(department.draftData?.status || department.status) === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                            </Badge>
-                                        ) : null
-                                    )}
+                                    </div>
                                 </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold tracking-tight text-foreground">{department.draftData?.name || department.name}</h2>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-muted text-muted-foreground font-medium">
+                                            {typeName}
+                                        </Badge>
+                                        <Badge variant="outline" className={cn(
+                                            "font-medium",
+                                            (department.draftData?.status || department.status) === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-50 text-slate-600 border-slate-100"
+                                        )}>
+                                            {(department.draftData?.status || department.status) === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
-                                {/* Color Picker */}
-                                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
-                                    {isEditInfoOpen ? (
-                                        <>
-                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Өнгө:</Label>
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {isEditInfoOpen ? (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-medium text-muted-foreground">Нэгжийн код</Label>
+                                        <Input
+                                            className="bg-muted/30 border-border/50 rounded-xl h-12"
+                                            value={editFormData.code}
+                                            onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value })}
+                                            placeholder="Код..."
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-medium text-muted-foreground">Дээд нэгж</Label>
+                                        <Select
+                                            value={editFormData.parentId}
+                                            onValueChange={(v) => setEditFormData({ ...editFormData, parentId: v })}
+                                        >
+                                            <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl h-12">
+                                                <SelectValue placeholder="Дээд нэгж..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Үндсэн нэгж</SelectItem>
+                                                {allDepartments?.filter(d => d.id !== department.id).map(d => (
+                                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-medium text-muted-foreground">Өнгө сонгох</Label>
+                                        <div className="flex items-center gap-3 bg-muted/30 border border-border/50 rounded-xl h-12 px-3">
                                             <input
                                                 type="color"
-                                                className="w-5 h-5 rounded-full border-none p-0 cursor-pointer overflow-hidden"
+                                                className="w-8 h-8 rounded-full border-none cursor-pointer"
                                                 value={editFormData.color}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, color: e.target.value }))}
+                                                onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
                                             />
-                                            <span className="font-mono text-[10px]">{editFormData.color}</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div
-                                                className="w-3 h-3 rounded-full border border-white shadow-sm"
-                                                style={{ backgroundColor: (department.draftData?.color || department.color) || '#cbd5e1' }}
-                                            />
-                                            <span>Өнгө</span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {!isEditInfoOpen && (
-                            <div
-                                className="h-12 w-12 rounded-xl flex items-center justify-center bg-white shadow-soft border border-border/40 text-lg font-bold"
-                                style={{ color: (department.draftData?.color || department.color) || 'var(--primary)' }}
-                            >
-                                {(department.draftData?.code || department.code)?.substring(0, 2) || '??'}
-                            </div>
-                        )}
-                    </div>
-                </CardHeader>
-
-                <CardContent className="pb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                        <div className="space-y-2 group">
-                            <div className="flex items-center gap-2 text-primary/80">
-                                <Target className="w-3.5 h-3.5" />
-                                <h4 className="text-[10px] font-bold uppercase tracking-[0.15em]">Зорилго</h4>
-                            </div>
-                            <div className={cn(
-                                "p-3.5 rounded-xl transition-all min-h-[100px] shadow-sm",
-                                isEditInfoOpen ? "bg-white border-primary/20 ring-2 ring-primary/5" : "bg-white/60 backdrop-blur-sm border border-border/40 group-hover:border-primary/20"
-                            )}>
-                                {isEditInfoOpen ? (
-                                    <Textarea
-                                        className="text-xs leading-relaxed text-slate-600 italic border-none bg-transparent p-0 focus-visible:ring-0 min-h-[80px] resize-none w-full"
-                                        value={editFormData.vision}
-                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditFormData(prev => ({ ...prev, vision: e.target.value }))}
-                                        placeholder="Нэгжийн хэтийн зорилго..."
+                                            <span className="font-mono text-xs text-muted-foreground uppercase">{editFormData.color}</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-medium text-muted-foreground">Үүсгэсэн огноо</Label>
+                                        <div className="flex items-center gap-2 bg-muted/30 border border-border/50 rounded-xl h-12 px-4 text-sm text-muted-foreground font-medium">
+                                            <CalendarIcon className="w-4 h-4" />
+                                            {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <InfoItem
+                                        icon={Hash}
+                                        label="Нэгжийн код"
+                                        value={department.draftData?.code || department.code}
                                     />
-                                ) : (
-                                    <p className="text-xs leading-relaxed text-slate-600 italic">
+                                    <InfoItem
+                                        icon={GitBranch}
+                                        label="Дээд нэгж"
+                                        value={parentName}
+                                    />
+                                    <InfoItem
+                                        icon={CalendarIcon}
+                                        label="Огноо"
+                                        value={department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
+                                    />
+                                    <InfoItem
+                                        icon={Palette}
+                                        label="Систем өнгө"
+                                        value={
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full border shadow-sm" style={{ backgroundColor: department.draftData?.color || department.color || '#000' }} />
+                                                <span className="font-mono text-xs text-muted-foreground uppercase">{department.draftData?.color || department.color}</span>
+                                            </div>
+                                        }
+                                    />
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Goals & Functions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <Target className="w-4 h-4 text-primary" />
+                                <h4 className="text-sm font-semibold text-foreground">Зорилго</h4>
+                            </div>
+                            {isEditInfoOpen ? (
+                                <Textarea
+                                    className="bg-muted/30 border-border/50 rounded-xl h-32 resize-none"
+                                    value={editFormData.vision}
+                                    onChange={(e) => setEditFormData({ ...editFormData, vision: e.target.value })}
+                                    placeholder="Нэгжийн зорилго..."
+                                />
+                            ) : (
+                                <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
+                                    <p className="text-sm leading-relaxed text-muted-foreground italic font-medium">
                                         {department.draftData?.vision || department.vision || 'Зорилго бүртгэгдээгүй байна...'}
                                     </p>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="space-y-2 group">
-                            <div className="flex items-center gap-2 text-primary/80">
-                                <Briefcase className="w-3.5 h-3.5" />
-                                <h4 className="text-[10px] font-bold uppercase tracking-[0.15em]">Чиг үүрэг</h4>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <FileText className="w-4 h-4 text-primary" />
+                                <h4 className="text-sm font-semibold text-foreground">Чиг үүрэг</h4>
                             </div>
-                            <div className={cn(
-                                "p-3.5 rounded-xl transition-all min-h-[100px] shadow-sm",
-                                isEditInfoOpen ? "bg-white border-primary/20 ring-2 ring-primary/5" : "bg-white/60 backdrop-blur-sm border border-border/40 group-hover:border-primary/20"
-                            )}>
-                                {isEditInfoOpen ? (
-                                    <Textarea
-                                        className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap border-none bg-transparent p-0 focus-visible:ring-0 min-h-[80px] resize-none w-full"
-                                        value={editFormData.description}
-                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
-                                        placeholder="Нэгжийн үндсэн чиг үүрэг..."
-                                    />
-                                ) : (
-                                    <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap">
+                            {isEditInfoOpen ? (
+                                <Textarea
+                                    className="bg-muted/30 border-border/50 rounded-xl h-32 resize-none"
+                                    value={editFormData.description}
+                                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                                    placeholder="Нэгжийн чиг үүрэг..."
+                                />
+                            ) : (
+                                <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
+                                    <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-medium">
                                         {department.draftData?.description || department.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
                                     </p>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
             <div className="space-y-6">
-                {/* Content Control Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                {/* Content Control Bar - Simplified */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-border/50">
                     <div className="flex items-center gap-3">
-                        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-[180px]">
-                            <TabsList className="grid w-full grid-cols-2 h-9 p-1 bg-slate-100/80">
-                                <TabsTrigger value="chart" className="gap-2 text-[11px] font-semibold">
-                                    <Network className="h-3.5 w-3.5" />
+                        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-auto">
+                            <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 transition-all flex items-center">
+                                <TabsTrigger
+                                    value="chart"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
+                                >
+                                    <Network className="h-4 w-4" />
                                     <span>Зураглал</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="list" className="gap-2 text-[11px] font-semibold">
-                                    <LayoutList className="h-3.5 w-3.5" />
+                                <TabsTrigger
+                                    value="list"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
+                                >
+                                    <LayoutList className="h-4 w-4" />
                                     <span>Жагсаалт</span>
                                 </TabsTrigger>
                             </TabsList>
@@ -878,11 +904,11 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                     <Button
                                         variant="outline"
                                         size="icon"
-                                        className="h-9 w-9 border-slate-200 hover:bg-white hover:border-primary/30 rounded-xl transition-all"
+                                        className="h-9 w-9 rounded-xl border-border/50 hover:bg-muted"
                                         onClick={handleSyncCounts}
                                         disabled={isDisapproving}
                                     >
-                                        <Sparkles className={cn("h-4 w-4 text-primary/60", isDisapproving && "animate-spin")} />
+                                        <Sparkles className={cn("h-4 w-4 text-primary", isDisapproving && "animate-spin")} />
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -893,12 +919,13 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                     </div>
 
                     <Button
+                        variant="default"
                         size="sm"
-                        className="h-9 rounded-xl shadow-lg shadow-primary/20 transition-all group gap-2 px-4"
+                        className="h-9 rounded-xl font-bold gap-2 px-6 shadow-sm"
                         onClick={handleAddPositionWithReset}
                     >
-                        <PlusCircle className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                        <span>Албан тушаал нэмэх</span>
+                        <PlusCircle className="h-4 w-4" />
+                        Ажлын байр нэмэх
                     </Button>
                 </div>
                 {viewMode === 'chart' ? (
@@ -1076,10 +1103,10 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                 e.preventDefault();
                                 handleBulkDisapprove();
                             }}
-                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            variant="warning"
                             disabled={isDisapproving}
                         >
-                            {isDisapproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <HistoryIcon className="w-4 h-4 mr-2" />}
+                            {isDisapproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <HistoryIcon className="w-4 h-4" />}
                             Батламж цуцлах
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -1101,7 +1128,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                 e.preventDefault();
                                 handleUnassignAndContinue();
                             }}
-                            className="bg-amber-600 hover:bg-amber-700"
+                            variant="warning"
                         >
                             Чөлөөлөх
                         </AlertDialogAction>
@@ -1118,21 +1145,34 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
-                                variant="outline"
+                                variant="success"
                                 size="sm"
-                                className="h-9 px-4 rounded-xl text-emerald-600 border-emerald-200"
-                                onClick={() => setIsApproveConfirmOpen(true)}
+                                className="h-9 px-4"
+                                onClick={handleApproveSelected}
+                                disabled={isApproving}
                             >
-                                <CheckCircle className="h-4 w-4 mr-2" /> Батлах
+                                {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                Батлах
                             </Button>
                             <Button
-                                variant="ghost"
+                                variant="warning"
                                 size="sm"
-                                className="h-9 px-4 rounded-xl text-amber-600"
+                                className="h-9 px-4"
                                 onClick={() => setIsDisapproveConfirmOpen(true)}
                                 disabled={isDisapproving}
                             >
-                                <HistoryIcon className="h-4 w-4 mr-2" /> Батламж цуцлах
+                                <XCircle className="w-4 h-4" />
+                                Цуцлах
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-9 px-4"
+                                onClick={() => setIsDeleteConfirmOpen(true)}
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                Устгах
                             </Button>
                         </div>
                     </div>
@@ -1153,6 +1193,22 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 parentPositionId={pendingParentPositionId}
                 initialMode={pendingParentPositionId ? 'quick' : 'full'}
             />
+            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Устгахдаа итгэлтэй байна уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Сонгосон {selectedPositionIds.length} ажлын байрыг устгах гэж байна. Энэ үйлдлийг буцаах боломжгүй.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleBulkDelete}>
+                            Тийм, устгах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     );
 };

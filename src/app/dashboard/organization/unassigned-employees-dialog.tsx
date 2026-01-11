@@ -81,8 +81,8 @@ export function UnassignedEmployeesDialog({
                                 </div>
                                 <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="rounded-xl h-8 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    variant="soft"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8"
                                     onClick={() => onAssign(emp)}
                                 >
                                     <UserPlus className="h-3.5 w-3.5 mr-1" />
@@ -100,7 +100,7 @@ export function UnassignedEmployeesDialog({
                 </ScrollArea>
 
                 <div className="p-4 border-t bg-slate-50 flex justify-end">
-                    <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl h-10 px-6 font-semibold">Хаах</Button>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Болих</Button>
                 </div>
             </DialogContent>
         </Dialog>

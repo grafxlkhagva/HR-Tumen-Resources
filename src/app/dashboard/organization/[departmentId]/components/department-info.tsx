@@ -16,13 +16,30 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Department, Position, DepartmentType } from '../../types';
-import { Building2, Code2, Users, FileText, Check, X, Target, Edit3, Calendar as CalendarIcon, Hash, Activity, Palette, GitBranch } from 'lucide-react';
+import { Building2, Code2, Users, FileText, Check, X, Target, Edit3, Calendar as CalendarIcon, Hash, Activity, Palette, GitBranch, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+
+function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200">
+            <div className="p-2 bg-primary/10 rounded-full shrink-0">
+                <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+                <div className="text-sm font-semibold text-foreground truncate">
+                    {value || '-'}
+                </div>
+            </div>
+        </div>
+    )
+}
 
 interface DepartmentInfoProps {
     department: Department;
@@ -32,112 +49,96 @@ interface DepartmentInfoProps {
 export function DepartmentInfo({ department, positions }: DepartmentInfoProps) {
     const { firestore } = useFirebase();
 
-    // Queries for dropdowns (still might be needed for names, but mostly we just show department data)
     const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
     const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
 
     const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
     const { data: allDepartments } = useCollection<Department>(deptsQuery);
 
-    const managerPosition = positions.find(p => p.id === department.managerPositionId);
     const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || department.typeName || 'Нэгж';
-    const parentName = allDepartments?.find(d => d.id === department.parentId)?.name || '(Үндсэн нэгж)';
+    const parentName = allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж';
 
     return (
-        <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/50 overflow-hidden bg-white/80 backdrop-blur-sm sticky top-6">
-            <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: department.color || '#3b82f6' }} />
-
-            <CardContent className="p-6 space-y-6">
-                <div className="space-y-6">
-                    {/* Department Name */}
-                    <div>
-                        <h3 className="text-xl font-bold text-slate-800 leading-snug">{department.name}</h3>
-                        <div className="flex flex-wrap gap-2 mt-3">
-                            {department.code && (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                                    <Hash className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="text-xs font-semibold font-mono">{department.code}</span>
+        <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
+            <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    {/* Header Info */}
+                    <div className="flex-1 space-y-4 w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                                    {department.name}
+                                </h2>
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium">
+                                        {typeName}
+                                    </Badge>
+                                    <Badge variant="outline" className={cn(
+                                        "font-medium",
+                                        department.status === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-50 text-slate-600 border-slate-100"
+                                    )}>
+                                        {department.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                    </Badge>
                                 </div>
-                            )}
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
-                                <Activity className="w-3.5 h-3.5" />
-                                <span className="text-xs font-semibold capitalize">{department.status === 'inactive' ? 'Идэвхгүй' : 'Идэвхтэй'}</span>
                             </div>
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-600 border border-slate-200">
-                                <Palette className="w-3.5 h-3.5 text-slate-400" />
-                                <div className="w-3 h-3 rounded-full border border-slate-200 shadow-sm" style={{ backgroundColor: department.color || '#000' }} />
-                            </div>
+                        </div>
+
+                        {/* Grid of Info Items */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                            <InfoItem
+                                icon={Hash}
+                                label="Нэгжийн код"
+                                value={department.code}
+                            />
+                            <InfoItem
+                                icon={GitBranch}
+                                label="Дээд нэгж"
+                                value={parentName}
+                            />
+                            <InfoItem
+                                icon={CalendarIcon}
+                                label="Батлагдсан огноо"
+                                value={department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
+                            />
+                            <InfoItem
+                                icon={Palette}
+                                label="Систем өнгө"
+                                value={
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full border shadow-sm" style={{ backgroundColor: department.color || '#000' }} />
+                                        <span className="font-mono text-xs text-muted-foreground uppercase">{department.color}</span>
+                                    </div>
+                                }
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Goals & Functions Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <Target className="w-4 h-4 text-primary" />
+                            <h4 className="text-sm font-semibold text-foreground">Зорилго</h4>
+                        </div>
+                        <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
+                            <p className="text-sm leading-relaxed text-muted-foreground italic font-medium">
+                                {department.vision || 'Зорилго бүртгэгдээгүй байна...'}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div>
-                            <p className="text-slate-400 font-semibold mb-1">Төрөл</p>
-                            <p className="text-slate-700 font-medium">{typeName}</p>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <FileText className="w-4 h-4 text-primary" />
+                            <h4 className="text-sm font-semibold text-foreground">Чиг үүрэг</h4>
                         </div>
-                        <div>
-                            <p className="text-slate-400 font-semibold mb-1">Дээд нэгж</p>
-                            <p className="text-slate-700 font-medium flex items-center gap-1">
-                                <GitBranch className="w-3 h-3" />
-                                {parentName}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-slate-400 font-semibold mb-1">Батлагдсан</p>
-                            <p className="text-slate-700 font-medium">
-                                {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
+                        <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
+                            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-medium">
+                                {department.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
                             </p>
                         </div>
                     </div>
-
-                    <div className="h-px bg-slate-100" />
-
-                    {/* Manager Info */}
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-slate-400">
-                            <Users className="w-4 h-4" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider">Удирдлага</span>
-                        </div>
-                        <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100">
-                            {managerPosition ? (
-                                <div>
-                                    <p className="font-semibold text-slate-900 text-sm">{managerPosition.title}</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Энэ нэгжийг удирдана</p>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-slate-400 italic">Удирдах албан тушаал тодорхойгүй</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Description */}
-                    {department.description && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-slate-400">
-                                <FileText className="w-4 h-4" />
-                                <span className="text-[11px] font-bold uppercase tracking-wider">Чиг үүрэг</span>
-                            </div>
-                            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50/50 p-3 rounded-xl border border-slate-100/50">
-                                {department.description}
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Vision/Goal */}
-                    {department.vision && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-orange-400">
-                                <Target className="w-4 h-4" />
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-orange-500/80">Зорилго</span>
-                            </div>
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-50 to-amber-50/50 p-4 border border-orange-100/50">
-                                <p className="text-sm text-slate-700 italic relative z-10 leading-relaxed">
-                                    "{department.vision}"
-                                </p>
-                                <Target className="absolute -bottom-2 -right-2 w-16 h-16 text-orange-100/50 rotate-[-15deg]" />
-                            </div>
-                        </div>
-                    )}
                 </div>
             </CardContent>
         </Card>

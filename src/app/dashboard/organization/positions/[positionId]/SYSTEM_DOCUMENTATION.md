@@ -24,26 +24,27 @@ The page utilizes custom Firebase hooks for real-time data fetching:
 
 ---
 
-## 🧩 Core Components
+### 🧩 Core Components
 
 | Component | Responsibility |
 | :--- | :--- |
+| **Action Card** | Dedicated card for approval, disapproval, and deletion. Integrated with the validation checklist. |
 | `PositionBasicInfo` | Core details: Title, Department, Reports To, and Code. |
 | `PositionClassification` | HR classification: Level, Category, and Employment Type. |
 | `PositionCompetency` | Requirements: Education, Experience, and Skills. |
 | `PositionCompensation` | Financials: Salary range and payment frequency. |
 | `PositionBenefits` | Perks and additional benefits associated with the role. |
 | `PositionEmployees` | Manages the relationship between the position and employees. |
-| `CompletionBar` | Visual indicator and validation gate for approval based on data completeness. |
 
-### 📊 Completion Scoring Logic
-The `CompletionBar` uses a weighted system to calculate the readiness of a position:
-- **Core Info (20%)**: Title and Department assignment.
-- **Classification (40%)**: Level, Job Category, Employment Type, and Work Schedule (10% each).
-- **Competency (30%)**: Purpose/Description and Responsibilities (15% each).
-- **Compensation (10%)**: Salary minimum/mid-point configuration.
+### 📊 Completion Scoring & Validation Logic
+The approval process is gated by a mandatory validation checklist:
+- **Title & Code**: Basic identifiers must be present.
+- **Hierarchy**: Department assignment is required.
+- **Classification**: Level, Job Category, Employment Type, and Work Schedule must be selected.
+- **Content**: General purpose and at least one responsibility.
+- **Compensation**: Mid-salary must be greater than 0.
 
-*Approval is only enabled when the score reaches **100%**.*
+*Approval is only enabled when all checklist items (10/10) are completed. The UI provides real-time feedback and tooltips for missing data.*
 
 ---
 

@@ -42,7 +42,8 @@ import {
     MapPin,
     Mail,
     Phone,
-    User
+    User,
+    Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,13 +63,50 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { PositionBasicInfo } from './components/position-basic-info';
-import { PositionClassification } from './components/position-classification';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { PositionOverview } from './components/position-overview';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
 
 import { AssignEmployeeDialog } from '../../assign-employee-dialog';
+
+const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
+    <div className="flex items-center gap-2.5 py-1">
+        {isDone ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+        ) : (
+            <XCircle className="w-4 h-4 text-muted-foreground/30 shrink-0" />
+        )}
+        <span className={cn(
+            "text-xs font-semibold transition-colors",
+            isDone ? "text-foreground" : "text-muted-foreground"
+        )}>
+            {label}
+        </span>
+    </div>
+);
+
+function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200">
+            <div className="p-2 bg-primary/10 rounded-full shrink-0">
+                <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+                <div className="text-sm font-semibold text-foreground truncate">
+                    {value || '-'}
+                </div>
+            </div>
+        </div>
+    )
+}
 
 
 
@@ -117,6 +155,24 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const allEmployeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
     const { data: allEmployeesData } = useCollection<Employee>(allEmployeesQuery);
     const allEmployees = allEmployeesData || [];
+
+    const validationChecklist = useMemo(() => {
+        const checks = {
+            hasTitle: !!position?.title?.trim(),
+            hasCode: !!position?.code?.trim(),
+            hasDepartment: !!position?.departmentId,
+            hasLevel: !!position?.levelId,
+            hasCategory: !!position?.jobCategoryId,
+            hasEmpType: !!position?.employmentTypeId,
+            hasSchedule: !!position?.workScheduleId,
+            hasPurpose: !!position?.purpose?.trim(),
+            hasResponsibilities: (position?.responsibilities?.length || 0) > 0,
+            hasSalary: !!(position?.compensation?.salaryRange?.mid && position.compensation.salaryRange.mid > 0)
+        };
+
+        const isComplete = Object.values(checks).every(Boolean);
+        return { ...checks, isComplete };
+    }, [position]);
 
     const isDirty = useMemo(() => {
         if (!formData || !position) return false;
@@ -207,183 +263,234 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <PageHeader
                 title={position.title}
-                description={department?.name}
+                description={`${department?.name} • ${position.code || 'Кодгүй'}`}
                 breadcrumbs={[
                     { label: 'Бүтэц', href: `/dashboard/organization/${position.departmentId}` },
                     { label: position.title }
                 ]}
                 showBackButton
-                actions={
-                    !isEditing ? (
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => {/* JD */ }}>
-                                <Download className="w-4 h-4 mr-2" /> JD Татах
-                            </Button>
-                            <Button size="sm" onClick={enterEditMode}>
-                                <Edit3 className="w-4 h-4 mr-2" /> Засах
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" onClick={handleDiscard}>
-                                <XCircle className="w-4 h-4 mr-2" /> Болих
-                            </Button>
-                            <Button size="sm" onClick={handleGlobalSave} disabled={!isDirty}>
-                                <CheckCircle2 className="w-4 h-4 mr-2" /> Хадгалах
-                            </Button>
-                        </div>
-                    )
-                }
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* LEFT COLUMN: Identity & Meta */}
-                <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                    <Card className="overflow-hidden border-2 shadow-sm">
-                        <div className="h-24 bg-gradient-to-r from-primary/10 to-primary/5 border-b"></div>
-                        <CardContent className="pt-0 relative px-6 pb-6 text-center">
-                            {/* Avatar Section */}
-                            <div className="flex justify-center -mt-12 mb-4">
+            {/* 1. Approval Checklist & Status Card */}
+            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
+                <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
+                    {/* Status Badge Side */}
+                    <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-xl border border-border/50 shrink-0">
+                        <div className="text-center px-2">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5">Төлөв</p>
+                            <Badge variant="outline" className={cn(
+                                "font-bold text-[10px] uppercase tracking-wider border-none px-3 py-1",
+                                position.isApproved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                            )}>
+                                {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
+                            </Badge>
+                        </div>
+                    </div>
+
+                    {/* Validation Checklist UI */}
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-3">
+                        <ChecklistItem label="Нэр" isDone={validationChecklist.hasTitle} />
+                        <ChecklistItem label="Код" isDone={validationChecklist.hasCode} />
+                        <ChecklistItem label="Нэгж" isDone={validationChecklist.hasDepartment} />
+                        <ChecklistItem label="Зэрэглэл" isDone={validationChecklist.hasLevel} />
+                        <ChecklistItem label="Ангилал" isDone={validationChecklist.hasCategory} />
+                        <ChecklistItem label="Төрөл" isDone={validationChecklist.hasEmpType} />
+                        <ChecklistItem label="Хуваарь" isDone={validationChecklist.hasSchedule} />
+                        <ChecklistItem label="Зорилго" isDone={validationChecklist.hasPurpose} />
+                        <ChecklistItem label="АБТ" isDone={validationChecklist.hasResponsibilities} />
+                        <ChecklistItem label="Цалингийн муж" isDone={validationChecklist.hasSalary} />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 shrink-0 self-center">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50"
+                            onClick={() => setIsDeleteConfirmOpen(true)}
+                        >
+                            <Trash2 className="w-4 h-4" /> Устгах
+                        </Button>
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant={position.isApproved ? "warning" : (validationChecklist.isComplete ? "success" : "secondary")}
+                                        className={cn(
+                                            "h-10 px-6 font-bold gap-2",
+                                            !position.isApproved && !validationChecklist.isComplete && "bg-muted text-muted-foreground cursor-not-allowed"
+                                        )}
+                                        onClick={() => {
+                                            if (position.isApproved) {
+                                                setIsDisapproveConfirmOpen(true);
+                                            } else if (validationChecklist.isComplete) {
+                                                setIsApproveConfirmOpen(true);
+                                            }
+                                        }}
+                                        disabled={!position.isApproved && !validationChecklist.isComplete}
+                                    >
+                                        {position.isApproved ? (
+                                            <>
+                                                <XCircle className="w-4 h-4" /> Цуцлах
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-4 h-4" />
+                                                Батлах
+                                            </>
+                                        )}
+                                    </Button>
+                                </TooltipTrigger>
+                                {!position.isApproved && !validationChecklist.isComplete && (
+                                    <TooltipContent side="top" className="text-xs">
+                                        Мэдээлэл дутуу тул батлах боломжгүй
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                </div>
+            </Card>
+
+            {/* 2. Employee Occupancy / Assignment Card */}
+            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
+                <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-5 w-full md:w-auto">
+                            <div className="shrink-0 relative">
                                 {assignedEmployees && assignedEmployees.length > 0 ? (
-                                    <div className="relative group">
-                                        <div className="h-[110px] w-[110px] rounded-full bg-white dark:bg-slate-900 border-4 border-background shadow-xl flex items-center justify-center overflow-hidden">
+                                    <>
+                                        <div className="h-16 w-16 rounded-full ring-2 ring-primary/20 ring-offset-2 overflow-hidden bg-muted">
                                             {assignedEmployees[0].photoURL ? (
-                                                <img src={assignedEmployees[0].photoURL} alt="Employee" className="h-full w-full object-cover" />
+                                                <img src={assignedEmployees[0].photoURL} alt="" className="h-full w-full object-cover" />
                                             ) : (
-                                                <div className="h-full w-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-3xl">
+                                                <div className="h-full w-full flex items-center justify-center text-primary font-bold text-lg">
                                                     {assignedEmployees[0].firstName?.[0]}
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
                                             <CheckCircle2 className="w-3 h-3 text-white" />
                                         </div>
-                                    </div>
+                                    </>
                                 ) : (
-                                    <div className="h-[110px] w-[110px] rounded-full bg-white dark:bg-slate-900 border-4 border-dashed border-slate-300 shadow-sm flex items-center justify-center">
-                                        <UserPlus className="h-10 w-10 text-slate-300" />
+                                    <div className="h-16 w-16 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/30">
+                                        <User className="h-8 w-8" />
                                     </div>
                                 )}
                             </div>
-
-                            <h1 className="text-xl font-bold tracking-tight mb-1">{position.title}</h1>
-                            <div className="flex justify-center mb-4">
-                                <Badge variant="secondary" className="font-normal text-xs px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200">
-                                    {department?.name?.toUpperCase() || 'НЭГЖ'}
-                                </Badge>
-                            </div>
-
-                            {/* Employee Info or Assign Action */}
-                            <div className="mb-6 py-4 border-t border-b border-dashed border-slate-200 space-y-3">
+                            <div className="space-y-1">
                                 {assignedEmployees && assignedEmployees.length > 0 ? (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <div className="font-bold text-slate-900 text-lg">{assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName}</div>
-                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{assignedEmployees[0].employeeCode}</div>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full rounded-xl border-dashed border-slate-300 text-slate-500 hover:text-destructive hover:bg-destructive/5 hover:border-destructive/30"
-                                            onClick={() => setIsReleaseConfirmOpen(true)}
-                                        >
-                                            <UserCircle className="w-4 h-4 mr-2" />
-                                            Чөлөөлөх / Шилжүүлэх
-                                        </Button>
-                                    </div>
+                                    <>
+                                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Одоо томилогдсон</p>
+                                        <h3 className="text-lg font-bold text-foreground">
+                                            {assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName}
+                                            <span className="ml-2 text-xs font-medium text-muted-foreground">({assignedEmployees[0].employeeCode})</span>
+                                        </h3>
+                                    </>
                                 ) : (
-                                    <div className="space-y-2">
-                                        <p className="text-xs text-slate-400 font-medium italic">Одоогоор сул орон тоо байна</p>
-                                        <Button
-                                            variant="default"
-                                            className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-200"
-                                            onClick={() => setIsAssignDialogOpen(true)}
-                                        >
-                                            <UserPlus className="w-4 h-4 mr-2" />
-                                            Ажилтан томилох
-                                        </Button>
-                                    </div>
+                                    <>
+                                        <p className="text-[10px] uppercase font-bold text-amber-500 tracking-widest">Сул орон тоо</p>
+                                        <h3 className="text-lg font-bold text-foreground">Ажилтан томилогдоогүй</h3>
+                                    </>
                                 )}
                             </div>
+                        </div>
 
-                            <div className="flex justify-center mb-6">
-                                <Badge variant="outline" className={cn("font-bold text-[10px] uppercase tracking-wider border-none px-3 py-1", position.isApproved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
-                                    {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
-                                </Badge>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3 w-full">
-                                {position.isApproved ? (
-                                    <Button variant="outline" size="sm" className="w-full text-destructive hover:text-destructive border-slate-200 hover:border-destructive/30 hover:bg-destructive/5" onClick={() => setIsDisapproveConfirmOpen(true)}>
-                                        Цуцлах
-                                    </Button>
-                                ) : (
-                                    <Button variant="default" size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 border-none" onClick={() => setIsApproveConfirmOpen(true)}>
-                                        Батлах
-                                    </Button>
-                                )}
-                                <Button variant="outline" size="sm" className="w-full text-muted-foreground border-slate-200 hover:bg-slate-50" onClick={() => setIsDeleteConfirmOpen(true)}>
-                                    Устгах
+                        <div className="w-full md:w-auto flex items-center gap-3">
+                            {assignedEmployees && assignedEmployees.length > 0 ? (
+                                <Button
+                                    variant="secondary"
+                                    className="w-full md:w-auto font-bold border border-border/50 gap-2"
+                                    onClick={() => setIsReleaseConfirmOpen(true)}
+                                >
+                                    <UserCircle className="w-4 h-4" />
+                                    Чөлөөлөх
                                 </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            ) : (
+                                <Button
+                                    variant="default"
+                                    className="w-full md:w-auto font-bold gap-2 px-8 shadow-sm"
+                                    onClick={() => setIsAssignDialogOpen(true)}
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Ажилтан томилох
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Харьяалал</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-2">
-                            <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">{department?.name}</span>
-                            </div>
-                            <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                <UserCircle className="h-4 w-4 text-muted-foreground" />
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Шууд удирдлага</span>
-                                    <span className="text-sm font-medium">{reportToPosition}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* RIGHT COLUMN: Details & Tabs */}
-                <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                    {/* Tabs */}
+            {/* 3. Details & Tabs Card */}
+            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
+                <CardContent className="p-0">
                     <Tabs defaultValue="overview" className="w-full">
-                        <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-b rounded-none mb-6 overflow-x-auto">
-                            <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
-                                Ерөнхий
-                            </TabsTrigger>
-                            <TabsTrigger value="competency" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
-                                Ур чадвар & АБТ
-                            </TabsTrigger>
-                            <TabsTrigger value="compensation" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
-                                Цалин & Бонус
-                            </TabsTrigger>
-                            <TabsTrigger value="benefits" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
-                                Хангамж
-                            </TabsTrigger>
-                            <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
-                                Түүх
-                            </TabsTrigger>
-                        </TabsList>
+                        <div className="flex flex-col sm:flex-row items-center justify-between border-b bg-muted/5 px-6 gap-4">
+                            <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 overflow-x-auto">
+                                <TabsTrigger
+                                    value="overview"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                >
+                                    Ерөнхий
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="competency"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                >
+                                    Ур чадвар & АБТ
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="compensation"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                >
+                                    Цалин & Бонус
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="benefits"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                >
+                                    Хангамж
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="history"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                >
+                                    Түүх
+                                </TabsTrigger>
+                            </TabsList>
 
-                        <div className="min-h-[400px]">
-                            <TabsContent value="overview" className="mt-0 space-y-6 focus-visible:outline-none">
+                            <div className="flex items-center gap-2 py-3 sm:py-0">
+                                {!isEditing ? (
+                                    <>
+                                        <Button variant="outline" size="sm" className="h-8 font-bold px-3 text-[11px] uppercase tracking-wider" onClick={() => {/* JD */ }}>
+                                            <Download className="w-3.5 h-3.5 mr-1.5" /> JD Татах
+                                        </Button>
+                                        <Button variant="default" size="sm" className="h-8 font-bold px-4 shadow-sm text-[11px] uppercase tracking-wider" onClick={enterEditMode}>
+                                            <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Засах
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button variant="outline" size="sm" className="h-8 font-bold text-[11px] uppercase tracking-wider" onClick={handleDiscard}>
+                                            Болих
+                                        </Button>
+                                        <Button variant="success" size="sm" className="h-8 font-bold px-5 shadow-sm text-[11px] uppercase tracking-wider" onClick={handleGlobalSave} disabled={!isDirty}>
+                                            <Save className="w-3.5 h-3.5 mr-1.5" /> Хадгалах
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
 
-
-                                <PositionBasicInfo
+                        <div className="p-8 min-h-[400px]">
+                            <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
+                                <PositionOverview
                                     position={isEditing ? (formData as Position) : position}
                                     departments={allDepartments || []}
                                     allPositions={allPositions || []}
-                                    onUpdate={handleLocalUpdate}
-                                    isEditing={isEditing}
-                                />
-                                <PositionClassification
-                                    position={isEditing ? (formData as Position) : position}
                                     levels={levels || []}
                                     categories={categories || []}
                                     employmentTypes={empTypes || []}
@@ -418,56 +525,59 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                             </TabsContent>
 
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                                <Card className="border-none shadow-premium ring-1 ring-border/60 overflow-hidden bg-card rounded-3xl">
-                                    <CardHeader className="bg-slate-50/30 border-b border-slate-100 px-8 py-6">
-                                        <CardTitle className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2.5">
-                                            <HistoryIcon className="w-4 h-4" /> Үйл ажиллагааны түүх
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-10">
-                                        {!history.length ? (
-                                            <div className="flex flex-col items-center justify-center py-24 text-center opacity-30">
-                                                <HistoryIcon className="h-12 w-12 text-slate-400 mb-4" />
-                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Түүх одоогоор байхгүй</p>
-                                            </div>
-                                        ) : (
-                                            <div className="relative space-y-12 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-100 before:via-slate-200 before:to-slate-100">
-                                                {history.map((log, idx) => (
-                                                    <div key={idx} className="relative flex items-start gap-10 pl-14">
-                                                        <div className={cn(
-                                                            "absolute left-0 mt-1 h-10 w-10 rounded-2xl border-4 border-white ring-1 ring-slate-100 shadow-sm flex items-center justify-center transition-transform hover:scale-110",
-                                                            log.action === 'approve' ? "bg-emerald-500 text-white" : "bg-primary text-white"
-                                                        )}>
-                                                            {log.action === 'approve' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                <section className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-primary/10 rounded-lg">
+                                            <HistoryIcon className="h-5 w-5 text-primary" />
+                                        </div>
+                                        <h3 className="text-xl font-bold tracking-tight">Үйл ажиллагааны түүх</h3>
+                                    </div>
+
+                                    {!history.length ? (
+                                        <div className="flex flex-col items-center justify-center py-24 text-center border-dashed border-2 rounded-xl">
+                                            <HistoryIcon className="h-10 w-10 text-muted-foreground opacity-20 mb-4" />
+                                            <p className="text-sm font-medium text-muted-foreground">Түүх одоогоор байхгүй байна.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-muted/60">
+                                            {history.map((log, idx) => (
+                                                <div key={idx} className="relative flex items-start gap-10 pl-14">
+                                                    <div className={cn(
+                                                        "absolute left-0 mt-1 h-10 w-10 rounded-xl border bg-card shadow-sm flex items-center justify-center transition-all",
+                                                        log.action === 'approve' ? "text-emerald-500 border-emerald-100" : "text-amber-500 border-amber-100"
+                                                    )}>
+                                                        {log.action === 'approve' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                    </div>
+                                                    <div className="flex-1 space-y-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-base font-bold">{log.userName}</p>
+                                                                <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5 uppercase tracking-widest">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    {format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}
+                                                                </p>
+                                                            </div>
+                                                            <Badge variant="outline" className={cn(
+                                                                "text-[10px] font-bold uppercase tracking-widest py-1 px-3 border-none",
+                                                                log.action === 'approve' ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                                                            )}>
+                                                                {log.action === 'approve' ? 'Батлагдсан' : 'Цуцлагдсан'}
+                                                            </Badge>
                                                         </div>
-                                                        <div className="flex-1 space-y-3">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="space-y-1">
-                                                                    <p className="text-base font-bold text-slate-900">{log.userName}</p>
-                                                                    <p className="text-[11px] text-slate-400 font-bold flex items-center gap-2 uppercase tracking-wider">
-                                                                        <Clock className="w-3 h-3" />
-                                                                        {format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}
-                                                                    </p>
-                                                                </div>
-                                                                <Badge className={cn("text-[9px] font-bold uppercase tracking-wider py-1 px-3 border-none rounded-lg", log.action === 'approve' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")}>
-                                                                    {log.action === 'approve' ? 'Батлагдсан' : 'Цуцлагдсан'}
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100/50">
-                                                                <p className="text-xs text-slate-600 font-semibold leading-relaxed">{log.note}</p>
-                                                            </div>
+                                                        <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
+                                                            <p className="text-sm text-foreground font-medium leading-relaxed">{log.note}</p>
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </section>
                             </TabsContent>
                         </div>
                     </Tabs>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
 
             <AssignEmployeeDialog
                 open={isAssignDialogOpen}

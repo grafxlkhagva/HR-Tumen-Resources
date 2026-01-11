@@ -433,7 +433,7 @@ export function AddPositionDialog({
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="(none)">(Шууд удирдлагагүй)</SelectItem>
-                              {((allPositions || []) as JobPosition[]).filter(p => !editingPosition || p.id !== editingPosition.id).map((pos) => (
+                              {((allPositions as any[]) || []).filter((p: any) => !editingPosition || p?.id !== (editingPosition as any)?.id).map((pos: any) => (
                                 <SelectItem key={pos.id} value={pos.id}>
                                   {pos.title}
                                 </SelectItem>
@@ -462,12 +462,12 @@ export function AddPositionDialog({
                       {mode === 'quick' && (
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="soft"
                           size="sm"
                           onClick={() => setMode('full')}
-                          className="ml-auto text-primary"
+                          className="ml-auto"
                         >
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-4 h-4" />
                           Дэлгэрэнгүй бөглөх
                         </Button>
                       )}
@@ -1032,9 +1032,10 @@ export function AddPositionDialog({
                                 <Button
                                   type="button"
                                   variant="destructive"
+                                  size="default"
                                   disabled={(editingPosition?.filled || 0) > 0 || editingPosition?.isApproved !== false}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                  <Trash2 className="w-4 h-4" /> Устгах
                                 </Button>
                               </AlertDialogTrigger>
                             </div>
@@ -1058,19 +1059,19 @@ export function AddPositionDialog({
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleDelete}>Тийм, устгах</AlertDialogAction>
+                          <AlertDialogCancel>Болих</AlertDialogCancel>
+                          <AlertDialogAction variant="destructive" onClick={handleDelete}>Тийм, устгах</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                    Цуцлах
+                  <Button type="button" variant="outline" className="h-10" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                    Болих
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" variant="success" className="h-10 px-8" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                     {isEditMode ? 'Шинэчлэх' : 'Хадгалах'}
                   </Button>
                 </div>

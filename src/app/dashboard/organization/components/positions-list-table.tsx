@@ -337,7 +337,9 @@ export const PositionsListTable = ({
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => onDuplicate(pos)}>Тийм, хувилах</AlertDialogAction>
+                                            <AlertDialogAction variant="default" onClick={() => onDuplicate(pos)}>
+                                                Тийм, хувилах
+                                            </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>

@@ -64,7 +64,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 
 
-import { Position as JobPosition } from '@/types';
+import { Position as JobPosition } from './types';
 
 const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
@@ -302,7 +302,7 @@ export function AssignEmployeeDialog({
                     render={({ field }) => (
                         <FormItem className="flex flex-col">
                             <FormLabel>Томилогдох огноо</FormLabel>
-                            <Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
+                            <Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal w-full", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
                             </Popover>
                             <FormMessage />
@@ -327,7 +327,7 @@ export function AssignEmployeeDialog({
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Туршилт дуусах огноо</FormLabel>
-                                <Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
+                                <Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal w-full", !field.value && "text-muted-foreground")}>{field.value ? (format(field.value, "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
                                 </Popover>
                                 <FormMessage />
@@ -356,9 +356,11 @@ export function AssignEmployeeDialog({
                     )}
                 />
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(1)} disabled={isSubmitting}>Буцах</Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(1)} disabled={isSubmitting}>
+                        Болих
+                    </Button>
+                    <Button type="submit" variant="success" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                         Баталгаажуулах
                     </Button>
                 </DialogFooter>

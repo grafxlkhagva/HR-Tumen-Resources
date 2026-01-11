@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-import { Edit2, Check, X, PlusCircle, Trash2, DollarSign } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Globe, Clock, Plane, Gift, PlusCircle, Trash2, DollarSign } from 'lucide-react';
 import { Position } from '../../../types';
+import { cn } from '@/lib/utils';
 
 interface PositionBenefitsProps {
     position: Position;
@@ -20,7 +21,11 @@ export function PositionBenefits({
     isEditing = false
 }: PositionBenefitsProps) {
     const [formData, setFormData] = useState({
-        allowances: position.benefits?.allowances || []
+        allowances: position.benefits?.allowances || [],
+        isRemoteAllowed: position.benefits?.isRemoteAllowed || false,
+        flexibleHours: position.benefits?.flexibleHours || false,
+        vacationDays: position.benefits?.vacationDays || 0,
+        otherBenefits: position.benefits?.otherBenefits || []
     });
 
     const handleFieldUpdate = (field: string, value: any) => {
@@ -30,7 +35,12 @@ export function PositionBenefits({
         // Map back to the Position structure
         onUpdate({
             benefits: {
-                allowances: field === 'allowances' ? value : formData.allowances
+                ...position.benefits,
+                allowances: field === 'allowances' ? value : formData.allowances,
+                isRemoteAllowed: field === 'isRemoteAllowed' ? value : formData.isRemoteAllowed,
+                flexibleHours: field === 'flexibleHours' ? value : formData.flexibleHours,
+                vacationDays: field === 'vacationDays' ? value : formData.vacationDays,
+                otherBenefits: field === 'otherBenefits' ? value : formData.otherBenefits
             }
         });
     };
@@ -52,65 +62,131 @@ export function PositionBenefits({
     };
 
     return (
-        <div className="space-y-8">
-            <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/60 overflow-hidden bg-white rounded-3xl">
-                <CardHeader className="bg-slate-50/30 border-b border-slate-100 flex flex-row items-center justify-between px-8 py-6">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                            <DollarSign className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <CardTitle className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Хамгамж ба хөнгөлөлт</CardTitle>
-                    </div>
-                </CardHeader>
+        <section className="space-y-8">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                    <Gift className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold tracking-tight">Хамгамж ба хөнгөлөлт</h3>
+                    <p className="text-xs text-muted-foreground font-semibold">Ажлын байрны нэмэлт хангамж, хөнгөлөлтүүд</p>
+                </div>
+            </div>
 
-                <CardContent className="p-10 space-y-12">
-
-
-                    {/* Allowances Section */}
-                    <div className="space-y-8">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                    <DollarSign className="w-4 h-4 text-emerald-500" />
+            <div className="space-y-6">
+                {/* General Benefits */}
+                <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                    <CardHeader className="bg-muted/10 border-b p-6">
+                        <CardTitle className="text-base font-medium text-foreground">Ерөнхий нөхцөлүүд</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className={cn("p-4 rounded-xl border transition-all", formData.isRemoteAllowed ? "bg-primary/5 border-primary/20" : "bg-muted/30")}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("p-2 rounded-lg", formData.isRemoteAllowed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                                            <Globe className="w-4 h-4" />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold">Зайнаас ажиллах</p>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Remote work</p>
+                                        </div>
+                                    </div>
+                                    {isEditing ? (
+                                        <Switch checked={formData.isRemoteAllowed} onCheckedChange={(val) => handleFieldUpdate('isRemoteAllowed', val)} />
+                                    ) : (
+                                        <div className={cn("h-2 w-2 rounded-full", formData.isRemoteAllowed ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
+                                    )}
                                 </div>
-                                <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-800">Хангамжийн мөнгөн дүн</h4>
                             </div>
-                            {isEditing && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleAddAllowance}
-                                    className="rounded-xl border-dashed"
-                                >
-                                    <PlusCircle className="w-4 h-4 mr-2" />
-                                    Нэмэх
-                                </Button>
-                            )}
-                        </div>
 
+                            <div className={cn("p-4 rounded-xl border transition-all", formData.flexibleHours ? "bg-primary/5 border-primary/20" : "bg-muted/30")}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("p-2 rounded-lg", formData.flexibleHours ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                                            <Clock className="w-4 h-4" />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold">Уян хатан цаг</p>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Flexible hours</p>
+                                        </div>
+                                    </div>
+                                    {isEditing ? (
+                                        <Switch checked={formData.flexibleHours} onCheckedChange={(val) => handleFieldUpdate('flexibleHours', val)} />
+                                    ) : (
+                                        <div className={cn("h-2 w-2 rounded-full", formData.flexibleHours ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-4 rounded-xl border bg-muted/30">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                            <Plane className="w-4 h-4" />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold">Амралтын хоног</p>
+                                            <p className="text-xs font-medium text-muted-foreground">Vacation days</p>
+                                        </div>
+                                    </div>
+                                    {isEditing ? (
+                                        <Input
+                                            type="number"
+                                            value={formData.vacationDays}
+                                            onChange={(e) => handleFieldUpdate('vacationDays', parseInt(e.target.value) || 0)}
+                                            className="w-16 h-8 text-right font-bold rounded-lg border bg-background"
+                                        />
+                                    ) : (
+                                        <p className="text-lg font-black text-primary">{formData.vacationDays}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Allowances Section */}
+                <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                    <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center justify-between">
+                        <CardTitle className="text-base font-medium text-foreground">Мөнгөн хангамж</CardTitle>
+                        {isEditing && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleAddAllowance}
+                                className="h-8 rounded-lg border-dashed font-bold text-[10px] uppercase tracking-wider hover:bg-primary/5 hover:text-primary transition-all"
+                            >
+                                <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
+                                Нэмэх
+                            </Button>
+                        )}
+                    </CardHeader>
+                    <CardContent className="p-6">
                         {isEditing ? (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {formData.allowances.length === 0 ? (
-                                    <div className="py-8 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/30">
-                                        <DollarSign className="w-8 h-8 text-slate-300 mb-2" />
-                                        <p className="text-xs font-medium text-slate-400">Хангамж нэмэгдээгүй байна</p>
-                                        <p className="text-[10px] text-slate-300 mt-1">Дээрх "Нэмэх" товчийг дарж эхлүүлнэ үү</p>
+                                    <div className="py-10 flex flex-col items-center justify-center text-center border-2 border-dashed rounded-xl bg-muted/30">
+                                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                                            <DollarSign className="w-5 h-5 text-muted-foreground/30" />
+                                        </div>
+                                        <p className="text-xs font-bold text-muted-foreground/50 uppercase tracking-widest">Хангамж нэмэгдээгүй байна</p>
                                     </div>
                                 ) : (
-                                    formData.allowances.map((allowance, index) => (
-                                        <div key={index} className="grid grid-cols-12 gap-3 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-                                            <div className="col-span-12 sm:col-span-6">
-                                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 block">Нэр</label>
+                                    formData.allowances.map((allowance: { name: string; amount: number; currency?: string }, index: number) => (
+                                        <div key={index} className="flex gap-3 p-3 rounded-xl border bg-muted/20 items-end">
+                                            <div className="flex-1 space-y-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground ml-1">Нэр</label>
                                                 <Input
                                                     value={allowance.name}
                                                     onChange={(e) => handleUpdateAllowance(index, 'name', e.target.value)}
                                                     placeholder="Жишээ: Хоолны мөнгө"
-                                                    className="h-10 rounded-xl border-slate-200 bg-slate-50/50"
+                                                    className="h-10 rounded-lg border bg-background"
                                                 />
                                             </div>
-                                            <div className="col-span-9 sm:col-span-4">
-                                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 block">Дүн</label>
+                                            <div className="w-40 space-y-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground ml-1">Дүн</label>
                                                 <Input
                                                     type="text"
                                                     value={allowance.amount.toLocaleString('en-US')}
@@ -120,20 +196,18 @@ export function PositionBenefits({
                                                         handleUpdateAllowance(index, 'amount', numValue);
                                                     }}
                                                     placeholder="0"
-                                                    className="h-10 rounded-xl border-slate-200 bg-slate-50/50"
+                                                    className="h-10 rounded-lg border bg-background"
                                                 />
                                             </div>
-                                            <div className="col-span-3 sm:col-span-2 flex items-end">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRemoveAllowance(index)}
-                                                    className="h-10 w-full rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleRemoveAllowance(index)}
+                                                className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
                                         </div>
                                     ))
                                 )}
@@ -141,38 +215,36 @@ export function PositionBenefits({
                         ) : (
                             position.benefits?.allowances && position.benefits.allowances.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {position.benefits.allowances.map((allowance, i) => (
-                                        <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100 group hover:bg-emerald-50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                                                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                                    {position.benefits.allowances.map((allowance: { name: string; amount: number; currency?: string }, i: number) => (
+                                        <div key={i} className="flex items-center justify-between p-4 rounded-xl border bg-muted/5 group hover:bg-muted/10 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
+                                                    <DollarSign className="w-5 h-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-slate-800">{allowance.name}</p>
-                                                    <p className="text-[10px] text-slate-500 font-medium">Сар бүр</p>
+                                                    <p className="text-sm font-bold">{allowance.name}</p>
+                                                    <p className="text-xs font-medium text-muted-foreground">Сар бүр</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-lg font-bold text-emerald-600">{allowance.amount.toLocaleString()}</p>
-                                                <p className="text-[10px] text-slate-400 font-semibold">{allowance.currency || 'MNT'}</p>
+                                                <p className="text-xl font-black text-primary">{allowance.amount.toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground font-bold">{allowance.currency || 'MNT'}</p>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="py-8 flex flex-col items-center justify-center text-center opacity-30">
-                                    <div className="h-12 w-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
-                                        <DollarSign className="w-6 h-6 text-slate-300" />
+                                <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
+                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                                        <DollarSign className="w-6 h-6 text-muted-foreground/30" />
                                     </div>
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Хангамж бүртгэгдээгүй</p>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Хангамж бүртгэгдээгүй</p>
                                 </div>
                             )
                         )}
-                    </div>
-
-
-                </CardContent>
-            </Card>
-        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </section>
     );
 }
