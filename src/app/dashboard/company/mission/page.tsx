@@ -298,7 +298,7 @@ function EditMissionVisionForm({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="h-8 w-1 bg-primary rounded-full"></div>
-                <h2 className="text-2xl font-black tracking-tight">Үнэт зүйлс</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">Үнэт зүйлс</h2>
               </div>
               <p className="text-amber-600 font-medium text-xs">Үнэт зүйлс нь байгууллагын соёлыг төлөвшүүлэх, пойнт системтэй шууд холбоотой тул заавал тодорхойлсон байх шаардлагатайг анхаарна уу.</p>
             </div>
@@ -327,7 +327,7 @@ function EditMissionVisionForm({
                     {/* Visual Selector */}
                     <div className="flex md:flex-col items-center justify-start gap-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Дүрс</label>
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Дүрс</label>
                         <FormField
                           control={form.control}
                           name={`values.${index}.emoji`}
@@ -362,7 +362,7 @@ function EditMissionVisionForm({
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Өнгө</label>
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Өнгө</label>
                         <FormField
                           control={form.control}
                           name={`values.${index}.color`}
@@ -399,10 +399,10 @@ function EditMissionVisionForm({
                             name={`values.${index}.title`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Үнэт зүйлийн нэр</FormLabel>
+                                <FormLabel className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Үнэт зүйлийн нэр</FormLabel>
                                 <FormControl>
                                   <Input
-                                    className="text-lg font-bold bg-white border-slate-200 focus-visible:ring-primary/20 h-11 px-4 rounded-xl"
+                                    className="text-lg font-semibold bg-white border-slate-200 focus-visible:ring-primary/20 h-11 px-4 rounded-xl"
                                     placeholder="Жишээ: Хариуцлага..."
                                     {...field}
                                   />
@@ -417,7 +417,7 @@ function EditMissionVisionForm({
                             name={`values.${index}.description`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Тайлбар</FormLabel>
+                                <FormLabel className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Тайлбар</FormLabel>
                                 <FormControl>
                                   <Textarea
                                     className="resize-none min-h-[100px] bg-white border-slate-200 focus-visible:ring-primary/20 text-sm leading-relaxed p-4 rounded-xl"
@@ -443,7 +443,7 @@ function EditMissionVisionForm({
                                     variant={field.value ? "default" : "outline"}
                                     size="sm"
                                     className={cn(
-                                      "h-9 px-4 text-[11px] font-bold rounded-xl transition-all",
+                                      "h-9 px-4 text-[11px] font-semibold rounded-xl transition-all",
                                       field.value ? "bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 border-none" : "text-muted-foreground hover:bg-slate-100"
                                     )}
                                     onClick={() => field.onChange(!field.value)}
@@ -477,7 +477,7 @@ function EditMissionVisionForm({
                 <div className="p-4 bg-white rounded-full shadow-md mb-4">
                   <PlusCircle className="h-10 w-10 text-slate-300" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Үнэт зүйлс хоосон байна</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Үнэт зүйлс хоосон байна</h3>
                 <p className="text-slate-500 text-sm mb-6 text-center max-w-xs">Байгууллагын соёлыг тодорхойлох анхны үнэт зүйлийг нэмнэ үү</p>
                 <Button
                   type="button"

@@ -142,7 +142,7 @@ export default function MobileCompanyPage() {
 
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 pt-12 text-center z-10">
 
-                    <h1 className="text-3xl font-bold tracking-tight mb-2 drop-shadow-md">{companyProfile.name}</h1>
+                    <h1 className="text-3xl font-semibold tracking-tight mb-2 drop-shadow-md">{companyProfile.name}</h1>
                     {companyProfile.website && (
                         <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-white/70 hover:text-white transition-colors bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
                             <Globe className="h-3 w-3" />

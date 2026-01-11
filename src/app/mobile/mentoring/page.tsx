@@ -267,7 +267,7 @@ export default function MentoringPage() {
                         <Users className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-slate-900">Чиглүүлэг</h1>
+                        <h1 className="text-xl font-semibold text-slate-900">Чиглүүлэг</h1>
                         <p className="text-sm text-slate-500 font-medium">Танд оноогдсон даалгаврууд</p>
                     </div>
                 </div>
@@ -372,7 +372,7 @@ export default function MentoringPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <h1 className="text-xl font-bold leading-tight text-slate-900">{selectedTask.task.title}</h1>
+                                    <h1 className="text-xl font-semibold leading-tight text-slate-900">{selectedTask.task.title}</h1>
                                 </div>
 
                                 {selectedTask.task.description && (
@@ -388,7 +388,7 @@ export default function MentoringPage() {
                                             <div className="flex justify-between p-3.5 items-center">
                                                 <span className="text-xs text-muted-foreground font-medium">Чиглүүлэх ажилтан</span>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">
+                                                    <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-semibold">
                                                         {selectedTask.menteeName.charAt(0)}
                                                     </div>
                                                     <span className="text-xs font-semibold text-slate-900">{selectedTask.menteeName}</span>

@@ -97,7 +97,7 @@ export default function MobileOnboardingProgramPage() {
                     <FileText className="w-10 h-10 text-slate-300" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-slate-800">Хөтөлбөр олдсонгүй</h2>
+                    <h2 className="text-xl font-semibold text-slate-800">Хөтөлбөр олдсонгүй</h2>
                     <p className="text-slate-500 text-sm mt-2">Хөтөлбөр устсан эсвэл танд хандах эрх байхгүй байна.</p>
                 </div>
                 <Button variant="outline" className="mt-4 rounded-xl" onClick={() => router.back()}>Буцах</Button>
@@ -113,10 +113,10 @@ export default function MobileOnboardingProgramPage() {
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div className="flex-1 min-w-0">
-                    <h1 className="font-bold text-sm text-slate-900 truncate">{program.programName}</h1>
+                    <h1 className="font-semibold text-sm text-slate-900 truncate">{program.programName}</h1>
                 </div>
                 <Badge variant={program.status === 'COMPLETED' ? 'default' : 'secondary'} className={cn(
-                    "rounded-lg font-bold px-2",
+                    "rounded-lg font-semibold px-2",
                     program.status === 'COMPLETED' ? "bg-green-500 hover:bg-green-600" : "bg-slate-100 text-slate-800 hover:bg-slate-200"
                 )}>
                     {Math.round(program.progress || 0)}%
@@ -137,12 +137,12 @@ export default function MobileOnboardingProgramPage() {
                                 <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={276} strokeDashoffset={276 - (276 * (program.progress || 0)) / 100} className="text-white transition-all duration-1000 ease-out" strokeLinecap="round" />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center flex-col">
-                                <span className="text-2xl font-bold">{Math.round(program.progress || 0)}%</span>
+                                <span className="text-2xl font-semibold">{Math.round(program.progress || 0)}%</span>
                             </div>
                         </div>
 
                         <div>
-                            <h2 className="text-xl font-bold leading-tight mb-1">{program.programName}</h2>
+                            <h2 className="text-xl font-semibold leading-tight mb-1">{program.programName}</h2>
                             <div className="flex items-center justify-center gap-2 text-blue-100 text-xs font-medium bg-white/10 py-1 px-3 rounded-full w-fit mx-auto backdrop-blur-md">
                                 <Clock className="w-3 h-3" />
                                 <span>Эхэлсэн: {format(new Date(program.startDate), 'yyyy.MM.dd')}</span>
@@ -153,26 +153,26 @@ export default function MobileOnboardingProgramPage() {
 
                 {/* Progress Explanation */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
-                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                         Явцын тооцоолол
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
                             <div className="text-[9px] text-slate-500 font-medium mb-0.5">Баталгаажсан</div>
-                            <div className="text-xs font-black text-green-600">100%</div>
+                            <div className="text-xs font-semibold text-green-600">100%</div>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
                             <div className="text-[9px] text-slate-500 font-medium mb-0.5">Дууссан (Хүлээгдэж буй)</div>
-                            <div className="text-xs font-black text-amber-600">80%</div>
+                            <div className="text-xs font-semibold text-amber-600">80%</div>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
                             <div className="text-[9px] text-slate-500 font-medium mb-0.5">Хийгдэж буй</div>
-                            <div className="text-xs font-black text-blue-600">40%</div>
+                            <div className="text-xs font-semibold text-blue-600">40%</div>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
                             <div className="text-[9px] text-slate-500 font-medium mb-0.5">Хийгээгүй</div>
-                            <div className="text-xs font-black text-slate-400">0%</div>
+                            <div className="text-xs font-semibold text-slate-400">0%</div>
                         </div>
                     </div>
                 </div>
@@ -185,10 +185,10 @@ export default function MobileOnboardingProgramPage() {
                     {program.stages?.map((stage, stageIndex) => (
                         <div key={stage.stageId || stageIndex} className="relative z-10 space-y-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-white border-4 border-slate-50 shadow-sm flex items-center justify-center text-slate-700 font-bold text-sm relative z-10">
+                                <div className="w-10 h-10 rounded-full bg-white border-4 border-slate-50 shadow-sm flex items-center justify-center text-slate-700 font-semibold text-sm relative z-10">
                                     {stageIndex + 1}
                                 </div>
-                                <h3 className="tex-sm font-bold text-slate-800 uppercase tracking-wider bg-slate-100 px-3 py-1 rounded-full">{stage.title}</h3>
+                                <h3 className="tex-sm font-semibold text-slate-800 uppercase tracking-wider bg-slate-100 px-3 py-1 rounded-full">{stage.title}</h3>
                             </div>
 
                             <div className="pl-12 space-y-3">
@@ -216,7 +216,7 @@ export default function MobileOnboardingProgramPage() {
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={cn("font-bold text-sm truncate", isCompleted && "text-slate-500 line-through decoration-slate-300")}>
+                                                    <p className={cn("font-semibold text-sm truncate", isCompleted && "text-slate-500 line-through decoration-slate-300")}>
                                                         {task.title}
                                                     </p>
                                                     <div className="flex items-center gap-2 mt-1">
@@ -225,12 +225,12 @@ export default function MobileOnboardingProgramPage() {
                                                         </span>
 
                                                         {task.requiresVerification && (
-                                                            <Badge variant="outline" className="border-0 bg-amber-100 text-amber-700 text-[9px] px-1.5 h-4 font-bold">
+                                                            <Badge variant="outline" className="border-0 bg-amber-100 text-amber-700 text-[9px] px-1.5 h-4 font-semibold">
                                                                 <UserCheck className="w-2.5 h-2.5 mr-1" /> Шалгах
                                                             </Badge>
                                                         )}
                                                         {isPendingVerification && (
-                                                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[9px] px-1.5 h-4 font-bold">
+                                                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[9px] px-1.5 h-4 font-semibold">
                                                                 Хүлээгдэж буй
                                                             </Badge>
                                                         )}

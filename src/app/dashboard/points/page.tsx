@@ -25,7 +25,7 @@ export default function PointAdminPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Пойнт Модул</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Пойнт Модул</h1>
                     <p className="text-muted-foreground">Байгууллагын урамшуулал, онооны нэгдсэн систем.</p>
                 </div>
                 <div className="flex gap-2">
@@ -65,7 +65,7 @@ export default function PointAdminPage() {
                                 <Activity className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">12,345</div>
+                                <div className="text-2xl font-semibold">12,345</div>
                                 <p className="text-xs text-muted-foreground">+20.1% өмнөх сараас</p>
                             </CardContent>
                         </Card>
@@ -75,7 +75,7 @@ export default function PointAdminPage() {
                                 <Users className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">85%</div>
+                                <div className="text-2xl font-semibold">85%</div>
                                 <p className="text-xs text-muted-foreground">сүүлийн 30 хоногт</p>
                             </CardContent>
                         </Card>
@@ -85,7 +85,7 @@ export default function PointAdminPage() {
                                 <Award className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">Teamwork</div>
+                                <div className="text-2xl font-semibold">Teamwork</div>
                                 <p className="text-xs text-muted-foreground">320 удаа сонгогдсон</p>
                             </CardContent>
                         </Card>
@@ -95,7 +95,7 @@ export default function PointAdminPage() {
                                 <Target className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">45%</div>
+                                <div className="text-2xl font-semibold">45%</div>
                                 <p className="text-xs text-muted-foreground">ашиглалттай байна</p>
                             </CardContent>
                         </Card>
@@ -124,7 +124,7 @@ export default function PointAdminPage() {
                                 <div className="space-y-4">
                                     {[1, 2, 3, 4, 5].map((i) => (
                                         <div key={i} className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">U</div>
+                                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">U</div>
                                             <div className="flex-1 space-y-1">
                                                 <p className="text-sm font-medium leading-none">Б. Болд &rarr; С. Сарнай</p>
                                                 <p className="text-xs text-muted-foreground">Innovation (+10 оноо)</p>

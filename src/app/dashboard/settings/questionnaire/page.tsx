@@ -35,7 +35,7 @@ export default function QuestionnaireSettingsPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Анкетын тохиргоо</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight">Анкетын тохиргоо</h1>
                         <p className="text-muted-foreground">Ажилтны анкетын сонголттой талбаруудыг эндээс удирдна.</p>
                     </div>
                 </div>

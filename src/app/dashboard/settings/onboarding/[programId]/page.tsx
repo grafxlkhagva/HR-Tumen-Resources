@@ -783,7 +783,7 @@ function StageColumn({ stage, programId, onEditTask, onDeleteTask, onDragStart, 
                 {/* Header */}
                 <div className="flex items-center justify-between p-3 pl-4 border-b bg-white/50 backdrop-blur-sm cursor-grab active:cursor-grabbing">
                     <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
                             {tasks?.length || 0}
                         </div>
                         <h3 className="font-semibold text-sm text-foreground">{stage.title}</h3>

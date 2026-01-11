@@ -207,7 +207,7 @@ export const HeadcountTab = () => {
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="text-sm font-medium bg-muted/50 px-3 py-1.5 rounded-md border">
-                                Нийт ажилтан: <span className="text-primary font-bold ml-1">{totalFilled}</span>
+                                Нийт ажилтан: <span className="text-primary font-semibold ml-1">{totalFilled}</span>
                             </div>
                             <Popover>
                                 <PopoverTrigger asChild>

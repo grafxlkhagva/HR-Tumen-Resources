@@ -75,7 +75,7 @@ export function OrgChartContainer({ children, className }: OrgChartContainerProp
         <div
             ref={containerRef}
             className={cn(
-                "relative overflow-hidden bg-muted/5 border rounded-lg transition-all duration-300 isolation-isolate transform-gpu",
+                "relative overflow-hidden bg-background bg-dot-pattern border rounded-lg transition-all duration-300 isolation-isolate transform-gpu",
                 isFullscreen ? "fixed inset-0 z-50 bg-background" : "h-[600px]",
                 className
             )}

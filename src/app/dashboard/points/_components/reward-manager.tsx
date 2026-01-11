@@ -250,12 +250,12 @@ export function RewardManager() {
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-start justify-between">
                                     <div className="max-w-[70%]">
-                                        <h4 className="font-bold text-lg truncate">{reward.title}</h4>
+                                        <h4 className="font-semibold text-lg truncate">{reward.title}</h4>
                                         <Badge variant="outline" className="text-[10px] uppercase">{reward.category}</Badge>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-xl font-black text-primary">{reward.cost.toLocaleString()}</div>
-                                        <div className="text-[10px] text-muted-foreground uppercase font-bold">Оноо</div>
+                                        <div className="text-xl font-semibold text-primary">{reward.cost.toLocaleString()}</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">Оноо</div>
                                     </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">{reward.description}</p>

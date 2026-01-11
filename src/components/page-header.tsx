@@ -140,7 +140,7 @@ export function PageHeader({
             {/* Header Content */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
                         {title}
                     </h1>
                     {description && (

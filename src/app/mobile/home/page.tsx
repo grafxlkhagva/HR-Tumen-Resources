@@ -163,18 +163,18 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
 
             <CardHeader className="flex flex-row items-center gap-3 p-4 pb-3">
                 <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
                         {post.authorName.charAt(0)}
                     </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <span className="text-sm font-bold text-slate-900">{post.authorName}</span>
+                    <span className="text-sm font-semibold text-slate-900">{post.authorName}</span>
                     <span className="text-[10px] text-muted-foreground">{format(postDate, 'yyyy.MM.dd HH:mm')}</span>
                 </div>
             </CardHeader>
 
             <CardContent className="p-4 pt-0 space-y-3">
-                <h3 className="text-base font-bold text-slate-800 leading-tight">{post.title}</h3>
+                <h3 className="text-base font-semibold text-slate-800 leading-tight">{post.title}</h3>
                 <div
                     className={cn("text-sm text-slate-600 leading-relaxed", !isExpanded && "line-clamp-3")}
                     dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
@@ -330,12 +330,12 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
                 <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
                         <AvatarImage src={sender.photoURL} />
-                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
                             {sender.firstName?.[0]}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <div className="flex items-center gap-1 text-sm font-bold">
+                        <div className="flex items-center gap-1 text-sm font-semibold">
                             <span className="text-slate-900">{sender.firstName}</span>
                             <span className="text-primary mx-0.5">➜</span>
                             <span className="text-slate-900 line-clamp-1">{receiverNames}</span>
@@ -343,13 +343,13 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
                         <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(postDate, { addSuffix: true, locale: mn })}</span>
                     </div>
                 </div>
-                <Badge variant="secondary" className="font-black text-xs text-primary bg-primary/10">
+                <Badge variant="secondary" className="font-semibold text-xs text-primary bg-primary/10">
                     +{post.pointAmount} ⭐
                 </Badge>
             </CardHeader>
 
             <CardContent className="p-4 pt-0 space-y-3">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border inline-flex uppercase tracking-tighter"
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border inline-flex uppercase tracking-tighter"
                     style={{ borderColor: valueData?.color || '#eee', color: valueData?.color || '#666', backgroundColor: `${valueData?.color}10` }}>
                     <span>{valueData?.emoji}</span> {valueData?.title}
                 </div>
@@ -422,7 +422,7 @@ function EmployeeCarousel() {
                             <div className="relative">
                                 <Avatar className="w-16 h-16 rounded-2xl border-2 border-white shadow-sm group-hover:shadow-md transition-all group-hover:scale-105 ring-2 ring-transparent group-hover:ring-primary/20">
                                     <AvatarImage src={employee.photoURL} alt={employee.firstName} className="object-cover" />
-                                    <AvatarFallback className="rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-bold">
+                                    <AvatarFallback className="rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-semibold">
                                         {employee.firstName?.charAt(0)}
                                     </AvatarFallback>
                                 </Avatar>
@@ -492,11 +492,11 @@ function AttendanceStatusWidget() {
 
                         <div className="flex items-baseline gap-2 mb-2">
                             {todayRecord ? (
-                                <span className="text-3xl font-bold tracking-tight">
+                                <span className="text-3xl font-semibold tracking-tight">
                                     {todayRecord.checkInTime ? format(new Date(todayRecord.checkInTime), 'HH:mm') : '--:--'}
                                 </span>
                             ) : (
-                                <span className="text-2xl font-bold opacity-90">Бүртгэлгүй</span>
+                                <span className="text-2xl font-semibold opacity-90">Бүртгэлгүй</span>
                             )}
                         </div>
 
@@ -539,7 +539,7 @@ function OnboardingWidget() {
 
     return (
         <div className="px-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-3 px-1 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-800 mb-3 px-1 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-500" /> Таны хөтөлбөр
             </h2>
             <Card className="border-0 shadow-md bg-white rounded-3xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer" onClick={() => router.push(`/mobile/onboarding/${program.id}`)}>
@@ -547,10 +547,10 @@ function OnboardingWidget() {
                 <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-4">
                         <div className="space-y-1">
-                            <h3 className="font-bold text-base text-slate-800 line-clamp-1">{program.programName}</h3>
+                            <h3 className="font-semibold text-base text-slate-800 line-clamp-1">{program.programName}</h3>
                             <p className="text-xs text-slate-500 font-medium">Эхэлсэн: {format(new Date(program.startDate), 'MM/dd')}</p>
                         </div>
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-bold text-xs ring-4 ring-blue-50/50">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-semibold text-xs ring-4 ring-blue-50/50">
                             {Math.round(program.progress)}%
                         </div>
                     </div>
@@ -558,7 +558,7 @@ function OnboardingWidget() {
                         <Progress value={program.progress} className="h-2 rounded-full bg-slate-100" />
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-slate-400 font-medium">Дуусгах хугацаа: 7 хоногийн дараа</span>
-                            <span className="text-blue-600 font-bold flex items-center">Үргэлжлүүлэх <ArrowRight className="w-3 h-3 ml-1" /></span>
+                            <span className="text-blue-600 font-semibold flex items-center">Үргэлжлүүлэх <ArrowRight className="w-3 h-3 ml-1" /></span>
                         </div>
                     </div>
                 </CardContent>
@@ -583,7 +583,7 @@ function QuickActions() {
                     <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-sm group-hover:shadow-md border border-slate-100 bg-white", action.color)}>
                         <action.icon className="w-6 h-6" />
                     </div>
-                    <span className="text-xs font-bold text-slate-600 text-center whitespace-nowrap">{action.label}</span>
+                    <span className="text-xs font-semibold text-slate-600 text-center whitespace-nowrap">{action.label}</span>
                 </div>
             ))}
         </div>
@@ -636,12 +636,12 @@ export default function MobileHomePage() {
                             {companyProfile?.logoUrl ? (
                                 <Image src={companyProfile.logoUrl} alt="Logo" fill className="object-contain p-1" />
                             ) : (
-                                <span className="font-bold text-indigo-600 text-xs">HR</span>
+                                <span className="font-semibold text-indigo-600 text-xs">HR</span>
                             )}
                         </div>
                     </div>
                     <div>
-                        <h1 className="text-sm font-bold text-slate-900 leading-none mb-1">
+                        <h1 className="text-sm font-semibold text-slate-900 leading-none mb-1">
                             {companyProfile?.name || 'HR System'}
                         </h1>
                         <p className="text-xs font-medium text-slate-500">
@@ -673,7 +673,7 @@ export default function MobileHomePage() {
                 {/* Team Section */}
                 <div className="space-y-3">
                     <div className="px-6 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-slate-800">Хамт олон</h2>
+                        <h2 className="text-lg font-semibold text-slate-800">Хамт олон</h2>
                         <Link href="/mobile/employees" className="text-xs font-semibold text-primary hover:underline">Бүгд &rarr;</Link>
                     </div>
                     <EmployeeCarousel />
@@ -695,12 +695,12 @@ export default function MobileHomePage() {
                             <GivePointsDialog triggerButton={
                                 <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-primary bg-primary/5 hover:bg-primary/10">
                                     <Sparkles className="w-4 h-4" />
-                                    <span className="text-xs font-bold">Талархал</span>
+                                    <span className="text-xs font-semibold">Талархал</span>
                                 </Button>
                             } />
                             <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
                                 <MessageSquare className="w-4 h-4" />
-                                <span className="text-xs font-bold">Мэдээ</span>
+                                <span className="text-xs font-semibold">Мэдээ</span>
                             </Button>
                         </div>
                     </div>
@@ -708,7 +708,7 @@ export default function MobileHomePage() {
 
                 {/* News Feed */}
                 <div className="space-y-4">
-                    <h2 className="text-lg font-bold text-slate-800 px-6">Шинэ мэдээ</h2>
+                    <h2 className="text-lg font-semibold text-slate-800 px-6">Шинэ мэдээ</h2>
 
                     {isLoading && (
                         <div className="px-6">
@@ -735,7 +735,7 @@ export default function MobileHomePage() {
                                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <MessageSquare className="w-8 h-8 text-slate-400" />
                                 </div>
-                                <h3 className="text-slate-900 font-bold">Одоогоор мэдээ алга</h3>
+                                <h3 className="text-slate-900 font-semibold">Одоогоор мэдээ алга</h3>
                                 <p className="text-slate-500 text-sm mt-1">Шинэ мэдээлэл орохоор энд харагдах болно.</p>
                             </Card>
                         </div>

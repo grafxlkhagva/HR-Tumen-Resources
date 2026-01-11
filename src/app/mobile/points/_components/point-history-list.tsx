@@ -30,7 +30,7 @@ export function PointHistoryList() {
         if (error.code === 'failed-precondition' || error.message.includes('index')) {
             return (
                 <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 text-center">
-                    <p className="text-xs text-orange-600 font-bold mb-1">Системийн тохиргоо шаардлагатай</p>
+                    <p className="text-xs text-orange-600 font-semibold mb-1">Системийн тохиргоо шаардлагатай</p>
                     <p className="text-[10px] text-orange-500">Firestore Index үүсгэх хэрэгтэй (Developer console-оо шалгана уу)</p>
                 </div>
             );
@@ -78,7 +78,7 @@ export function PointHistoryList() {
                                 {!['RECEIVED', 'GIVEN', 'REDEEMED'].includes(tx.type) && <History className="w-5 h-5" />}
                             </div>
                             <div>
-                                <div className="font-bold text-slate-700 text-sm">
+                                <div className="font-semibold text-slate-700 text-sm">
                                     {tx.type === 'RECEIVED' ? 'Оноо авсан' :
                                         tx.type === 'GIVEN' ? 'Оноо бэлэглэсэн' :
                                             tx.type === 'REDEEMED' ? 'Худалдан авалт' : tsLabel(tx.type)}
@@ -88,7 +88,7 @@ export function PointHistoryList() {
                                 </div>
                             </div>
                         </div>
-                        <div className={`font-black text-sm ${isPositive ? 'text-green-600' : 'text-slate-900'}`}>
+                        <div className={`font-semibold text-sm ${isPositive ? 'text-green-600' : 'text-slate-900'}`}>
                             {isPositive ? '+' : ''}{tx.amount}
                         </div>
                     </div>

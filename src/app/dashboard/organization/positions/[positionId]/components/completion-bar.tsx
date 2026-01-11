@@ -40,8 +40,8 @@ export function CompletionBar({
         if (position.jobCategoryId) filled++;
 
         // 3. Competency (2)
-        if (position.description) filled++;
-        if (position.requirements && position.requirements.length > 0) filled++;
+        if (position.purpose) filled++;
+        if (position.responsibilities && position.responsibilities.length > 0) filled++;
 
         // 4. Compensation (2) - Logic can be refined
         if (position.compensation?.salaryRange?.mid && position.compensation?.salaryRange?.mid > 0) filled++;
@@ -95,8 +95,8 @@ export function CompletionBar({
         if (position.workScheduleId) score += 10;
 
         // Competency (Each 15%)
-        if (position.description) score += 15;
-        if (position.requirements && position.requirements.length > 0) score += 15;
+        if (position.purpose) score += 15;
+        if (position.responsibilities && position.responsibilities.length > 0) score += 15;
 
         // Compensation
         if (position.compensation?.salaryRange?.mid && position.compensation.salaryRange.mid > 0) score += 10;
@@ -110,7 +110,7 @@ export function CompletionBar({
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50 shadow-upper">
             <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-6">
                 <div className="flex-1 space-y-1">
-                    <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
                         <span>Бүрэн гүйцэтгэл</span>
                         <span className={cn(score === 100 ? "text-emerald-600" : "text-amber-500")}>{score}%</span>
                     </div>
@@ -119,12 +119,12 @@ export function CompletionBar({
 
                 <div className="flex items-center gap-4 shrink-0">
                     {score < 100 ? (
-                        <div className="flex items-center gap-2 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-2 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-600 text-xs font-semibold bg-amber-50 px-3 py-2 rounded-lg">
                             <AlertCircle className="w-4 h-4" />
                             <span>Дутуу мэдээлэлтэй байна</span>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-2 rounded-lg">
+                        <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold bg-emerald-50 px-3 py-2 rounded-lg">
                             <CheckCircle className="w-4 h-4" />
                             <span>Батлахад бэлэн</span>
                         </div>
@@ -134,7 +134,7 @@ export function CompletionBar({
                         onClick={onApprove}
                         disabled={score < 100 || isApproving || position.isApproved}
                         className={cn(
-                            "rounded-xl font-bold px-6",
+                            "rounded-xl font-semibold px-6",
                             score === 100 ? "bg-emerald-600 hover:bg-emerald-700" : ""
                         )}
                     >

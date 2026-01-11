@@ -70,7 +70,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
                         <Building className="size-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <h1 className="text-sm font-bold tracking-tight text-foreground">{companyProfile?.name || 'Компани'}</h1>
+                    <h1 className="text-sm font-semibold tracking-tight text-foreground">{companyProfile?.name || 'Компани'}</h1>
                   </>
                 )}
               </div>

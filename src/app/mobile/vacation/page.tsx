@@ -444,7 +444,7 @@ export default function MobileVacationPage() {
             toast({
                 title: newStatus === 'APPROVED' ? "Баталлаа 🎉" : newStatus === 'REJECTED' ? "Татгалзлаа" : "Буцаалаа",
                 className: cn(
-                    "border-none text-white font-bold h-12",
+                    "border-none text-white font-semibold h-12",
                     newStatus === 'APPROVED' ? "bg-green-600" : newStatus === 'REJECTED' ? "bg-rose-600" : "bg-slate-800"
                 )
             });
@@ -504,7 +504,7 @@ export default function MobileVacationPage() {
                         <Button variant="ghost" size="icon" onClick={() => setIsPlanning(false)} className="rounded-full">
                             <ChevronLeft className="h-6 w-6" />
                         </Button>
-                        <h2 className="text-lg font-black text-slate-900">Хуваалт сонгох</h2>
+                        <h2 className="text-lg font-semibold text-slate-900">Хуваалт сонгох</h2>
                         <div className="w-10" />
                     </div>
 
@@ -513,7 +513,7 @@ export default function MobileVacationPage() {
                             <div className="w-20 h-20 bg-indigo-50 rounded-[32px] flex items-center justify-center mx-auto">
                                 <Palmtree className="w-10 h-10 text-indigo-600" />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 leading-tight">Амралтаа хэд хувааж авах вэ?</h3>
+                            <h3 className="text-2xl font-semibold text-slate-900 leading-tight">Амралтаа хэд хувааж авах вэ?</h3>
                             <p className="text-slate-400 font-medium px-4">Та нийт авах амралтаа хэдэн хэсэг болгон хувааж авахаа энд сонгоно уу.</p>
                         </div>
 
@@ -524,7 +524,7 @@ export default function MobileVacationPage() {
                                     onClick={() => handleNumSplitsChange(n.toString())}
                                     className={cn(
                                         "h-20 rounded-3xl border-2 transition-all flex flex-col items-center justify-center gap-1",
-                                        numSplits === n ? "border-indigo-600 bg-indigo-50 text-indigo-700 font-black shadow-lg" : "border-slate-100 bg-white text-slate-400 font-bold"
+                                        numSplits === n ? "border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold shadow-lg" : "border-slate-100 bg-white text-slate-400 font-semibold"
                                     )}
                                 >
                                     <span className="text-xl">{n}</span>
@@ -536,7 +536,7 @@ export default function MobileVacationPage() {
 
                     <div className="p-8">
                         <Button
-                            className="w-full h-16 rounded-3xl text-lg font-black bg-indigo-600 shadow-xl"
+                            className="w-full h-16 rounded-3xl text-lg font-semibold bg-indigo-600 shadow-xl"
                             onClick={() => setPlanningStep('overview')}
                         >
                             Үргэлжлүүлэх
@@ -556,15 +556,15 @@ export default function MobileVacationPage() {
                                 <ChevronLeft className="h-6 w-6" />
                             </Button>
                             <div>
-                                <h2 className="text-lg font-black text-slate-900">Амралтын хуваарь</h2>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-0.5">Төлөвлөлт хадгалагдсан</p>
+                                <h2 className="text-lg font-semibold text-slate-900">Амралтын хуваарь</h2>
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none mt-0.5">Төлөвлөлт хадгалагдсан</p>
                             </div>
                         </div>
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleResetPlanning}
-                            className="text-[10px] font-black text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl uppercase tracking-tighter"
+                            className="text-[10px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl uppercase tracking-tighter"
                         >
                             Шинээр эхлэх
                         </Button>
@@ -575,15 +575,15 @@ export default function MobileVacationPage() {
                         <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
                             <div className="flex justify-between items-end">
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Амралтын эрх</p>
-                                    <h3 className="text-2xl font-black text-slate-900">
-                                        {totalSelectedDays} <span className="text-slate-300 text-lg font-bold">/ {availableDays} хоног</span>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Амралтын эрх</p>
+                                    <h3 className="text-2xl font-semibold text-slate-900">
+                                        {totalSelectedDays} <span className="text-slate-300 text-lg font-semibold">/ {availableDays} хоног</span>
                                     </h3>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Үлдэгдэл</p>
+                                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Үлдэгдэл</p>
                                     <Badge className={cn(
-                                        "rounded-lg font-black",
+                                        "rounded-lg font-semibold",
                                         (availableDays - totalSelectedDays) < 0 ? "bg-rose-500" : "bg-indigo-600"
                                     )}>
                                         {availableDays - totalSelectedDays} хоног
@@ -605,14 +605,14 @@ export default function MobileVacationPage() {
                             {totalSelectedDays > availableDays && (
                                 <div className="flex items-center gap-2 text-rose-600 bg-rose-50 p-3 rounded-2xl border border-rose-100 animate-in shake duration-500">
                                     <AlertCircle className="w-4 h-4" />
-                                    <span className="text-[11px] font-bold">Амралтын эрх {totalSelectedDays - availableDays} хоногоор хэтэрсэн байна!</span>
+                                    <span className="text-[11px] font-semibold">Амралтын эрх {totalSelectedDays - availableDays} хоногоор хэтэрсэн байна!</span>
                                 </div>
                             )}
 
                             {totalSelectedDays < availableDays && (
                                 <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 p-3 rounded-2xl border border-indigo-100 italic">
                                     <Info className="w-4 h-4" />
-                                    <span className="text-[10px] font-bold">Та нийт {availableDays} хоногийг бүрэн төлөвлөх ёстой.</span>
+                                    <span className="text-[10px] font-semibold">Та нийт {availableDays} хоногийг бүрэн төлөвлөх ёстой.</span>
                                 </div>
                             )}
 
@@ -620,7 +620,7 @@ export default function MobileVacationPage() {
                                 <div className="flex items-start gap-2 text-amber-600 bg-amber-50 p-3 rounded-2xl border border-amber-100">
                                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                                     <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-tight">Хуулийн шаардлага</p>
+                                        <p className="text-[10px] font-semibold uppercase tracking-tight">Хуулийн шаардлага</p>
                                         <p className="text-[9px] leading-relaxed">Аль нэг амралтын хугацаа заавал 10 болон түүнээс дээш хоног байх ёстой.</p>
                                     </div>
                                 </div>
@@ -637,25 +637,25 @@ export default function MobileVacationPage() {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
-                                            "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white shadow-sm",
+                                            "w-10 h-10 rounded-2xl flex items-center justify-center font-semibold text-white shadow-sm",
                                             ['bg-indigo-600', 'bg-emerald-600', 'bg-amber-500', 'bg-rose-600', 'bg-violet-600'][i % 5]
                                         )}>
                                             {i + 1}
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Амралт {i + 1}</p>
-                                            <p className="text-sm font-bold text-slate-900">
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Амралт {i + 1}</p>
+                                            <p className="text-sm font-semibold text-slate-900">
                                                 {s.days > 0 ? `${format(new Date(s.start), 'yyyy.MM.dd')} - ${format(new Date(s.end), 'yyyy.MM.dd')}` : 'Хугацаа сонгох...'}
                                             </p>
                                         </div>
                                     </div>
-                                    {s.days > 0 && <Badge className="bg-slate-100 text-slate-600 font-black rounded-lg">{s.days} хоног</Badge>}
+                                    {s.days > 0 && <Badge className="bg-slate-100 text-slate-600 font-semibold rounded-lg">{s.days} хоног</Badge>}
                                 </div>
 
                                 <Button
                                     variant="outline"
                                     className={cn(
-                                        "w-full h-12 rounded-2xl border-2 font-black transition-all",
+                                        "w-full h-12 rounded-2xl border-2 font-semibold transition-all",
                                         s.days > 0 ? "border-slate-50 text-slate-400" : "border-indigo-100 text-indigo-600 bg-indigo-50/50"
                                     )}
                                     onClick={() => {
@@ -670,10 +670,10 @@ export default function MobileVacationPage() {
                         ))}
 
                         <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 mb-2">Нэмэлт мэдээлэл</h4>
+                            <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] px-2 mb-2">Нэмэлт мэдээлэл</h4>
 
                             <div className="space-y-1.5 text-left">
-                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-3">Батлах ажилтан</Label>
+                                <Label className="text-[10px] font-semibold uppercase text-slate-400 ml-3">Батлах ажилтан</Label>
                                 <Select onValueChange={setSelectedApproverId} value={selectedApproverId}>
                                     <SelectTrigger className="rounded-[20px] h-12 border-slate-100 bg-slate-50">
                                         <SelectValue placeholder="Сонгох..." />
@@ -684,9 +684,9 @@ export default function MobileVacationPage() {
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-7 w-7">
                                                         <AvatarImage src={emp.photoURL} />
-                                                        <AvatarFallback className="text-[9px] font-bold">{emp.firstName[0]}</AvatarFallback>
+                                                        <AvatarFallback className="text-[9px] font-semibold">{emp.firstName[0]}</AvatarFallback>
                                                     </Avatar>
-                                                    <span className="font-bold text-[11px]">{emp.firstName}</span>
+                                                    <span className="font-semibold text-[11px]">{emp.firstName}</span>
                                                 </div>
                                             </SelectItem>
                                         ))}
@@ -695,7 +695,7 @@ export default function MobileVacationPage() {
                             </div>
 
                             <div className="space-y-1.5 text-left">
-                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-3">Тайлбар</Label>
+                                <Label className="text-[10px] font-semibold uppercase text-slate-400 ml-3">Тайлбар</Label>
                                 <Input
                                     placeholder="Бидэнд хэлэх үг..."
                                     value={reason}
@@ -709,15 +709,15 @@ export default function MobileVacationPage() {
                     <div className="p-6 bg-white border-t rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center justify-between mb-6 px-4">
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black uppercase text-slate-400">Нийт хоног</span>
-                                <span className="text-xl font-black text-slate-900">{totalSelectedDays} хоног</span>
+                                <span className="text-[10px] font-semibold uppercase text-slate-400">Нийт хоног</span>
+                                <span className="text-xl font-semibold text-slate-900">{totalSelectedDays} хоног</span>
                             </div>
                             {totalSelectedDays > availableDays && (
                                 <Badge variant="destructive" className="animate-bounce">Эрх хүрэхгүй!</Badge>
                             )}
                         </div>
                         <Button
-                            className="w-full h-16 rounded-[24px] text-lg font-black shadow-xl bg-indigo-600 enabled:hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-20 disabled:grayscale"
+                            className="w-full h-16 rounded-[24px] text-lg font-semibold shadow-xl bg-indigo-600 enabled:hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-20 disabled:grayscale"
                             disabled={
                                 isSubmitting ||
                                 totalSelectedDays !== availableDays ||
@@ -745,13 +745,13 @@ export default function MobileVacationPage() {
                                 <ChevronLeft className="h-6 w-6" />
                             </Button>
                             <div>
-                                <h2 className="text-lg font-black text-slate-900">{activeSplitIndex + 1}-р амралт</h2>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                <h2 className="text-lg font-semibold text-slate-900">{activeSplitIndex + 1}-р амралт</h2>
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
                                     {selectingDate === 'start' ? 'Эхлэх өдөр сонгох' : 'Дуусах өдөр сонгох'}
                                 </p>
                             </div>
                         </div>
-                        {currentSplit.days > 0 && <Badge className="bg-indigo-100 text-indigo-700 font-black rounded-lg">{currentSplit.days} хоног</Badge>}
+                        {currentSplit.days > 0 && <Badge className="bg-indigo-100 text-indigo-700 font-semibold rounded-lg">{currentSplit.days} хоног</Badge>}
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-4 py-8 space-y-12 bg-white no-scrollbar">
@@ -768,14 +768,14 @@ export default function MobileVacationPage() {
                                 <div key={mIdx} className="space-y-4">
                                     <div className="flex items-center justify-center gap-4 px-2">
                                         <div className="h-[1px] flex-1 bg-slate-100" />
-                                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                        <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.3em]">
                                             {format(monthDate, 'LLLL yyyy', { locale: mn })}
                                         </h3>
                                         <div className="h-[1px] flex-1 bg-slate-100" />
                                     </div>
                                     <div className="grid grid-cols-7 gap-1">
                                         {['Д', 'М', 'Л', 'П', 'Б', 'Б', 'Н'].map((d, i) => (
-                                            <div key={`${d}-${i}`} className="text-[10px] font-black text-slate-300 text-center pb-2 uppercase">{d}</div>
+                                            <div key={`${d}-${i}`} className="text-[10px] font-semibold text-slate-300 text-center pb-2 uppercase">{d}</div>
                                         ))}
                                         {Array.from({ length: startEmptyDays }).map((_, i) => (
                                             <div key={i} className="h-11" />
@@ -808,7 +808,7 @@ export default function MobileVacationPage() {
                                                     onClick={() => handleSplitDateSelection(day)}
                                                     disabled={isSatSun || !!holiday || isApproved || isBeforeEligibility}
                                                     className={cn(
-                                                        "relative h-11 w-full flex items-center justify-center text-[13px] font-bold transition-all",
+                                                        "relative h-11 w-full flex items-center justify-center text-[13px] font-semibold transition-all",
                                                         isSatSun || !!holiday || isBeforeEligibility ? "text-slate-200 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50 rounded-xl",
                                                         isBeforeEligibility && "opacity-40",
                                                         isApproved && "text-slate-200 line-through",
@@ -830,7 +830,7 @@ export default function MobileVacationPage() {
 
                     <div className="p-6 bg-white border-t space-y-4">
                         <Button
-                            className="w-full h-16 rounded-3xl text-lg font-black bg-indigo-600 shadow-xl"
+                            className="w-full h-16 rounded-3xl text-lg font-semibold bg-indigo-600 shadow-xl"
                             disabled={!currentSplit.start || !currentSplit.end}
                             onClick={() => setPlanningStep('overview')}
                         >
@@ -852,26 +852,26 @@ export default function MobileVacationPage() {
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
                         <ChevronLeft className="h-6 w-6" />
                     </Button>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900">Ээлжийн амралт</h1>
+                    <h1 className="text-xl font-semibold tracking-tight text-slate-900">Ээлжийн амралт</h1>
                 </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="bg-white px-6 pt-3 border-b sticky top-16 z-40">
                     <TabsList className="w-full bg-slate-100/80 p-1 rounded-2xl h-12">
-                        <TabsTrigger value="my-vacation" className="flex-1 rounded-xl text-[11px] font-black uppercase">Миний амралт</TabsTrigger>
+                        <TabsTrigger value="my-vacation" className="flex-1 rounded-xl text-[11px] font-semibold uppercase">Миний амралт</TabsTrigger>
                         {isAuthorizedApprover && (
-                            <TabsTrigger value="to-approve" className="flex-1 rounded-xl text-[11px] font-black uppercase relative">
+                            <TabsTrigger value="to-approve" className="flex-1 rounded-xl text-[11px] font-semibold uppercase relative">
                                 Батлах
                                 {incomingRequests.length > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-black">
+                                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-semibold">
                                         {incomingRequests.length}
                                     </span>
                                 )}
                             </TabsTrigger>
                         )}
                         {isAuthorizedApprover && (
-                            <TabsTrigger value="history" className="flex-1 rounded-xl text-[11px] font-black uppercase">
+                            <TabsTrigger value="history" className="flex-1 rounded-xl text-[11px] font-semibold uppercase">
                                 Түүх
                             </TabsTrigger>
                         )}
@@ -886,19 +886,19 @@ export default function MobileVacationPage() {
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-2 opacity-90">
                                     <CalendarDays className="w-4 h-4" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Амралтын эрх ({workYear?.yearNumber}-р жил)</span>
+                                    <span className="text-[10px] font-semibold uppercase tracking-widest text-indigo-100">Амралтын эрх ({workYear?.yearNumber}-р жил)</span>
                                 </div>
                                 <Palmtree className="w-10 h-10 opacity-20" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <div className="text-5xl font-black mb-1 leading-none">{totalEntitled}</div>
-                                    <div className="text-[10px] uppercase font-bold opacity-70 tracking-tight">Нийт амрах эрх</div>
+                                    <div className="text-5xl font-semibold mb-1 leading-none">{totalEntitled}</div>
+                                    <div className="text-[10px] uppercase font-semibold opacity-70 tracking-tight">Нийт амрах эрх</div>
                                 </div>
                                 <div className="border-l border-white/20 pl-6">
-                                    <div className="text-5xl font-black mb-1 text-sky-200 leading-none">{totalEntitled - usedDays}</div>
-                                    <div className="text-[10px] uppercase font-bold opacity-70 tracking-tight">Үлдэгдэл хоног</div>
+                                    <div className="text-5xl font-semibold mb-1 text-sky-200 leading-none">{totalEntitled - usedDays}</div>
+                                    <div className="text-[10px] uppercase font-semibold opacity-70 tracking-tight">Үлдэгдэл хоног</div>
                                 </div>
                             </div>
 
@@ -915,7 +915,7 @@ export default function MobileVacationPage() {
                         )}>
                             {pendingDays > 0 ? <Clock className="h-5 w-5 text-amber-600" /> : <CalendarCheck className="h-5 w-5 text-indigo-600" />}
                             <AlertTitle className={cn(
-                                "font-black mb-1",
+                                "font-semibold mb-1",
                                 pendingDays > 0 ? "text-amber-800" : "text-indigo-800"
                             )}>
                                 {pendingDays > 0 ? "Хүсэлт хүлээгдэж байна" : "Төлөвлөгөө батлагдсан"}
@@ -931,7 +931,7 @@ export default function MobileVacationPage() {
                         </Alert>
                     ) : (
                         <Button
-                            className="w-full h-16 rounded-[24px] text-lg font-black shadow-xl bg-slate-900 border-none group relative overflow-hidden"
+                            className="w-full h-16 rounded-[24px] text-lg font-semibold shadow-xl bg-slate-900 border-none group relative overflow-hidden"
                             onClick={handlePlanVacation}
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-sky-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -941,7 +941,7 @@ export default function MobileVacationPage() {
                     )}
 
                     <div className="space-y-4">
-                        <h2 className="text-[12px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <h2 className="text-[12px] font-semibold uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <Clock className="w-4 h-4" />
                             Миний түүх
                         </h2>
@@ -951,7 +951,7 @@ export default function MobileVacationPage() {
                             ) : !myRequests || myRequests.length === 0 ? (
                                 <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
                                     <Calendar className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                    <p className="text-sm text-slate-400 font-bold">Хүсэлт байхгүй</p>
+                                    <p className="text-sm text-slate-400 font-semibold">Хүсэлт байхгүй</p>
                                 </div>
                             ) : (
                                 myRequests.map(req => (
@@ -959,13 +959,13 @@ export default function MobileVacationPage() {
                                         <CardContent className="p-4">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="space-y-1">
-                                                    <div className="text-base font-bold text-slate-900 leading-tight">
+                                                    <div className="text-base font-semibold text-slate-900 leading-tight">
                                                         {req.splits && req.splits.length > 1
                                                             ? `${req.splits.length} хэсэгт хуваасан`
                                                             : `${format(parseISO(req.startDate), 'MMM dd', { locale: mn })} - ${format(parseISO(req.endDate), 'MMM dd', { locale: mn })}`
                                                         }
                                                     </div>
-                                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                                    <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight">
                                                         Илгээсэн: {format(parseISO(req.requestDate), 'yyyy.MM.dd')}
                                                     </div>
                                                 </div>
@@ -979,7 +979,7 @@ export default function MobileVacationPage() {
                                                         <div key={sIdx} className="flex justify-between items-center text-xs">
                                                             <div className="flex items-center gap-2">
                                                                 <div className={cn(
-                                                                    "w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-black text-white",
+                                                                    "w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-semibold text-white",
                                                                     ['bg-indigo-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-violet-400'][sIdx % 5]
                                                                 )}>
                                                                     {sIdx + 1}
@@ -988,7 +988,7 @@ export default function MobileVacationPage() {
                                                                     {format(parseISO(split.start), 'MMM dd', { locale: mn })} - {format(parseISO(split.end), 'MMM dd', { locale: mn })}
                                                                 </span>
                                                             </div>
-                                                            <span className="font-black text-slate-400">{split.days} хоног</span>
+                                                            <span className="font-semibold text-slate-400">{split.days} хоног</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -996,21 +996,21 @@ export default function MobileVacationPage() {
 
                                             {req.status === 'REJECTED' && req.rejectionReason && (
                                                 <div className="mb-4 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                                                    <p className="text-[10px] uppercase font-black text-rose-400 mb-1">Татгалзсан шалтгаан:</p>
+                                                    <p className="text-[10px] uppercase font-semibold text-rose-400 mb-1">Татгалзсан шалтгаан:</p>
                                                     <p className="text-xs text-rose-700 font-medium italic">"{req.rejectionReason}"</p>
                                                 </div>
                                             )}
 
                                             <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                                                 <div className="flex items-center gap-2">
-                                                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-none font-black px-3">
+                                                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-none font-semibold px-3">
                                                         {req.totalDays} хоног
                                                     </Badge>
                                                     {req.status === 'REJECTED' && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="h-7 px-3 text-[10px] font-black uppercase text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                                                            className="h-7 px-3 text-[10px] font-semibold uppercase text-indigo-600 hover:bg-indigo-50 rounded-lg"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setEditingRequest(req);
@@ -1035,7 +1035,7 @@ export default function MobileVacationPage() {
                                                             <AvatarImage src={employeeMap.get(req.approverId)?.photoURL} />
                                                             <AvatarFallback className="text-[8px]">{employeeMap.get(req.approverId)?.firstName?.[0]}</AvatarFallback>
                                                         </Avatar>
-                                                        <span className="text-xs font-bold text-slate-700">{(employeeMap.get(req.approverId)?.firstName) || "..."}</span>
+                                                        <span className="text-xs font-semibold text-slate-700">{(employeeMap.get(req.approverId)?.firstName) || "..."}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1050,7 +1050,7 @@ export default function MobileVacationPage() {
                 {/* 2. TO APPROVE TAB */}
                 <TabsContent value="to-approve" className="p-6 space-y-6 animate-in slide-in-from-right-10 fade-in duration-500 outline-none">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-[12px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <h2 className="text-[12px] font-semibold uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <ListFilter className="w-4 h-4 text-indigo-500" />
                             Шийдвэрлэх
                         </h2>
@@ -1062,7 +1062,7 @@ export default function MobileVacationPage() {
                         ) || (incomingRequests.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
                                 <CheckCircle2 className="w-12 h-12 text-green-200 mb-4" />
-                                <p className="text-slate-500 font-bold">Бүх хүсэлтийг шийдвэрлэсэн!</p>
+                                <p className="text-slate-500 font-semibold">Бүх хүсэлтийг шийдвэрлэсэн!</p>
                             </div>
                         ) : (
                             incomingRequests.map(req => {
@@ -1078,13 +1078,13 @@ export default function MobileVacationPage() {
                                             {/* Header with status and main info */}
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="space-y-1">
-                                                    <div className="text-base font-bold text-slate-900 leading-tight">
+                                                    <div className="text-base font-semibold text-slate-900 leading-tight">
                                                         {req.splits && req.splits.length > 1
                                                             ? `${req.splits.length} хэсэгт хуваасан`
                                                             : `${format(parseISO(req.startDate), 'MMM dd', { locale: mn })} - ${format(parseISO(req.endDate), 'MMM dd', { locale: mn })}`
                                                         }
                                                     </div>
-                                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                                    <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight">
                                                         Илгээсэн: {format(parseISO(req.requestDate), 'yyyy.MM.dd')}
                                                     </div>
                                                 </div>
@@ -1098,7 +1098,7 @@ export default function MobileVacationPage() {
                                                         <div key={sIdx} className="flex justify-between items-center text-xs">
                                                             <div className="flex items-center gap-2">
                                                                 <div className={cn(
-                                                                    "w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-black text-white",
+                                                                    "w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-semibold text-white",
                                                                     ['bg-indigo-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-violet-400'][sIdx % 5]
                                                                 )}>
                                                                     {sIdx + 1}
@@ -1107,7 +1107,7 @@ export default function MobileVacationPage() {
                                                                     {format(parseISO(split.start), 'MMM dd', { locale: mn })} - {format(parseISO(split.end), 'MMM dd', { locale: mn })}
                                                                 </span>
                                                             </div>
-                                                            <span className="font-black text-slate-400">{split.days} хоног</span>
+                                                            <span className="font-semibold text-slate-400">{split.days} хоног</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1122,17 +1122,17 @@ export default function MobileVacationPage() {
 
                                             {/* Footer with summary and employee */}
                                             <div className="flex items-center justify-between py-4 border-t border-slate-50 mb-4">
-                                                <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-none font-black px-3">
+                                                <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-none font-semibold px-3">
                                                     {req.totalDays} хоног
                                                 </Badge>
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-7 w-7 ring-2 ring-slate-100">
                                                         <AvatarImage src={sender?.photoURL} />
-                                                        <AvatarFallback className="text-[9px] font-black">{sender?.firstName?.[0]}</AvatarFallback>
+                                                        <AvatarFallback className="text-[9px] font-semibold">{sender?.firstName?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col text-right">
-                                                        <span className="text-xs font-bold text-slate-900 leading-none">{sender?.firstName}</span>
-                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">{sender?.jobTitle}</span>
+                                                        <span className="text-xs font-semibold text-slate-900 leading-none">{sender?.firstName}</span>
+                                                        <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-tighter mt-0.5">{sender?.jobTitle}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1140,7 +1140,7 @@ export default function MobileVacationPage() {
                                             {/* Action Buttons */}
                                             <div className="flex gap-2">
                                                 <Button
-                                                    className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black shadow-lg shadow-slate-200 active:scale-95 transition-all"
+                                                    className="flex-[2] h-12 rounded-2xl bg-slate-900 font-semibold shadow-lg shadow-slate-200 active:scale-95 transition-all"
                                                     onClick={() => handleStatusUpdate(req, 'APPROVED')}
                                                     disabled={isProcessing}
                                                 >
@@ -1148,7 +1148,7 @@ export default function MobileVacationPage() {
                                                 </Button>
                                                 <Button
                                                     variant="secondary"
-                                                    className="flex-1 h-12 rounded-2xl text-rose-600 bg-rose-50 hover:bg-rose-100 border-none font-black active:scale-95 transition-all"
+                                                    className="flex-1 h-12 rounded-2xl text-rose-600 bg-rose-50 hover:bg-rose-100 border-none font-semibold active:scale-95 transition-all"
                                                     onClick={() => {
                                                         setRequestToReject(req);
                                                         setIsRejectionDialogOpen(true);
@@ -1169,7 +1169,7 @@ export default function MobileVacationPage() {
                 {/* 3. HISTORY TAB */}
                 <TabsContent value="history" className="p-6 space-y-6 animate-in slide-in-from-right-10 fade-in duration-500 outline-none">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-[12px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <h2 className="text-[12px] font-semibold uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <History className="w-4 h-4 text-slate-400" />
                             Шийдвэрлэсэн түүх
                         </h2>
@@ -1181,7 +1181,7 @@ export default function MobileVacationPage() {
                         ) : myHistory.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
                                 <History className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                <p className="text-slate-400 font-bold">Түүх олдсонгүй</p>
+                                <p className="text-slate-400 font-semibold">Түүх олдсонгүй</p>
                             </div>
                         ) : (
                             myHistory.map(req => {
@@ -1198,8 +1198,8 @@ export default function MobileVacationPage() {
                                                         <AvatarFallback className="bg-slate-200 text-slate-700">{sender?.firstName?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-black text-slate-900 leading-none mb-1">{sender?.firstName} {sender?.lastName}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter leading-none">
+                                                        <span className="text-xs font-semibold text-slate-900 leading-none mb-1">{sender?.firstName} {sender?.lastName}</span>
+                                                        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-tighter leading-none">
                                                             {format(parseISO(req.startDate), 'MMM dd')} - {format(parseISO(req.endDate), 'MMM dd')}
                                                         </span>
                                                     </div>
@@ -1208,13 +1208,13 @@ export default function MobileVacationPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase">
+                                                <span className="text-[10px] font-semibold text-slate-400 uppercase">
                                                     {req.totalDays} хоног
                                                 </span>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-8 rounded-lg text-xs font-black text-slate-400 hover:text-indigo-600 hover:bg-slate-50"
+                                                    className="h-8 rounded-lg text-xs font-semibold text-slate-400 hover:text-indigo-600 hover:bg-slate-50"
                                                     onClick={() => handleStatusUpdate(req, 'PENDING')}
                                                     disabled={isProcessing}
                                                 >
@@ -1241,7 +1241,7 @@ export default function MobileVacationPage() {
                 <Dialog open={isRejectionDialogOpen} onOpenChange={setIsRejectionDialogOpen}>
                     <DialogContent className="max-w-[calc(400px-2rem)] rounded-3xl p-6 border-none shadow-2xl mx-auto">
                         <DialogHeader>
-                            <DialogTitle className="text-xl font-black text-slate-900">Татгалзах шалтгаан</DialogTitle>
+                            <DialogTitle className="text-xl font-semibold text-slate-900">Татгалзах шалтгаан</DialogTitle>
                             <DialogDescription>Ажилтанд очих тайлбарыг бичнэ үү.</DialogDescription>
                         </DialogHeader>
                         <div className="py-4">
@@ -1254,7 +1254,7 @@ export default function MobileVacationPage() {
                         </div>
                         <DialogFooter>
                             <Button
-                                className="w-full h-12 rounded-xl font-black bg-rose-600 hover:bg-rose-700 text-white"
+                                className="w-full h-12 rounded-xl font-semibold bg-rose-600 hover:bg-rose-700 text-white"
                                 disabled={!managerRejectionReason.trim()}
                                 onClick={() => {
                                     if (requestToReject) {

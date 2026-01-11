@@ -288,7 +288,7 @@ export default function BrandingPage() {
                                     <div className="space-y-2">
                                         <div className="font-semibold text-sm text-muted-foreground mb-2">Хедер & Navigation</div>
                                         <div className="bg-primary text-primary-foreground p-4 rounded-lg flex justify-between items-center shadow-md">
-                                            <span className="font-bold">Logo</span>
+                                            <span className="font-semibold">Logo</span>
                                             <div className="flex gap-3 text-sm font-medium opacity-90">
                                                 <span>Нүүр</span>
                                                 <span>Ажилчид</span>
@@ -318,8 +318,8 @@ export default function BrandingPage() {
                                                 <CardContent>
                                                     <p className="text-sm text-muted-foreground">This is a standard card component.</p>
                                                     <div className="mt-4 flex gap-2">
-                                                        <div className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-bold">Tag 1</div>
-                                                        <div className="px-2 py-1 rounded bg-secondary text-secondary-foreground text-xs font-bold">Tag 2</div>
+                                                        <div className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold">Tag 1</div>
+                                                        <div className="px-2 py-1 rounded bg-secondary text-secondary-foreground text-xs font-semibold">Tag 2</div>
                                                     </div>
                                                 </CardContent>
                                             </Card>

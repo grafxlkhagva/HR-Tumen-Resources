@@ -56,7 +56,7 @@ function StatCard({ title, value, icon: Icon, description }: { title: string, va
         <Icon className="h-4 w-4 text-muted-foreground/70" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
+        <div className="text-2xl font-semibold tracking-tight">{value}</div>
         {description && <p className="text-xs text-muted-foreground mt-1 font-medium">{description}</p>}
       </CardContent>
     </Card>
@@ -272,12 +272,12 @@ export default function EmployeesPage() {
                         <div className="flex items-center gap-4">
                           <Avatar className="h-14 w-14 border-2 border-border shadow-sm ring-2 ring-background group-hover:ring-primary/20 transition-all">
                             <AvatarImage src={employee.photoURL} alt={employee.firstName} className="object-cover" />
-                            <AvatarFallback className="bg-primary/10 text-primary text-base font-bold">
+                            <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
                               {employee.firstName?.[0]?.toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <h3 className="font-bold text-base group-hover:text-primary transition-colors line-clamp-1" title={employee.lastName + " " + employee.firstName}>
+                            <h3 className="font-semibold text-base group-hover:text-primary transition-colors line-clamp-1" title={employee.lastName + " " + employee.firstName}>
                               {employee.lastName?.substring(0, 1)}.{employee.firstName}
                             </h3>
                             <p className="text-xs text-muted-foreground font-mono mt-0.5">

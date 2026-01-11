@@ -92,7 +92,7 @@ const PositionHistorySheet = ({ position }: { position: Position }) => {
                                     <div className="flex-1 space-y-1">
                                         <div className="flex items-center justify-between gap-2">
                                             <span className={cn(
-                                                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                                                "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full",
                                                 log.action === 'approve' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                                             )}>
                                                 {log.action === 'approve' ? 'Батлав' : 'Цуцлав'}
@@ -211,7 +211,7 @@ export const PositionsListTable = ({
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200 py-0 h-5 font-bold cursor-help">
+                                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200 py-0 h-5 font-semibold cursor-help">
                                                             Батлагдсан
                                                         </Badge>
                                                     </TooltipTrigger>
@@ -219,7 +219,7 @@ export const PositionsListTable = ({
                                                         <TooltipContent side="right" className="p-3 space-y-1.5 max-w-[200px]">
                                                             <div className="flex items-center gap-2 pb-1 border-b border-white/20">
                                                                 <CheckCircle className="h-3 w-3" />
-                                                                <span className="text-[10px] font-bold uppercase">Батлагдсан мэдээлэл</span>
+                                                                <span className="text-[10px] font-semibold uppercase">Батлагдсан мэдээлэл</span>
                                                             </div>
                                                             <p className="text-xs font-semibold">{pos.approvedByName}</p>
                                                             <p className="text-[10px] text-slate-300">
@@ -233,7 +233,7 @@ export const PositionsListTable = ({
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200 py-0 h-5 font-bold cursor-help">
+                                                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200 py-0 h-5 font-semibold cursor-help">
                                                             Батлагдаагүй
                                                         </Badge>
                                                     </TooltipTrigger>
@@ -241,7 +241,7 @@ export const PositionsListTable = ({
                                                         <TooltipContent side="right" className="p-3 space-y-1.5 max-w-[200px]">
                                                             <div className="flex items-center gap-2 pb-1 border-b border-white/20">
                                                                 <HistoryIcon className="h-3 w-3" />
-                                                                <span className="text-[10px] font-bold uppercase">Цуцалсан мэдээлэл</span>
+                                                                <span className="text-[10px] font-semibold uppercase">Цуцалсан мэдээлэл</span>
                                                             </div>
                                                             <p className="text-xs font-semibold">{pos.disapprovedByName || 'Мэдээлэлгүй'}</p>
                                                             <p className="text-[10px] text-slate-300">
@@ -290,11 +290,11 @@ export const PositionsListTable = ({
                             <TableCell>
                                 <div className="flex items-center gap-1.5">
                                     {(pos.filled || 0) > 0 ? (
-                                        <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-5 font-bold">
+                                        <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-5 font-semibold">
                                             Томилогдсон
                                         </Badge>
                                     ) : (
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-5 font-bold">
+                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-5 font-semibold">
                                             Сул
                                         </Badge>
                                     )}

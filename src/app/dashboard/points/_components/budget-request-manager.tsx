@@ -135,7 +135,7 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
                         <Target className="w-5 h-5" />
                     </div>
                     <div>
-                        <CardTitle className="text-sm font-bold">Онооны төсвийн хүсэлт</CardTitle>
+                        <CardTitle className="text-sm font-semibold">Онооны төсвийн хүсэлт</CardTitle>
                         <CardDescription className="text-[10px]">
                             {request.createdAt ? format(request.createdAt.toDate(), 'yyyy.MM.dd HH:mm') : '...'}
                         </CardDescription>
@@ -156,7 +156,7 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-3">
                         <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
                                 {sender?.firstName?.[0] || '?'}
                             </div>
                             <div>
@@ -167,9 +167,9 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
                         </div>
 
                         <div className="p-3 rounded-xl bg-orange-50 border border-orange-100 space-y-1">
-                            <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Ажлын байрны төсвийн үлдэгдэл</p>
+                            <p className="text-[10px] text-orange-600 font-semibold uppercase tracking-wider">Ажлын байрны төсвийн үлдэгдэл</p>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-lg font-black text-orange-700">{(position?.remainingPointBudget ?? 0).toLocaleString()}</span>
+                                <span className="text-lg font-semibold text-orange-700">{(position?.remainingPointBudget ?? 0).toLocaleString()}</span>
                                 <span className="text-xs text-orange-500">оноо үлдсэн</span>
                             </div>
                         </div>
@@ -200,11 +200,11 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/10">
                     <div className="space-y-0.5">
                         <p className="text-xs text-muted-foreground italic">Нийт хуваарилах оноо:</p>
-                        <p className="text-xl font-black text-primary">{(request.amount * request.toUserIds.length).toLocaleString()} <span className="text-xs opacity-60">ОНОО</span></p>
+                        <p className="text-xl font-semibold text-primary">{(request.amount * request.toUserIds.length).toLocaleString()} <span className="text-xs opacity-60">ОНОО</span></p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-muted-foreground">Хүн бүрт:</p>
-                        <p className="font-bold">{request.amount.toLocaleString()} ⭐</p>
+                        <p className="font-semibold">{request.amount.toLocaleString()} ⭐</p>
                     </div>
                 </div>
 
@@ -232,7 +232,7 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
                                             onChange={e => setAdjAmount(parseInt(e.target.value) || 0)}
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            Нийт хуваарилагдах: <span className="font-bold">{(adjAmount * request.toUserIds.length).toLocaleString()}</span> оноо.
+                                            Нийт хуваарилагдах: <span className="font-semibold">{(adjAmount * request.toUserIds.length).toLocaleString()}</span> оноо.
                                             (Үлдэгдэл: {position?.remainingPointBudget})
                                         </p>
                                     </div>
@@ -296,7 +296,7 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
 
                 {(request.status === 'APPROVED' || request.status === 'REJECTED') && request.adminNote && (
                     <div className="pt-4 border-t border-dashed">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Админы тэмдэглэл:</p>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Админы тэмдэглэл:</p>
                         <p className="text-sm text-slate-700 bg-muted/20 p-3 rounded-lg border border-dashed">
                             {request.adminNote}
                         </p>

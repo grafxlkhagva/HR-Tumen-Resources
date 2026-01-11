@@ -60,7 +60,7 @@ function FeedCard({ post }: { post: RecognitionPost }) {
                     </div>
                 </div>
                 <div className="flex flex-col items-end">
-                    <Badge variant="secondary" className="font-bold text-primary bg-primary/10 hover:bg-primary/20 gap-1 pl-1.5 pr-2.5">
+                    <Badge variant="secondary" className="font-semibold text-primary bg-primary/10 hover:bg-primary/20 gap-1 pl-1.5 pr-2.5">
                         +{post.pointAmount} <span className="opacity-70 text-[10px]">ОНОО</span>
                     </Badge>
                 </div>

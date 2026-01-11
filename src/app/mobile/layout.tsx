@@ -36,7 +36,7 @@ export default function MobileLayout({
                   key={item.href}
                   href={item.href}
                   className={`flex flex-col items-center gap-1 text-xs transition-colors active:scale-95 ${isActive
-                    ? 'text-primary font-bold'
+                    ? 'text-primary font-semibold'
                     : 'text-muted-foreground hover:text-primary'
                     }`}
                 >

@@ -70,7 +70,7 @@ export const PositionStructureChart = ({ positions, department, isLoading, onPos
     }
 
     return (
-        <OrgChartContainer className="h-[650px] bg-muted/5 rounded-xl border-none shadow-inner isolation-auto">
+        <OrgChartContainer className="h-[650px] bg-background rounded-xl border-none shadow-inner isolation-auto">
             <ul className="flex justify-center gap-16 py-16">
                 {chartData.map((root, idx) => (
                     <PositionNode
@@ -108,11 +108,11 @@ const PositionNode = ({ node, isFirst, isLast, isSole, isRoot, onPositionClick, 
             {/* Upper Connectors */}
             {!isRoot && (
                 <>
-                    <div className="absolute -top-4 left-1/2 h-4 w-px -translate-x-1/2 bg-border/60"></div>
+                    <div className="absolute -top-4 left-1/2 h-4 border-l-2 border-dashed border-primary/50 -translate-x-1/2"></div>
                     {!isSole && (
                         <>
-                            {!isFirst && <div className="absolute -top-4 left-0 right-1/2 h-px bg-border/60"></div>}
-                            {!isLast && <div className="absolute -top-4 left-1/2 right-0 h-px bg-border/60"></div>}
+                            {!isFirst && <div className="absolute -top-4 left-0 right-1/2 h-px border-t-2 border-dashed border-primary/50"></div>}
+                            {!isLast && <div className="absolute -top-4 left-1/2 right-0 h-px border-t-2 border-dashed border-primary/50"></div>}
                         </>
                     )}
                 </>
@@ -121,51 +121,68 @@ const PositionNode = ({ node, isFirst, isLast, isSole, isRoot, onPositionClick, 
             <div
                 onClick={() => onPositionClick?.(node)}
                 className={cn(
-                    "relative z-10 w-56 rounded-xl border border-border/50 bg-card p-4 text-center shadow-sm transition-all hover:shadow-xl hover:-translate-y-1 group cursor-pointer border-l-4",
+                    "relative z-10 w-60 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm p-5 text-center text-card-foreground shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1 group cursor-pointer hover:border-primary/30",
                     !node.isActive && "opacity-60 grayscale",
-                    !isExpanded && hasChildren && "border-b-4 border-b-primary/40",
-                    node.reportsTo ? "border-l-primary/30" : "border-l-primary"
+                    !isExpanded && hasChildren && "border-b-4",
+                    isRoot && "shadow-md"
                 )}
+                style={{
+                    borderTop: isRoot ? '5px solid var(--primary)' : (node.reportsTo ? `4px solid ${lookups.departmentColor || 'var(--primary)'}` : '4px solid var(--primary)'),
+                    borderBottomColor: !isExpanded && hasChildren ? 'var(--primary)' : undefined
+                }}
             >
-                <div className="flex flex-col items-center gap-2">
-                    <div className={cn(
-                        "p-2 rounded-lg transition-colors bg-muted/50 text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground",
-                        !node.reportsTo && "bg-primary/10 text-primary"
-                    )}>
-                        <User className="w-4 h-4" />
+                <div className="space-y-3">
+                    <div className="flex flex-col items-center gap-2">
+                        <div className={cn(
+                            "p-2 rounded-lg transition-colors bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground",
+                            isRoot && "bg-primary/10"
+                        )}>
+                            <User className="w-4 h-4" />
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className={cn(
+                                "font-semibold tracking-tight leading-tight line-clamp-2 min-h-[40px] flex items-center justify-center",
+                                isRoot ? "text-sm uppercase" : "text-xs"
+                            )}>
+                                {node.title}
+                            </p>
+
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                {(node.filled || 0) > 0 ? (
+                                    <Badge variant="secondary" className="text-[9px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-4 font-semibold px-1.5">
+                                        Томилогдсон
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-4 font-semibold px-1.5">
+                                        Сул
+                                    </Badge>
+                                )}
+
+                                <Badge variant="outline" className="text-[9px] font-medium bg-muted/30 border-muted-foreground/10 px-1.5 py-0 h-4">
+                                    {levelName}
+                                </Badge>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="space-y-1">
-                        <p className="font-bold text-xs tracking-tight leading-tight line-clamp-2 min-h-[32px] flex items-center justify-center">
-                            {node.title}
-                        </p>
+                    <div className="flex flex-col items-center gap-1">
+                        {!node.isActive && (
+                            <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-destructive border-destructive/20 font-bold">
+                                Идэвхгүй
+                            </Badge>
+                        )}
 
-                        {(node.filled || 0) > 0 ? (
-                            <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-5 font-bold">
-                                Томилогдсон
+                        {node.isApproved === false ? (
+                            <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-amber-600 border-amber-200 bg-amber-50 font-bold">
+                                Батлагдаагүй
                             </Badge>
                         ) : (
-                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-5 font-bold">
-                                Сул
+                            <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-emerald-600 border-emerald-200 bg-emerald-50 font-bold">
+                                Батлагдсан
                             </Badge>
                         )}
                     </div>
-
-                    {!node.isActive && (
-                        <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-destructive border-destructive/20 mt-1">
-                            Идэвхгүй
-                        </Badge>
-                    )}
-
-                    {node.isApproved === false ? (
-                        <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-amber-600 border-amber-200 bg-amber-50 mt-1 font-bold">
-                            Батлагдаагүй
-                        </Badge>
-                    ) : (
-                        <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-emerald-600 border-emerald-200 bg-emerald-50 mt-1 font-bold">
-                            Батлагдсан
-                        </Badge>
-                    )}
                 </div>
 
                 {/* Quick Add Button on Hover */}
@@ -186,16 +203,16 @@ const PositionNode = ({ node, isFirst, isLast, isSole, isRoot, onPositionClick, 
                 {hasChildren && (
                     <button
                         onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 h-6 w-6 rounded-full bg-background border border-border/50 shadow-soft flex items-center justify-center hover:bg-muted transition-all active:scale-90 group-hover:scale-110 z-20"
+                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 h-6 w-6 rounded-full bg-background border border-border shadow-soft flex items-center justify-center hover:bg-muted transition-all active:scale-90 group-hover:scale-110 z-20"
                     >
-                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-primary font-bold" />}
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-primary font-semibold" />}
                     </button>
                 )}
             </div>
 
             {hasChildren && isExpanded && (
                 <>
-                    <div className="absolute top-full h-4 w-px bg-border/60"></div>
+                    <div className="absolute top-full h-4 border-l-2 border-dashed border-primary/50"></div>
                     <ul className="relative mt-4 flex justify-center pt-4">
                         {node.children!.map((child, idx) => (
                             <PositionNode

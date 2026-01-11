@@ -188,7 +188,7 @@ const AvatarWithProgress = ({ employee, size = 120 }: { employee?: Employee; siz
                     {/* Percentage Pill */}
                     <foreignObject x={0} y={size - 20} width={size} height={30}>
                         <div className="flex justify-center">
-                            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full bg-background border shadow-sm", progressColor)}>
+                            <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full bg-background border shadow-sm", progressColor)}>
                                 {Math.round(progress)}%
                             </span>
                         </div>
@@ -436,7 +436,7 @@ const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <span className="font-bold text-primary">{Math.round(program.progress || 0)}%</span>
+                                                        <span className="font-semibold text-primary">{Math.round(program.progress || 0)}%</span>
                                                     </div>
                                                     <Progress value={program.progress} className="h-2 bg-muted/50" />
                                                 </div>
@@ -741,7 +741,7 @@ const OverviewTabContent = ({ employeeId }: { employeeId: string }) => {
                 <CardContent>
                     <div className="flex flex-col gap-4">
                         <div className="flex items-end justify-between">
-                            <span className="text-3xl font-bold">{Math.round(completionPercentage)}%</span>
+                            <span className="text-3xl font-semibold">{Math.round(completionPercentage)}%</span>
                             <span className="text-sm text-muted-foreground mb-1">{filledCount}/{totalCount} талбар</span>
                         </div>
                         <Progress value={completionPercentage} className="h-3" />
@@ -914,7 +914,7 @@ export default function EmployeeProfilePage() {
                             <div className="flex justify-center -mt-12 mb-4">
                                 <AvatarWithProgress employee={employee} size={110} />
                             </div>
-                            <h1 className="text-xl font-bold tracking-tight mb-1">{employee.lastName} {employee.firstName}</h1>
+                            <h1 className="text-xl font-semibold tracking-tight mb-1">{employee.lastName} {employee.firstName}</h1>
                             <p className="text-muted-foreground text-sm font-medium mb-3">{employee.jobTitle}</p>
 
                             <div className="flex flex-wrap gap-2 justify-center mb-6">

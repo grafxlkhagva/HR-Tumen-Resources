@@ -38,7 +38,7 @@ export function MyPointStats() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-3xl font-bold text-primary">{balance} <span className="text-sm font-normal text-muted-foreground">оноо</span></div>
+                    <div className="text-3xl font-semibold text-primary">{balance} <span className="text-sm font-normal text-muted-foreground">оноо</span></div>
                     <p className="text-xs text-muted-foreground mt-1">Шагнал авахад зарцуулах боломжтой</p>
                 </CardContent>
             </Card>
@@ -52,7 +52,7 @@ export function MyPointStats() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-between items-end mb-2">
-                        <div className="text-2xl font-bold">{allowance}</div>
+                        <div className="text-2xl font-semibold">{allowance}</div>
                         <div className="text-xs text-muted-foreground">сар бүр шинэчлэгдэнэ</div>
                     </div>
                     <Progress value={(allowance / allowanceMax) * 100} className="h-2" />
@@ -68,7 +68,7 @@ export function MyPointStats() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalGiven}</div>
+                    <div className="text-2xl font-semibold">{totalGiven}</div>
                     <p className="text-xs text-muted-foreground mt-1">Хамт олондоо бэлэглэсэн нийт оноо</p>
                 </CardContent>
             </Card>

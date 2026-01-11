@@ -326,7 +326,7 @@ export default function TimeAndAttendanceSettingsPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Цаг бүртгэлийн тохиргоо</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight">Цаг бүртгэлийн тохиргоо</h1>
                         <p className="text-muted-foreground">Чөлөө, цаг бүртгэлтэй холбоотой тохиргоог удирдах.</p>
                     </div>
                 </div>

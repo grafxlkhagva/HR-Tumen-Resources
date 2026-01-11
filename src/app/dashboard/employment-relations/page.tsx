@@ -148,7 +148,7 @@ export default function EmploymentRelationsPage() {
             Буцах
           </Link>
         </Button>
-         <h1 className="text-2xl font-bold tracking-tight">Хөдөлмөрийн харилцаа</h1>
+         <h1 className="text-2xl font-semibold tracking-tight">Хөдөлмөрийн харилцаа</h1>
       </div>
 
         <Card>

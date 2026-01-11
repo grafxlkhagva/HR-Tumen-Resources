@@ -25,7 +25,8 @@ import {
     DropdownMenuTrigger,
     DropdownMenuContent,
     DropdownMenuCheckboxItem,
-    DropdownMenuSeparator
+    DropdownMenuSeparator,
+    DropdownMenuItem
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -255,24 +256,51 @@ export function AddPolicyDialog({
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
-                                                    <div className="p-2 relative">
-                                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                        <Input placeholder="Хайх..." className="pl-8" value={posSearch} onChange={(e) => setPosSearch(e.target.value)} />
+                                                    <div className="p-2 sticky top-0 bg-popover z-10">
+                                                        <div className="relative">
+                                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                            <Input
+                                                                placeholder="Хайх..."
+                                                                className="pl-9 h-9"
+                                                                value={posSearch}
+                                                                onChange={(e) => setPosSearch(e.target.value)}
+                                                                onKeyDown={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
                                                     </div>
                                                     <DropdownMenuSeparator />
-                                                    {filteredPositions.map(pos => (
-                                                        <DropdownMenuCheckboxItem
-                                                            key={pos.id}
-                                                            checked={field.value?.includes(pos.id)}
-                                                            onCheckedChange={(checked) => {
-                                                                return checked
-                                                                    ? field.onChange([...(field.value || []), pos.id])
-                                                                    : field.onChange(field.value?.filter((id) => id !== pos.id))
-                                                            }}
+                                                    <div className="max-h-[250px] overflow-y-auto pointer-events-auto">
+                                                        {filteredPositions.length === 0 ? (
+                                                            <div className="py-4 px-2 text-center text-sm text-muted-foreground">
+                                                                Ажлын байр олдсонгүй
+                                                            </div>
+                                                        ) : (
+                                                            filteredPositions.map(pos => (
+                                                                <DropdownMenuCheckboxItem
+                                                                    key={pos.id}
+                                                                    checked={field.value?.includes(pos.id)}
+                                                                    onSelect={(e) => e.preventDefault()}
+                                                                    onCheckedChange={(checked) => {
+                                                                        const currentValues = field.value || [];
+                                                                        const newValues = checked
+                                                                            ? [...currentValues, pos.id]
+                                                                            : currentValues.filter((id) => id !== pos.id);
+                                                                        field.onChange(newValues);
+                                                                    }}
+                                                                >
+                                                                    {pos.title}
+                                                                </DropdownMenuCheckboxItem>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                    <DropdownMenuSeparator />
+                                                    <div className="p-1">
+                                                        <DropdownMenuItem
+                                                            className="w-full justify-center text-xs h-8 text-primary hover:text-primary hover:bg-primary/10 cursor-pointer focus:bg-primary/10 focus:text-primary"
                                                         >
-                                                            {pos.title}
-                                                        </DropdownMenuCheckboxItem>
-                                                    ))}
+                                                            Сонгож дууссан
+                                                        </DropdownMenuItem>
+                                                    </div>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                             <FormMessage />

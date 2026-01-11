@@ -120,7 +120,7 @@ export default function PolicyDetailPage() {
                         <span className="sr-only">Буцах</span>
                     </Link>
                 </Button>
-                <h1 className="text-xl font-bold text-center truncate px-12">{policy.title}</h1>
+                <h1 className="text-xl font-semibold text-center truncate px-12">{policy.title}</h1>
             </header>
             
             <Card>

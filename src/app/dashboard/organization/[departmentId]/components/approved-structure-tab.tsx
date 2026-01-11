@@ -66,78 +66,17 @@ export const ApprovedStructureTab = ({ department }: ApprovedStructureTabProps) 
 
     return (
         <div className="space-y-6">
-            {/* Department Identity Card */}
-            <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-muted/30">
-                <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: department.color || 'var(--primary)' }} />
-                <CardHeader className="pb-4">
-                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                        <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                                <CardTitle className="text-2xl font-black uppercase tracking-tight">{department.name}</CardTitle>
-                                {latestHistory && (
-                                    <Badge className="bg-emerald-500 hover:bg-emerald-600 gap-1 font-bold">
-                                        <CheckCircle2 className="w-3 h-3" /> Батлагдсан
-                                    </Badge>
-                                )}
-                            </div>
-                            <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                <Badge variant="secondary" className="font-bold">{typeName}</Badge>
-                                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                    <Hash className="w-3.5 h-3.5" />
-                                    Код: {department.code || '-'}
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    Батлагдсан: {latestHistory ? format(new Date(latestHistory.approvedAt), 'yyyy-MM-dd') : '-'}
-                                </div>
-                            </CardDescription>
-                        </div>
-                        <div
-                            className="h-14 w-14 rounded-2xl flex items-center justify-center bg-background shadow-inner border border-border/50 text-2xl font-black"
-                            style={{ color: department.color || 'var(--primary)' }}
-                        >
-                            {department.code?.substring(0, 2) || '??'}
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                        <div className="space-y-2 group">
-                            <div className="flex items-center gap-2 text-primary">
-                                <Target className="w-4 h-4" />
-                                <h4 className="text-xs font-black uppercase tracking-widest">Зорилго</h4>
-                            </div>
-                            <div className="p-4 rounded-xl bg-background/50 border border-border/50 group-hover:border-primary/20 transition-colors">
-                                <p className="text-sm leading-relaxed text-muted-foreground italic">
-                                    {department.vision || 'Зорилго бүртгэгдээгүй байна...'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="space-y-2 group">
-                            <div className="flex items-center gap-2 text-primary">
-                                <Briefcase className="w-4 h-4" />
-                                <h4 className="text-xs font-black uppercase tracking-widest">Чиг үүрэг</h4>
-                            </div>
-                            <div className="p-4 rounded-xl bg-background/50 border border-border/50 group-hover:border-primary/20 transition-colors">
-                                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                                    {department.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
             {/* Structure View */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-black flex items-center gap-2">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
                         Бүтэцийн зураглал
                     </h3>
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col items-end">
-                            <p className="text-xs font-bold">{latestHistory?.snapshot.positions.length || 0} Ажлын байр</p>
+                            <p className="text-xs font-semibold">{latestHistory?.snapshot.positions.length || 0} Ажлын байр</p>
                             <p className="text-[10px] text-muted-foreground">Батлагдсан орон тоо</p>
                         </div>
                     </div>
@@ -147,7 +86,7 @@ export const ApprovedStructureTab = ({ department }: ApprovedStructureTabProps) 
                     <Card className="border-dashed border-2 bg-muted/5 py-20">
                         <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground">
                             <Users className="w-12 h-12 opacity-10 mb-4" />
-                            <p className="font-bold">Батлагдсан бүтэц олдсонгүй</p>
+                            <p className="font-semibold">Батлагдсан бүтэц олдсонгүй</p>
                             <p className="text-sm">Төлөвлөгдөж буй бүтэц хэсгээс ажлын байрнуудыг батлана уу.</p>
                         </CardContent>
                     </Card>
@@ -164,7 +103,7 @@ export const ApprovedStructureTab = ({ department }: ApprovedStructureTabProps) 
                         <div className="absolute bottom-6 right-6 p-4 rounded-xl bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg flex items-start gap-3 max-w-xs animate-in fade-in slide-in-from-bottom-4">
                             <Info className="w-5 h-5 text-primary mt-0.5" />
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Санамж</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Санамж</p>
                                 <p className="text-[11px] leading-relaxed text-muted-foreground">
                                     Энэ нь {format(new Date(latestHistory.approvedAt), 'yyyy-MM-dd')} өдөр батлагдсан бүтэц юм. Ажлын байр дээр дарж дэлгэрэнгүйг үзнэ үү.
                                 </p>

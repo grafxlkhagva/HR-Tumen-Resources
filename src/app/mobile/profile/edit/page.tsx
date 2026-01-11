@@ -440,7 +440,7 @@ export default function MobileProfileEditPage() {
                         <span className="sr-only">Буцах</span>
                     </Link>
                 </Button>
-                <h1 className="text-xl font-bold">Анкет засах</h1>
+                <h1 className="text-xl font-semibold">Анкет засах</h1>
             </header>
 
             <div className="flex flex-col items-center gap-4 my-4">

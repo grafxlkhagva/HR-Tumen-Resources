@@ -16,6 +16,7 @@ export type Department = {
     createdAt?: string; // ISO date string
     status?: 'active' | 'inactive';
     color?: string;
+    draftData?: Partial<Omit<Department, 'id' | 'children' | 'filled' | 'typeName' | 'positions' | 'draftData'>>;
 };
 
 export type DepartmentType = {
@@ -26,9 +27,11 @@ export type DepartmentType = {
 export type Position = {
     id: string;
     title: string;
+    code?: string;
     departmentId: string;
     filled: number;
     reportsTo?: string;
+    reportsToPositionId?: string;
     levelId?: string;
     employmentTypeId?: string;
     jobCategoryId?: string;
@@ -49,8 +52,8 @@ export type Position = {
     disapprovedBy?: string;
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
-    description?: string;
-    requirements?: string[];
+    purpose?: string;
+    responsibilities?: string[];
     compensation?: {
         salaryRange?: {
             min: number;
@@ -70,7 +73,17 @@ export type Position = {
         isRemoteAllowed?: boolean;
         flexibleHours?: boolean;
         vacationDays?: number;
+        allowances?: {
+            name: string;
+            amount: number;
+            currency?: string;
+        }[];
         otherBenefits?: string[];
+    };
+    jobDescriptionFile?: {
+        name: string;
+        url: string;
+        uploadedAt: string;
     };
 };
 

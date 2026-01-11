@@ -128,7 +128,7 @@ export function CVDisplay({ employeeId }: { employeeId: string }) {
                         <AvatarFallback className="text-3xl">{questionnaire.firstName?.charAt(0)}{questionnaire.lastName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <h1 className="text-3xl font-bold">{fullName}</h1>
+                        <h1 className="text-3xl font-semibold">{fullName}</h1>
                         <p className="text-lg text-primary">{employee?.jobTitle}</p>
                     </div>
                 </div>

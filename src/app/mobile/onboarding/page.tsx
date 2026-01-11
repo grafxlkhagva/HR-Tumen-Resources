@@ -55,7 +55,7 @@ export default function MobileOnboardingListPage() {
                 <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 rounded-full bg-slate-100 text-slate-600" onClick={() => router.back()}>
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <h1 className="font-bold text-lg text-slate-800">Чиглүүлэх хөтөлбөрүүд</h1>
+                <h1 className="font-semibold text-lg text-slate-800">Чиглүүлэх хөтөлбөрүүд</h1>
             </header>
 
             <div className="p-6 space-y-6">
@@ -78,13 +78,13 @@ export default function MobileOnboardingListPage() {
                                                     {program.status === 'COMPLETED' ? <CheckCircle2 className="w-6 h-6" /> : <Rocket className="w-6 h-6" />}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-base text-slate-800 line-clamp-1">{program.programName}</h3>
+                                                    <h3 className="font-semibold text-base text-slate-800 line-clamp-1">{program.programName}</h3>
                                                     <p className="text-xs text-slate-500 mt-0.5 font-medium">
                                                         {format(new Date(program.startDate), 'yyyy.MM.dd')}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <Badge variant="outline" className={cn("border-0 font-bold",
+                                            <Badge variant="outline" className={cn("border-0 font-semibold",
                                                 program.status === 'COMPLETED' ? "bg-green-100 text-green-700" :
                                                     program.status === 'IN_PROGRESS' ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
                                             )}>
@@ -104,7 +104,7 @@ export default function MobileOnboardingListPage() {
                                         </div>
 
                                         <div className="mt-4 flex justify-end">
-                                            <span className="text-xs font-bold text-primary flex items-center">
+                                            <span className="text-xs font-semibold text-primary flex items-center">
                                                 Дэлгэрэнгүй харах <ChevronRight className="w-3 h-3 ml-1" />
                                             </span>
                                         </div>
@@ -119,7 +119,7 @@ export default function MobileOnboardingListPage() {
                             <Rocket className="w-12 h-12 text-slate-300" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-lg text-slate-800">Хөтөлбөр олдсонгүй</h2>
+                            <h2 className="font-semibold text-lg text-slate-800">Хөтөлбөр олдсонгүй</h2>
                             <p className="text-slate-500 text-sm mt-1 max-w-[250px] mx-auto">Одоогоор танд оноогдсон чиглүүлэх хөтөлбөр байхгүй байна.</p>
                         </div>
                     </div>

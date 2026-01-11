@@ -9,7 +9,7 @@ export default function OrganizationSettingsHub() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Байгууллагын тохиргоо</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Байгууллагын тохиргоо</h1>
         <p className="text-muted-foreground mt-2">Ажилтны кодчлолын тохиргоог удирдах.</p>
       </div>
 
@@ -24,7 +24,7 @@ export default function OrganizationSettingsHub() {
                     <Code className="h-8 w-8" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-bold">Ажилтны кодчлол</CardTitle>
+                    <CardTitle className="text-2xl font-semibold">Ажилтны кодчлол</CardTitle>
                     <CardDescription className="mt-1.5 text-base">
                       Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах
                     </CardDescription>

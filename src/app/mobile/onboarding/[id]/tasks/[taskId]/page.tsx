@@ -137,7 +137,7 @@ export default function MobileTaskDetailsPage() {
                         </span>
                     </div>
 
-                    <h1 className="text-2xl font-bold leading-tight">{task.title}</h1>
+                    <h1 className="text-2xl font-semibold leading-tight">{task.title}</h1>
 
                     {task.description && (
                         <div className="bg-muted/30 p-4 rounded-xl text-base border leading-relaxed text-foreground/90">

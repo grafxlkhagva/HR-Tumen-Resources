@@ -114,7 +114,7 @@ export default function HolidaysPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Бүх нийтийн амралтын өдөр</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight">Бүх нийтийн амралтын өдөр</h1>
                         <p className="text-muted-foreground">Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэх, удирдах.</p>
                     </div>
                 </div>

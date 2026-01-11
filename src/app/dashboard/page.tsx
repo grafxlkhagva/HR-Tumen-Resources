@@ -295,7 +295,7 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                                 <p className={cn("text-sm font-mono", mutedTextColor)}>{employee.employeeCode}</p>
                             </Link>
                             {employee.questionnaireCompletion !== undefined && (
-                                <p className={cn("text-xs font-bold", mutedTextColor)}>
+                                <p className={cn("text-xs font-semibold", mutedTextColor)}>
                                     Анкет: {Math.round(employee.questionnaireCompletion)}%
                                 </p>
                             )}
@@ -317,11 +317,11 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                         <span className={mutedTextColor}>Төлөв:</span>
                         <span className="font-medium text-[11px]">
                             {(data.filled || 0) > 0 ? (
-                                <Badge variant="secondary" className="text-[10px] bg-blue-50/20 text-blue-100 border-blue-200/20 py-0 h-5 font-bold">
+                                <Badge variant="secondary" className="text-[10px] bg-blue-50/20 text-blue-100 border-blue-200/20 py-0 h-5 font-semibold">
                                     Томилогдсон
                                 </Badge>
                             ) : (
-                                <Badge variant="outline" className="text-[10px] bg-slate-50/20 text-slate-100 border-slate-200/20 py-0 h-5 font-bold">
+                                <Badge variant="outline" className="text-[10px] bg-slate-50/20 text-slate-100 border-slate-200/20 py-0 h-5 font-semibold">
                                     Сул
                                 </Badge>
                             )}
@@ -339,7 +339,7 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                                     {data.onboardingProgress >= 100 ? 'Дасан зохицсон' : 'Дасан зохицох'}
                                 </span>
                             </div>
-                            <span className={cn("text-xs font-bold", data.onboardingProgress >= 100 ? 'text-green-600' : 'text-blue-600')}>
+                            <span className={cn("text-xs font-semibold", data.onboardingProgress >= 100 ? 'text-green-600' : 'text-blue-600')}>
                                 {Math.round(data.onboardingProgress)}%
                             </span>
                         </div>
@@ -384,7 +384,7 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
                         <MoreHorizontal className="h-8 w-8 text-slate-400" />
                     </div>
                     <div>
-                        <p className="font-bold text-lg text-white">{data.name}</p>
+                        <p className="font-semibold text-lg text-white">{data.name}</p>
                         <p className="text-sm text-slate-400">{data.jobTitle}</p>
                     </div>
                 </div>
@@ -958,7 +958,7 @@ const OrganizationChart = () => {
                                         <Skeleton className="h-10 w-20 bg-slate-700" />
                                     ) : (
                                         <div>
-                                            <div className="text-4xl font-black text-white mb-1">{activeEmployeesCount}</div>
+                                            <div className="text-4xl font-semibold text-white mb-1">{activeEmployeesCount}</div>
                                             <div className="text-xs text-slate-400 font-medium">идэвхтэй ажилтан</div>
                                         </div>
                                     )}
@@ -979,13 +979,13 @@ const OrganizationChart = () => {
                                     ) : (
                                         <div className="flex items-end gap-6">
                                             <div>
-                                                <div className="text-3xl font-black text-white">{presentEmployees.size}</div>
-                                                <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wide">Ажил дээрээ</div>
+                                                <div className="text-3xl font-semibold text-white">{presentEmployees.size}</div>
+                                                <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Ажил дээрээ</div>
                                             </div>
                                             <div className="h-12 w-px bg-slate-700" />
                                             <div>
-                                                <div className="text-3xl font-black text-white">{onLeaveEmployees.size}</div>
-                                                <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wide">Чөлөөтэй</div>
+                                                <div className="text-3xl font-semibold text-white">{onLeaveEmployees.size}</div>
+                                                <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Чөлөөтэй</div>
                                             </div>
                                         </div>
                                     )}
@@ -1005,7 +1005,7 @@ const OrganizationChart = () => {
                                         <Skeleton className="h-10 w-16 bg-slate-700" />
                                     ) : (
                                         <div>
-                                            <div className="text-4xl font-black text-amber-500 mb-1">{onLeaveCount}</div>
+                                            <div className="text-4xl font-semibold text-amber-500 mb-1">{onLeaveCount}</div>
                                             <div className="text-xs text-slate-400 font-medium">ажилтан амарч байна</div>
                                         </div>
                                     )}
@@ -1025,7 +1025,7 @@ const OrganizationChart = () => {
                                         <Skeleton className="h-10 w-16 bg-slate-700" />
                                     ) : (
                                         <div>
-                                            <div className="text-4xl font-black text-white mb-1">{posts?.length || 0}</div>
+                                            <div className="text-4xl font-semibold text-white mb-1">{posts?.length || 0}</div>
                                             <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
                                         </div>
                                     )}
@@ -1043,11 +1043,11 @@ const OrganizationChart = () => {
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div>
-                                            <div className="text-3xl font-black text-white">{onboardingStats.activePrograms}</div>
+                                            <div className="text-3xl font-semibold text-white">{onboardingStats.activePrograms}</div>
                                             <div className="text-[10px] text-slate-400 font-medium uppercase">Идэвхтэй</div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-2xl font-black text-amber-400">{onboardingStats.pendingTasks}</div>
+                                            <div className="text-2xl font-semibold text-amber-400">{onboardingStats.pendingTasks}</div>
                                             <div className="text-[9px] text-slate-400 uppercase font-medium">Хүлээгдэж буй</div>
                                         </div>
                                     </div>
@@ -1074,7 +1074,7 @@ const OrganizationChart = () => {
 
                                     <div className="relative z-10">
                                         <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-3xl font-black text-white">Points</div>
+                                            <div className="text-3xl font-semibold text-white">Points</div>
                                             <Rocket className="w-5 h-5 text-orange-400" />
                                         </div>
                                         <div className="text-xs text-slate-400 font-medium">Recognition System</div>
@@ -1093,13 +1093,13 @@ const OrganizationChart = () => {
                                     </div>
                                     <div className="flex items-end gap-6">
                                         <div>
-                                            <div className="text-3xl font-black text-white">{departments?.length || 0}</div>
-                                            <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-wide">Хэлтэс</div>
+                                            <div className="text-3xl font-semibold text-white">{departments?.length || 0}</div>
+                                            <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wide">Хэлтэс</div>
                                         </div>
                                         <div className="h-12 w-px bg-slate-700" />
                                         <div>
-                                            <div className="text-3xl font-black text-white">{positions?.length || 0}</div>
-                                            <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wide">Албан тушаал</div>
+                                            <div className="text-3xl font-semibold text-white">{positions?.length || 0}</div>
+                                            <div className="text-[10px] text-purple-400 font-semibold uppercase tracking-wide">Албан тушаал</div>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -1118,7 +1118,7 @@ const OrganizationChart = () => {
                                     </div>
 
                                     <div className="relative z-10">
-                                        <div className="text-4xl font-black text-white mb-1">
+                                        <div className="text-4xl font-semibold text-white mb-1">
                                             {isLoadingPolicies ? (
                                                 <Skeleton className="h-9 w-12 bg-slate-700" />
                                             ) : (
@@ -1144,7 +1144,7 @@ const OrganizationChart = () => {
 
                                     <div className="relative z-10">
                                         <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-black text-white">3</div>
+                                            <div className="text-2xl font-semibold text-white">3</div>
                                             <div className="text-sm text-slate-400 font-medium">категори</div>
                                         </div>
                                         <div className="flex gap-1 mt-2">
@@ -1167,12 +1167,12 @@ const OrganizationChart = () => {
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div>
-                                            <div className="text-4xl font-black text-white">{newHiresStats.count}</div>
+                                            <div className="text-4xl font-semibold text-white">{newHiresStats.count}</div>
                                             <div className="text-[10px] text-slate-400 font-medium">Сүүлийн 30 хоногт</div>
                                         </div>
                                         <div className="px-3 py-2 bg-slate-800 dark:bg-slate-700 rounded-xl border border-slate-600">
-                                            <div className="text-lg font-black text-white">{newHiresStats.avgOnboardingProgress}%</div>
-                                            <div className="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Дундаж</div>
+                                            <div className="text-lg font-semibold text-white">{newHiresStats.avgOnboardingProgress}%</div>
+                                            <div className="text-[8px] uppercase font-semibold text-slate-400 tracking-wider">Дундаж</div>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -1188,7 +1188,7 @@ const OrganizationChart = () => {
                                         <UserMinus className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <div>
-                                        <div className="text-4xl font-black text-rose-500 mb-1">
+                                        <div className="text-4xl font-semibold text-rose-500 mb-1">
                                             {unassignedEmployees?.length || 0}
                                         </div>
                                         <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">ажил томилох шаардлагатай</div>

@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, LayoutList, Network, CheckCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Settings, Target, Hash } from 'lucide-react';
+import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Settings, Target, Hash, Save } from 'lucide-react';
 import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, increment, arrayUnion } from 'firebase/firestore';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,11 +16,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { Department, Position, PositionLevel, EmploymentType, JobCategory, WorkSchedule, DepartmentHistory } from '../../types';
+import { Department, Position, PositionLevel, EmploymentType, JobCategory, WorkSchedule, DepartmentHistory, DepartmentType } from '../../types';
 import { PositionsListTable } from '../../components/positions-list-table';
 import { AddPositionDialog } from '../../add-position-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SettingsTab } from './settings-tab';
 import { PositionStructureChart } from './position-structure-chart';
 import { Employee } from '@/app/dashboard/employees/data';
 import {
@@ -40,7 +44,7 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet"
 import { cn } from '@/lib/utils';
-import { SettingsTab } from './settings-tab';
+
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
@@ -51,6 +55,22 @@ interface PositionsManagementTabProps {
     // For now, let's fetch strictly needed data here.
 }
 
+const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
+    <div className="flex items-center gap-2 py-0.5">
+        {isDone ? (
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+        ) : (
+            <XCircle className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+        )}
+        <span className={cn(
+            "text-[10px] font-medium transition-colors",
+            isDone ? "text-slate-600" : "text-slate-400"
+        )}>
+            {label}
+        </span>
+    </div>
+);
+
 export const PositionsManagementTab = ({ department }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
@@ -59,6 +79,59 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     const [editingPosition, setEditingPosition] = useState<Position | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'chart'>('chart');
     const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>([]);
+    const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
+    const [isSavingInfo, setIsSavingInfo] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        name: '',
+        code: '',
+        vision: '',
+        description: '',
+        typeId: '',
+        parentId: '',
+        status: 'active' as 'active' | 'inactive',
+        color: ''
+    });
+
+    // Initialize edit form data when opening edit mode
+    useEffect(() => {
+        if (isEditInfoOpen) {
+            const source = department.draftData || department;
+            setEditFormData({
+                name: source.name || '',
+                code: source.code || '',
+                vision: source.vision || '',
+                description: source.description || '',
+                typeId: source.typeId || '',
+                parentId: source.parentId || '',
+                status: (source.status as 'active' | 'inactive') || 'active',
+                color: source.color || '#000000'
+            });
+        }
+    }, [isEditInfoOpen, department]);
+
+    const handleSaveInlineInfo = async () => {
+        if (!firestore || !department.id) return;
+        setIsSavingInfo(true);
+        try {
+            await updateDocumentNonBlocking(doc(firestore, 'departments', department.id), {
+                draftData: editFormData
+            });
+            toast({
+                title: "Амжилттай хадгалагдлаа",
+                description: "Төлөвлөгдөж буй өөрчлөлтүүд хадгалагдлаа.",
+            });
+            setIsEditInfoOpen(false);
+        } catch (error) {
+            console.error("Error saving inline info:", error);
+            toast({
+                variant: 'destructive',
+                title: "Алдаа гарлаа",
+                description: "Мэдээллийг хадгалж чадсангүй.",
+            });
+        } finally {
+            setIsSavingInfo(false);
+        }
+    };
     const [isDisapproving, setIsDisapproving] = useState(false);
     const [positionsToDisapprove, setPositionsToDisapprove] = useState<Position[]>([]);
     const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
@@ -101,7 +174,6 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
-    const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
 
     const isLoading = isPositionsLoading || !levels || !empTypes;
 
@@ -119,8 +191,25 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         const empTypeMap = empTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
         const jobCategoryMap = jobCategories?.reduce((acc, cat) => { acc[cat.id] = `${cat.code} - ${cat.name}`; return acc; }, {} as Record<string, string>) || {};
         const typeName = deptTypes?.find(t => t.id === department.typeId)?.name || department.typeName || 'Нэгж';
-        return { departmentMap, levelMap, empTypeMap, jobCategoryMap, typeName };
+        return { departmentMap, levelMap, empTypeMap, jobCategoryMap, typeName, departmentColor: department.color };
     }, [department, levels, empTypes, allDepartments, jobCategories, deptTypes]);
+
+    const validationChecklist = useMemo(() => {
+        const dept = department.draftData || department;
+        const checks = {
+            hasName: !!dept.name?.trim(),
+            hasCode: !!dept.code?.trim(),
+            hasVision: !!dept.vision?.trim(),
+            hasDescription: !!dept.description?.trim(),
+            hasType: !!dept.typeId,
+            hasColor: !!dept.color,
+            hasPositions: (positions?.length || 0) > 0,
+            allPositionsApproved: (positions?.length || 0) > 0 && (stats.pending === 0)
+        };
+
+        const isComplete = Object.values(checks).every(Boolean);
+        return { ...checks, isComplete };
+    }, [department, positions, stats]);
 
     const [pendingParentPositionId, setPendingParentPositionId] = useState<string | undefined>(undefined);
 
@@ -282,6 +371,15 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
             await addDocumentNonBlocking(historyRef, historyData);
 
+            // 4. Sync draft data to root department if exists
+            if (department.draftData) {
+                const deptRef = doc(firestore, 'departments', department.id);
+                await updateDocumentNonBlocking(deptRef, {
+                    ...department.draftData,
+                    draftData: null // Clear draft after sync
+                });
+            }
+
             toast({
                 title: "Бүтэц амжилттай батлагдлаа",
                 description: "Өөрчлөлтүүд түүх хэсэгт хадгалагдлаа."
@@ -435,169 +533,399 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
     return (
         <div className="space-y-6">
-            {/* Premium Control Center Card */}
-            <Card className="overflow-hidden border-none shadow-xl bg-white ring-1 ring-slate-200/60 transition-all relative">
-                {/* Left accent line */}
-                <div className="absolute top-0 left-0 w-2 h-full" style={{ backgroundColor: department.color || 'var(--primary)' }} />
-
-                <CardHeader className="pb-4 sm:pb-6">
-                    <div className="flex flex-col xl:flex-row justify-between items-start gap-6">
-                        {/* Identity Group */}
-                        <div className="flex gap-5 items-start">
-                            <div
-                                className="h-16 w-16 shrink-0 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl font-black shadow-inner"
-                                style={{ color: department.color || 'var(--primary)' }}
-                            >
-                                {department.code?.substring(0, 2).toUpperCase() || department.name.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div className="space-y-1.5 pt-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 leading-none">{department.name}</h2>
-                                    <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none h-5 px-2 text-[10px] uppercase tracking-wider">
-                                        {lookups.typeName}
-                                    </Badge>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-500 font-bold text-[10px] uppercase tracking-widest opacity-70">
-                                    <span className="flex items-center gap-1.5"><Hash className="w-3.5 h-3.5" /> Код: {department.code || '-'}</span>
-                                    <span className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5" /> Үүсгэсэн: {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : 'Тодорхойгүй'}</span>
-                                </div>
-                            </div>
+            {/* Approval Checklist & Action Card */}
+            <Card className="overflow-hidden border-none shadow-xl bg-white ring-1 ring-slate-200/60 p-5">
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                    {/* Stats Summary */}
+                    <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-50/80 rounded-[20px] ring-1 ring-slate-200/50">
+                        <div className="px-5 py-2 text-center min-w-[80px]">
+                            <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-0.5">Нийт</p>
+                            <p className="text-lg font-bold text-slate-800 tabular-nums">{stats.total}</p>
                         </div>
-
-                        {/* Stats Dashboard */}
-                        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-50/80 rounded-[20px] ring-1 ring-slate-200/50 self-start">
-                            <div className="px-5 py-2.5 text-center min-w-[90px]">
-                                <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-0.5">Нийт</p>
-                                <p className="text-xl font-bold text-slate-800 tabular-nums">{stats.total}</p>
-                            </div>
-                            <div className="w-px h-10 bg-slate-200/60" />
-                            <div className="px-5 py-2.5 text-center min-w-[90px]">
-                                <p className="text-[9px] uppercase font-bold text-emerald-400 tracking-widest mb-0.5">Батлагдсан</p>
-                                <p className="text-xl font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
-                            </div>
-                            <div className="w-px h-10 bg-slate-200/60" />
-                            <div className="px-5 py-2.5 text-center min-w-[90px]">
-                                <p className="text-[9px] uppercase font-bold text-amber-400 tracking-widest mb-0.5">Төслийн шатанд</p>
-                                <p className="text-xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
-                            </div>
+                        <div className="w-px h-8 bg-slate-200/60" />
+                        <div className="px-5 py-2 text-center min-w-[80px]">
+                            <p className="text-[9px] uppercase font-bold text-emerald-500 tracking-widest mb-0.5">Батлагдсан</p>
+                            <p className="text-lg font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
                         </div>
+                        <div className="w-px h-8 bg-slate-200/60" />
+                        <div className="px-5 py-2 text-center min-w-[80px]">
+                            <p className="text-[9px] uppercase font-bold text-amber-500 tracking-widest mb-0.5">Төсөл</p>
+                            <p className="text-lg font-bold text-amber-600 tabular-nums">{stats.pending}</p>
+                        </div>
+                    </div>
 
-                        {/* Actions Toolbar */}
-                        <div className="flex flex-wrap items-center gap-3 self-end xl:self-start lg:pt-1">
-                            <div className="flex items-center gap-2 pr-2 mr-2 border-r border-slate-200">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-10 w-10 shrink-0 border-slate-200 hover:bg-white hover:border-primary/30 rounded-xl transition-all"
-                                                onClick={handleSyncCounts}
-                                                disabled={isDisapproving}
-                                            >
-                                                <Sparkles className={cn("h-4 w-4 text-primary/60", isDisapproving && "animate-spin")} />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p className="text-xs">Орон тооны тооцооллыг шинэчлэх</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                    {/* Validation Checklist UI */}
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
+                        <ChecklistItem label="Нэгжийн нэр" isDone={validationChecklist.hasName} />
+                        <ChecklistItem label="Нэгжийн код" isDone={validationChecklist.hasCode} />
+                        <ChecklistItem label="Нэгжийн төрөл" isDone={validationChecklist.hasType} />
+                        <ChecklistItem label="Зорилго" isDone={validationChecklist.hasVision} />
+                        <ChecklistItem label="Чиг үүрэг" isDone={validationChecklist.hasDescription} />
+                        <ChecklistItem label="Систем өнгө" isDone={validationChecklist.hasColor} />
+                        <ChecklistItem label="Ажлын байр бүртгэсэн" isDone={validationChecklist.hasPositions} />
+                        <ChecklistItem label="Бүх албан тушаал батлагдсан" isDone={validationChecklist.allPositionsApproved} />
+                    </div>
 
-                                <Sheet open={isEditDeptOpen} onOpenChange={setIsEditDeptOpen}>
-                                    <SheetTrigger asChild>
-                                        <Button variant="outline" className="rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-white hover:text-primary hover:border-primary/30 gap-2 h-10 px-4 transition-all">
-                                            <Settings className="w-4 h-4" />
-                                            <span className="hidden md:inline">Мэдээлэл засах</span>
+                    {/* Action Button */}
+                    <div className="flex items-center gap-3 shrink-0 self-center">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="inline-block">
+                                        <Button
+                                            className={cn(
+                                                "rounded-xl font-bold h-12 px-8 shadow-lg gap-2 transition-all",
+                                                validationChecklist.isComplete
+                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50"
+                                                    : "bg-slate-100 text-slate-400 shadow-none cursor-not-allowed border border-slate-200"
+                                            )}
+                                            onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
+                                            disabled={!validationChecklist.isComplete}
+                                        >
+                                            <Sparkles className={cn("w-4 h-4", !validationChecklist.isComplete && "opacity-50")} />
+                                            Бүтэц батлах
                                         </Button>
-                                    </SheetTrigger>
-                                    <SheetContent className="sm:max-w-xl overflow-y-auto">
-                                        <SheetHeader className="mb-6">
-                                            <SheetTitle className="text-2xl font-bold uppercase">Нэгжийн мэдээлэл засах</SheetTitle>
-                                            <SheetDescription>
-                                                "{department.name}" нэгжийн үндсэн мэдээлэл, өнгө, зорилго зэргийг эндээс шинэчилнэ үү.
-                                            </SheetDescription>
-                                        </SheetHeader>
-                                        <SettingsTab
-                                            department={department}
-                                            onSuccess={() => setIsEditDeptOpen(false)}
-                                        />
-                                    </SheetContent>
-                                </Sheet>
+                                    </div>
+                                </TooltipTrigger>
+                                {!validationChecklist.isComplete && (
+                                    <TooltipContent side="top" className="bg-slate-800 text-white border-none text-[10px] py-1.5 px-3">
+                                        Мэдээлэл дутуу тул батлах боломжгүй
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Department Details Summary Card with Inline Edit Support */}
+            <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-muted/30 relative">
+                <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: isEditInfoOpen ? editFormData.color : ((department.draftData?.color || department.color) || 'var(--primary)') }} />
+
+                <CardHeader className="pb-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div className="flex-1 space-y-4 w-full">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {isEditInfoOpen ? (
+                                    <Input
+                                        className="text-xl font-bold uppercase tracking-tight text-slate-800 bg-white/50 h-10 min-w-[300px]"
+                                        value={editFormData.name}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="Нэгжийн нэр"
+                                    />
+                                ) : (
+                                    <CardTitle className="text-xl font-bold uppercase tracking-tight text-slate-800">
+                                        {department.draftData?.name || department.name}
+                                    </CardTitle>
+                                )}
+
+                                {!isEditInfoOpen && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={cn(
+                                            "h-8 rounded-lg border-primary/20 bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all gap-1.5 px-3 font-semibold text-[11px]",
+                                            department.draftData && "bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-600"
+                                        )}
+                                        onClick={() => setIsEditInfoOpen(true)}
+                                    >
+                                        <Settings className="w-3.5 h-3.5" />
+                                        {department.draftData ? "Мэдээлэл засах" : "Мэдээлэл төлөвлөх"}
+                                    </Button>
+                                )}
+
+                                {isEditInfoOpen ? (
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-4 font-bold text-[11px] shadow-md shadow-emerald-100"
+                                            onClick={handleSaveInlineInfo}
+                                            disabled={isSavingInfo}
+                                        >
+                                            {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                            Хадгалах
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 rounded-lg text-slate-500 hover:text-slate-700 font-bold text-[11px]"
+                                            onClick={() => setIsEditInfoOpen(false)}
+                                            disabled={isSavingInfo}
+                                        >
+                                            Цуцлах
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    department.draftData && (
+                                        <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 text-[10px] font-bold">
+                                            Төсөл / Draft
+                                        </Badge>
+                                    )
+                                )}
                             </div>
 
-                            <Button
-                                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black h-10 px-6 shadow-lg shadow-emerald-200/50 gap-2 transition-all active:scale-95"
-                                onClick={() => setIsApproveConfirmOpen(true)}
-                                disabled={stats.pending > 0}
-                            >
-                                <Sparkles className="w-4 h-4" />
-                                Бүтэц батлах
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                                {/* Type Selector */}
+                                {isEditInfoOpen ? (
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-400">Төрөл:</Label>
+                                        <Select
+                                            value={editFormData.typeId}
+                                            onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, typeId: val }))}
+                                        >
+                                            <SelectTrigger className="h-8 text-xs font-bold bg-white/50 border-slate-200 w-[140px]">
+                                                <SelectValue placeholder="Төрөл" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {deptTypes?.map(t => (
+                                                    <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                ) : (
+                                    <Badge variant="secondary" className="font-bold bg-white/80 shadow-sm border-slate-200/50">
+                                        {department.draftData?.typeId ? (allDepartments?.find(d => d.id === department.draftData?.typeId)?.name || lookups.typeName) : lookups.typeName}
+                                    </Badge>
+                                )}
+
+                                {/* Code Input */}
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
+                                    <Hash className="w-3.5 h-3.5" />
+                                    {isEditInfoOpen ? (
+                                        <div className="flex items-center gap-2">
+                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Код:</Label>
+                                            <Input
+                                                className="h-6 w-20 text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0"
+                                                value={editFormData.code}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, code: e.target.value }))}
+                                                placeholder="Код"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <span>Код: {department.draftData?.code || department.code || '-'}</span>
+                                    )}
+                                </div>
+
+                                {/* Parent Selector */}
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
+                                    <Network className="w-3.5 h-3.5 text-slate-400" />
+                                    {isEditInfoOpen ? (
+                                        <div className="flex items-center gap-2">
+                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Дээд нэгж:</Label>
+                                            <Select
+                                                value={editFormData.parentId || "root"}
+                                                onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, parentId: val === "root" ? "" : val }))}
+                                            >
+                                                <SelectTrigger className="h-6 w-[160px] text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0">
+                                                    <SelectValue placeholder="Дээд нэгж" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="root" className="text-xs">Үндсэн нэгж</SelectItem>
+                                                    {allDepartments?.filter(d => d.id !== department.id).map(d => (
+                                                        <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ) : (
+                                        <span>Дээд нэгж: {department.draftData?.parentId ? (allDepartments?.find(d => d.id === department.draftData?.parentId)?.name || 'Үндсэн нэгж') : (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж')}</span>
+                                    )}
+                                </div>
+
+                                {/* Status Selector */}
+                                <div className="h-8 flex items-center">
+                                    {isEditInfoOpen ? (
+                                        <div className="flex items-center gap-2 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
+                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Төлөв:</Label>
+                                            <Select
+                                                value={editFormData.status}
+                                                onValueChange={(val: string) => setEditFormData(prev => ({ ...prev, status: val as 'active' | 'inactive' }))}
+                                            >
+                                                <SelectTrigger className="h-6 w-[100px] text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="active" className="text-xs text-emerald-600">Идэвхтэй</SelectItem>
+                                                    <SelectItem value="inactive" className="text-xs text-slate-600">Идэвхгүй</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ) : (
+                                        (department.draftData?.status || department.status) ? (
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-[10px] font-bold border-none px-2 h-6",
+                                                    (department.draftData?.status || department.status) === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
+                                                )}
+                                            >
+                                                {(department.draftData?.status || department.status) === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                            </Badge>
+                                        ) : null
+                                    )}
+                                </div>
+
+                                {/* Color Picker */}
+                                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white/50 px-2 py-0.5 rounded-md border border-slate-200/40 h-8">
+                                    {isEditInfoOpen ? (
+                                        <>
+                                            <Label className="text-[10px] uppercase font-bold text-slate-400">Өнгө:</Label>
+                                            <input
+                                                type="color"
+                                                className="w-5 h-5 rounded-full border-none p-0 cursor-pointer overflow-hidden"
+                                                value={editFormData.color}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData(prev => ({ ...prev, color: e.target.value }))}
+                                            />
+                                            <span className="font-mono text-[10px]">{editFormData.color}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div
+                                                className="w-3 h-3 rounded-full border border-white shadow-sm"
+                                                style={{ backgroundColor: (department.draftData?.color || department.color) || '#cbd5e1' }}
+                                            />
+                                            <span>Өнгө</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </div>
+
+                        {!isEditInfoOpen && (
+                            <div
+                                className="h-12 w-12 rounded-xl flex items-center justify-center bg-white shadow-soft border border-border/40 text-lg font-bold"
+                                style={{ color: (department.draftData?.color || department.color) || 'var(--primary)' }}
+                            >
+                                {(department.draftData?.code || department.code)?.substring(0, 2) || '??'}
+                            </div>
+                        )}
                     </div>
                 </CardHeader>
 
-                <div className="mx-6 sm:mx-8 border-t border-slate-100" />
-
-                <CardContent className="py-5 px-6 sm:px-8 bg-slate-50/40">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                <CardContent className="pb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                         <div className="space-y-2 group">
-                            <p className="text-[10px] uppercase font-black tracking-widest text-primary/70 flex items-center gap-2 group-hover:text-primary transition-colors">
-                                <Target className="w-4 h-4" /> Зорилго
-                            </p>
-                            <p className="text-xs text-slate-600 italic line-clamp-2 leading-relaxed font-medium">
-                                {department.vision || 'Алсын хараа болон зорилго тодорхойлогдоогүй байна. "Мэдээлэл засах" хэсгээс оруулна уу.'}
-                            </p>
+                            <div className="flex items-center gap-2 text-primary/80">
+                                <Target className="w-3.5 h-3.5" />
+                                <h4 className="text-[10px] font-bold uppercase tracking-[0.15em]">Зорилго</h4>
+                            </div>
+                            <div className={cn(
+                                "p-3.5 rounded-xl transition-all min-h-[100px] shadow-sm",
+                                isEditInfoOpen ? "bg-white border-primary/20 ring-2 ring-primary/5" : "bg-white/60 backdrop-blur-sm border border-border/40 group-hover:border-primary/20"
+                            )}>
+                                {isEditInfoOpen ? (
+                                    <Textarea
+                                        className="text-xs leading-relaxed text-slate-600 italic border-none bg-transparent p-0 focus-visible:ring-0 min-h-[80px] resize-none w-full"
+                                        value={editFormData.vision}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditFormData(prev => ({ ...prev, vision: e.target.value }))}
+                                        placeholder="Нэгжийн хэтийн зорилго..."
+                                    />
+                                ) : (
+                                    <p className="text-xs leading-relaxed text-slate-600 italic">
+                                        {department.draftData?.vision || department.vision || 'Зорилго бүртгэгдээгүй байна...'}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                         <div className="space-y-2 group">
-                            <p className="text-[10px] uppercase font-black tracking-widest text-primary/70 flex items-center gap-2 group-hover:text-primary transition-colors">
-                                <Briefcase className="w-4 h-4" /> Чиг үүрэг
-                            </p>
-                            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-medium">
-                                {department.description || 'Нэгжийн үндсэн чиг үүрэг тодорхойлогдоогүй байна. "Мэдээлэл засах" хэсгээс оруулна уу.'}
-                            </p>
+                            <div className="flex items-center gap-2 text-primary/80">
+                                <Briefcase className="w-3.5 h-3.5" />
+                                <h4 className="text-[10px] font-bold uppercase tracking-[0.15em]">Чиг үүрэг</h4>
+                            </div>
+                            <div className={cn(
+                                "p-3.5 rounded-xl transition-all min-h-[100px] shadow-sm",
+                                isEditInfoOpen ? "bg-white border-primary/20 ring-2 ring-primary/5" : "bg-white/60 backdrop-blur-sm border border-border/40 group-hover:border-primary/20"
+                            )}>
+                                {isEditInfoOpen ? (
+                                    <Textarea
+                                        className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap border-none bg-transparent p-0 focus-visible:ring-0 min-h-[80px] resize-none w-full"
+                                        value={editFormData.description}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        placeholder="Нэгжийн үндсэн чиг үүрэг..."
+                                    />
+                                ) : (
+                                    <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap">
+                                        {department.draftData?.description || department.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Content Control Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                <div className="flex items-center gap-3">
-                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-[180px]">
-                        <TabsList className="grid w-full grid-cols-2 h-9 p-1 bg-slate-100/80">
-                            <TabsTrigger value="chart" className="gap-2 text-[11px] font-bold">
-                                <Network className="h-3.5 w-3.5" />
-                                <span>Зураглал</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="list" className="gap-2 text-[11px] font-bold">
-                                <LayoutList className="h-3.5 w-3.5" />
-                                <span>Жагсаалт</span>
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </div>
+            <div className="space-y-6">
+                {/* Content Control Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                    <div className="flex items-center gap-3">
+                        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-[180px]">
+                            <TabsList className="grid w-full grid-cols-2 h-9 p-1 bg-slate-100/80">
+                                <TabsTrigger value="chart" className="gap-2 text-[11px] font-semibold">
+                                    <Network className="h-3.5 w-3.5" />
+                                    <span>Зураглал</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="list" className="gap-2 text-[11px] font-semibold">
+                                    <LayoutList className="h-3.5 w-3.5" />
+                                    <span>Жагсаалт</span>
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
 
-                <div className="flex items-center gap-3">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    size="icon"
-                                    className="h-10 w-10 rounded-xl shadow-lg shadow-primary/20 transition-all group shrink-0"
-                                    onClick={handleAddPositionWithReset}
-                                >
-                                    <PlusCircle className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Ажлын байр нэмэх</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 border-slate-200 hover:bg-white hover:border-primary/30 rounded-xl transition-all"
+                                        onClick={handleSyncCounts}
+                                        disabled={isDisapproving}
+                                    >
+                                        <Sparkles className={cn("h-4 w-4 text-primary/60", isDisapproving && "animate-spin")} />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="text-xs">Орон тооны тооцооллыг шинэчлэх</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+
+                    <Button
+                        size="sm"
+                        className="h-9 rounded-xl shadow-lg shadow-primary/20 transition-all group gap-2 px-4"
+                        onClick={handleAddPositionWithReset}
+                    >
+                        <PlusCircle className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                        <span>Албан тушаал нэмэх</span>
+                    </Button>
                 </div>
+                {viewMode === 'chart' ? (
+                    <PositionStructureChart
+                        positions={positions || []}
+                        department={department}
+                        isLoading={isLoading}
+                        onPositionClick={handleEditPosition}
+                        onAddChild={handleAddChildPosition}
+                        lookups={lookups}
+                    />
+                ) : (
+                    <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/50 overflow-hidden">
+                        <PositionsListTable
+                            positions={positions || []}
+                            lookups={lookups}
+                            isLoading={isLoading}
+                            selectedIds={selectedPositionIds}
+                            onSelectionChange={setSelectedPositionIds}
+                            onEdit={handleEditPosition}
+                            onDelete={handleDeletePosition}
+                            onDuplicate={handleDuplicatePosition}
+                        />
+                    </Card>
+                )}
             </div>
+
 
             <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>
                 <AlertDialogContent className="sm:max-w-[500px]">
@@ -626,7 +954,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                     </AlertDialogHeader>
                     <div className="py-4 space-y-4">
                         <div className="space-y-2">
-                            <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Батлах огноо (Тушаалын огноо)</Label>
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Батлах огноо (Тушаалын огноо)</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -652,7 +980,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[11px] font-black uppercase text-slate-500 tracking-wider">Тэмдэглэл (Сонголттой)</Label>
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Тэмдэглэл (Сонголттой)</Label>
                             <Textarea
                                 placeholder="Батлахтай холбоотой тайлбар оруулна уу..."
                                 value={approvalNote}
@@ -675,7 +1003,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                     handleApproveStructure();
                                 }
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-6 rounded-xl transition-all"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-10 px-6 rounded-xl transition-all"
                             disabled={isApproving || (selectedPositionIds.length === 0 && stats.pending > 0)}
                         >
                             {isApproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
@@ -781,59 +1109,35 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 </AlertDialogContent>
             </AlertDialog>
 
-            {selectedPositionIds.length > 0 && (
-                <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/10 rounded-xl animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-primary">{selectedPositionIds.length} ширхэг сонгосон</span>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedPositionIds([])} className="h-8 text-[11px]">Сонголтыг цэвэрлэх</Button>
+            {
+                selectedPositionIds.length > 0 && (
+                    <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/10 rounded-xl animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-primary">{selectedPositionIds.length} ширхэг сонгосон</span>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedPositionIds([])} className="h-8 text-[11px]">Сонголтыг цэвэрлэх</Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-4 rounded-xl text-emerald-600 border-emerald-200"
+                                onClick={() => setIsApproveConfirmOpen(true)}
+                            >
+                                <CheckCircle className="h-4 w-4 mr-2" /> Батлах
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 px-4 rounded-xl text-amber-600"
+                                onClick={() => setIsDisapproveConfirmOpen(true)}
+                                disabled={isDisapproving}
+                            >
+                                <HistoryIcon className="h-4 w-4 mr-2" /> Батламж цуцлах
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9 px-4 rounded-xl text-emerald-600 border-emerald-200"
-                            onClick={() => setIsApproveConfirmOpen(true)}
-                        >
-                            <CheckCircle className="h-4 w-4 mr-2" /> Батлах
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 px-4 rounded-xl text-amber-600"
-                            onClick={() => setIsDisapproveConfirmOpen(true)}
-                            disabled={isDisapproving}
-                        >
-                            <HistoryIcon className="h-4 w-4 mr-2" /> Батламж цуцлах
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {viewMode === 'list' ? (
-                <Card className="shadow-sm border-border/50">
-                    <CardContent className="p-0">
-                        <PositionsListTable
-                            positions={positions || []}
-                            lookups={lookups}
-                            isLoading={isLoading}
-                            selectedIds={selectedPositionIds}
-                            onSelectionChange={setSelectedPositionIds}
-                            onEdit={handleEditPosition}
-                            onDelete={handleDeletePosition}
-                            onDuplicate={handleDuplicatePosition}
-                        />
-                    </CardContent>
-                </Card>
-            ) : (
-                <PositionStructureChart
-                    positions={positions || []}
-                    department={department}
-                    isLoading={isLoading}
-                    onPositionClick={handleEditPosition}
-                    lookups={lookups}
-                    onAddChild={handleAddChildPosition}
-                />
-            )}
+                )
+            }
 
             <AddPositionDialog
                 open={isAddPositionOpen}
@@ -849,6 +1153,6 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 parentPositionId={pendingParentPositionId}
                 initialMode={pendingParentPositionId ? 'quick' : 'full'}
             />
-        </div>
+        </div >
     );
 };

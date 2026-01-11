@@ -42,7 +42,7 @@ export function UnassignedEmployeesDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col p-0 gap-0 overflow-hidden rounded-[24px]">
                 <DialogHeader className="p-6 pb-4 border-b">
-                    <DialogTitle className="text-xl font-bold">Томилогдоогүй ажилтнууд</DialogTitle>
+                    <DialogTitle className="text-xl font-semibold">Томилогдоогүй ажилтнууд</DialogTitle>
                     <DialogDescription>
                         Ажлын байр томилох шаардлагатай байгаа {employees.length} ажилтан байна.
                     </DialogDescription>
@@ -70,19 +70,19 @@ export function UnassignedEmployeesDialog({
                                 <div className="flex items-center gap-3">
                                     <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
                                         <AvatarImage src={emp.photoURL} />
-                                        <AvatarFallback className="bg-slate-100 text-slate-600 font-bold">
+                                        <AvatarFallback className="bg-slate-100 text-slate-600 font-semibold">
                                             {emp.firstName?.charAt(0)}
                                         </AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <div className="font-bold text-sm text-slate-900">{emp.firstName} {emp.lastName}</div>
+                                        <div className="font-semibold text-sm text-slate-900">{emp.firstName} {emp.lastName}</div>
                                         <div className="text-[10px] text-slate-500 font-medium uppercase tracking-tight">{emp.jobTitle || 'Албан тушаал тодорхойгүй'}</div>
                                     </div>
                                 </div>
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="rounded-xl h-8 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="rounded-xl h-8 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
                                     onClick={() => onAssign(emp)}
                                 >
                                     <UserPlus className="h-3.5 w-3.5 mr-1" />
@@ -100,7 +100,7 @@ export function UnassignedEmployeesDialog({
                 </ScrollArea>
 
                 <div className="p-4 border-t bg-slate-50 flex justify-end">
-                    <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl h-10 px-6 font-bold">Хаах</Button>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl h-10 px-6 font-semibold">Хаах</Button>
                 </div>
             </DialogContent>
         </Dialog>

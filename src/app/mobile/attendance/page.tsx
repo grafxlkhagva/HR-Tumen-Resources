@@ -382,7 +382,7 @@ function RecentActivityList({ employeeId }: { employeeId: string }) {
                         </div>
                     </div>
                     <div className="text-right">
-                        <span className={cn("text-xs font-bold px-2 py-1 rounded-full", log.checkOutTime ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700")}>
+                        <span className={cn("text-xs font-semibold px-2 py-1 rounded-full", log.checkOutTime ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700")}>
                             {log.checkOutTime ? calculateDuration(log.checkInTime, log.checkOutTime) : 'Ажиллаж байна'}
                         </span>
                     </div>
@@ -435,11 +435,11 @@ const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceDashboar
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-primary/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
-                    <span className="text-2xl font-bold text-primary">{stats.present}</span>
+                    <span className="text-2xl font-semibold text-primary">{stats.present}</span>
                     <span className="text-xs text-muted-foreground">Ирцтэй өдөр</span>
                 </div>
                 <div className="bg-primary/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
-                    <span className="text-2xl font-bold text-primary">{stats.totalHours}</span>
+                    <span className="text-2xl font-semibold text-primary">{stats.totalHours}</span>
                     <span className="text-xs text-muted-foreground">Нийт цаг</span>
                 </div>
             </div>
@@ -636,7 +636,7 @@ export default function AttendancePage() {
             {/* Header */}
             <header className="px-6 py-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-bold">Ирц бүртгэл</h1>
+                    <h1 className="text-xl font-semibold">Ирц бүртгэл</h1>
                     <p className="text-sm text-muted-foreground">{todayString}</p>
                 </div>
                 <div className="bg-muted p-2 rounded-full">
@@ -649,7 +649,7 @@ export default function AttendancePage() {
                 <Card className="border-0 shadow-lg bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground overflow-hidden relative">
                     <CardContent className="p-8 flex flex-col items-center justify-center text-center relative z-10">
                         <div className="text-xs font-semibold uppercase tracking-wider opacity-80 mb-2">Одоогийн цаг</div>
-                        <div className="text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
+                        <div className="text-5xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
                             {currentTime ? format(currentTime, 'HH:mm') : '--:--'}
                         </div>
                         <div className="text-sm opacity-80 mb-8">{currentTime ? format(currentTime, 'ss') : '--'} секунд</div>
@@ -657,7 +657,7 @@ export default function AttendancePage() {
                         {!isCheckedIn ? (
                             <Button
                                 size="lg"
-                                className="h-16 w-48 rounded-full bg-white text-primary hover:bg-white/90 font-bold text-lg shadow-xl hover:scale-105 transition-all"
+                                className="h-16 w-48 rounded-full bg-white text-primary hover:bg-white/90 font-semibold text-lg shadow-xl hover:scale-105 transition-all"
                                 onClick={() => handleAttendance('check-in')}
                                 disabled={isSubmitting}
                             >
@@ -670,7 +670,7 @@ export default function AttendancePage() {
                                 </div>
                                 <Button
                                     size="lg"
-                                    className="h-14 w-48 rounded-full bg-red-500/90 text-white hover:bg-red-500 font-bold shadow-xl hover:scale-105 transition-all"
+                                    className="h-14 w-48 rounded-full bg-red-500/90 text-white hover:bg-red-500 font-semibold shadow-xl hover:scale-105 transition-all"
                                     onClick={() => handleAttendance('check-out')}
                                     disabled={isSubmitting}
                                 >

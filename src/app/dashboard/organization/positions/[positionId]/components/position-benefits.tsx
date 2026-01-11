@@ -4,153 +4,173 @@ import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Heart, Home, Clock, Plane, Edit2, Check, X } from 'lucide-react';
+
+import { Edit2, Check, X, PlusCircle, Trash2, DollarSign } from 'lucide-react';
 import { Position } from '../../../types';
 
 interface PositionBenefitsProps {
     position: Position;
     onUpdate: (data: Partial<Position>) => Promise<void>;
+    isEditing?: boolean;
 }
 
 export function PositionBenefits({
     position,
-    onUpdate
+    onUpdate,
+    isEditing = false
 }: PositionBenefitsProps) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
-        isRemoteAllowed: position.benefits?.isRemoteAllowed || false,
-        flexibleHours: position.benefits?.flexibleHours || false,
-        vacationDays: position.benefits?.vacationDays || 0,
-        otherBenefits: position.benefits?.otherBenefits?.join('\n') || ''
+        allowances: position.benefits?.allowances || []
     });
 
-    const handleSave = async () => {
-        setIsLoading(true);
-        try {
-            await onUpdate({
-                benefits: {
-                    isRemoteAllowed: formData.isRemoteAllowed,
-                    flexibleHours: formData.flexibleHours,
-                    vacationDays: Number(formData.vacationDays),
-                    otherBenefits: formData.otherBenefits.split('\n').filter(r => r.trim() !== '')
-                }
-            });
-            setIsEditing(false);
-        } catch (error) {
-            console.error('Failed to update benefits', error);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleFieldUpdate = (field: string, value: any) => {
+        const newData = { ...formData, [field]: value };
+        setFormData(newData);
+
+        // Map back to the Position structure
+        onUpdate({
+            benefits: {
+                allowances: field === 'allowances' ? value : formData.allowances
+            }
+        });
     };
 
-    const handleCancel = () => {
-        setFormData({
-            isRemoteAllowed: position.benefits?.isRemoteAllowed || false,
-            flexibleHours: position.benefits?.flexibleHours || false,
-            vacationDays: position.benefits?.vacationDays || 0,
-            otherBenefits: position.benefits?.otherBenefits?.join('\n') || ''
-        });
-        setIsEditing(false);
+    const handleAddAllowance = () => {
+        const newAllowances = [...formData.allowances, { name: '', amount: 0, currency: 'MNT' }];
+        handleFieldUpdate('allowances', newAllowances);
+    };
+
+    const handleRemoveAllowance = (index: number) => {
+        const newAllowances = formData.allowances.filter((_, i) => i !== index);
+        handleFieldUpdate('allowances', newAllowances);
+    };
+
+    const handleUpdateAllowance = (index: number, field: 'name' | 'amount' | 'currency', value: any) => {
+        const newAllowances = [...formData.allowances];
+        newAllowances[index] = { ...newAllowances[index], [field]: value };
+        handleFieldUpdate('allowances', newAllowances);
     };
 
     return (
-        <div className="space-y-6">
-            <Card className="border-none shadow-xl shadow-slate-200/50 ring-1 ring-slate-200/50">
-                <CardHeader className="bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-rose-500" /> Хангамж ба Хөнгөлөлт
-                    </CardTitle>
-                    {!isEditing ? (
-                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-8 w-8 p-0">
-                            <Edit2 className="w-4 h-4 text-slate-400" />
-                        </Button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isLoading} className="h-8 w-8 p-0">
-                                <X className="w-4 h-4 text-destructive" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={handleSave} disabled={isLoading} className="h-8 w-8 p-0">
-                                <Check className="w-4 h-4 text-emerald-600" />
-                            </Button>
+        <div className="space-y-8">
+            <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/60 overflow-hidden bg-white rounded-3xl">
+                <CardHeader className="bg-slate-50/30 border-b border-slate-100 flex flex-row items-center justify-between px-8 py-6">
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                            <DollarSign className="w-4 h-4 text-emerald-500" />
                         </div>
-                    )}
-                </CardHeader>
-                <CardContent className="p-8 space-y-8">
-                    {/* Work Conditions Tags / Editors */}
-                    <div className="space-y-6">
-                        {isEditing ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                    <label className="text-base font-medium">Гэрээс ажиллах</label>
-                                    <Switch checked={formData.isRemoteAllowed} onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRemoteAllowed: checked }))} />
-                                </div>
-                                <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                    <label className="text-base font-medium">Уян хатан цаг</label>
-                                    <Switch checked={formData.flexibleHours} onCheckedChange={(checked) => setFormData(prev => ({ ...prev, flexibleHours: checked }))} />
-                                </div>
-                                <div className="col-span-1 md:col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Нэмэлт амралтын хоног (Жилд)</label>
-                                    <Input type="number" value={formData.vacationDays} onChange={e => setFormData(prev => ({ ...prev, vacationDays: parseInt(e.target.value) || 0 }))} />
-                                    <p className="text-[10px] text-slate-500">Хуулийн дагуух 15 хоногоос гадуурх нэмэлт хоног.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-3">
-                                {position.benefits?.isRemoteAllowed && (
-                                    <Badge className="bg-blue-50 text-blue-600 border border-blue-100 rounded-lg px-4 py-1.5 font-bold text-[10px] uppercase gap-2">
-                                        <Home className="w-3.5 h-3.5" /> Гэрээс ажиллах боломжтой
-                                    </Badge>
-                                )}
-                                {position.benefits?.flexibleHours && (
-                                    <Badge className="bg-amber-50 text-amber-600 border border-amber-100 rounded-lg px-4 py-1.5 font-bold text-[10px] uppercase gap-2">
-                                        <Clock className="w-3.5 h-3.5" /> Уян хатан цаг
-                                    </Badge>
-                                )}
-                                {position.benefits?.vacationDays && position.benefits.vacationDays > 0 ? (
-                                    <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg px-4 py-1.5 font-bold text-[10px] uppercase gap-2">
-                                        <Plane className="w-3.5 h-3.5" /> +{position.benefits.vacationDays} хоногийн амралт
-                                    </Badge>
-                                ) : null}
-                            </div>
-                        )}
+                        <CardTitle className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Хамгамж ба хөнгөлөлт</CardTitle>
                     </div>
+                </CardHeader>
 
-                    <div className="h-px bg-slate-100 w-full" />
+                <CardContent className="p-10 space-y-12">
 
-                    {/* List of Benefits */}
-                    <div className="space-y-6">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-800">Бусад хөнгөлөлтүүд</h4>
+
+                    {/* Allowances Section */}
+                    <div className="space-y-8">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                    <DollarSign className="w-4 h-4 text-emerald-500" />
+                                </div>
+                                <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-800">Хангамжийн мөнгөн дүн</h4>
+                            </div>
+                            {isEditing && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddAllowance}
+                                    className="rounded-xl border-dashed"
+                                >
+                                    <PlusCircle className="w-4 h-4 mr-2" />
+                                    Нэмэх
+                                </Button>
+                            )}
+                        </div>
+
                         {isEditing ? (
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500">Мөр бүрт нэг хөнгөлөлт бичнэ үү</label>
-                                <Textarea
-                                    className="min-h-[150px]"
-                                    value={formData.otherBenefits}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, otherBenefits: e.target.value }))}
-                                    placeholder="Жишээ нь:&#10;Үнэгүй хоол&#10;Фитнес"
-                                />
+                            <div className="space-y-4">
+                                {formData.allowances.length === 0 ? (
+                                    <div className="py-8 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/30">
+                                        <DollarSign className="w-8 h-8 text-slate-300 mb-2" />
+                                        <p className="text-xs font-medium text-slate-400">Хангамж нэмэгдээгүй байна</p>
+                                        <p className="text-[10px] text-slate-300 mt-1">Дээрх "Нэмэх" товчийг дарж эхлүүлнэ үү</p>
+                                    </div>
+                                ) : (
+                                    formData.allowances.map((allowance, index) => (
+                                        <div key={index} className="grid grid-cols-12 gap-3 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                            <div className="col-span-12 sm:col-span-6">
+                                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 block">Нэр</label>
+                                                <Input
+                                                    value={allowance.name}
+                                                    onChange={(e) => handleUpdateAllowance(index, 'name', e.target.value)}
+                                                    placeholder="Жишээ: Хоолны мөнгө"
+                                                    className="h-10 rounded-xl border-slate-200 bg-slate-50/50"
+                                                />
+                                            </div>
+                                            <div className="col-span-9 sm:col-span-4">
+                                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 block">Дүн</label>
+                                                <Input
+                                                    type="text"
+                                                    value={allowance.amount.toLocaleString('en-US')}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value.replace(/,/g, '');
+                                                        const numValue = parseFloat(value) || 0;
+                                                        handleUpdateAllowance(index, 'amount', numValue);
+                                                    }}
+                                                    placeholder="0"
+                                                    className="h-10 rounded-xl border-slate-200 bg-slate-50/50"
+                                                />
+                                            </div>
+                                            <div className="col-span-3 sm:col-span-2 flex items-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleRemoveAllowance(index)}
+                                                    className="h-10 w-full rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         ) : (
-                            position.benefits?.otherBenefits && position.benefits.otherBenefits.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-4">
-                                    {position.benefits.otherBenefits.map((benefit, i) => (
-                                        benefit.trim() && (
-                                            <div key={i} className="flex items-center gap-4 group">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/40 group-hover:scale-150 group-hover:bg-primary transition-all shrink-0" />
-                                                <p className="text-sm text-slate-600 font-medium">{benefit}</p>
+                            position.benefits?.allowances && position.benefits.allowances.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {position.benefits.allowances.map((allowance, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100 group hover:bg-emerald-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-800">{allowance.name}</p>
+                                                    <p className="text-[10px] text-slate-500 font-medium">Сар бүр</p>
+                                                </div>
                                             </div>
-                                        )
+                                            <div className="text-right">
+                                                <p className="text-lg font-bold text-emerald-600">{allowance.amount.toLocaleString()}</p>
+                                                <p className="text-[10px] text-slate-400 font-semibold">{allowance.currency || 'MNT'}</p>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-sm text-slate-400 italic font-medium text-center py-8">Бүртгэлтэй бусад хөнгөлөлт байхгүй</p>
+                                <div className="py-8 flex flex-col items-center justify-center text-center opacity-30">
+                                    <div className="h-12 w-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                                        <DollarSign className="w-6 h-6 text-slate-300" />
+                                    </div>
+                                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Хангамж бүртгэгдээгүй</p>
+                                </div>
                             )
                         )}
                     </div>
+
+
                 </CardContent>
             </Card>
         </div>

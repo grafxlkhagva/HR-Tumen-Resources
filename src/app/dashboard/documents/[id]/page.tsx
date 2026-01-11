@@ -367,7 +367,7 @@ export default function DocumentDetailPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">{documentData.title}</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight">{documentData.title}</h1>
                         <p className="text-muted-foreground">{documentData.description}</p>
                     </div>
                 </div>

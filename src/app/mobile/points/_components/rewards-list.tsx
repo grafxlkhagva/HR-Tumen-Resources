@@ -93,12 +93,12 @@ export function RewardsList() {
                         </div>
 
                         <div className="space-y-1">
-                            <h4 className="font-bold text-slate-800 text-sm truncate">{item.title}</h4>
+                            <h4 className="font-semibold text-slate-800 text-sm truncate">{item.title}</h4>
                             <div className="flex items-center gap-1.5 pt-1">
                                 <div className="p-1 bg-yellow-50 rounded-md">
                                     <Star className="w-3 h-3 text-yellow-600 fill-yellow-600" />
                                 </div>
-                                <span className="font-black text-indigo-600 text-sm">{item.cost.toLocaleString()}</span>
+                                <span className="font-semibold text-indigo-600 text-sm">{item.cost.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -121,9 +121,9 @@ export function RewardsList() {
                                 {selectedReward.imageUrl ? <img src={selectedReward.imageUrl} className="w-full h-full object-cover rounded-xl" /> : '🎁'}
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900">{selectedReward.title}</h3>
+                                <h3 className="font-semibold text-slate-900">{selectedReward.title}</h3>
                                 <p className="text-xs text-slate-500 line-clamp-1">{selectedReward.description}</p>
-                                <p className="text-sm font-black text-indigo-600 mt-1">{selectedReward.cost} pts</p>
+                                <p className="text-sm font-semibold text-indigo-600 mt-1">{selectedReward.cost} pts</p>
                             </div>
                         </div>
                     )}

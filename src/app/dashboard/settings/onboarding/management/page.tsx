@@ -126,7 +126,7 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
             <Link href={`/dashboard/settings/onboarding/${program.id}`} className="flex-1 flex flex-col p-6">
                 <div className="flex justify-between items-start mb-4">
                     <div className="space-y-1.5">
-                        <h3 className="font-bold text-xl tracking-tight text-foreground group-hover:text-primary transition-colors">
+                        <h3 className="font-semibold text-xl tracking-tight text-foreground group-hover:text-primary transition-colors">
                             {program.title}
                         </h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
@@ -141,7 +141,7 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
                             <Layers className="h-4 w-4" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-foreground">{program.stageCount || 0}</span>
+                            <span className="font-semibold text-foreground">{program.stageCount || 0}</span>
                             <span className="text-xs">Үе шат</span>
                         </div>
                     </div>
@@ -150,7 +150,7 @@ function ProgramCard({ program, lookups, onEdit, onDelete }: { program: Onboardi
                             <ListTodo className="h-4 w-4" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-foreground">{program.taskCount || 0}</span>
+                            <span className="font-semibold text-foreground">{program.taskCount || 0}</span>
                             <span className="text-xs">Даалгавар</span>
                         </div>
                     </div>

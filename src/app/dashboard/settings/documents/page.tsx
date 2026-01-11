@@ -37,7 +37,7 @@ export default function DocumentSettingsPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Бичиг баримтын тохиргоо</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Бичиг баримтын тохиргоо</h1>
             <p className="text-muted-foreground">Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.</p>
           </div>
         </div>

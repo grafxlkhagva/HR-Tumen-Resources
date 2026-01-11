@@ -35,7 +35,7 @@ function PolicyItem({ policy }: { policy: CompanyPolicy }) {
                     <FileText className="h-6 w-6 text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-800 text-sm truncate">{policy.title}</h3>
+                    <h3 className="font-semibold text-slate-800 text-sm truncate">{policy.title}</h3>
                     <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{policy.description}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors" />
@@ -67,7 +67,7 @@ export default function MobilePoliciesPage() {
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                 </Link>
-                <h1 className="font-bold text-lg text-slate-800">Дүрэм, журам</h1>
+                <h1 className="font-semibold text-lg text-slate-800">Дүрэм, журам</h1>
             </header>
 
             <div className="p-6">
@@ -88,7 +88,7 @@ export default function MobilePoliciesPage() {
                             <FileSearch className="w-12 h-12 text-slate-300" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-lg text-slate-800">Мэдээлэл алга</h2>
+                            <h2 className="font-semibold text-lg text-slate-800">Мэдээлэл алга</h2>
                             <p className="text-slate-500 text-sm mt-1 max-w-[250px] mx-auto">Танд хамааралтай дүрэм, журам одоогоор олдсонгүй.</p>
                         </div>
                     </div>

@@ -137,7 +137,7 @@ export const AssignManagerDialog = ({ open, onOpenChange, department }: AssignMa
                                         <Briefcase className="w-5 h-5" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-sm truncate leading-none">
+                                        <p className="font-semibold text-sm truncate leading-none">
                                             {pos.title}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1.5">

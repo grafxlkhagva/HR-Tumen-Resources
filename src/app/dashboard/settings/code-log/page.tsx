@@ -46,7 +46,7 @@ export default function CodeLogPage() {
             </Link>
         </Button>
         <div>
-            <h1 className="text-2xl font-bold tracking-tight">Ажилтны кодын түүх</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Ажилтны кодын түүх</h1>
             <p className="text-muted-foreground">
                 Системд үүсгэгдсэн бүх ажилтны код болон харгалзах ажилтны жагсаалт.
             </p>

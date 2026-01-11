@@ -20,9 +20,10 @@ import { useToast } from '@/hooks/use-toast';
 interface SettingsTabProps {
     department: Department;
     onSuccess?: () => void;
+    mode?: 'live' | 'draft';
 }
 
-export const SettingsTab = ({ department, onSuccess }: SettingsTabProps) => {
+export const SettingsTab = ({ department, onSuccess, mode = 'live' }: SettingsTabProps) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
@@ -49,18 +50,20 @@ export const SettingsTab = ({ department, onSuccess }: SettingsTabProps) => {
 
     // Sync local state with department prop when it changes
     useEffect(() => {
+        const source = mode === 'draft' && department.draftData ? { ...department, ...department.draftData } : department;
+
         setFormData({
-            name: department.name || '',
-            code: department.code || '',
-            status: department.status || 'active',
-            typeId: department.typeId || '',
-            parentId: department.parentId || '',
-            color: department.color || '#000000',
-            createdAt: department.createdAt ? new Date(department.createdAt) : new Date(),
-            description: department.description || '',
-            vision: department.vision || '',
+            name: source.name || '',
+            code: source.code || '',
+            status: source.status || 'active',
+            typeId: source.typeId || '',
+            parentId: source.parentId || '',
+            color: source.color || '#000000',
+            createdAt: source.createdAt ? new Date(source.createdAt) : new Date(),
+            description: source.description || '',
+            vision: source.vision || '',
         });
-    }, [department]);
+    }, [department, mode]);
 
     const handleSave = async () => {
         if (!firestore) return;
@@ -68,20 +71,29 @@ export const SettingsTab = ({ department, onSuccess }: SettingsTabProps) => {
         setIsLoading(true);
         try {
             const docRef = doc(firestore, 'departments', department.id);
-            await updateDocumentNonBlocking(docRef, {
+            const dataToSave = {
                 name: formData.name,
                 code: formData.code,
-                status: formData.status,
+                status: formData.status as 'active' | 'inactive',
                 typeId: formData.typeId,
                 parentId: formData.parentId === "root" ? "" : formData.parentId,
                 color: formData.color,
                 createdAt: formData.createdAt.toISOString(),
                 description: formData.description,
                 vision: formData.vision,
-            });
+            };
+
+            if (mode === 'draft') {
+                await updateDocumentNonBlocking(docRef, {
+                    draftData: dataToSave
+                });
+            } else {
+                await updateDocumentNonBlocking(docRef, dataToSave);
+            }
+
             toast({
                 title: 'Амжилттай хадгалагдлаа',
-                description: 'Нэгжийн мэдээлэл шинэчлэгдлээ.',
+                description: mode === 'draft' ? 'Төлөвлөж буй өөрчлөлт хадгалагдлаа.' : 'Нэгжийн мэдээлэл шинэчлэгдлээ.',
             });
             onSuccess?.();
         } catch (error) {
@@ -252,21 +264,23 @@ export const SettingsTab = ({ department, onSuccess }: SettingsTabProps) => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-destructive/20 bg-destructive/5">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-destructive text-base flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4" />
-                                Аюултай үйлдэг
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">Нэгжийг устгаснаар доорх бүх өгөгдөл архивлах буюу устана. Энэ үйлдлийг буцаах боломжгүй.</p>
-                            <Button variant="destructive" size="sm" className="w-full">
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Нэгжийг устгах
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    {mode === 'live' && (
+                        <Card className="border-destructive/20 bg-destructive/5">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-destructive text-base flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    Аюултай үйлдэл
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground mb-4">Нэгжийг устгаснаар доорх бүх өгөгдөл архивлах буюу устана. Энэ үйлдлийг буцаах боломжгүй.</p>
+                                <Button variant="destructive" size="sm" className="w-full">
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Нэгжийг устгах
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, useState } from 'react';
+import React, { use, useState, useMemo, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import {
     useFirebase,
@@ -10,19 +10,11 @@ import {
     updateDocumentNonBlocking,
     deleteDocumentNonBlocking
 } from '@/firebase';
-import { doc, collection, query, where, arrayUnion } from 'firebase/firestore';
+import { doc, collection, query, where, arrayUnion, writeBatch, increment } from 'firebase/firestore';
 import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-    Briefcase,
-    CheckCircle2,
-    History as HistoryIcon,
-    MapPin,
-    Clock,
-    Building2,
-    Target,
-    Users,
     ChevronLeft,
     Settings,
     Edit3,
@@ -30,33 +22,36 @@ import {
     Sparkles,
     CheckCircle,
     XCircle,
+    CheckCircle2,
     Info,
     Calendar as CalendarIcon,
     ArrowRight,
     UserCircle,
     FileText,
-    ShieldCheck
+    ShieldCheck,
+    Download,
+    LayoutDashboard,
+    ListChecks,
+    BadgeDollarSign,
+    UserPlus,
+    History as HistoryIcon,
+    Briefcase,
+    Building2,
+    Clock,
+    Users,
+    MapPin,
+    Mail,
+    Phone,
+    User
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { mn } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { AddPositionDialog } from '../../add-position-dialog';
 import { Employee } from '@/app/dashboard/employees/data';
-import {
-    Coins,
-    Heart,
-    DollarSign,
-    Calendar,
-    Plane,
-    CreditCard,
-    Gift,
-    Home
-} from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -72,7 +67,10 @@ import { PositionClassification } from './components/position-classification';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
-import { CompletionBar } from './components/completion-bar';
+
+import { AssignEmployeeDialog } from '../../assign-employee-dialog';
+
+
 
 export default function PositionDetailPage({ params }: { params: Promise<{ positionId: string }> }) {
     const { positionId } = use(params);
@@ -85,8 +83,10 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isDisapproveConfirmOpen, setIsDisapproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
-
-
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState<Partial<Position> | null>(null);
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+    const [isReleaseConfirmOpen, setIsReleaseConfirmOpen] = useState(false);
 
     // Data Fetching
     const positionRef = useMemoFirebase(() => (firestore ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
@@ -95,10 +95,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const deptRef = useMemoFirebase(() => (firestore && position?.departmentId ? doc(firestore, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
     const { data: department } = useDoc<Department>(deptRef as any);
 
-    const employeesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('positionId', '==', positionId)) : null), [firestore, positionId]);
-    const { data: assignedEmployees, isLoading: isEmployeesLoading } = useCollection<Employee>(employeesQuery);
-
-    // Lookups for Display & Edit
+    // Lookups
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const categoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
@@ -113,397 +110,383 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const { data: allDepartments } = useCollection<any>(allDeptsQuery);
     const { data: allPositions } = useCollection<Position>(allPositionsQuery);
 
-    if (isPositionLoading) {
-        return (
-            <div className="p-6 md:p-8 space-y-6">
-                <div className="flex justify-between items-center">
-                    <Skeleton className="h-10 w-1/4" />
-                    <div className="flex gap-2">
-                        <Skeleton className="h-10 w-24" />
-                        <Skeleton className="h-10 w-24" />
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Skeleton className="h-[400px] md:col-span-2" />
-                    <Skeleton className="h-[400px]" />
-                </div>
-            </div>
-        );
-    }
+    // Employees
+    const assignedEmployeesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('positionId', '==', positionId)) : null), [firestore, positionId]);
+    const { data: assignedEmployees } = useCollection<Employee>(assignedEmployeesQuery);
 
-    if (!position) {
-        return (
-            <div className="p-6 md:p-8 text-center py-20 flex flex-col items-center gap-4">
-                <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                    <Briefcase className="h-10 w-10" />
-                </div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Ажлын байр олдсонгүй</h2>
-                <Button variant="outline" className="rounded-xl" onClick={() => router.back()}>
-                    <ChevronLeft className="w-4 h-4 mr-2" /> Буцах
-                </Button>
-            </div>
-        );
-    }
+    const allEmployeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
+    const { data: allEmployeesData } = useCollection<Employee>(allEmployeesQuery);
+    const allEmployees = allEmployeesData || [];
 
-    const levelName = levels?.find(l => l.id === position.levelId)?.name || '-';
-    const categoryName = categories?.find(c => c.id === position.jobCategoryId)?.name || '-';
-    const empTypeName = empTypes?.find(t => t.id === position.employmentTypeId)?.name || '-';
-    const scheduleName = schedules?.find(s => s.id === position.workScheduleId)?.name || '-';
+    const isDirty = useMemo(() => {
+        if (!formData || !position) return false;
+        return JSON.stringify(formData) !== JSON.stringify(position);
+    }, [formData, position]);
+
+    if (isPositionLoading) return <div className="p-8 space-y-6"><Skeleton className="h-64 w-full rounded-xl" /></div>;
+    if (!position) return <div className="p-10 text-center">Ажлын байр олдсонгүй</div>;
+
+    // const reportToPosition = allPositions?.find(p => p.id === position.reportsToPositionId)?.title || '-';
+    // Using loose find in case reportsToPositionId is missing or invalid
+    const reportToPosition = position.reportsToPositionId ? (allPositions?.find(p => p.id === position.reportsToPositionId)?.title || 'Unknown') : '-';
+
 
     const history = [...(position.approvalHistory || [])].sort((a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
+    // Edit logic
+    const enterEditMode = () => { setFormData(position); setIsEditing(true); };
+    const handleDiscard = () => { setFormData(null); setIsEditing(false); };
+    const handleGlobalSave = async () => {
+        if (!formData || !firestore) return;
+        try {
+            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), formData);
+            toast({ title: "Бүх өөрчлөлт хадгалагдлаа" });
+            setIsEditing(false); setFormData(null);
+        } catch (e) { toast({ title: "Алдаа", variant: "destructive" }); }
+    };
+    const handleLocalUpdate = async (data: Partial<Position>) => { setFormData(prev => ({ ...prev, ...data })); };
 
-
+    // Actions
     const handleDisapprove = async () => {
         if (!firestore || !user) return;
         const now = new Date().toISOString();
-        const logEntry = {
-            action: 'disapprove',
-            userId: user.uid,
-            userName: user.displayName || user.email || 'Систем',
-            timestamp: now,
-            note: 'Батламжийг цуцаллаа'
-        };
-
+        // @ts-ignore
+        const logEntry = { action: 'disapprove', userId: user.uid, userName: user.displayName || user.email || 'Систем', timestamp: now, note: 'Батламжийг цуцаллаа' };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
-                isApproved: false,
-                disapprovedAt: now,
-                disapprovedBy: user.uid,
-                disapprovedByName: user.displayName || user.email || 'Систем',
-                approvalHistory: arrayUnion(logEntry)
-            });
-            toast({ title: "Батламж цуцлагдлаа", variant: "default" });
-            setIsDisapproveConfirmOpen(false);
-        } catch (e) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        }
+            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), { isApproved: false, disapprovedAt: now, disapprovedBy: user.uid, disapprovedByName: user.displayName || user.email || 'Систем', approvalHistory: arrayUnion(logEntry) });
+            toast({ title: "Батламж цуцлагдлаа" }); setIsDisapproveConfirmOpen(false);
+        } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
     };
-
-    const handleUpdate = async (data: Partial<Position>) => {
-        if (!firestore) return;
-        try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), data);
-            toast({ title: "Амжилттай хадгалагдлаа" });
-        } catch (e) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        }
-    };
-
     const handleDelete = async () => {
         if (!firestore) return;
-        try {
-            await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId));
-            toast({ title: "Ажлын байр устагдлаа" });
-            router.push(`/dashboard/organization/${position.departmentId}`);
-        } catch (e) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        }
+        try { await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId)); toast({ title: "Устгагдлаа" }); router.push(`/dashboard/organization/${position.departmentId}`); } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
     };
-
     const runApproval = async () => {
         if (!firestore || !user) return;
         setIsApproving(true);
         const now = new Date().toISOString();
-        const logEntry = {
-            action: 'approve',
-            userId: user.uid,
-            userName: user.displayName || user.email || 'Систем',
-            timestamp: now,
-            note: 'Ажлын байрыг баталлаа'
-        };
-
+        // @ts-ignore
+        const logEntry = { action: 'approve', userId: user.uid, userName: user.displayName || user.email || 'Систем', timestamp: now, note: 'Ажлын байрыг баталлаа' };
         try {
+            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), { isApproved: true, approvedAt: now, approvedBy: user.uid, approvedByName: user.displayName || user.email || 'Систем', approvalHistory: arrayUnion(logEntry) });
+            toast({ title: "Батлагдлаа" }); setIsApproveConfirmOpen(false);
+        } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) } finally { setIsApproving(false); }
+    };
+
+    const handleRelease = async () => {
+        if (!firestore || !assignedEmployees || assignedEmployees.length === 0) return;
+        const employee = assignedEmployees[0];
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Unassign employee
+            const empRef = doc(firestore, 'employees', employee.id);
+            batch.update(empRef, { positionId: null, jobTitle: null }); // Reset keys
+
+            // 2. Decrement position filled count
+            const posRef = doc(firestore, 'positions', positionId);
+            batch.update(posRef, { filled: increment(-1) });
+
+            // 3. Add History log to position (Optional but good)
             // @ts-ignore
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
-                isApproved: true,
-                approvedAt: now,
-                approvedBy: user.uid,
-                approvedByName: user.displayName || user.email || 'Систем',
-                approvalHistory: arrayUnion(logEntry)
-            });
-            toast({ title: "Ажлын байр батлагдлаа", variant: "default" });
-            setIsApproveConfirmOpen(false);
+            // const logEntry = { action: 'release', userId: user?.uid, userName: user?.displayName || 'System', timestamp: new Date().toISOString(), note: `${employee.firstName} ажилтныг чөлөөллөө.` };
+            // batch.update(posRef, { approvalHistory: arrayUnion(logEntry) });
+
+            await batch.commit();
+            toast({ title: "Ажилтан чөлөөлөгдлөө" });
+            setIsReleaseConfirmOpen(false);
         } catch (e) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsApproving(false);
+            console.error(e);
+            toast({ variant: 'destructive', title: "Алдаа гарлаа" });
         }
     };
 
-
-
     return (
-        <div className="flex flex-col h-full bg-slate-50/50">
-            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
-                <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-xl h-10 w-10 shrink-0"
-                            onClick={() => router.back()}
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                        </Button>
-                        <div className="space-y-0.5">
-                            <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-tight">
-                                {position.title}
-                            </h1>
-                            <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none text-[10px] uppercase">
-                                    {department?.name || 'Нэгж'}
-                                </Badge>
-                                <span className="text-[10px] text-slate-400 font-medium">•</span>
-                                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{levelName}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                        {position.isApproved && (
-                            <Button
-                                variant="outline"
-                                className="rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50 h-9 px-4 font-bold text-xs shrink-0"
-                                onClick={() => setIsDisapproveConfirmOpen(true)}
-                            >
-                                <XCircle className="w-4 h-4 mr-2" /> Цуцлах
+        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+            <PageHeader
+                title={position.title}
+                description={department?.name}
+                breadcrumbs={[
+                    { label: 'Бүтэц', href: `/dashboard/organization/${position.departmentId}` },
+                    { label: position.title }
+                ]}
+                showBackButton
+                actions={
+                    !isEditing ? (
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => {/* JD */ }}>
+                                <Download className="w-4 h-4 mr-2" /> JD Татах
                             </Button>
-                        )}
+                            <Button size="sm" onClick={enterEditMode}>
+                                <Edit3 className="w-4 h-4 mr-2" /> Засах
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={handleDiscard}>
+                                <XCircle className="w-4 h-4 mr-2" /> Болих
+                            </Button>
+                            <Button size="sm" onClick={handleGlobalSave} disabled={!isDirty}>
+                                <CheckCircle2 className="w-4 h-4 mr-2" /> Хадгалах
+                            </Button>
+                        </div>
+                    )
+                }
+            />
 
-                        <Button
-                            variant="ghost"
-                            className="rounded-xl text-destructive hover:bg-destructive/5 h-9 px-4 font-bold text-xs shrink-0"
-                            onClick={() => setIsDeleteConfirmOpen(true)}
-                            disabled={(position.filled || 0) > 0 || position.isApproved}
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" /> Устгах
-                        </Button>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* LEFT COLUMN: Identity & Meta */}
+                <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+                    <Card className="overflow-hidden border-2 shadow-sm">
+                        <div className="h-24 bg-gradient-to-r from-primary/10 to-primary/5 border-b"></div>
+                        <CardContent className="pt-0 relative px-6 pb-6 text-center">
+                            {/* Avatar Section */}
+                            <div className="flex justify-center -mt-12 mb-4">
+                                {assignedEmployees && assignedEmployees.length > 0 ? (
+                                    <div className="relative group">
+                                        <div className="h-[110px] w-[110px] rounded-full bg-white dark:bg-slate-900 border-4 border-background shadow-xl flex items-center justify-center overflow-hidden">
+                                            {assignedEmployees[0].photoURL ? (
+                                                <img src={assignedEmployees[0].photoURL} alt="Employee" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="h-full w-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-3xl">
+                                                    {assignedEmployees[0].firstName?.[0]}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                                            <CheckCircle2 className="w-3 h-3 text-white" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-[110px] w-[110px] rounded-full bg-white dark:bg-slate-900 border-4 border-dashed border-slate-300 shadow-sm flex items-center justify-center">
+                                        <UserPlus className="h-10 w-10 text-slate-300" />
+                                    </div>
+                                )}
+                            </div>
+
+                            <h1 className="text-xl font-bold tracking-tight mb-1">{position.title}</h1>
+                            <div className="flex justify-center mb-4">
+                                <Badge variant="secondary" className="font-normal text-xs px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                    {department?.name?.toUpperCase() || 'НЭГЖ'}
+                                </Badge>
+                            </div>
+
+                            {/* Employee Info or Assign Action */}
+                            <div className="mb-6 py-4 border-t border-b border-dashed border-slate-200 space-y-3">
+                                {assignedEmployees && assignedEmployees.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <div className="font-bold text-slate-900 text-lg">{assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName}</div>
+                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{assignedEmployees[0].employeeCode}</div>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full rounded-xl border-dashed border-slate-300 text-slate-500 hover:text-destructive hover:bg-destructive/5 hover:border-destructive/30"
+                                            onClick={() => setIsReleaseConfirmOpen(true)}
+                                        >
+                                            <UserCircle className="w-4 h-4 mr-2" />
+                                            Чөлөөлөх / Шилжүүлэх
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-400 font-medium italic">Одоогоор сул орон тоо байна</p>
+                                        <Button
+                                            variant="default"
+                                            className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-200"
+                                            onClick={() => setIsAssignDialogOpen(true)}
+                                        >
+                                            <UserPlus className="w-4 h-4 mr-2" />
+                                            Ажилтан томилох
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-center mb-6">
+                                <Badge variant="outline" className={cn("font-bold text-[10px] uppercase tracking-wider border-none px-3 py-1", position.isApproved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
+                                    {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
+                                </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 w-full">
+                                {position.isApproved ? (
+                                    <Button variant="outline" size="sm" className="w-full text-destructive hover:text-destructive border-slate-200 hover:border-destructive/30 hover:bg-destructive/5" onClick={() => setIsDisapproveConfirmOpen(true)}>
+                                        Цуцлах
+                                    </Button>
+                                ) : (
+                                    <Button variant="default" size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 border-none" onClick={() => setIsApproveConfirmOpen(true)}>
+                                        Батлах
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="sm" className="w-full text-muted-foreground border-slate-200 hover:bg-slate-50" onClick={() => setIsDeleteConfirmOpen(true)}>
+                                    Устгах
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Харьяалал</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-2">
+                            <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">{department?.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                <UserCircle className="h-4 w-4 text-muted-foreground" />
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Шууд удирдлага</span>
+                                    <span className="text-sm font-medium">{reportToPosition}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* RIGHT COLUMN: Details & Tabs */}
+                <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+                    {/* Tabs */}
+                    <Tabs defaultValue="overview" className="w-full">
+                        <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-b rounded-none mb-6 overflow-x-auto">
+                            <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
+                                Ерөнхий
+                            </TabsTrigger>
+                            <TabsTrigger value="competency" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
+                                Ур чадвар & АБТ
+                            </TabsTrigger>
+                            <TabsTrigger value="compensation" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
+                                Цалин & Бонус
+                            </TabsTrigger>
+                            <TabsTrigger value="benefits" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
+                                Хангамж
+                            </TabsTrigger>
+                            <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium">
+                                Түүх
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <div className="min-h-[400px]">
+                            <TabsContent value="overview" className="mt-0 space-y-6 focus-visible:outline-none">
+
+
+                                <PositionBasicInfo
+                                    position={isEditing ? (formData as Position) : position}
+                                    departments={allDepartments || []}
+                                    allPositions={allPositions || []}
+                                    onUpdate={handleLocalUpdate}
+                                    isEditing={isEditing}
+                                />
+                                <PositionClassification
+                                    position={isEditing ? (formData as Position) : position}
+                                    levels={levels || []}
+                                    categories={categories || []}
+                                    employmentTypes={empTypes || []}
+                                    schedules={schedules || []}
+                                    onUpdate={handleLocalUpdate}
+                                    isEditing={isEditing}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="competency" className="mt-0 focus-visible:outline-none">
+                                <PositionCompetency
+                                    position={isEditing ? (formData as Position) : position}
+                                    onUpdate={handleLocalUpdate}
+                                    isEditing={isEditing}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="compensation" className="mt-0 focus-visible:outline-none">
+                                <PositionCompensation
+                                    position={isEditing ? (formData as Position) : position}
+                                    onUpdate={handleLocalUpdate}
+                                    isEditing={isEditing}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="benefits" className="mt-0 focus-visible:outline-none">
+                                <PositionBenefits
+                                    position={isEditing ? (formData as Position) : position}
+                                    onUpdate={handleLocalUpdate}
+                                    isEditing={isEditing}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="history" className="mt-0 focus-visible:outline-none">
+                                <Card className="border-none shadow-premium ring-1 ring-border/60 overflow-hidden bg-card rounded-3xl">
+                                    <CardHeader className="bg-slate-50/30 border-b border-slate-100 px-8 py-6">
+                                        <CardTitle className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2.5">
+                                            <HistoryIcon className="w-4 h-4" /> Үйл ажиллагааны түүх
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-10">
+                                        {!history.length ? (
+                                            <div className="flex flex-col items-center justify-center py-24 text-center opacity-30">
+                                                <HistoryIcon className="h-12 w-12 text-slate-400 mb-4" />
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Түүх одоогоор байхгүй</p>
+                                            </div>
+                                        ) : (
+                                            <div className="relative space-y-12 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-100 before:via-slate-200 before:to-slate-100">
+                                                {history.map((log, idx) => (
+                                                    <div key={idx} className="relative flex items-start gap-10 pl-14">
+                                                        <div className={cn(
+                                                            "absolute left-0 mt-1 h-10 w-10 rounded-2xl border-4 border-white ring-1 ring-slate-100 shadow-sm flex items-center justify-center transition-transform hover:scale-110",
+                                                            log.action === 'approve' ? "bg-emerald-500 text-white" : "bg-primary text-white"
+                                                        )}>
+                                                            {log.action === 'approve' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                        </div>
+                                                        <div className="flex-1 space-y-3">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="space-y-1">
+                                                                    <p className="text-base font-bold text-slate-900">{log.userName}</p>
+                                                                    <p className="text-[11px] text-slate-400 font-bold flex items-center gap-2 uppercase tracking-wider">
+                                                                        <Clock className="w-3 h-3" />
+                                                                        {format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}
+                                                                    </p>
+                                                                </div>
+                                                                <Badge className={cn("text-[9px] font-bold uppercase tracking-wider py-1 px-3 border-none rounded-lg", log.action === 'approve' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")}>
+                                                                    {log.action === 'approve' ? 'Батлагдсан' : 'Цуцлагдсан'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100/50">
+                                                                <p className="text-xs text-slate-600 font-semibold leading-relaxed">{log.note}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </div>
+                    </Tabs>
                 </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-8 pb-32">
-                <div className="max-w-[1600px] mx-auto">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        {/* Summary Column */}
-                        <div className="lg:col-span-1 space-y-6">
-
-                            <PositionClassification
-                                position={position}
-                                levels={levels || []}
-                                categories={categories || []}
-                                employmentTypes={empTypes || []}
-                                schedules={schedules || []}
-                                onUpdate={handleUpdate}
-                            />
-
-                            <Card className="border-none shadow-xl shadow-slate-200/50 ring-1 ring-slate-200/50">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400">Тохиргоо</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-5">
-                                    <div className="flex items-start gap-3">
-                                        <div className={cn("p-1.5 rounded-lg", position.canApproveAttendance ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400")}>
-                                            <ShieldCheck className="w-4 h-4" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-black leading-none">Ирц батлах</p>
-                                            <p className="text-[10px] text-slate-500 font-medium">{position.canApproveAttendance ? 'Эрхтэй' : 'Эрхгүй'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className={cn("p-1.5 rounded-lg", position.canApproveVacation ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400")}>
-                                            <CalendarIcon className="w-4 h-4" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-black leading-none">Амралт батлах</p>
-                                            <p className="text-[10px] text-slate-500 font-medium">{position.canApproveVacation ? 'Эрхтэй' : 'Эрхгүй'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className={cn("p-1.5 rounded-lg", position.hasPointBudget ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400")}>
-                                            <Sparkles className="w-4 h-4" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-black leading-none">Онооны төсөв</p>
-                                            <p className="text-[10px] text-slate-500 font-medium">{position.hasPointBudget ? `${position.yearlyPointBudget} PT` : 'Төсөвгүй'}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Content Area */}
-                        <div className="lg:col-span-3 space-y-6">
-                            <Tabs defaultValue="overview" className="space-y-6">
-                                <TabsList className="bg-white p-1 rounded-2xl shadow-sm ring-1 ring-slate-200/50 overflow-x-auto w-full justify-start h-12">
-                                    <TabsTrigger value="overview" className="rounded-xl px-6 font-black uppercase text-[10px] tracking-widest gap-2">
-                                        <Info className="w-3.5 h-3.5" /> Ерөнхий
-                                    </TabsTrigger>
-                                    <TabsTrigger value="requirements" className="rounded-xl px-6 font-black uppercase text-[10px] tracking-widest gap-2">
-                                        <FileText className="w-3.5 h-3.5" /> Шаардлага
-                                    </TabsTrigger>
-                                    <TabsTrigger value="employees" className="rounded-xl px-6 font-black uppercase text-[10px] tracking-widest gap-2">
-                                        <Users className="w-3.5 h-3.5" /> Ажилтнууд
-                                    </TabsTrigger>
-                                    <TabsTrigger value="compensation" className="rounded-xl px-6 font-black uppercase text-[10px] tracking-widest gap-2">
-                                        <DollarSign className="w-3.5 h-3.5" /> Цалин ба Хангамж
-                                    </TabsTrigger>
-                                    <TabsTrigger value="history" className="rounded-xl px-6 font-black uppercase text-[10px] tracking-widest gap-2">
-                                        <HistoryIcon className="w-3.5 h-3.5" /> Түүх
-                                    </TabsTrigger>
-                                </TabsList>
-
-                                <TabsContent value="overview" className="space-y-6 focus-visible:outline-none">
-                                    <PositionBasicInfo
-                                        position={position}
-                                        departments={allDepartments || []}
-                                        allPositions={allPositions || []}
-                                        onUpdate={handleUpdate}
-                                    />
-                                </TabsContent>
-
-                                <TabsContent value="requirements" className="space-y-6 focus-visible:outline-none">
-                                    <PositionCompetency
-                                        position={position}
-                                        onUpdate={handleUpdate}
-                                    />
-                                </TabsContent>
-
-                                <TabsContent value="employees" className="space-y-6 focus-visible:outline-none">
-                                    <Card className="border-none shadow-xl shadow-slate-200/50 ring-1 ring-slate-200/50">
-                                        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
-                                            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                                <Users className="w-4 h-4" /> Одоогийн ажилтнууд
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-0">
-                                            {isEmployeesLoading ? (
-                                                <div className="p-8 space-y-4">
-                                                    <Skeleton className="h-16 w-full rounded-2xl" />
-                                                    <Skeleton className="h-16 w-full rounded-2xl" />
-                                                </div>
-                                            ) : assignedEmployees && assignedEmployees.length > 0 ? (
-                                                <div className="divide-y divide-slate-50">
-                                                    {assignedEmployees.map((emp) => (
-                                                        <div key={emp.id} className="p-4 px-8 hover:bg-slate-50/50 transition-colors flex items-center justify-between group">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="h-12 w-12 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
-                                                                    <UserCircle className="w-8 h-8" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-black text-slate-900">{emp.firstName} {emp.lastName}</p>
-                                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{emp.employeeCode}</p>
-                                                                </div>
-                                                            </div>
-                                                            <Button variant="ghost" className="rounded-xl font-bold text-xs" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
-                                                                Профайл үзэх <ArrowRight className="w-4 h-4 ml-2" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="p-20 text-center space-y-4">
-                                                    <div className="h-16 w-16 rounded-full bg-slate-50 text-slate-200 flex items-center justify-center mx-auto ring-1 ring-slate-100">
-                                                        <Users className="w-8 h-8" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black text-slate-800">Батлагдсан орон тоо сул байна</p>
-                                                        <p className="text-sm text-slate-400 font-medium max-w-xs mx-auto">Энэ албан тушаалд одоогоор хүн томилогдоогүй байна.</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
-
-                                <TabsContent value="compensation" className="space-y-6 focus-visible:outline-none">
-                                    <PositionCompensation
-                                        position={position}
-                                        onUpdate={handleUpdate}
-                                    />
-                                    <PositionBenefits
-                                        position={position}
-                                        onUpdate={handleUpdate}
-                                    />
-                                </TabsContent>
-
-                                <TabsContent value="history" className="space-y-6 focus-visible:outline-none">
-                                    <Card className="border-none shadow-xl shadow-slate-200/50 ring-1 ring-slate-200/50">
-                                        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
-                                            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                                <HistoryIcon className="w-4 h-4" /> Үйл ажиллагааны түүх
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-8">
-                                            {!history.length ? (
-                                                <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-                                                    <HistoryIcon className="h-12 w-12 mb-4" />
-                                                    <p className="text-xs font-black uppercase tracking-widest">Түүх байхгүй</p>
-                                                </div>
-                                            ) : (
-                                                <div className="relative space-y-10 before:absolute before:inset-0 before:ml-4 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                                                    {history.map((log, idx) => (
-                                                        <div key={idx} className="relative flex items-start gap-8 pl-12">
-                                                            <div className={cn(
-                                                                "absolute left-0 mt-1 h-8 w-8 rounded-full border-4 border-white ring-2 shadow-sm flex items-center justify-center",
-                                                                log.action === 'approve' ? "ring-emerald-500 bg-emerald-500 text-white" : "ring-amber-500 bg-amber-500 text-white"
-                                                            )}>
-                                                                {log.action === 'approve' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                            </div>
-                                                            <div className="flex-1 space-y-2">
-                                                                <div className="flex items-center justify-between gap-4">
-                                                                    <div>
-                                                                        <p className="text-sm font-black text-slate-900">{log.userName}</p>
-                                                                        <p className="text-[10px] text-slate-500 font-bold">{format(new Date(log.timestamp), 'yyyy оны MM-р сарын dd HH:mm')}</p>
-                                                                    </div>
-                                                                    <Badge
-                                                                        className={cn(
-                                                                            "text-[10px] font-black uppercase tracking-wider py-1 px-3 border-none",
-                                                                            log.action === 'approve' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                                                                        )}
-                                                                    >
-                                                                        {log.action === 'approve' ? 'Батлагдсан' : 'Цуцлагдсан'}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                                    <p className="text-xs text-slate-600 font-medium">{log.note}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
-                            </Tabs>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <CompletionBar
+            <AssignEmployeeDialog
+                open={isAssignDialogOpen}
+                onOpenChange={setIsAssignDialogOpen}
                 position={position}
-                onApprove={runApproval}
-                isApproving={isApproving}
+                employees={allEmployees}
+                selectedEmployee={((assignedEmployees && assignedEmployees.length > 0) ? assignedEmployees[0] : null)}
+                onAssignmentComplete={() => { }}
             />
 
-            {/* Dialogs */}
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Ажлын байрыг устгах?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Энэ үйлдлийг буцаах боломжгүй. Та итгэлтэй байна уу?
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Энэ үйлдлийг буцаах боломжгүй.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Устгах</AlertDialogAction>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Устгах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -512,9 +495,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Ажлын байрыг батлах?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Та энэ ажлын байрыг батлахдаа итгэлтэй байна уу? Баталсны дараа бүтэц дотор харагдаж эхэлнэ.
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Батласны дараа бүтэц дотор харагдаж эхэлнэ.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Болих</AlertDialogCancel>
@@ -522,18 +503,34 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
             <AlertDialog open={isDisapproveConfirmOpen} onOpenChange={setIsDisapproveConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Батламжийг цуцлах?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Батламжийг цуцалснаар энэ ажлын байр идэвхгүй төлөвт шилжинэ. Та итгэлтэй байна уу?
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Идэвхгүй төлөвт шилжинэ.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Болих</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDisapprove} className="bg-amber-500 hover:bg-amber-600">Цуцлах</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isReleaseConfirmOpen} onOpenChange={setIsReleaseConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Ажилтныг чөлөөлөх үү?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {assignedEmployees && assignedEmployees.length > 0 ? (
+                                <span>{assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName} ажилтныг энэ албан тушаалаас чөлөөлөх үү?</span>
+                            ) : (
+                                <span>Ажилтныг чөлөөлөх үү?</span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRelease} className="bg-destructive hover:bg-destructive/90">Чөлөөлөх</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

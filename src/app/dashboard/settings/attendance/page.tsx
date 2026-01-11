@@ -366,7 +366,7 @@ export default function AttendanceSettingsPage() {
               <Card key={loc.id} className={!loc.isActive ? 'opacity-60 bg-muted/30' : ''}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex flex-col gap-1">
-                    <CardTitle className="text-base font-bold">{loc.name}</CardTitle>
+                    <CardTitle className="text-base font-semibold">{loc.name}</CardTitle>
                     <Badge variant={loc.isActive ? "default" : "secondary"} className="w-fit text-[10px] px-1.5 py-0">
                       {loc.isActive ? "Идэвхтэй" : "Идэвхгүй"}
                     </Badge>

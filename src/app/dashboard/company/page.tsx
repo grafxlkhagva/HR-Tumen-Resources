@@ -272,33 +272,33 @@ export default function CompanyPage() {
                     <div className="text-center space-y-6 max-w-4xl mx-auto">
                         <div className="space-y-2">
 
-                            <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
+                            <h1 className="text-5xl md:text-7xl font-semibold tracking-tight text-slate-900 dark:text-white uppercase leading-none">
                                 {companyProfile.name}
                             </h1>
                         </div>
 
                         {/* Minimalist Action Bar */}
                         <div className="flex flex-wrap justify-center gap-3 pt-6 animate-in fade-in slide-in-from-bottom-2 delay-500 duration-700">
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
+                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
                                 <Link href="/dashboard/company/edit">
                                     <Pencil className="mr-2 h-3.5 w-3.5" />
                                     Мэдээлэл засах
                                 </Link>
                             </Button>
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
+                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
                                 <Link href="/dashboard/company/mission">
                                     <Rocket className="mr-2 h-3.5 w-3.5" />
                                     Соёл
                                 </Link>
                             </Button>
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
+                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
                                 <Link href="/dashboard/company/videos">
                                     <Video className="mr-2 h-3.5 w-3.5" />
                                     Видео
                                 </Link>
                             </Button>
                             <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-2 self-center hidden sm:block" />
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-bold hover:bg-purple-50 text-purple-600 dark:text-purple-400 transition-all">
+                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-purple-50 text-purple-600 dark:text-purple-400 transition-all">
                                 <Link href="/dashboard/company/branding">
                                     <Settings className="mr-2 h-3.5 w-3.5" />
                                     Брэндинг
@@ -310,38 +310,38 @@ export default function CompanyPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pt-12 animate-in fade-in slide-in-from-bottom-2 delay-700 duration-700">
                             {companyProfile.ceo && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Захирал</p>
-                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.ceo}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Захирал</p>
+                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.ceo}</p>
                                 </div>
                             )}
                             {companyProfile.registrationNumber && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Регистрийн дугаар</p>
-                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.registrationNumber}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Регистрийн дугаар</p>
+                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.registrationNumber}</p>
                                 </div>
                             )}
                             {companyProfile.taxId && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Хувийн хэргийн дугаар</p>
-                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.taxId}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Хувийн хэргийн дугаар</p>
+                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.taxId}</p>
                                 </div>
                             )}
                             {companyProfile.establishedDate && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Байгуулагдсан</p>
-                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.establishedDate}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Байгуулагдсан</p>
+                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.establishedDate}</p>
                                 </div>
                             )}
                             {companyProfile.contactEmail && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">И-мэйл</p>
-                                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">{companyProfile.contactEmail}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">И-мэйл</p>
+                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.contactEmail}</p>
                                 </div>
                             )}
                             {companyProfile.website && (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Вэбсайт</p>
-                                    <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors block mx-auto">
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Вэбсайт</p>
+                                    <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-base font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors block mx-auto">
                                         {companyProfile.website.replace(/^https?:\/\//, '')}
                                     </a>
                                 </div>
@@ -369,7 +369,7 @@ export default function CompanyPage() {
                             <Rocket className="h-8 w-8 text-primary" />
                         </div>
                         <div className="space-y-4">
-                            <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase">Эрхэм зорилго</h2>
+                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Эрхэм зорилго</h2>
                             <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-lg font-medium">
                                 {companyProfile.mission || 'Эрхэм зорилго оруулаагүй байна.'}
                             </p>
@@ -380,7 +380,7 @@ export default function CompanyPage() {
                             <Eye className="h-8 w-8 text-primary" />
                         </div>
                         <div className="space-y-4">
-                            <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase">Алсын хараа</h2>
+                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Алсын хараа</h2>
                             <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-lg font-medium">
                                 {companyProfile.vision || 'Алсын хараа оруулаагүй байна.'}
                             </p>
@@ -393,8 +393,8 @@ export default function CompanyPage() {
                     <div className="bg-slate-50/50 dark:bg-slate-900/30 py-24 -mx-6 md:-mx-8 px-6 md:px-8 border-y border-slate-100 dark:border-slate-800/50">
                         <div className="max-w-7xl mx-auto">
                             <div className="flex flex-col items-center text-center space-y-4 mb-16">
-                                <h2 className="text-[10px] font-black tracking-[0.4em] uppercase text-primary">Core Values</h2>
-                                <h3 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white">Бидний үнэт зүйлс</h3>
+                                <h2 className="text-[10px] font-semibold tracking-[0.4em] uppercase text-primary">Core Values</h2>
+                                <h3 className="text-4xl md:text-5xl font-semibold text-slate-900 dark:text-white">Бидний үнэт зүйлс</h3>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {coreValues.filter(v => v.isActive).map((value, index) => (
@@ -408,7 +408,7 @@ export default function CompanyPage() {
                                         >
                                             {value.emoji || '⭐'}
                                         </div>
-                                        <h4 className="text-2xl font-black mb-4 text-slate-900 dark:text-white">{value.title}</h4>
+                                        <h4 className="text-2xl font-semibold mb-4 text-slate-900 dark:text-white">{value.title}</h4>
                                         <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                                             {value.description}
                                         </p>
@@ -423,7 +423,7 @@ export default function CompanyPage() {
                 {companyProfile.videos && companyProfile.videos.length > 0 && (
                     <div className="max-w-7xl mx-auto py-24 px-6">
                         <div className="flex items-center justify-between mb-16">
-                            <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase">Видео танилцуулга</h2>
+                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Видео танилцуулга</h2>
                             <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800 mx-10 hidden sm:block" />
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -433,7 +433,7 @@ export default function CompanyPage() {
                                         <video src={video.url} controls className="w-full h-full object-cover" />
                                     </div>
                                     <div className="px-4 space-y-2">
-                                        <h4 className="font-black text-2xl text-slate-900 dark:text-white">{video.title}</h4>
+                                        <h4 className="font-semibold text-2xl text-slate-900 dark:text-white">{video.title}</h4>
                                         <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">{video.description}</p>
                                     </div>
                                 </div>
@@ -450,8 +450,8 @@ export default function CompanyPage() {
                                 <MapPin className="h-5 w-5 text-primary" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-[10px] font-black tracking-widest uppercase text-slate-400">Бидний хаяг</h3>
-                                <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{companyProfile.address}</p>
+                                <h3 className="text-[10px] font-semibold tracking-widest uppercase text-slate-400">Бидний хаяг</h3>
+                                <p className="text-xl font-semibold text-slate-800 dark:text-slate-200">{companyProfile.address}</p>
                             </div>
                         </div>
                     </div>

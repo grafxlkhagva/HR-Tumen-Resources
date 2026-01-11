@@ -119,7 +119,7 @@ export default function CompanyPoliciesPage() {
                 </Link>
             </Button>
             <div>
-                 <h1 className="text-2xl font-bold tracking-tight">Компанийн дүрэм, журам</h1>
+                 <h1 className="text-2xl font-semibold tracking-tight">Компанийн дүрэм, журам</h1>
                 <p className="text-muted-foreground">Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.</p>
             </div>
         </div>

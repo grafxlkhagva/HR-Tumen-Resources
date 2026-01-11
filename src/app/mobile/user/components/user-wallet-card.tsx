@@ -36,7 +36,7 @@ export function UserWalletCard() {
                         <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
                         </div>
-                        <h2 className="text-sm font-bold tracking-wider uppercase">HR Point</h2>
+                        <h2 className="text-sm font-semibold tracking-wider uppercase">HR Point</h2>
                     </div>
                     <p className="text-[10px] text-indigo-100 opacity-80">Таны урамшууллын данс</p>
                 </div>
@@ -48,7 +48,7 @@ export function UserWalletCard() {
 
             <div className="relative z-10 mt-6">
                 <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black tracking-tight drop-shadow-sm">{balance.toLocaleString()}</span>
+                    <span className="text-5xl font-semibold tracking-tight drop-shadow-sm">{balance.toLocaleString()}</span>
                     <span className="text-lg font-medium opacity-80">оноо</span>
                 </div>
             </div>
@@ -60,7 +60,7 @@ export function UserWalletCard() {
                         <Gift className="w-3.5 h-3.5" />
                         Бэлэглэх эрх
                     </span>
-                    <span className="font-bold">{allowance} / {allowanceMax}</span>
+                    <span className="font-semibold">{allowance} / {allowanceMax}</span>
                 </div>
                 <Progress value={(allowance / allowanceMax) * 100} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-yellow-300 to-orange-400" />
             </div>

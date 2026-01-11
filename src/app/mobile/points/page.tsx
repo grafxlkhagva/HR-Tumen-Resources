@@ -64,7 +64,7 @@ function PointCard({ balance, allowance, baseAllowance }: { balance: number, all
                             <div className="p-1.5 bg-white/10 rounded-lg backdrop-blur-sm">
                                 <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
                             </div>
-                            <span className="font-bold tracking-wider text-sm opacity-90">HR GOLD MEMBER</span>
+                            <span className="font-semibold tracking-wider text-sm opacity-90">HR GOLD MEMBER</span>
                         </div>
                     </div>
                     {/* Chip */}
@@ -74,7 +74,7 @@ function PointCard({ balance, allowance, baseAllowance }: { balance: number, all
                 <div>
                     <p className="text-indigo-200 text-xs font-medium uppercase tracking-wider mb-1">Нийт үлдэгдэл</p>
                     <div className="flex items-baseline gap-2">
-                        <h1 className="text-5xl font-black tracking-tighter drop-shadow-lg">{balance.toLocaleString()}</h1>
+                        <h1 className="text-5xl font-semibold tracking-tighter drop-shadow-lg">{balance.toLocaleString()}</h1>
                         <span className="text-lg opacity-80 font-medium">pts</span>
                     </div>
                 </div>
@@ -82,7 +82,7 @@ function PointCard({ balance, allowance, baseAllowance }: { balance: number, all
                 <div className="mt-auto">
                     <div className="flex justify-between text-xs text-indigo-200 mb-2">
                         <span>Бэлэглэх эрх (Сар бүр)</span>
-                        <span className="text-white font-bold">{allowance.toLocaleString()} / {baseAllowance.toLocaleString()}</span>
+                        <span className="text-white font-semibold">{allowance.toLocaleString()} / {baseAllowance.toLocaleString()}</span>
                     </div>
                     <Progress value={progress} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-blue-400 to-indigo-400" />
                 </div>
@@ -125,7 +125,7 @@ export default function MobilePointsPage() {
         <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20">
             {/* Simple Header */}
             <div className="bg-white/80 backdrop-blur-xl sticky top-0 z-20 px-4 py-3 flex items-center justify-between border-b border-slate-100">
-                <h1 className="text-lg font-bold text-slate-800">HR Point</h1>
+                <h1 className="text-lg font-semibold text-slate-800">HR Point</h1>
                 <div className="flex gap-2">
                     <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setActiveTab('history')}>
                         <History className="w-5 h-5 text-slate-500" />
@@ -162,7 +162,7 @@ export default function MobilePointsPage() {
                 {/* 3. Ways to Earn (Horizontal Scroll) */}
                 <div>
                     <div className="flex items-center justify-between px-1 mb-3">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Оноо цуглуулах</h3>
+                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Оноо цуглуулах</h3>
                         <span className="text-xs text-indigo-600 font-medium cursor-pointer">Бүгд &rarr;</span>
                     </div>
                     <ScrollArea className="w-full whitespace-nowrap">
@@ -173,10 +173,10 @@ export default function MobilePointsPage() {
                                         <item.icon className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <div className="font-bold text-slate-800 text-sm leading-tight">{item.title}</div>
+                                        <div className="font-semibold text-slate-800 text-sm leading-tight">{item.title}</div>
                                         <div className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</div>
                                     </div>
-                                    <Badge variant="secondary" className="self-start text-[10px] px-1.5 h-5 bg-slate-100 text-slate-600 font-bold">
+                                    <Badge variant="secondary" className="self-start text-[10px] px-1.5 h-5 bg-slate-100 text-slate-600 font-semibold">
                                         {item.points} pt
                                     </Badge>
                                 </div>
@@ -190,9 +190,9 @@ export default function MobilePointsPage() {
                 <div className="pt-2">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="w-full bg-slate-200/50 p-1 h-12 rounded-2xl mb-6">
-                            <TabsTrigger value="feed" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Сошиал</TabsTrigger>
-                            <TabsTrigger value="shop" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Дэлгүүр</TabsTrigger>
-                            <TabsTrigger value="history" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Түүх</TabsTrigger>
+                            <TabsTrigger value="feed" className="flex-1 rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm">Сошиал</TabsTrigger>
+                            <TabsTrigger value="shop" className="flex-1 rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm">Дэлгүүр</TabsTrigger>
+                            <TabsTrigger value="history" className="flex-1 rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm">Түүх</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="feed" className="focus-visible:outline-none">

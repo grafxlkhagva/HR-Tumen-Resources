@@ -174,7 +174,7 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
                         <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-0.5">
-                                    <Label className="text-sm font-bold flex items-center gap-2">
+                                    <Label className="text-sm font-semibold flex items-center gap-2">
                                         <Target className="w-4 h-4 text-primary" />
                                         Төсвийн оноо ашиглах
                                     </Label>
@@ -188,7 +188,7 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
                             {useBudget && (
                                 <div className="flex items-center justify-between text-[11px] font-medium pt-2 border-t border-primary/10">
                                     <span className="text-muted-foreground italic">Үлдэгдэл төсөв:</span>
-                                    <span className="text-primary font-bold">{(myPosition.remainingPointBudget ?? myPosition.yearlyPointBudget ?? 0).toLocaleString()} <span className="text-[9px] opacity-70">ОНОО</span></span>
+                                    <span className="text-primary font-semibold">{(myPosition.remainingPointBudget ?? myPosition.yearlyPointBudget ?? 0).toLocaleString()} <span className="text-[9px] opacity-70">ОНОО</span></span>
                                 </div>
                             )}
                         </div>
@@ -233,12 +233,12 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
                             {useBudget ? (
                                 <Input
                                     type="number"
-                                    className="h-24 text-center font-bold text-xl"
+                                    className="h-24 text-center font-semibold text-xl"
                                     {...form.register('points', { valueAsNumber: true })}
                                 />
                             ) : (
                                 <Select defaultValue="10" onValueChange={v => form.setValue('points', parseInt(v))}>
-                                    <SelectTrigger className="h-24 flex flex-col items-center justify-center gap-1 font-bold text-lg bg-muted/30">
+                                    <SelectTrigger className="h-24 flex flex-col items-center justify-center gap-1 font-semibold text-lg bg-muted/30">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>

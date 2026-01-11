@@ -26,7 +26,7 @@ const SettingsCard: React.FC<SettingsCardProps> = ({ icon: Icon, title, descript
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <CardTitle className="text-xl font-bold">{title}</CardTitle>
+                    <CardTitle className="text-xl font-semibold">{title}</CardTitle>
                     <CardDescription className="mt-2 text-sm leading-relaxed">
                         {description}
                     </CardDescription>
@@ -61,7 +61,7 @@ export default function HROperationsHub() {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Хүний нөөцийн тохиргоо</h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Хүний нөөцийн тохиргоо</h1>
                 <p className="text-muted-foreground mt-2">Байгууллагын соёл, дүрэм журам болон ажилтны процессыг удирдах.</p>
             </div>
 

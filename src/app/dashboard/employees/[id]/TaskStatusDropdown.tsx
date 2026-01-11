@@ -20,7 +20,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: React.ElementType;
   TODO: { label: 'Хийх', icon: Circle, className: 'text-muted-foreground' },
   IN_PROGRESS: { label: 'Хийж байна', icon: Play, className: 'text-blue-500' },
   DONE: { label: 'Дууссан', icon: Check, className: 'text-green-500' },
-  VERIFIED: { label: 'Баталгаажсан', icon: Check, className: 'text-green-700 font-bold' },
+  VERIFIED: { label: 'Баталгаажсан', icon: Check, className: 'text-green-700 font-semibold' },
 };
 
 interface TaskStatusDropdownProps {

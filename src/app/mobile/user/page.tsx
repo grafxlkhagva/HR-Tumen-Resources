@@ -119,7 +119,7 @@ export default function MobileUserPage() {
           </div>
 
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">{fullName}</h1>
+            <h1 className="text-xl font-semibold text-slate-900 leading-tight">{fullName}</h1>
             <p className="text-sm font-medium text-slate-500">{jobTitle || 'Ажилтан'}</p>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 px-2 py-0.5 text-xs">
@@ -139,20 +139,20 @@ export default function MobileUserPage() {
 
         {/* 2. Settings Groups */}
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
           <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
           <SettingsItem icon={Rocket} label="Чиглүүлэх хөтөлбөр" href="/mobile/onboarding" badge="1" />
         </div>
 
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Тохиргоо</h3>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Тохиргоо</h3>
           <SettingsItem icon={Bell} label="Мэдэгдэл" href="#" />
           <SettingsItem icon={Lock} label="Нууц үг солих" onClick={() => setIsPasswordDialogOpen(true)} />
           <SettingsItem icon={Shield} label="Нууцлал" href="#" />
         </div>
 
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Бусад</h3>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Бусад</h3>
           <SettingsItem icon={HelpCircle} label="Тусламж" href="#" />
 
           <AlertDialog>

@@ -212,7 +212,7 @@ export default function VacationPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Ээлжийн амралт</h2>
+                    <h2 className="text-3xl font-semibold tracking-tight">Ээлжийн амралт</h2>
                     <p className="text-muted-foreground">
                         Ажилчдын ээлжийн амралтын хуваарь болон хүсэлтүүдийг удирдах хэсэг.
                     </p>
@@ -232,7 +232,7 @@ export default function VacationPage() {
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.total}</div>
+                        <div className="text-2xl font-semibold">{stats.total}</div>
                         <p className="text-xs text-muted-foreground">Бүх цаг үеийн</p>
                     </CardContent>
                 </Card>
@@ -242,7 +242,7 @@ export default function VacationPage() {
                         <Clock className="h-4 w-4 text-yellow-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.pending}</div>
+                        <div className="text-2xl font-semibold">{stats.pending}</div>
                         <p className="text-xs text-muted-foreground font-medium text-yellow-600">Шийдвэр хүлээж буй</p>
                     </CardContent>
                 </Card>
@@ -252,7 +252,7 @@ export default function VacationPage() {
                         <Palmtree className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.onLeave}</div>
+                        <div className="text-2xl font-semibold text-green-600">{stats.onLeave}</div>
                         <p className="text-xs text-muted-foreground">Ажилтан амарч байна</p>
                     </CardContent>
                 </Card>
@@ -292,7 +292,7 @@ export default function VacationPage() {
                         <CardHeader className="bg-white border-b">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <h3 className="text-lg font-bold capitalize">
+                                    <h3 className="text-lg font-semibold capitalize">
                                         {format(currentMonth, 'yyyy оны MMMM', { locale: mn })}
                                     </h3>
                                     <div className="flex items-center gap-1 border rounded-lg p-1">
@@ -318,7 +318,7 @@ export default function VacationPage() {
                         <CardContent className="p-0">
                             <div className="grid grid-cols-7 border-b bg-slate-50">
                                 {['Дав', 'Мяг', 'Лха', 'Пүр', 'Баа', 'Бям', 'Ням'].map(day => (
-                                    <div key={day} className="py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <div key={day} className="py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                         {day}
                                     </div>
                                 ))}
@@ -413,7 +413,7 @@ export default function VacationPage() {
                                                                 <AvatarFallback className="bg-slate-100 text-slate-500">{emp?.firstName?.[0]}</AvatarFallback>
                                                             </Avatar>
                                                             <div className="flex flex-col">
-                                                                <span className="font-bold text-slate-900 leading-tight">{emp?.firstName} {emp?.lastName}</span>
+                                                                <span className="font-semibold text-slate-900 leading-tight">{emp?.firstName} {emp?.lastName}</span>
                                                                 <span className="text-xs text-muted-foreground mt-0.5">{emp?.jobTitle}</span>
                                                             </div>
                                                         </div>

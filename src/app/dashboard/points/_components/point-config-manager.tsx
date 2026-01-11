@@ -100,7 +100,7 @@ export function PointConfigManager() {
                                 name="monthlyAllowanceBase"
                                 type="number"
                                 defaultValue={config?.monthlyAllowanceBase || 1000}
-                                className="pl-10 h-12 text-lg font-bold"
+                                className="pl-10 h-12 text-lg font-semibold"
                                 required
                             />
                             <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -112,7 +112,7 @@ export function PointConfigManager() {
                     </div>
 
                     <div className="bg-muted/30 p-4 rounded-lg border text-sm text-slate-600 space-y-2">
-                        <h4 className="font-bold text-slate-900">Системийн ажиллах зарчим:</h4>
+                        <h4 className="font-semibold text-slate-900">Системийн ажиллах зарчим:</h4>
                         <ul className="list-disc list-inside space-y-1">
                             <li>Бэлэглэлийн оноо нь хуримтлагдахгүй (Expired).</li>
                             <li>Зөвхөн бэлгээр авсан оноог "Дэлгүүр"-ээс бараа авахад ашиглаж болно.</li>

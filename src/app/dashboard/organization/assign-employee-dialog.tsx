@@ -19,7 +19,7 @@ import {
     useCollection,
 } from '@/firebase';
 import { doc, increment, writeBatch, collection, getDocs, addDoc } from 'firebase/firestore';
-import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save } from 'lucide-react';
+import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save, Sparkles } from 'lucide-react';
 import type { Employee } from '../employees/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';

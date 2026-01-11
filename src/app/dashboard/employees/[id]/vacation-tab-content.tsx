@@ -103,7 +103,7 @@ export function VacationTabContent({ employee }: { employee: Employee }) {
                                     </div>
                                     <div className="col-span-2 pt-2 border-t">
                                         <span className="text-muted-foreground text-xs">Таны ажиллаж буй</span>
-                                        <div className="text-primary font-bold">{workYear.yearNumber}-р жил</div>
+                                        <div className="text-primary font-semibold">{workYear.yearNumber}-р жил</div>
                                     </div>
                                 </div>
                             </div>

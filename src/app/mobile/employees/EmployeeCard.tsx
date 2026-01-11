@@ -42,7 +42,7 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
                         <span className="sr-only">Буцах</span>
                     </Link>
                 </Button>
-                <h1 className="text-xl font-bold">Ажилтны мэдээлэл</h1>
+                <h1 className="text-xl font-semibold">Ажилтны мэдээлэл</h1>
             </header>
 
             <Card className="mt-4">
@@ -52,7 +52,7 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
                         <AvatarFallback>{employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="space-y-1">
-                        <p className="text-2xl font-bold">{employee.firstName} {employee.lastName}</p>
+                        <p className="text-2xl font-semibold">{employee.firstName} {employee.lastName}</p>
                         <p className="text-muted-foreground">{employee.jobTitle}</p>
                     </div>
                 </CardHeader>

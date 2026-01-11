@@ -12,18 +12,18 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
     return (
         <li className="relative flex flex-col items-center px-4">
             {/* Upper Connector: Vertical Line Up */}
-            <div className="absolute -top-4 left-1/2 h-4 w-px -translate-x-1/2 bg-border"></div>
+            <div className="absolute -top-4 left-1/2 h-4 border-l-2 border-dashed border-primary/40 -translate-x-1/2"></div>
 
             {/* Upper Connector: Horizontal Lines (The Bridge) */}
             {!isSole && (
                 <>
                     {/* Left half of the bridge (if not first) */}
                     {!isFirst && (
-                        <div className="absolute -top-4 left-0 right-1/2 h-px bg-border"></div>
+                        <div className="absolute -top-4 left-0 right-1/2 h-px border-t-2 border-dashed border-primary/40"></div>
                     )}
                     {/* Right half of the bridge (if not last) */}
                     {!isLast && (
-                        <div className="absolute -top-4 left-1/2 right-0 h-px bg-border"></div>
+                        <div className="absolute -top-4 left-1/2 right-0 h-px border-t-2 border-dashed border-primary/40"></div>
                     )}
                 </>
             )}
@@ -31,7 +31,7 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
             <div
                 onClick={() => onDepartmentClick?.(node.id)}
                 className={cn(
-                    "relative z-10 w-60 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-5 text-center text-card-foreground shadow-sm transition-all hover:shadow-xl hover:-translate-y-1 group cursor-pointer hover:border-primary/30",
+                    "relative z-10 w-60 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm p-5 text-center text-card-foreground shadow-sm transition-all hover:shadow-xl hover:-translate-y-1 group cursor-pointer hover:border-primary/30",
                     !isExpanded && hasChildren && "border-b-4"
                 )}
                 style={{
@@ -40,7 +40,7 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
                 }}
             >
                 <div className="space-y-1.5">
-                    <p className="font-bold text-sm tracking-tight line-clamp-2 min-h-[40px] flex items-center justify-center">
+                    <p className="font-semibold text-sm tracking-tight line-clamp-2 min-h-[40px] flex items-center justify-center">
                         {node.name}
                     </p>
 
@@ -66,7 +66,7 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
                         {isExpanded ? (
                             <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                         ) : (
-                            <ChevronDown className="h-3.5 w-3.5 text-primary font-bold" />
+                            <ChevronDown className="h-3.5 w-3.5 text-primary font-semibold" />
                         )}
                     </button>
                 )}
@@ -75,7 +75,7 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
             {hasChildren && isExpanded && (
                 <>
                     {/* Vertical Line Down from Parent Card */}
-                    <div className="absolute top-full h-4 w-px bg-border"></div>
+                    <div className="absolute top-full h-4 border-l-2 border-dashed border-primary/40"></div>
 
                     {/* Children Container */}
                     <ul className="relative mt-4 flex justify-center pt-4">
@@ -85,7 +85,7 @@ export const OrgChartNode = ({ node, isFirst, isLast, isSole, onDepartmentClick 
                                 node={child}
                                 isFirst={index === 0}
                                 isLast={index === node.children!.length - 1}
-                                isSole={node.children!.length === 1}
+                                isSole={index === 0 && node.children!.length === 1}
                                 onDepartmentClick={onDepartmentClick}
                             />
                         ))}
@@ -105,7 +105,7 @@ export const RootOrgChartNode = ({ node, onDepartmentClick }: { node: Department
             <div
                 onClick={() => onDepartmentClick?.(node.id)}
                 className={cn(
-                    "relative z-10 w-64 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 text-center text-card-foreground shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1 group cursor-pointer hover:border-primary/40",
+                    "relative z-10 w-64 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm p-6 text-center text-card-foreground shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1 group cursor-pointer hover:border-primary/40",
                     !isExpanded && hasChildren && "border-b-4"
                 )}
                 style={{
@@ -114,7 +114,7 @@ export const RootOrgChartNode = ({ node, onDepartmentClick }: { node: Department
                 }}
             >
                 <div className="space-y-2">
-                    <p className="font-bold text-base tracking-tight leading-tight uppercase">
+                    <p className="font-semibold text-base tracking-tight leading-tight uppercase">
                         {node.name}
                     </p>
 
@@ -124,7 +124,7 @@ export const RootOrgChartNode = ({ node, onDepartmentClick }: { node: Department
                         </Badge>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/20 px-2.5 py-1 rounded-full border border-border/50">
                             <Users className="h-3.5 w-3.5" />
-                            <span className="font-bold">{node.filled || 0}</span>
+                            <span className="font-semibold">{node.filled || 0}</span>
                         </div>
                     </div>
                 </div>
@@ -140,7 +140,7 @@ export const RootOrgChartNode = ({ node, onDepartmentClick }: { node: Department
                         {isExpanded ? (
                             <ChevronUp className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                            <ChevronDown className="h-4 w-4 text-primary font-bold" />
+                            <ChevronDown className="h-4 w-4 text-primary font-semibold" />
                         )}
                     </button>
                 )}
@@ -148,7 +148,7 @@ export const RootOrgChartNode = ({ node, onDepartmentClick }: { node: Department
             {hasChildren && isExpanded && (
                 <>
                     {/* Vertical line from root */}
-                    <div className="absolute top-full h-4 w-px bg-border"></div>
+                    <div className="absolute top-full h-4 border-l-2 border-dashed border-primary/40"></div>
 
                     <ul className="relative mt-4 flex justify-center pt-4">
                         {node.children!.map((child, index) => (

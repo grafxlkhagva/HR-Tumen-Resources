@@ -75,7 +75,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                     <CardHeader className="pb-4">
                         <div className="flex justify-between items-start">
                             <div className="space-y-1">
-                                <CardTitle className="text-2xl font-black uppercase tracking-tight">{department.name}</CardTitle>
+                                <CardTitle className="text-2xl font-semibold uppercase tracking-tight">{department.name}</CardTitle>
                                 <CardDescription className="flex items-center gap-2">
                                     <Badge variant="secondary" className="font-semibold">{typeName}</Badge>
                                     <span className="text-muted-foreground">•</span>
@@ -90,7 +90,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                                     )}
                                 </CardDescription>
                             </div>
-                            <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-background shadow-sm border border-border/50 text-xl font-bold" style={{ color: department.color || 'var(--primary)' }}>
+                            <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-background shadow-sm border border-border/50 text-xl font-semibold" style={{ color: department.color || 'var(--primary)' }}>
                                 {department.code?.substring(0, 2) || '??'}
                             </div>
                         </div>
@@ -98,28 +98,28 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                     <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Албан код</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Албан код</p>
                                 <p className="font-semibold flex items-center gap-1.5 text-sm">
                                     <Hash className="w-3.5 h-3.5 text-muted-foreground" />
                                     {department.code || '-'}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Батлагдсан</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Батлагдсан</p>
                                 <p className="font-semibold flex items-center gap-1.5 text-sm">
                                     <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                                     {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Дээд нэгж</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Дээд нэгж</p>
                                 <p className="font-semibold flex items-center gap-1.5 text-sm">
                                     <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
                                     {parentName}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Нийт ажилтан</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Нийт ажилтан</p>
                                 <p className="font-semibold flex items-center gap-1.5 text-sm">
                                     <Users className="w-3.5 h-3.5 text-muted-foreground" />
                                     {department.filled || 0}
@@ -134,7 +134,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                         <Briefcase className="w-24 h-24" />
                     </div>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold uppercase tracking-widest opacity-80">Удирдлага</CardTitle>
+                        <CardTitle className="text-sm font-semibold uppercase tracking-widest opacity-80">Удирдлага</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex flex-col gap-3">
@@ -150,7 +150,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                             ) : leadPosition ? (
                                 <>
                                     <div className="space-y-1">
-                                        <h3 className="font-bold text-lg leading-tight truncate">
+                                        <h3 className="font-semibold text-lg leading-tight truncate">
                                             {leadPosition.title}
                                         </h3>
                                         <p className="text-xs opacity-70">Толгой албан тушаал</p>
@@ -164,14 +164,14 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                                                         {emp.photoURL ? (
                                                             <AvatarImage src={emp.photoURL} />
                                                         ) : (
-                                                            <AvatarFallback className="bg-primary/20 text-[10px] font-bold">
+                                                            <AvatarFallback className="bg-primary/20 text-[10px] font-semibold">
                                                                 {emp.firstName?.substring(0, 1)}
                                                             </AvatarFallback>
                                                         )}
                                                     </Avatar>
                                                 ))}
                                                 {leadEmployees.length > 4 && (
-                                                    <div className="w-8 h-8 rounded-full bg-primary-foreground/20 border-2 border-primary flex items-center justify-center text-[10px] font-bold">
+                                                    <div className="w-8 h-8 rounded-full bg-primary-foreground/20 border-2 border-primary flex items-center justify-center text-[10px] font-semibold">
                                                         +{leadEmployees.length - 4}
                                                     </div>
                                                 )}
@@ -183,7 +183,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                                 </>
                             ) : (
                                 <div className="space-y-2">
-                                    <h3 className="font-bold text-lg leading-tight">Тохируулаагүй</h3>
+                                    <h3 className="font-semibold text-lg leading-tight">Тохируулаагүй</h3>
                                     <p className="text-xs opacity-70">Энэ нэгжийн толгой албан тушаалыг сонгоно уу.</p>
                                 </div>
                             )}
@@ -191,7 +191,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                         <Button
                             variant="secondary"
                             size="sm"
-                            className="w-full font-bold shadow-sm mt-2"
+                            className="w-full font-semibold shadow-sm mt-2"
                             onClick={() => setIsAssignDialogOpen(true)}
                         >
                             {leadPosition ? 'Өөрчлөх' : 'Тохируулах'} <ArrowUpRight className="w-4 h-4 ml-1" />
@@ -260,23 +260,23 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
             {/* Stats Card */}
             <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
-                    <CardTitle className="text-sm uppercase tracking-widest font-bold flex items-center gap-2">
+                    <CardTitle className="text-sm uppercase tracking-widest font-semibold flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" /> Орон тооны үзүүлэлт
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/50">
                         <div className="p-6 text-center">
-                            <p className="text-3xl font-black text-primary mb-1">{department.filled || 0}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Нийт ажилтан</p>
+                            <p className="text-3xl font-semibold text-primary mb-1">{department.filled || 0}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-widest">Нийт ажилтан</p>
                         </div>
                         <div className="p-6 text-center">
-                            <p className="text-3xl font-black text-muted-foreground mb-1">-</p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Батлагдсан орон тоо</p>
+                            <p className="text-3xl font-semibold text-muted-foreground mb-1">-</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-widest">Батлагдсан орон тоо</p>
                         </div>
                         <div className="p-6 text-center">
-                            <p className="text-3xl font-black text-muted-foreground mb-1">-</p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Empty Positions</p>
+                            <p className="text-3xl font-semibold text-muted-foreground mb-1">-</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-widest">Empty Positions</p>
                         </div>
                     </div>
                 </CardContent>
