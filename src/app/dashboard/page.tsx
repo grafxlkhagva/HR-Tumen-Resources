@@ -38,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -576,6 +576,11 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
 
+    const offboardingProcessesQuery = useMemoFirebase(() =>
+        firestore ? query(collectionGroup(firestore, 'offboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
+        , [firestore]);
+    const { data: offboardingProcesses, isLoading: isLoadingOffboarding } = useCollection<any>(offboardingProcessesQuery);
+
     const onLeaveCount = useMemo(() => {
         if (!vacationRequests) return 0;
         const now = startOfDay(new Date());
@@ -683,6 +688,25 @@ const OrganizationChart = () => {
 
         return { count: newHires.length, avgOnboardingProgress };
     }, [employees, assignedPrograms]);
+
+    // Offboarding stats
+    const offboardingStats = React.useMemo(() => {
+        if (!offboardingProcesses || !employees) return { count: 0, ongoing: [] };
+
+        const empMap = new Map((employees as Employee[]).map(e => [e.id, e]));
+        const ongoing = offboardingProcesses.map((process: any) => {
+            const emp = empMap.get(process.employeeId);
+            return {
+                ...process,
+                employee: emp
+            };
+        }).filter((p: any) => p.employee);
+
+        return {
+            count: ongoing.length,
+            ongoing
+        };
+    }, [offboardingProcesses, employees]);
 
     // Recent activities (last 10)
     const recentActivities = useMemo(() => {
@@ -1061,6 +1085,87 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
+                        {/* 4b. Offboarding (New) */}
+                        <Link href="/dashboard/employees/offboarding" className="flex-shrink-0">
+                            <Card className="h-full w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative">
+                                    <div className="absolute right-0 top-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl group-hover:bg-rose-500/10 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ажлаас чөлөөлөх</div>
+                                        <LogOut className="h-5 w-5 text-rose-500 group-hover:scale-110 transition-transform" />
+                                    </div>
+
+                                    <div className="flex items-end justify-between relative z-10 my-1">
+                                        <div>
+                                            <div className="text-4xl font-bold text-white leading-none">{offboardingStats.count}</div>
+                                            <div className="text-[10px] text-rose-400 font-bold uppercase tracking-tight mt-1">Процесс явж байна</div>
+                                        </div>
+                                        <div className="flex -space-x-2">
+                                            {offboardingStats.ongoing.slice(0, 3).map((p: any) => (
+                                                <Avatar key={p.id} className="h-8 w-8 border-2 border-slate-900 ring-2 ring-transparent group-hover:ring-rose-500/30 transition-all">
+                                                    <AvatarImage src={p.employee.photoURL} />
+                                                    <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">
+                                                        {p.employee.firstName.charAt(0)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            ))}
+                                            {offboardingStats.count > 3 && (
+                                                <div className="h-8 w-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-400 z-10">
+                                                    +{offboardingStats.count - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 relative z-10">
+                                        <div className="max-h-[80px] overflow-y-auto pr-1 custom-scrollbar">
+                                            {offboardingStats.ongoing.length === 0 ? (
+                                                <div className="text-[10px] text-slate-500 italic py-2">Одоогоор идэвхтэй процесс алга.</div>
+                                            ) : (
+                                                offboardingStats.ongoing.slice(0, 2).map((p: any) => (
+                                                    <div
+                                                        key={p.id}
+                                                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors group/item"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                                                            <span className="text-[11px] font-medium text-slate-200 truncate">{p.employee.lastName} {p.employee.firstName}</span>
+                                                        </div>
+                                                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-slate-600 text-slate-400 group-hover/item:border-rose-500/50 group-hover/item:text-rose-400 transition-colors">
+                                                            Шат: {p.currentStep}/9
+                                                        </Badge>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 4c. Recruitment & Selection (New) */}
+                        <Link href="/dashboard/recruitment" className="flex-shrink-0">
+                            <Card className="h-full w-[280px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Бүрдүүлэлт</div>
+                                        <Handshake className="h-5 w-5 text-blue-400 group-hover:scale-110 transition-transform" />
+                                    </div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <div className="text-2xl font-bold text-white">Сонгон шалгаруулалт</div>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Recruitment & Selection</div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+
                         {/* 5. Point Module */}
                         <Link href="/dashboard/points" className="flex-shrink-0">
                             <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
@@ -1126,6 +1231,48 @@ const OrganizationChart = () => {
                                             )}
                                         </div>
                                         <div className="text-xs text-slate-400 font-medium">нийт бичиг баримт</div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 8. Process Management (New) */}
+                        <Link href="/dashboard/employment-relations" className="flex-shrink-0">
+                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-3xl group-hover:from-blue-500/20 group-hover:to-indigo-500/20 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Employment Relations</div>
+                                        <Handshake className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
+                                    </div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <div className="text-2xl font-semibold text-white">Хөдөлмөрийн харилцаа</div>
+                                        </div>
+                                        <div className="text-xs text-slate-400 font-medium">Гэрээ, протокол, баримт</div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 9. Process Management */}
+                        <Link href="/dashboard/process" className="flex-shrink-0">
+                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-full blur-3xl group-hover:from-pink-500/20 group-hover:to-rose-500/20 transition-all" />
+
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Process Management</div>
+                                        <Handshake className="h-5 w-5 text-pink-500 group-hover:scale-110 transition-transform" />
+                                    </div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-baseline gap-2 mb-1">
+                                            <div className="text-2xl font-semibold text-white">Процесс</div>
+                                        </div>
+                                        <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
                                     </div>
                                 </CardContent>
                             </Card>

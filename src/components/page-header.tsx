@@ -70,6 +70,7 @@ export function PageHeader({
                 'time-off': 'Чөлөө',
                 'policies': 'Журам',
                 'branding': 'Брэндинг',
+                'employment-relations': 'Хөдөлмөрийн харилцаа',
             };
 
             label = labelMap[path] || label;

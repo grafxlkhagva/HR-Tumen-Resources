@@ -3,12 +3,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Settings, Target, Hash, Save, Trash2, GitBranch, Palette, FileText } from 'lucide-react';
+import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Trash2, AlertTriangle, Save } from 'lucide-react';
 import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, increment, arrayUnion } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, arrayUnion } from 'firebase/firestore';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,7 +32,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SettingsTab } from './settings-tab';
 import { PositionStructureChart } from './position-structure-chart';
-import { Employee } from '@/app/dashboard/employees/data';
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,12 +44,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
+
 } from "@/components/ui/sheet"
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -56,37 +59,8 @@ interface PositionsManagementTabProps {
     // For now, let's fetch strictly needed data here.
 }
 
-const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
-    <div className="flex items-center gap-2.5 py-1">
-        {isDone ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-        ) : (
-            <XCircle className="w-4 h-4 text-muted-foreground/30 shrink-0" />
-        )}
-        <span className={cn(
-            "text-xs font-medium transition-colors",
-            isDone ? "text-foreground" : "text-muted-foreground"
-        )}>
-            {label}
-        </span>
-    </div >
-);
 
-function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
-    return (
-        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200">
-            <div className="p-2 bg-primary/10 rounded-full shrink-0">
-                <Icon className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
-                <div className="text-sm font-semibold text-foreground truncate">
-                    {value || '-'}
-                </div>
-            </div>
-        </div>
-    )
-}
+
 
 export const PositionsManagementTab = ({ department }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
@@ -96,63 +70,8 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     const [editingPosition, setEditingPosition] = useState<Position | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'chart'>('chart');
     const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>([]);
-    const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
-    const [isSavingInfo, setIsSavingInfo] = useState(false);
-    const [editFormData, setEditFormData] = useState({
-        name: '',
-        code: '',
-        vision: '',
-        description: '',
-        typeId: '',
-        parentId: '',
-        status: 'active' as 'active' | 'inactive',
-        color: ''
-    });
+    // SettingTab is used instead of inline editing logic
 
-    // Initialize edit form data when opening edit mode
-    useEffect(() => {
-        if (isEditInfoOpen) {
-            const source = department.draftData || department;
-            setEditFormData({
-                name: source.name || '',
-                code: source.code || '',
-                vision: source.vision || '',
-                description: source.description || '',
-                typeId: source.typeId || '',
-                parentId: source.parentId || '',
-                status: (source.status as 'active' | 'inactive') || 'active',
-                color: source.color || '#000000'
-            });
-        }
-    }, [isEditInfoOpen, department]);
-
-    const handleSaveInlineInfo = async () => {
-        if (!firestore || !department.id) return;
-        setIsSavingInfo(true);
-        try {
-            await updateDocumentNonBlocking(doc(firestore, 'departments', department.id), {
-                draftData: editFormData
-            });
-            toast({
-                title: "Амжилттай хадгалагдлаа",
-                description: "Төлөвлөгдөж буй өөрчлөлтүүд хадгалагдлаа.",
-            });
-            setIsEditInfoOpen(false);
-        } catch (error) {
-            console.error("Error saving inline info:", error);
-            toast({
-                variant: 'destructive',
-                title: "Алдаа гарлаа",
-                description: "Мэдээллийг хадгалж чадсангүй.",
-            });
-        } finally {
-            setIsSavingInfo(false);
-        }
-    };
-    const [isDisapproving, setIsDisapproving] = useState(false);
-    const [positionsToDisapprove, setPositionsToDisapprove] = useState<Position[]>([]);
-    const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
-    const [unassigningEmployee, setUnassigningEmployee] = useState<Employee | null>(null);
     const [isDisapproveConfirmOpen, setIsDisapproveConfirmOpen] = useState(false);
     const [approvalNote, setApprovalNote] = useState('');
     const [disapproveNote, setDisapproveNote] = useState('');
@@ -175,10 +94,6 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
 
 
-    const employeesQuery = useMemoFirebase(() => {
-        if (!firestore || !department?.id) return null;
-        return query(collection(firestore, 'employees'), where('departmentId', '==', department.id));
-    }, [firestore, department?.id]);
 
     const { data: positions, isLoading: isPositionsLoading } = useCollection<Position>(positionsQuery);
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
@@ -186,13 +101,18 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     const { data: allDepartments } = useCollection<Department>(departmentsQuery);
     const { data: jobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
     const { data: workSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
-    const { data: employees } = useCollection<Employee>(employeesQuery);
     const { data: departmentTypes } = useCollection<DepartmentType>(deptTypesQuery);
 
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Department delete states
+    const [isDeptDeleteConfirmOpen, setIsDeptDeleteConfirmOpen] = useState(false);
+    const [isDisbandConfirmOpen, setIsDisbandConfirmOpen] = useState(false);
+    const [disbandReason, setDisbandReason] = useState('');
+    const [isDeptDeleting, setIsDeptDeleting] = useState(false);
 
     const isLoading = isPositionsLoading || !levels || !empTypes;
 
@@ -230,6 +150,15 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         return { ...checks, isComplete };
     }, [department, positions, stats]);
 
+    const completionPercentage = useMemo(() => {
+        if (!validationChecklist) return 0;
+        const keys = Object.keys(validationChecklist).filter(k => k !== 'isComplete');
+        const total = keys.length;
+        if (total === 0) return 0;
+        const completed = keys.filter(k => (validationChecklist as any)[k]).length;
+        return Math.round((completed / total) * 100);
+    }, [validationChecklist]);
+
     const [pendingParentPositionId, setPendingParentPositionId] = useState<string | undefined>(undefined);
 
     const handleAddChildPosition = (parentId: string) => {
@@ -253,19 +182,10 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     };
 
     const handleDeletePosition = async (pos: Position) => {
-        if (!firestore) return;
         if (pos.isApproved) {
             toast({
                 title: "Устгах боломжгүй",
                 description: "Батлагдсан ажлын байрыг устгах боломжгүй. Эхлээд батлагдаагүй болгоно уу.",
-                variant: "destructive"
-            });
-            return;
-        }
-        if ((pos.filled || 0) > 0) {
-            toast({
-                title: "Устгах боломжгүй",
-                description: "Ажилтан томилогдсон байна. Эхлээд ажилтныг чөлөөлнө үү.",
                 variant: "destructive"
             });
             return;
@@ -295,6 +215,39 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
     const handleApproveSelected = async () => {
         if (!firestore || !positions || !user || selectedPositionIds.length === 0) return;
+
+        // Validation Check
+        const targets = positions.filter(p => selectedPositionIds.includes(p.id));
+        const invalidPositions = targets.filter(pos => {
+            const checks = {
+                hasTitle: !!pos.title?.trim(),
+                hasCode: !!pos.code?.trim(),
+                hasDepartment: !!(pos.departmentId && pos.departmentId.trim()),
+                hasLevel: !!pos.levelId,
+                hasCategory: !!pos.jobCategoryId,
+                hasEmpType: !!pos.employmentTypeId,
+                hasSchedule: !!pos.workScheduleId,
+                hasPurpose: !!pos.purpose?.trim(),
+                hasResponsibilities: (pos.responsibilities?.length || 0) > 0,
+                hasJDFile: !!pos.jobDescriptionFile?.url,
+                hasSalary: !!(pos.compensation?.salaryRange?.mid && pos.compensation.salaryRange.mid > 0)
+            };
+            return !Object.values(checks).every(Boolean);
+        });
+
+        if (invalidPositions.length > 0) {
+            const names = invalidPositions.slice(0, 3).map(p => p.title || 'Нэргүй').join(', ');
+            const remaining = invalidPositions.length - 3;
+            const suffix = remaining > 0 ? ` ба бусад ${remaining}` : '';
+
+            toast({
+                title: "Батлах боломжгүй",
+                description: `${names}${suffix} ажлын байрны мэдээлэл дутуу байна. Бүх мэдээллийг гүйцэд бөглөсний дараа батлах боломжтой.`,
+                variant: "destructive"
+            });
+            setIsApproveConfirmOpen(false);
+            return;
+        }
 
         setIsApproving(true);
         try {
@@ -347,17 +300,9 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
             // 1. Prepare snapshot
             const snapshotPositions = positions.map(pos => {
-                const posEmployees = employees?.filter(emp => emp.positionId === pos.id).map(emp => ({
-                    id: emp.id,
-                    firstName: emp.firstName,
-                    lastName: emp.lastName,
-                    employeeCode: emp.employeeCode
-                })) || [];
-
                 return {
                     ...pos,
-                    levelName: lookups.levelMap[pos.levelId || ''] || '',
-                    employees: posEmployees
+                    levelName: lookups.levelMap[pos.levelId || ''] || ''
                 };
             });
 
@@ -417,19 +362,8 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         if (!firestore || !positions || !user) return;
 
         const targets = positions.filter(p => selectedPositionIds.includes(p.id) && p.isApproved !== false);
-        const withEmployees = targets.filter(p => (p.filled || 0) > 0);
 
-        if (withEmployees.length > 0) {
-            setPositionsToDisapprove(withEmployees);
-            const firstEmp = employees?.find(e => e.positionId === withEmployees[0].id);
-            if (firstEmp) {
-                setUnassigningEmployee(firstEmp);
-                setIsUnassignDialogOpen(true);
-            }
-            return;
-        }
-
-        setIsDisapproving(true);
+        setIsApproving(true);
         try {
             const disapprovedAt = disapproveDate.toISOString();
             const logEntry = {
@@ -459,96 +393,11 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         } catch (error) {
             toast({ title: "Алдаа гарлаа", variant: "destructive" });
         } finally {
-            setIsDisapproving(false);
+            setIsApproving(false);
         }
     };
 
-    const handleSyncCounts = async () => {
-        if (!firestore || !positions || !employees) return;
-        setIsDisapproving(true); // Using this as a general loading state for tools
-        try {
-            const batch = writeBatch(firestore);
-            const positionCounts: { [key: string]: number } = {};
 
-            // 1. Initialize all positions with 0
-            positions.forEach(pos => {
-                positionCounts[pos.id] = 0;
-            });
-
-            // 2. Count employees for each position
-            employees.forEach(emp => {
-                if (emp.positionId && positionCounts[emp.positionId] !== undefined) {
-                    positionCounts[emp.positionId]++;
-                }
-            });
-
-            // 3. Update position documents if count differs
-            let updatedCount = 0;
-            positions.forEach(pos => {
-                const actualCount = positionCounts[pos.id];
-                if (pos.filled !== actualCount) {
-                    const posRef = doc(firestore, 'positions', pos.id);
-                    batch.update(posRef, { filled: actualCount });
-                    updatedCount++;
-                }
-            });
-
-            if (updatedCount > 0) {
-                await batch.commit();
-                toast({ title: `Амжилттай`, description: `${updatedCount} ажлын байрны орон тоо шинэчлэгдлээ.` });
-            } else {
-                toast({ title: `Мэдээлэл зөв байна`, description: `Орон тооны зөрүү олдсонгүй.` });
-            }
-        } catch (error) {
-            console.error("Sync counts error:", error);
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsDisapproving(false);
-        }
-    };
-
-    const handleUnassignAndContinue = async () => {
-        if (!firestore || !unassigningEmployee) return;
-
-        try {
-            const batch = writeBatch(firestore);
-
-            // 1. Unassign employee
-            const empRef = doc(firestore, 'employees', unassigningEmployee.id);
-            batch.update(empRef, { positionId: null, departmentId: null });
-
-            // 2. Decrement position filled count
-            if (unassigningEmployee.positionId) {
-                const posRef = doc(firestore, 'positions', unassigningEmployee.positionId);
-                const posSnap = await getDoc(posRef);
-                if (posSnap.exists()) {
-                    const currentFilled = posSnap.data().filled || 0;
-                    batch.update(posRef, { filled: Math.max(0, currentFilled - 1) });
-                }
-            }
-
-            await batch.commit();
-            toast({ title: `${unassigningEmployee.firstName} ажилтныг чөлөөллөө` });
-
-            // Check if there are more employees to unassign in the targets
-            const remainingTarget = positionsToDisapprove.filter(p => p.id !== unassigningEmployee.positionId);
-            const nextPos = remainingTarget.find(p => (p.filled || 0) > 0);
-
-            if (nextPos) {
-                const nextEmp = employees?.find(e => e.positionId === nextPos.id);
-                if (nextEmp) {
-                    setUnassigningEmployee(nextEmp);
-                    return;
-                }
-            }
-
-            setIsUnassignDialogOpen(false);
-            setUnassigningEmployee(null);
-            handleBulkDisapprove(); // Retry disapproval now that employees are unassigned
-        } catch (error) {
-            toast({ title: "Ажилтан чөлөөлөхөд алдаа гарлаа", variant: "destructive" });
-        }
-    };
 
     const handleBulkDelete = async () => {
         if (!firestore || selectedPositionIds.length === 0) return;
@@ -569,6 +418,91 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         }
     };
 
+    const handleDeptDeleteClick = async () => {
+        if (!firestore) return;
+        setIsDeptDeleting(true);
+
+        try {
+            const positionsRef = collection(firestore, 'positions');
+            const q = query(positionsRef, where('departmentId', '==', department.id));
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                toast({
+                    variant: "destructive",
+                    title: "Устгах боломжгүй",
+                    description: `Энэ нэгжид ${snapshot.size} ажлын байр бүртгэлтэй байна. Эхлээд ажлын байруудыг устгах эсвэл шилжүүлэх шаардлагатай.`
+                });
+                setIsDeptDeleting(false);
+                return;
+            }
+
+            const historyRef = collection(firestore, 'departmentHistory');
+            const hq = query(historyRef, where('departmentId', '==', department.id));
+            const historySnapshot = await getDocs(hq);
+
+            if (!historySnapshot.empty) {
+                setIsDisbandConfirmOpen(true);
+            } else {
+                setIsDeptDeleteConfirmOpen(true);
+            }
+        } catch (error) {
+            console.error("Error checking department constraints:", error);
+            toast({ variant: "destructive", title: "Алдаа гарлаа" });
+        } finally {
+            setIsDeptDeleting(false);
+        }
+    };
+
+    const handleSimpleDeptDelete = async () => {
+        if (!firestore) return;
+        setIsDeptDeleting(true);
+        try {
+            const batch = writeBatch(firestore);
+            batch.delete(doc(firestore, 'departments', department.id));
+            await batch.commit();
+
+            toast({ title: "Нэгж амжилттай устгагдлаа" });
+            router.push('/dashboard/organization');
+        } catch (error) {
+            console.error("Error deleting department:", error);
+            toast({ variant: "destructive", title: "Алдаа гарлаа" });
+            setIsDeptDeleting(false);
+        }
+    };
+
+    const handleDeptDisband = async () => {
+        if (!firestore) return;
+        setIsDeptDeleting(true);
+        try {
+            const historyRef = collection(firestore, 'departmentHistory');
+            const q = query(historyRef, where('departmentId', '==', department.id), orderBy('approvedAt', 'desc'), limit(1));
+            const snapshot = await getDocs(q);
+
+            const batch = writeBatch(firestore);
+
+            if (!snapshot.empty) {
+                const latestDoc = snapshot.docs[0];
+                batch.update(doc(firestore, 'departmentHistory', latestDoc.id), {
+                    validTo: new Date().toISOString(),
+                    disbandReason: disbandReason,
+                    disbandedBy: user?.uid,
+                    disbandedByName: user?.displayName || user?.email
+                });
+            }
+
+            batch.delete(doc(firestore, 'departments', department.id));
+
+            await batch.commit();
+            toast({ title: "Нэгж амжилттай татан буугдлаа" });
+            router.push('/dashboard/organization');
+        } catch (error) {
+            console.error("Error disbanding department:", error);
+            toast({ variant: "destructive", title: "Алдаа гарлаа" });
+            setIsDeptDeleting(false);
+        }
+    };
+
     const parentName = department.draftData?.parentId
         ? (allDepartments?.find(d => d.id === department.draftData?.parentId)?.name || 'Үндсэн нэгж')
         : (department.parentId ? (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж') : 'Үндсэн нэгж');
@@ -578,61 +512,89 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     return (
         <div className="space-y-6">
             {/* Approval Checklist & Action Card */}
-            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-5 relative">
+            {/* Approval Overview & Progress Card (Redesigned to match Job Position design) */}
+            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative transition-all hover:bg-indigo-50/50">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-                <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
-                    {/* Stats Summary */}
-                    <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-xl border border-border/50">
-                        <div className="text-center px-2">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Нийт</p>
-                            <p className="text-xl font-bold text-foreground tabular-nums">{stats.total}</p>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+
+                    {/* Left: Stats & Progress */}
+                    <div className="flex-1 w-full md:w-auto flex flex-col sm:flex-row items-center gap-6">
+                        <div className="flex items-center gap-4 p-4 bg-white/50 rounded-xl border border-indigo-100 shrink-0">
+                            <div className="text-center px-2">
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5">Нийт</p>
+                                <p className="text-xl font-bold text-foreground tabular-nums">{stats.total}</p>
+                            </div>
+                            <Separator orientation="vertical" className="h-8" />
+                            <div className="text-center px-2">
+                                <p className="text-[10px] uppercase font-bold text-emerald-500 tracking-widest mb-1.5">Батлагдсан</p>
+                                <p className="text-xl font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
+                            </div>
+                            <Separator orientation="vertical" className="h-8" />
+                            <div className="text-center px-2">
+                                <p className="text-[10px] uppercase font-bold text-amber-500 tracking-widest mb-1.5">Төсөл</p>
+                                <p className="text-xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
+                            </div>
                         </div>
-                        <Separator orientation="vertical" className="h-8" />
-                        <div className="text-center px-2">
-                            <p className="text-xs font-medium text-emerald-500 mb-1">Батлагдсан</p>
-                            <p className="text-xl font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
-                        </div>
-                        <Separator orientation="vertical" className="h-8" />
-                        <div className="text-center px-2">
-                            <p className="text-xs font-medium text-amber-500 mb-1">Төсөл</p>
-                            <p className="text-xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
+
+                        <div className="flex-1 w-full space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-indigo-950">Бүтэц төлөвлөлтийн явц</span>
+                                <span className={cn(
+                                    "text-sm font-bold",
+                                    completionPercentage === 100 ? "text-emerald-600" : "text-indigo-600"
+                                )}>{completionPercentage}%</span>
+                            </div>
+                            <div className="h-3 w-full bg-white rounded-full overflow-hidden border border-indigo-100">
+                                <div
+                                    className={cn(
+                                        "h-full transition-all duration-500 ease-out rounded-full",
+                                        completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
+                                    )}
+                                    style={{ width: `${completionPercentage}%` }}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                {completionPercentage === 100 ? 'Бүх мэдээлэл бүрэн бөглөгдсөн. Бүтцийг батлах боломжтой.' : 'Нэгжийн мэдээлэл эсвэл ажлын байруудын батламж дутуу байна.'}
+                                {!validationChecklist.allPositionsApproved && stats.pending > 0 && (
+                                    <span className="text-amber-600 ml-1">({stats.pending} ажлын байр батлагдаагүй байна)</span>
+                                )}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Validation Checklist UI */}
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
-                        <ChecklistItem label="Нэгжийн нэр" isDone={validationChecklist.hasName} />
-                        <ChecklistItem label="Нэгжийн код" isDone={validationChecklist.hasCode} />
-                        <ChecklistItem label="Нэгжийн төрөл" isDone={validationChecklist.hasType} />
-                        <ChecklistItem label="Зорилго" isDone={validationChecklist.hasVision} />
-                        <ChecklistItem label="Чиг үүрэг" isDone={validationChecklist.hasDescription} />
-                        <ChecklistItem label="Систем өнгө" isDone={validationChecklist.hasColor} />
-                        <ChecklistItem label="Ажлын байр бүртгэсэн" isDone={validationChecklist.hasPositions} />
-                        <ChecklistItem label="Албан тушаал батлагдсан" isDone={validationChecklist.allPositionsApproved} />
-                    </div>
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-3 shrink-0">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50 transition-colors"
+                            onClick={handleDeptDeleteClick}
+                            disabled={isDeptDeleting}
+                        >
+                            {isDeptDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />} Устгах
+                        </Button>
 
-                    {/* Action Button */}
-                    <div className="shrink-0 self-center">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button
-                                        variant={validationChecklist.isComplete ? "success" : "secondary"}
-                                        size="lg"
-                                        className={cn(
-                                            "gap-2 px-8 font-bold",
-                                            !validationChecklist.isComplete && "bg-muted text-muted-foreground cursor-not-allowed"
-                                        )}
-                                        onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
-                                        disabled={!validationChecklist.isComplete}
-                                    >
-                                        <Sparkles className="w-4 h-4" />
-                                        Бүтэц батлах
-                                    </Button>
+                                    <span tabIndex={0}>
+                                        <Button
+                                            variant={validationChecklist.isComplete ? "success" : "secondary"}
+                                            className={cn(
+                                                "h-11 px-8 font-bold gap-2 transition-all shadow-sm",
+                                                !validationChecklist.isComplete && "opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200"
+                                            )}
+                                            onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
+                                            disabled={!validationChecklist.isComplete}
+                                        >
+                                            <Sparkles className="w-4 h-4" />
+                                            Бүтэц батлах
+                                        </Button>
+                                    </span>
                                 </TooltipTrigger>
                                 {!validationChecklist.isComplete && (
-                                    <TooltipContent side="top" className="text-xs">
-                                        Мэдээлэл дутуу тул батлах боломжгүй
+                                    <TooltipContent side="top" className="text-xs max-w-[200px]">
+                                        Нэгжийн мэдээлэл дутуу эсвэл ажлын байрууд бүрэн батлагдаагүй байна
                                     </TooltipContent>
                                 )}
                             </Tooltip>
@@ -641,239 +603,12 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 </div>
             </Card>
 
-            {/* Department Details Summary Card */}
-            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl relative">
-                <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
-                    {isEditInfoOpen ? (
-                        <>
-                            <Button
-                                variant="success"
-                                size="sm"
-                                className="h-9 px-4 font-bold"
-                                onClick={handleSaveInlineInfo}
-                                disabled={isSavingInfo}
-                            >
-                                {isSavingInfo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                Хадгалах
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-9 px-4 font-bold"
-                                onClick={() => setIsEditInfoOpen(false)}
-                                disabled={isSavingInfo}
-                            >
-                                Болих
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-9 px-4 font-bold border border-border/50 gap-2"
-                            onClick={() => setIsEditInfoOpen(true)}
-                        >
-                            <Settings className="w-4 h-4" />
-                            Засах
-                        </Button>
-                    )}
-                </div>
-
-                <CardContent className="p-8">
-                    {/* Header Section */}
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            {isEditInfoOpen ? (
-                                <div className="space-y-4 max-w-xl">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-medium text-muted-foreground">Нэгжийн нэр</Label>
-                                        <Input
-                                            className="text-lg font-bold bg-muted/30 border-border/50 h-12 rounded-xl"
-                                            value={editFormData.name}
-                                            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                                            placeholder="Нэгжийн нэр..."
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs font-medium text-muted-foreground">Төрөл</Label>
-                                            <Select
-                                                value={editFormData.typeId}
-                                                onValueChange={(v) => setEditFormData({ ...editFormData, typeId: v })}
-                                            >
-                                                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
-                                                    <SelectValue placeholder="Төрөл сонгох..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {departmentTypes?.map(t => (
-                                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs font-medium text-muted-foreground">Төлөв</Label>
-                                            <Select
-                                                value={editFormData.status}
-                                                onValueChange={(v) => setEditFormData({ ...editFormData, status: v as any })}
-                                            >
-                                                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="active">Идэвхтэй</SelectItem>
-                                                    <SelectItem value="inactive">Идэвхгүй</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-bold tracking-tight text-foreground">{department.draftData?.name || department.name}</h2>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-muted text-muted-foreground font-medium">
-                                            {typeName}
-                                        </Badge>
-                                        <Badge variant="outline" className={cn(
-                                            "font-medium",
-                                            (department.draftData?.status || department.status) === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-50 text-slate-600 border-slate-100"
-                                        )}>
-                                            {(department.draftData?.status || department.status) === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Info Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {isEditInfoOpen ? (
-                                <>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-medium text-muted-foreground">Нэгжийн код</Label>
-                                        <Input
-                                            className="bg-muted/30 border-border/50 rounded-xl h-12"
-                                            value={editFormData.code}
-                                            onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value })}
-                                            placeholder="Код..."
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-medium text-muted-foreground">Дээд нэгж</Label>
-                                        <Select
-                                            value={editFormData.parentId}
-                                            onValueChange={(v) => setEditFormData({ ...editFormData, parentId: v })}
-                                        >
-                                            <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl h-12">
-                                                <SelectValue placeholder="Дээд нэгж..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">Үндсэн нэгж</SelectItem>
-                                                {allDepartments?.filter(d => d.id !== department.id).map(d => (
-                                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-medium text-muted-foreground">Өнгө сонгох</Label>
-                                        <div className="flex items-center gap-3 bg-muted/30 border border-border/50 rounded-xl h-12 px-3">
-                                            <input
-                                                type="color"
-                                                className="w-8 h-8 rounded-full border-none cursor-pointer"
-                                                value={editFormData.color}
-                                                onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
-                                            />
-                                            <span className="font-mono text-xs text-muted-foreground uppercase">{editFormData.color}</span>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-medium text-muted-foreground">Үүсгэсэн огноо</Label>
-                                        <div className="flex items-center gap-2 bg-muted/30 border border-border/50 rounded-xl h-12 px-4 text-sm text-muted-foreground font-medium">
-                                            <CalendarIcon className="w-4 h-4" />
-                                            {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <InfoItem
-                                        icon={Hash}
-                                        label="Нэгжийн код"
-                                        value={department.draftData?.code || department.code}
-                                    />
-                                    <InfoItem
-                                        icon={GitBranch}
-                                        label="Дээд нэгж"
-                                        value={parentName}
-                                    />
-                                    <InfoItem
-                                        icon={CalendarIcon}
-                                        label="Огноо"
-                                        value={department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
-                                    />
-                                    <InfoItem
-                                        icon={Palette}
-                                        label="Систем өнгө"
-                                        value={
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full border shadow-sm" style={{ backgroundColor: department.draftData?.color || department.color || '#000' }} />
-                                                <span className="font-mono text-xs text-muted-foreground uppercase">{department.draftData?.color || department.color}</span>
-                                            </div>
-                                        }
-                                    />
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Goals & Functions */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t">
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Target className="w-4 h-4 text-primary" />
-                                <h4 className="text-sm font-semibold text-foreground">Зорилго</h4>
-                            </div>
-                            {isEditInfoOpen ? (
-                                <Textarea
-                                    className="bg-muted/30 border-border/50 rounded-xl h-32 resize-none"
-                                    value={editFormData.vision}
-                                    onChange={(e) => setEditFormData({ ...editFormData, vision: e.target.value })}
-                                    placeholder="Нэгжийн зорилго..."
-                                />
-                            ) : (
-                                <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
-                                    <p className="text-sm leading-relaxed text-muted-foreground italic font-medium">
-                                        {department.draftData?.vision || department.vision || 'Зорилго бүртгэгдээгүй байна...'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <FileText className="w-4 h-4 text-primary" />
-                                <h4 className="text-sm font-semibold text-foreground">Чиг үүрэг</h4>
-                            </div>
-                            {isEditInfoOpen ? (
-                                <Textarea
-                                    className="bg-muted/30 border-border/50 rounded-xl h-32 resize-none"
-                                    value={editFormData.description}
-                                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                                    placeholder="Нэгжийн чиг үүрэг..."
-                                />
-                            ) : (
-                                <div className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]">
-                                    <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-medium">
-                                        {department.draftData?.description || department.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Department Settings (Replaces inline card) */}
+            <SettingsTab
+                department={department}
+                mode="draft"
+                validationChecklist={validationChecklist}
+            />
 
             <div className="space-y-6">
                 {/* Content Control Bar - Simplified */}
@@ -898,24 +633,6 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                             </TabsList>
                         </Tabs>
 
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-9 w-9 rounded-xl border-border/50 hover:bg-muted"
-                                        onClick={handleSyncCounts}
-                                        disabled={isDisapproving}
-                                    >
-                                        <Sparkles className={cn("h-4 w-4 text-primary", isDisapproving && "animate-spin")} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="text-xs">Орон тооны тооцооллыг шинэчлэх</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
                     </div>
 
                     <Button
@@ -1104,37 +821,15 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                 handleBulkDisapprove();
                             }}
                             variant="warning"
-                            disabled={isDisapproving}
+                            disabled={isApproving}
                         >
-                            {isDisapproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <HistoryIcon className="w-4 h-4" />}
+                            {isApproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <HistoryIcon className="w-4 h-4" />}
                             Батламж цуцлах
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Ажилтан томилогдсон байна</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            "{unassigningEmployee?.firstName}" ажилтан энэ албан тушаалд томилогдсон байна. Батламжийг цуцлахын тулд эхлээд ажилтныг чөлөөлөх шаардлагатай.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setIsUnassignDialogOpen(false)}>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={(e) => {
-                                e.preventDefault();
-                                handleUnassignAndContinue();
-                            }}
-                            variant="warning"
-                        >
-                            Чөлөөлөх
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
 
             {
                 selectedPositionIds.length > 0 && (
@@ -1148,7 +843,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                 variant="success"
                                 size="sm"
                                 className="h-9 px-4"
-                                onClick={handleApproveSelected}
+                                onClick={() => setIsApproveConfirmOpen(true)}
                                 disabled={isApproving}
                             >
                                 {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -1159,7 +854,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                                 size="sm"
                                 className="h-9 px-4"
                                 onClick={() => setIsDisapproveConfirmOpen(true)}
-                                disabled={isDisapproving}
+                                disabled={isApproving}
                             >
                                 <XCircle className="w-4 h-4" />
                                 Цуцлах
@@ -1209,6 +904,103 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Danger Zone */}
+            <div className="pt-12 border-t border-border/50">
+                <Card className="border-destructive/10 bg-destructive/[0.02] overflow-hidden rounded-xl">
+                    <CardHeader className="bg-destructive/[0.03] border-b border-destructive/10 py-3 px-6">
+                        <CardTitle className="text-destructive text-sm font-bold flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            Аюултай бүс
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="space-y-1">
+                                <p className="text-sm font-bold text-foreground">Нэгжийг устгах / Татан буулгах</p>
+                                <p className="text-xs text-muted-foreground max-w-lg">
+                                    Нэгжийг устгахын тулд ажлын байр бүртгэлгүй байх шаардлагатай. Түүхтэй нэгжийг зөвхөн татан буулгах боломжтой.
+                                </p>
+                            </div>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                className="bg-destructive/10 text-destructive hover:bg-destructive text-xs font-bold px-6 py-2 rounded-xl border-dashed border-destructive/30 hover:text-destructive-foreground transition-all shrink-0"
+                                onClick={handleDeptDeleteClick}
+                                disabled={isDeptDeleting}
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {isDeptDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Нэгжийг устгах'}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Department Deletion Dialogs */}
+            <AlertDialog open={isDeptDeleteConfirmOpen} onOpenChange={setIsDeptDeleteConfirmOpen}>
+                <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl font-bold">Нэгжийг устгах уу?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium">
+                            Энэ нэгж нь батлагдсан түүхгүй тул шууд устгах боломжтой. Энэ үйлдлийг буцаах боломжгүй.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="font-bold rounded-xl border-none bg-muted hover:bg-muted/80">Болих</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleSimpleDeptDelete}
+                            className="bg-destructive hover:bg-destructive/90 font-bold rounded-xl shadow-lg shadow-destructive/20"
+                            disabled={isDeptDeleting}
+                        >
+                            {isDeptDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Устгах'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <Dialog open={isDisbandConfirmOpen} onOpenChange={setIsDisbandConfirmOpen}>
+                <DialogContent className="sm:max-w-[500px] border-none shadow-2xl rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive font-bold text-xl">
+                            <AlertTriangle className="w-6 h-6" />
+                            Нэгжийг татан буулгах
+                        </DialogTitle>
+                        <DialogDescription className="font-medium text-slate-500 pt-2">
+                            Энэ нэгж нь өмнө нь батлагдсан түүхтэй тул "Татан буулгах" бүртгэл үүсгэж хаах шаардлагатай.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-6">
+                        <div className="space-y-2">
+                            <Label className="font-bold text-xs uppercase tracking-wider text-slate-400">Татан буулгах шалтгаан / Тушаалын дугаар</Label>
+                            <Textarea
+                                placeholder="Жишээ: Гүйцэтгэх захирлын тушаал №..."
+                                value={disbandReason}
+                                onChange={(e) => setDisbandReason(e.target.value)}
+                                className="min-h-[120px] rounded-xl bg-muted/30 border-none focus-visible:ring-primary/20"
+                            />
+                        </div>
+                        <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-[11px] text-amber-900 leading-relaxed font-medium">
+                            <strong className="block mb-1">Анхааруулга:</strong>
+                            Татан буулгаснаар энэ нэгжийн түүх архивлагдаж, идэвхтэй бүтцээс хасагдана. Бусад бүх мэдээлэл хадгалагдана.
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" className="font-bold rounded-xl border-none bg-muted hover:bg-muted/80" onClick={() => setIsDisbandConfirmOpen(false)}>Болих</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeptDisband}
+                            className="font-bold rounded-xl shadow-lg shadow-destructive/20"
+                            disabled={isDeptDeleting || !disbandReason.trim()}
+                        >
+                            {isDeptDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            Татан буулгах
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 };

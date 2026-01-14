@@ -25,6 +25,7 @@ export interface Position {
     canApproveVacation?: boolean;
     onboardingProgramIds?: string[];
     filled: number;
+    isApproved?: boolean;
     description?: string;
     createdAt?: any;
 }

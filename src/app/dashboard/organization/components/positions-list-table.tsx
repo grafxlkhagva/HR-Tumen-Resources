@@ -172,7 +172,6 @@ export const PositionsListTable = ({
                     <TableHead>Албан тушаалын нэр</TableHead>
                     <TableHead>Хэлтэс</TableHead>
                     <TableHead>Зэрэглэл</TableHead>
-                    <TableHead>Төлөв</TableHead>
                     <TableHead className="w-[100px] text-right pr-6">Үйлдэл</TableHead>
                 </TableRow>
             </TableHeader>
@@ -286,19 +285,6 @@ export const PositionsListTable = ({
                             </TableCell>
                             <TableCell>
                                 {pos.levelId ? <Badge variant="secondary" className="text-[10px]">{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</Badge> : '-'}
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-1.5">
-                                    {(pos.filled || 0) > 0 ? (
-                                        <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-5 font-semibold">
-                                            Томилогдсон
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-5 font-semibold">
-                                            Сул
-                                        </Badge>
-                                    )}
-                                </div>
                             </TableCell>
                             <TableCell className="text-right pr-6">
                                 <AlertDialog>

@@ -667,7 +667,7 @@ const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
     return (
         <Card className="shadow-sm">
             <CardHeader>
-                <CardTitle>Хөдөлмөрийн харилцааны түүх</CardTitle>
+                <CardTitle>Process Management-ын түүх</CardTitle>
                 <CardDescription>Байгууллага доторх шилжилт хөдөлгөөн, томилгооны түүх.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -958,6 +958,25 @@ export default function EmployeeProfilePage() {
                                 <User className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-mono text-muted-foreground">#{employee.employeeCode}</span>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-orange-100 bg-orange-50/30 shadow-sm overflow-hidden">
+                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-100/20">
+                            <CardTitle className="text-sm font-semibold text-orange-900 flex items-center gap-2">
+                                <UserMinus className="h-4 w-4" />
+                                Ажил хүлээлцэх
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-4">
+                            <p className="text-xs text-orange-800 leading-relaxed">
+                                Ажилтан ажлаас гарах, урт хугацааны чөлөө авах, өөр албан тушаалд шилжих үед энэ процессыг эхлүүлнэ.
+                            </p>
+                            <Button asChild variant="default" size="sm" className="w-full bg-orange-600 hover:bg-orange-700 shadow-sm">
+                                <Link href={`/dashboard/employees/${employeeId}/offboarding`}>
+                                    Процесс эхлүүлэх
+                                </Link>
+                            </Button>
                         </CardContent>
                     </Card>
                 </div>

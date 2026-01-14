@@ -1,0 +1,87 @@
+import { JobApplication, RecruitmentStage, Candidate } from '@/types/recruitment';
+
+type NotificationType = 'STAGE_CHANGE' | 'INTERVIEW_SCHEDULED' | 'REJECTION' | 'OFFER';
+
+interface EmailTemplate {
+    subject: string;
+    body: (candidateName: string, context: any) => string;
+}
+
+const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
+    'screening': {
+        subject: 'Таны анкет ирсэн: [Vacancy]',
+        body: (name, { vacancyTitle }) => `Сайн байна уу, ${name}.\n\nБид таны ${vacancyTitle} ажлын байранд илгээсэн анкетыг хүлээн авлаа. Бид удахгүй холбогдох болно.\n\nХүндэтгэсэн,\nHR баг`
+    },
+    'interview': {
+        subject: 'Ярилцлагын урилга: [Vacancy]',
+        body: (name, { vacancyTitle }) => `Сайн байна уу, ${name}.\n\nТаны ${vacancyTitle} ажлын байрны дараагийн шатны ярилцлагад урьж байна.\n\nХүндэтгэсэн,\nHR баг`
+    },
+    'rejected': {
+        subject: 'Сонгон шалгаруулалтын хариу',
+        body: (name, { vacancyTitle }) => `Сайн байна уу, ${name}.\n\nСонгон шалгаруулалтад оролцсонд баярлалаа. Харамсалтай нь бид энэ удаад өөр горилогчийг сонголоо.\n\nХүндэтгэсэн,\nHR баг`
+    },
+    'default': {
+        subject: 'Анкетын статус шинэчлэгдлээ',
+        body: (name, { stageName }) => `Сайн байна уу, ${name}.\n\nТаны анкетын статус "${stageName}" болж өөрчлөгдлөө.`
+    }
+};
+
+/**
+ * Mocks sending an email notification
+ */
+export async function sendNotification(
+    candidate: Candidate,
+    type: NotificationType,
+    context: any
+): Promise<boolean> {
+    console.log(`[Notification Service] Preparing to send ${type} to ${candidate.email}`);
+
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // Select template
+    let template = EMAIL_TEMPLATES['default'];
+
+    if (type === 'STAGE_CHANGE') {
+        const stageId = context.stageId?.toLowerCase();
+        if (stageId?.includes('screen')) template = EMAIL_TEMPLATES['screening'];
+        else if (stageId?.includes('interview')) template = EMAIL_TEMPLATES['interview'];
+        else if (stageId?.includes('reject')) template = EMAIL_TEMPLATES['rejected'];
+    }
+
+    const subject = template.subject.replace('[Vacancy]', context.vacancyTitle || 'Position');
+    const body = template.body(candidate.firstName, context);
+
+    console.log(`
+    ----------------------------------------------------
+    TO: ${candidate.email} (${candidate.firstName} ${candidate.lastName})
+    SUBJECT: ${subject}
+    BODY:
+    ${body}
+    ----------------------------------------------------
+    `);
+
+    return true;
+}
+
+/**
+ * Mocks sending an SMS notification
+ */
+export async function sendSMS(
+    phoneNumber: string,
+    text: string
+): Promise<boolean> {
+    console.log(`[SMS Gateway] Preparing to send to ${phoneNumber}`);
+
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    console.log(`
+    ----------------------------------------------------
+    SMS TO: ${phoneNumber}
+    CONTENT: ${text}
+    ----------------------------------------------------
+    `);
+
+    return true;
+}

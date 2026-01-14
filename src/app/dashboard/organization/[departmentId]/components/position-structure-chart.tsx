@@ -149,15 +149,6 @@ const PositionNode = ({ node, isFirst, isLast, isSole, isRoot, onPositionClick, 
                             </p>
 
                             <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                {(node.filled || 0) > 0 ? (
-                                    <Badge variant="secondary" className="text-[9px] bg-blue-50 text-blue-600 border-blue-200 py-0 h-4 font-semibold px-1.5">
-                                        Томилогдсон
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 py-0 h-4 font-semibold px-1.5">
-                                        Сул
-                                    </Badge>
-                                )}
 
                                 <Badge variant="outline" className="text-[9px] font-medium bg-muted/30 border-muted-foreground/10 px-1.5 py-0 h-4">
                                     {levelName}

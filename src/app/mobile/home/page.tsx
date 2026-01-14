@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles, Palmtree, ScrollText } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles, Palmtree, ScrollText, CheckSquare, ChevronRight } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -587,8 +587,86 @@ function QuickActions() {
                 </div>
             ))}
         </div>
-    )
+    );
 }
+
+function MyTasksWidget() {
+    const { employeeProfile } = useEmployeeProfile();
+    const { firestore } = useFirebase();
+    const router = useRouter();
+
+    const instancesQuery = useMemoFirebase(() =>
+        (firestore && employeeProfile?.id) ? query(
+            collection(firestore, 'relation_instances'),
+            where('status', '==', 'active'),
+            where('employeeId', '==', employeeProfile.id),
+            limit(5)
+        ) : null
+        , [firestore, employeeProfile?.id]);
+
+    const { data: instances, isLoading } = useCollection<any>(instancesQuery);
+
+    // Count total pending tasks
+    const taskStats = React.useMemo(() => {
+        if (!instances) return { total: 0, completed: 0, pending: 0 };
+
+        let total = 0;
+        let completed = 0;
+
+        instances.forEach(instance => {
+            const nodes = instance.nodes || instance.snapshot?.nodes;
+            if (!nodes || !Array.isArray(nodes)) return;
+
+            const currentNode = nodes.find((n: any) => n.id === instance.currentStageId);
+            if (currentNode?.data?.checklist) {
+                total += currentNode.data.checklist.length;
+                completed += currentNode.data.completedChecklistItems?.length || 0;
+            }
+        });
+
+        return { total, completed, pending: total - completed };
+    }, [instances]);
+
+    if (isLoading || !instances || instances.length === 0) return null;
+
+    return (
+        <div className="px-6">
+            <Card
+                className="rounded-3xl border-0 shadow-lg bg-gradient-to-br from-purple-600 to-pink-600 text-white overflow-hidden relative group cursor-pointer transition-transform active:scale-[0.98]"
+                onClick={() => router.push('/mobile/tasks')}
+            >
+                {/* Decorative shapes */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+
+                <CardContent className="p-5 relative z-10 flex items-center justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1 opacity-90">
+                            <CheckSquare className="w-4 h-4" />
+                            <span className="text-xs font-semibold tracking-wide uppercase">Миний даалгавар</span>
+                        </div>
+
+                        <div className="flex items-baseline gap-2 mb-2">
+                            <span className="text-3xl font-semibold tracking-tight">
+                                {taskStats.pending}
+                            </span>
+                            <span className="text-sm opacity-90">хүлээгдэж буй</span>
+                        </div>
+
+                        <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm">
+                            📋 {instances.length} процесс идэвхтэй
+                        </Badge>
+                    </div>
+
+                    <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
+                        <ChevronRight className="w-6 h-6 text-white" />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
 
 export default function MobileHomePage() {
     const { firestore } = useFirebase();
@@ -661,6 +739,9 @@ export default function MobileHomePage() {
             </header>
 
             <main className="space-y-8 pt-6 animate-in fade-in-30 slide-in-from-bottom-5">
+                {/* My Tasks Card */}
+                <MyTasksWidget />
+
                 {/* Attendance Card */}
                 <AttendanceStatusWidget />
 

@@ -23,23 +23,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Employees can read their own data, admins can read any
+    // Allow everyone to read employees for context-heavy pages like Dashboard/Offboarding
     match /employees/{employeeId} {
-      allow get: if isOwner(employeeId) || isAdmin();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn(); // Signup
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
       allow update: if isOwner(employeeId) || isAdmin();
     }
     
-    // Subcollections of employees are only accessible by the owner or an admin
-    // Exception: point_profile needs to be readable by others for recognition and writable for transfers
-    match /employees/{employeeId}/point_profile/{docId} {
-       allow read: if isSignedIn();
-       allow write: if isSignedIn();
-    }
-
+    // Subcollections of employees
     match /employees/{employeeId}/{subcollection}/{docId} {
        allow read, write: if isOwner(employeeId) || isAdmin();
+    }
+
+    // Explicitly allow collection group queries for offboarding_processes
+    match /{path=**}/offboarding_processes/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
+
+    match /employees/{employeeId}/point_profile/{docId} {
+       allow read, write: if isSignedIn();
     }
 
     // Allow mentors/buddies to update assigned programs (e.g. mark tasks as done)
@@ -139,6 +142,19 @@ service cloud.firestore {
        allow read: if isSignedIn();
        allow write: if isAdmin();
     }
+
+    // --- Employment Relations Module Rules ---
+    match /relation_templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /relation_instances/{instanceId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employeeId);
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employeeId);
+      allow delete: if isAdmin();
+    }
     
     // Onboarding-related collections are managed by admins
     match /newHires/{hireId} {
@@ -170,5 +186,28 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.approverId);
     }
+    
+    // --- Recruitment Module Rules ---
+    
+    match /vacancies/{vacancyId} {
+        allow read: if true; // Public read for job board (or use a cloud function for public access to be safer)
+        allow write: if isAdmin();
+    }
+    
+    match /candidates/{candidateId} {
+        allow create: if true; // Public application submission
+        allow read, update, delete: if isAdmin();
+    }
+    
+    match /applications/{applicationId} {
+        allow create: if true; // Public application submission
+        allow read, update, delete: if isAdmin();
+    }
+    
+    match /interviews/{interviewId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
+
   }
 }

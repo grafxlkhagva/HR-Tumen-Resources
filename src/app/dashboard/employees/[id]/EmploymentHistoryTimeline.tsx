@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { AddHistoryEventDialog } from './AddHistoryEventDialog';
 import { Badge } from '@/components/ui/badge';
-import { format }from 'date-fns';
+import { format } from 'date-fns';
 
 type EmploymentHistoryEvent = {
   id: string;
@@ -65,18 +65,18 @@ function TimelineItem({
       </div>
       <div className="ml-4 flex-grow">
         <div className="flex items-center justify-between">
-            <h4 className="font-semibold">{event.eventType}</h4>
-            <span className="text-xs text-muted-foreground">{eventDate}</span>
+          <h4 className="font-semibold">{event.eventType}</h4>
+          <span className="text-xs text-muted-foreground">{eventDate}</span>
         </div>
-        
+
         {event.notes && <p className="mt-1 text-sm text-muted-foreground">{event.notes}</p>}
         {event.documentId ? (
-             <Button asChild variant="link" className="mt-2 h-auto p-0 text-sm">
-                <Link href={`/dashboard/documents/${event.documentId}`}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Баримт бичиг харах
-                </Link>
-             </Button>
+          <Button asChild variant="link" className="mt-2 h-auto p-0 text-sm">
+            <Link href={`/dashboard/documents/${event.documentId}`}>
+              <FileText className="mr-2 h-4 w-4" />
+              Баримт бичиг харах
+            </Link>
+          </Button>
         ) : event.documentUrl && (
           <Button asChild variant="link" className="mt-2 h-auto p-0 text-sm">
             <a
@@ -122,9 +122,9 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
     () =>
       firestore && employeeId
         ? query(
-            collection(firestore, `employees/${employeeId}/employmentHistory`),
-            orderBy('eventDate', 'desc')
-          )
+          collection(firestore, `employees/${employeeId}/employmentHistory`),
+          orderBy('eventDate', 'desc')
+        )
         : null,
     [firestore, employeeId]
   );
@@ -171,7 +171,7 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
         {!isLoading && !error && (!history || history.length === 0) && (
           <div className="py-10 text-center text-muted-foreground">
             <Briefcase className="mx-auto h-12 w-12" />
-            <p className="mt-4">Хөдөлмөрийн харилцааны түүх одоогоор хоосон байна.</p>
+            <p className="mt-4">Process Management-ын түүх одоогоор хоосон байна.</p>
           </div>
         )}
       </div>

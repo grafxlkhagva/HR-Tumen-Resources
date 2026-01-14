@@ -1,198 +1,206 @@
 'use client';
 
-import * as React from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react';
+import { useCollection, useFirebase } from '@/firebase';
+import { collection, query, orderBy, where } from 'firebase/firestore';
+import { ERDocument, ERDocumentType, DocumentStatus, DOCUMENT_STATUSES } from './types';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, Clock, FileText } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
-import type { Employee } from '../employees/data';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Search, Filter, FileText, Calendar, User, Database, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { formatDateTime, getStatusConfig } from './utils';
+import { seedDemoData } from './seed';
+import { useToast } from '@/hooks/use-toast';
 
-const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string } } = {
-    "Идэвхтэй": { variant: 'default', className: 'bg-green-100 text-green-800' },
-    "Жирэмсний амралттай": { variant: 'secondary', className: 'bg-blue-100 text-blue-800' },
-    "Хүүхэд асрах чөлөөтэй": { variant: 'secondary', className: 'bg-purple-100 text-purple-800' },
-    "Урт хугацааны чөлөөтэй": { variant: 'outline', className: 'border-yellow-300 text-yellow-800' },
-    "Ажлаас гарсан": { variant: 'destructive', className: '' },
-    "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-yellow-600 text-white' },
-};
+export default function DocumentListPage() {
+    const { toast } = useToast();
+    const [isSeeding, setIsSeeding] = useState(false);
 
-function EmployeeCarouselCard({ employee, isSelected, onSelect }: { employee: Employee, isSelected: boolean, onSelect: () => void }) {
-    const status = statusConfig[employee.status] || { variant: 'outline', className: '' };
-    
-    const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        // Stop propagation if the click is on a link or inside a link
-        if ((e.target as HTMLElement).closest('a')) {
-            return;
+    const handleSeed = async () => {
+        setIsSeeding(true);
+        try {
+            await seedDemoData();
+            toast({ title: "Амжилттай", description: "Жишээ өгөгдөл үүслээ." });
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Алдаа", description: "Жишээ үүсгэхэд алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsSeeding(false);
         }
-        onSelect();
     };
 
+    const { firestore } = useFirebase();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+
+    const documentsQuery = React.useMemo(() =>
+        firestore ? query(collection(firestore, 'er_documents'), orderBy('createdAt', 'desc')) : null
+        , [firestore]);
+
+    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
+
+    const { data: documents, isLoading } = useCollection<ERDocument>(documentsQuery);
+    const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
+
+    const docTypeMap = React.useMemo(() => {
+        return docTypes?.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>) || {};
+    }, [docTypes]);
+
+    const filteredDocuments = React.useMemo(() => {
+        if (!documents) return [];
+        return documents.filter(doc => {
+            const matchesSearch =
+                (doc.metadata?.employeeName?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (docTypeMap[doc.documentTypeId]?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+            const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
+            const matchesType = typeFilter === 'all' || doc.documentTypeId === typeFilter;
+
+            return matchesSearch && matchesStatus && matchesType;
+        });
+    }, [documents, searchQuery, statusFilter, typeFilter, docTypeMap]);
+
     return (
-        <Card 
-            className={cn("w-full cursor-pointer transition-all", isSelected ? "border-primary shadow-lg" : "hover:shadow-md")}
-            onClick={handleCardClick}
-        >
-            <CardContent className="p-4 flex items-center gap-4">
-                 <Link href={`/dashboard/employees/${employee.id}`} onClick={(e) => e.stopPropagation()}>
-                    <Avatar className="h-12 w-12 transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg">
-                        <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                        <AvatarFallback>{employee.firstName?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                </Link>
-                <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold truncate">{employee.firstName} {employee.lastName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{employee.jobTitle}</p>
-                    <Badge variant={status.variant} className={cn("mt-1", status.className)}>{employee.status}</Badge>
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 pb-32">
+                <div className="flex justify-between items-start">
+                    <PageHeader
+                        title="Хөдөлмөрийн харилцаа"
+                        description="Ажилтны хөдөлмөрийн харилцаатай холбоотой гэрээ, тушаал, шийдвэрүүд"
+                        showBackButton={true}
+                        backHref="/dashboard"
+                    />
+                    <Button variant="outline" size="sm" onClick={handleSeed} disabled={isSeeding}>
+                        {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                        Жишээ өгөгдөл үүсгэх
+                    </Button>
                 </div>
-            </CardContent>
-        </Card>
-    )
-}
+                <PageHeader
+                    title="Хөдөлмөрийн харилцаа"
+                    description="Гэрээ, тушаал, албан бичиг баримтын нэгдсэн систем"
+                    showBackButton={true}
+                    backHref="/dashboard"
+                    actions={
+                        <div className="flex gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/dashboard/employment-relations/settings">
+                                    Тохиргоо
+                                </Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href="/dashboard/employment-relations/create">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Шинэ документ
+                                </Link>
+                            </Button>
+                        </div>
+                    }
+                />
 
-function ProcessChecklistItem({ title, isCompleted }: { title: string, isCompleted: boolean}) {
-    return (
-        <div className="flex items-center justify-between rounded-md border p-4">
-            <div className="flex items-center gap-3">
-                {isCompleted ? <Check className="h-5 w-5 text-green-500" /> : <Clock className="h-5 w-5 text-muted-foreground" />}
-                <p className={cn("font-medium", isCompleted && "text-muted-foreground line-through")}>{title}</p>
-            </div>
-            <Button variant="secondary" size="sm" disabled={isCompleted}>Эхлүүлэх</Button>
-        </div>
-    )
-}
-
-function OffboardingProcess({ employee }: { employee: Employee }) {
-    // Placeholder data
-    const processSteps = [
-        { id: 'exit-interview', title: 'Ажлаас гарах ярилцлага', completed: false },
-        { id: 'asset-return', title: 'Эд хөрөнгө хүлээлцэх', completed: true },
-        { id: 'final-payment', title: 'Эцсийн тооцоо хийх', completed: false },
-        { id: 'access-revoke', title: 'Системийн хандалт хаах', completed: false },
-    ];
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Ажлаас чөлөөлөх процесс</CardTitle>
-                <CardDescription>{employee.firstName}-г ажлаас чөлөөлөхтэй холбоотой дараах үйлдлүүдийг гүйцэтгэнэ үү.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                {processSteps.map(step => (
-                     <ProcessChecklistItem key={step.id} title={step.title} isCompleted={step.completed} />
-                ))}
-            </CardContent>
-        </Card>
-    )
-}
-
-function OnLeaveProcess({ employee }: { employee: Employee }) {
-     // Placeholder data
-    const processSteps = [
-        { id: 'handover', title: 'Ажил хүлээлцэх', completed: true },
-        { id: 'leave-documentation', title: 'Холбогдох бичиг баримт бүрдүүлэх', completed: false },
-    ];
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Чөлөө олгох процесс</CardTitle>
-                <CardDescription>{employee.firstName}-д {employee.status?.toLowerCase()} чөлөө олгохтой холбоотой үйлдлүүд.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                {processSteps.map(step => (
-                     <ProcessChecklistItem key={step.id} title={step.title} isCompleted={step.completed} />
-                ))}
-            </CardContent>
-        </Card>
-    )
-}
-
-
-export default function EmploymentRelationsPage() {
-  const { firestore } = useFirebase();
-  const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string | null>(null);
-
-  const employeesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'employees') : null), []);
-  const { data: employees, isLoading, error } = useCollection<Employee>(employeesQuery);
-
-  const inactiveEmployees = React.useMemo(() => {
-    if (!employees) return [];
-    return employees.filter(emp => emp.status !== 'Идэвхтэй');
-  }, [employees]);
-  
-  React.useEffect(() => {
-      if(!selectedEmployeeId && inactiveEmployees.length > 0) {
-          setSelectedEmployeeId(inactiveEmployees[0].id);
-      }
-  }, [inactiveEmployees, selectedEmployeeId]);
-
-  const selectedEmployee = React.useMemo(() => {
-      if (!selectedEmployeeId || !inactiveEmployees) return null;
-      return inactiveEmployees.find(emp => emp.id === selectedEmployeeId) || null;
-  }, [selectedEmployeeId, inactiveEmployees]);
-  
-
-  return (
-    <div className="py-8 space-y-8">
-      <div className="flex items-center gap-4">
-        <Button asChild variant="outline" size="sm">
-          <Link href="/dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Буцах
-          </Link>
-        </Button>
-         <h1 className="text-2xl font-semibold tracking-tight">Хөдөлмөрийн харилцаа</h1>
-      </div>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Идэвхгүй/Чөлөөтэй ажилтнууд</CardTitle>
-                <CardDescription>Процесс удирдах ажилтнаа сонгоно уу.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {isLoading && <Skeleton className="h-28 w-full" />}
-                 {!isLoading && inactiveEmployees.length > 0 && (
-                    <Carousel opts={{ align: "start" }} className="w-full">
-                        <CarouselContent className="-ml-4">
-                            {inactiveEmployees.map((employee) => (
-                            <CarouselItem key={employee.id} className="md:basis-1/2 lg:basis-1/3 pl-4">
-                                <EmployeeCarouselCard 
-                                    employee={employee} 
-                                    isSelected={selectedEmployeeId === employee.id}
-                                    onSelect={() => setSelectedEmployeeId(employee.id)}
-                                />
-                            </CarouselItem>
-                            ))}
-                        </CarouselContent>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                    </Carousel>
-                 )}
-                 {!isLoading && inactiveEmployees.length === 0 && (
-                     <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">Идэвхгүй эсвэл чөлөөтэй ажилтан байхгүй байна.</p>
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-xl shadow-sm border">
+                    <div className="relative flex-1 w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Ажилтан, төрлөөр хайх..."
+                            className="pl-9 w-full bg-background md:bg-muted/40 border-input md:border-none"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
-                 )}
-            </CardContent>
-        </Card>
+                    <div className="flex w-full md:w-auto gap-2">
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="w-[200px] bg-background md:bg-muted/40 border-input md:border-none">
+                                <SelectValue placeholder="Баримтын төрөл" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Бүх төрөл</SelectItem>
+                                {docTypes?.map((type) => (
+                                    <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
-        {isLoading && <Skeleton className="h-64 w-full" />}
-        {selectedEmployee && (
-            <div className="animate-in fade-in-50">
-                {selectedEmployee.status === 'Ажлаас гарсан' ? (
-                     <OffboardingProcess employee={selectedEmployee} />
-                ) : (
-                    <OnLeaveProcess employee={selectedEmployee} />
-                )}
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px] bg-background md:bg-muted/40 border-input md:border-none">
+                                <Filter className="h-4 w-4 mr-2 text-muted-foreground opacity-70" />
+                                <SelectValue placeholder="Төлөв" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Бүх төлөв</SelectItem>
+                                {Object.entries(DOCUMENT_STATUSES).map(([key, config]) => (
+                                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* List */}
+                <div className="grid gap-4">
+                    {isLoading ? (
+                        <div className="text-center py-10">Ачаалж байна...</div>
+                    ) : filteredDocuments.length === 0 ? (
+                        <Card className="border-dashed shadow-none">
+                            <CardContent className="py-20 text-center text-muted-foreground">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="p-4 bg-muted rounded-full">
+                                        <FileText className="h-10 w-10 opacity-30" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-lg">Баримт олдсонгүй</p>
+                                        <p className="text-sm mt-1">Шинээр документ үүсгэх товчийг дарж эхлүүлнэ үү.</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        filteredDocuments.map((doc) => {
+                            const statusConfig = getStatusConfig(doc.status);
+                            return (
+                                <Link key={doc.id} href={`/dashboard/employment-relations/${doc.id}`}>
+                                    <Card className="hover:shadow-md transition-shadow group cursor-pointer">
+                                        <CardContent className="p-4 flex items-center gap-4">
+                                            <div className="h-12 w-12 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
+                                                <FileText className="h-6 w-6 text-blue-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="font-semibold text-base truncate">
+                                                        {docTypeMap[doc.documentTypeId] || 'Тодорхойгүй баримт'}
+                                                    </h3>
+                                                    <Badge variant="secondary" className={`font-normal ${statusConfig.color}`}>
+                                                        {statusConfig.label}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <User className="h-3.5 w-3.5" />
+                                                        {doc.metadata?.employeeName || 'Ажилтан тодорхойгүй'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Calendar className="h-3.5 w-3.5" />
+                                                        {formatDateTime(doc.createdAt)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right text-xs text-muted-foreground">
+                                                v{doc.version}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            );
+                        })
+                    )}
+                </div>
             </div>
-        )}
-    </div>
-  );
+        </div>
+    );
 }

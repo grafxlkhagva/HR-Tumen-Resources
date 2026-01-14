@@ -1,0 +1,617 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useFirebase } from '@/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { RecruitmentStage, StageType, MessageTemplate } from '@/types/recruitment';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+
+const DEFAULT_STAGES: RecruitmentStage[] = [
+    { id: 'screening', title: 'Анкет шүүлт', type: 'SCREENING', order: 0 },
+    { id: 'first-interview', title: 'Анхан шатны ярилцлага', type: 'INTERVIEW', order: 1 },
+    { id: 'tech-task', title: 'Даалгавар', type: 'CHALLENGE', order: 2 },
+    { id: 'final-interview', title: 'Эцсийн ярилцлага', type: 'INTERVIEW', order: 3 },
+    { id: 'offer', title: 'Санал тавих', type: 'OFFER', order: 4 },
+];
+
+const DEFAULT_CRITERIA = [
+    { id: 'technical', name: 'Мэргэжлийн ур чадвад', description: 'Тухайн албан тушаалд шаардагдах техник ур чадвар' },
+    { id: 'communication', name: 'Харилцааны ур чадвад', description: 'Өөрийгөө илэрхийлэх, сонсох чадвар' },
+    { id: 'culture', name: 'Соёлын нийцэл', description: 'Байгууллагын үнэт зүйлстэй нийцэх байдал' },
+    { id: 'experience', name: 'Туршлага', description: 'Өмнөх ажлын туршлага, хийсэн ажлууд' },
+];
+
+const DEFAULT_TEMPLATES: MessageTemplate[] = [
+    {
+        id: 'tpl-1',
+        title: 'Ярилцлагын урилга',
+        body: 'Сайн байна уу, {{name}}.\n\nБид таныг дараагийн шатны ярилцлагад урьж байна.',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    },
+    {
+        id: 'tpl-2',
+        title: 'Татгалзсан хариу',
+        body: 'Сайн байна уу, {{name}}.\n\nСонгон шалгаруулалтад оролцсонд баярлалаа. Харамсалтай нь бид дараагийн шатанд өөр горилогчийг сонгохоор боллоо.',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    }
+];
+
+interface SortableStageProps {
+    stage: RecruitmentStage;
+    onDelete: (id: string) => void;
+}
+
+function SortableStage({ stage, onDelete }: SortableStageProps) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: stage.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <TableRow ref={setNodeRef} style={style}>
+            <TableCell className="w-[50px]">
+                <Button variant="ghost" size="icon" className="cursor-grab" {...attributes} {...listeners}>
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </Button>
+            </TableCell>
+            <TableCell className="font-medium">{stage.title}</TableCell>
+            <TableCell>
+                <Badge variant="outline">{stage.type}</Badge>
+            </TableCell>
+            <TableCell className="text-right">
+                <Button variant="ghost" size="icon" onClick={() => onDelete(stage.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </TableCell>
+        </TableRow>
+    );
+}
+
+export function RecruitmentSettings() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [stages, setStages] = useState<RecruitmentStage[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [initialState, setInitialState] = useState<{ stages: RecruitmentStage[], criteria: any[], templates: MessageTemplate[] } | null>(null);
+
+    // New Stage State
+    const [newStageTitle, setNewStageTitle] = useState('');
+    const [newStageType, setNewStageType] = useState<StageType>('INTERVIEW');
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+    // Criteria State
+    const [criteria, setCriteria] = useState<{ id: string, name: string, description: string }[]>([]);
+    const [newCriterionName, setNewCriterionName] = useState('');
+    const [newCriterionDesc, setNewCriterionDesc] = useState('');
+    const [isAddCriteriaOpen, setIsAddCriteriaOpen] = useState(false);
+
+    // Templates State
+    const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+    const [newTemplateTitle, setNewTemplateTitle] = useState('');
+    const [newTemplateBody, setNewTemplateBody] = useState('');
+    const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            if (!firestore) return;
+            try {
+                const docRef = doc(firestore, 'recruitment_settings', 'default');
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const fetchedStages = docSnap.data().defaultStages as RecruitmentStage[] || DEFAULT_STAGES;
+                    const fetchedCriteria = docSnap.data().defaultCriteria || DEFAULT_CRITERIA;
+                    const fetchedTemplates = docSnap.data().messageTemplates as MessageTemplate[] || DEFAULT_TEMPLATES;
+                    setStages(fetchedStages);
+                    setCriteria(fetchedCriteria);
+                    setTemplates(fetchedTemplates);
+                    setInitialState({ stages: fetchedStages, criteria: fetchedCriteria, templates: fetchedTemplates });
+                } else {
+                    setStages(DEFAULT_STAGES);
+                    setCriteria(DEFAULT_CRITERIA);
+                    setTemplates(DEFAULT_TEMPLATES);
+                    setInitialState({ stages: DEFAULT_STAGES, criteria: DEFAULT_CRITERIA, templates: DEFAULT_TEMPLATES });
+                }
+            } catch (error) {
+                console.error("Failed to fetch settings:", error);
+                setStages(DEFAULT_STAGES);
+                setCriteria(DEFAULT_CRITERIA);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSettings();
+    }, [firestore]);
+
+    const handleAddStage = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+
+        if (!newStageTitle.trim()) {
+            toast({
+                title: 'Мэдээлэл дутуу',
+                description: 'Шатны нэрийг оруулна уу.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const newStage: RecruitmentStage = {
+            id: `stage-${Date.now()}`,
+            title: newStageTitle,
+            type: newStageType,
+            order: stages.length,
+        };
+
+        setStages(prev => [...prev, newStage]);
+        setNewStageTitle('');
+        setNewStageType('INTERVIEW');
+        setIsAddDialogOpen(false);
+
+        toast({
+            title: 'Шат нэмэгдлээ',
+            description: `"${newStageTitle}" шат жагсаалтад нэмэгдлээ.`,
+        });
+    };
+
+    const handleDeleteStage = (id: string) => {
+        setStages(stages.filter(s => s.id !== id));
+    };
+
+    const handleAddCriterion = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!newCriterionName.trim()) return;
+
+        const newCriterion = {
+            id: `crit-${Date.now()}`,
+            name: newCriterionName,
+            description: newCriterionDesc,
+        };
+
+        setCriteria(prev => [...prev, newCriterion]);
+        setNewCriterionName('');
+        setNewCriterionDesc('');
+        setIsAddCriteriaOpen(false);
+
+        toast({
+            title: 'Шалгуур нэмэгдлээ',
+            description: `"${newCriterionName}" шалгуур жагсаалтад нэмэгдлээ.`,
+        });
+    };
+
+    const handleDeleteCriterion = (id: string) => {
+        setCriteria(prev => prev.filter(c => c.id !== id));
+        toast({
+            title: 'Шалгуур хасагдлаа',
+            variant: 'destructive'
+        });
+    };
+
+    const handleAddTemplate = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!newTemplateTitle.trim() || !newTemplateBody.trim()) return;
+
+        const newTemplate: MessageTemplate = {
+            id: `tpl-${Date.now()}`,
+            title: newTemplateTitle,
+            body: newTemplateBody,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        setTemplates(prev => [...prev, newTemplate]);
+        setNewTemplateTitle('');
+        setNewTemplateBody('');
+        setIsAddTemplateOpen(false);
+
+        toast({
+            title: 'Загвар нэмэгдлээ',
+            description: `"${newTemplateTitle}" загвар жагсаалтад нэмэгдлээ.`,
+        });
+    };
+
+    const handleDeleteTemplate = (id: string) => {
+        setTemplates(prev => prev.filter(t => t.id !== id));
+        toast({
+            title: 'Загвар хасагдлаа',
+            variant: 'destructive'
+        });
+    };
+
+    const handleSave = async () => {
+        if (!firestore) return;
+        setSaving(true);
+        try {
+            const orderedStages = stages.map((s, index) => ({ ...s, order: index }));
+
+            await setDoc(doc(firestore, 'recruitment_settings', 'default'), {
+                defaultStages: orderedStages,
+                defaultCriteria: criteria,
+                messageTemplates: templates,
+                updatedAt: new Date().toISOString()
+            });
+
+            setInitialState({ stages: orderedStages, criteria: criteria, templates: templates });
+
+            toast({
+                title: 'Тохиргоо хадгалагдлаа',
+                description: 'Бүх өөрчлөлтийг амжилттай хадгаллаа.',
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: 'Алдаа',
+                description: 'Тохиргоог хадгалж чадсангүй.',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const hasChanges = JSON.stringify(initialState?.stages) !== JSON.stringify(stages) ||
+        JSON.stringify(initialState?.criteria) !== JSON.stringify(criteria) ||
+        JSON.stringify(initialState?.templates) !== JSON.stringify(templates);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (active.id !== over?.id) {
+            setStages((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const newIndex = items.findIndex((item) => item.id === over?.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
+        }
+    };
+
+    if (loading) {
+        return <div className="flex h-[200px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    }
+
+    return (
+        <div className="space-y-6 max-w-5xl animate-in fade-in duration-500 pb-20">
+            {/* Header with Global Save */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-b">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Recruitment Тохиргоо</h1>
+                    <p className="text-sm text-muted-foreground">Бүрдүүлэлтийн процесс болон үнэлгээний шалгуурыг удирдах.</p>
+                </div>
+                {hasChanges && (
+                    <div className="flex items-center gap-3 animate-in slide-in-from-right-4 duration-300">
+                        <span className="text-sm text-amber-600 flex items-center gap-1 font-medium bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            Хадгалаагүй өөрчлөлт байна
+                        </span>
+                        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 gap-2 transition-all active:scale-95">
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            Бүгдийг хадгалах
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                <div className="xl:col-span-12 space-y-6">
+                    {/* Default Stages Card */}
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                            <div>
+                                <CardTitle className="text-xl font-bold">Үндсэн үе шатууд</CardTitle>
+                                <CardDescription className="mt-1">
+                                    Шинэ ажлын байрны зар үүсгэхэд ашиглагдах үндсэн процессын дараалал.
+                                </CardDescription>
+                            </div>
+
+                            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Шат нэмэх
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Шинэ шат нэмэх</DialogTitle>
+                                        <DialogDescription>
+                                            Бүрдүүлэлтийн явцад ашиглагдах шинэ шатны мэдээллийг оруулна уу.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleAddStage} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="title">Шатны нэр</Label>
+                                            <Input
+                                                id="title"
+                                                placeholder="Жишээ: Техник даалгавар..."
+                                                value={newStageTitle}
+                                                onChange={(e) => setNewStageTitle(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="type">Төрөл</Label>
+                                            <Select value={newStageType} onValueChange={(v: StageType) => setNewStageType(v)}>
+                                                <SelectTrigger id="type">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="SCREENING">Screening (Анкет шүүлт)</SelectItem>
+                                                    <SelectItem value="INTERVIEW">Interview (Ярилцлага)</SelectItem>
+                                                    <SelectItem value="CHALLENGE">Challenge (Шалгалт/Даалгавар)</SelectItem>
+                                                    <SelectItem value="OFFER">Offer (Санал тавих)</SelectItem>
+                                                    <SelectItem value="HIRED">Hired (Ажилд авсан)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Нэмэх</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                            >
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[50px]"></TableHead>
+                                            <TableHead>Нэр</TableHead>
+                                            <TableHead>Төрөл</TableHead>
+                                            <TableHead className="text-right"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <SortableContext
+                                            items={stages.map(s => s.id)}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            {stages.map((stage) => (
+                                                <SortableStage
+                                                    key={stage.id}
+                                                    stage={stage}
+                                                    onDelete={handleDeleteStage}
+                                                />
+                                            ))}
+                                        </SortableContext>
+                                        {stages.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                                    Үе шат тохируулаагүй байна.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </DndContext>
+
+                            <div className="flex items-start gap-2 pt-4 border-t mt-4 text-slate-500">
+                                <Info className="h-4 w-4 mt-0.5 text-blue-500" />
+                                <p className="text-xs italic leading-relaxed">
+                                    * Шатны дарааллыг өөрчлөхийн тулд барьж чирнэ үү. Өөрчлөлт оруулаад дээд хэсэгт байрлах "Хадгалах" товчийг дарж баталгаажуулна уу.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Evaluation Criteria Card */}
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                            <div>
+                                <CardTitle className="text-xl font-bold">Үнэлгээний шалгуур</CardTitle>
+                                <CardDescription className="mt-1">
+                                    Ярилцлагын үед горилогчийг үнэлэх үндсэн шалгуурууд.
+                                </CardDescription>
+                            </div>
+
+                            <Dialog open={isAddCriteriaOpen} onOpenChange={setIsAddCriteriaOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Шалгуур нэмэх
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Шинэ шалгуур нэмэх</DialogTitle>
+                                        <DialogDescription>
+                                            Үнэлгээний хуудас дээр харагдах шинэ үзүүлэлтийг оруулна уу.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleAddCriterion} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="crit-name">Шалгуурын нэр</Label>
+                                            <Input
+                                                id="crit-name"
+                                                placeholder="Жишээ: Харилцааны чадвар..."
+                                                value={newCriterionName}
+                                                onChange={(e) => setNewCriterionName(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="crit-desc">Тайлбар (Заавал биш)</Label>
+                                            <Textarea
+                                                id="crit-desc"
+                                                placeholder="Шалгуурын талаарх дэлгэрэнгүй тайлбар..."
+                                                value={newCriterionDesc}
+                                                onChange={(e) => setNewCriterionDesc(e.target.value)}
+                                            />
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsAddCriteriaOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Нэмэх</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Нэр</TableHead>
+                                        <TableHead>Тайлбар</TableHead>
+                                        <TableHead className="text-right"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {criteria.map((crit) => (
+                                        <TableRow key={crit.id}>
+                                            <TableCell className="font-medium">{crit.name}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm">{crit.description}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDeleteCriterion(crit.id)}
+                                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {criteria.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                                Шалгуур тохируулаагүй байна.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                    {/* Message Templates Card */}
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                            <div>
+                                <CardTitle className="text-xl font-bold">Мессежний загварууд</CardTitle>
+                                <CardDescription className="mt-1">
+                                    Нэр дэвшигчид рүү илгээх бэлэн мессежний загварууд.
+                                </CardDescription>
+                            </div>
+
+                            <Dialog open={isAddTemplateOpen} onOpenChange={setIsAddTemplateOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Загвар нэмэх
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[500px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Шинэ загвар нэмэх</DialogTitle>
+                                        <DialogDescription>
+                                            Нэр дэвшигчид рүү илгээх мессежний загварыг оруулна уу.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleAddTemplate} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tpl-title">Загварын нэр</Label>
+                                            <Input
+                                                id="tpl-title"
+                                                placeholder="Жишээ: Ярилцлагын урилга..."
+                                                value={newTemplateTitle}
+                                                onChange={(e) => setNewTemplateTitle(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tpl-body">Мессежний агуулга</Label>
+                                            <Textarea
+                                                id="tpl-body"
+                                                placeholder="Мессежний агуулгыг энд бичнэ үү..."
+                                                className="min-h-[150px]"
+                                                value={newTemplateBody}
+                                                onChange={(e) => setNewTemplateBody(e.target.value)}
+                                            />
+                                            <p className="text-[10px] text-muted-foreground italic">
+                                                Зөвлөмж: {'{{name}}'} гэж бичвэл нэр дэвшигчийн нэрээр солигдоно.
+                                            </p>
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsAddTemplateOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Нэмэх</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {templates.map((tpl) => (
+                                    <Card key={tpl.id} className="relative group overflow-hidden border-slate-200/60 shadow-none hover:shadow-md transition-all">
+                                        <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Mail className="h-4 w-4 text-blue-500" />
+                                                <h4 className="text-sm font-semibold text-slate-900">{tpl.title}</h4>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDeleteTemplate(tpl.id)}
+                                                className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <CardContent className="p-4">
+                                            <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                                                {tpl.body}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                                {templates.length === 0 && (
+                                    <div className="col-span-full py-12 text-center bg-slate-50 rounded-xl border border-dashed text-slate-400">
+                                        <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                        <p className="text-sm">Загвар тохируулаагүй байна.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    );
+}

@@ -128,4 +128,17 @@
     background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1.5px, transparent 1.5px);
     background-size: 24px 24px;
   }
+
+  /* Utility to hide scrollbars while keeping functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+  }
 }

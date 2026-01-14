@@ -65,6 +65,7 @@ import { useRouter } from 'next/navigation';
 
 const positionSchema = z.object({
   title: z.string().min(2, 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.'),
+  code: z.string().optional(),
   departmentId: z.string().optional(),
   reportsTo: z.string().optional(),
   levelId: z.string().optional(),
@@ -142,6 +143,7 @@ export function AddPositionDialog({
     resolver: zodResolver(positionSchema),
     defaultValues: {
       title: '',
+      code: '',
       departmentId: preselectedDepartmentId || '',
       reportsTo: parentPositionId || '(none)',
       levelId: '',
@@ -175,6 +177,7 @@ export function AddPositionDialog({
     if (editingPosition) {
       form.reset({
         ...editingPosition,
+        code: editingPosition.code || '',
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         workScheduleId: editingPosition.workScheduleId || '',
@@ -263,6 +266,7 @@ export function AddPositionDialog({
 
     const baseData: any = {
       title: data.title,
+      code: data.code?.toUpperCase() || '',
       departmentId: finalDepartmentId,
       levelId: data.levelId || '',
       employmentTypeId: data.employmentTypeId || '',
@@ -342,14 +346,6 @@ export function AddPositionDialog({
       return;
     }
 
-    if ((editingPosition.filled || 0) > 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Устгах боломжгүй',
-        description: 'Ажилтан томилогдсон тул устгах боломжгүй.',
-      });
-      return;
-    }
 
     const docRef = doc(firestore, 'positions', editingPosition.id);
     deleteDocumentNonBlocking(docRef);
@@ -387,6 +383,21 @@ export function AddPositionDialog({
                           <FormControl>
                             <Input placeholder="Жишээ нь: Ахлах нягтлан бодогч" {...field} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="code"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ажлын байрны код</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Жишээ нь: ACC001" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                          </FormControl>
+                          <FormDescription>Байгууллагын дотоод код</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -488,6 +499,19 @@ export function AddPositionDialog({
                                   <FormLabel>Албан тушаалын нэр</FormLabel>
                                   <FormControl>
                                     <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="code"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Ажлын байрны код</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Жишээ нь: DEV001" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>

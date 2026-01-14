@@ -26,14 +26,12 @@ import {
     Info,
     Calendar as CalendarIcon,
     ArrowRight,
-    UserCircle,
     FileText,
     ShieldCheck,
     Download,
     LayoutDashboard,
     ListChecks,
     BadgeDollarSign,
-    UserPlus,
     History as HistoryIcon,
     Briefcase,
     Building2,
@@ -42,7 +40,6 @@ import {
     MapPin,
     Mail,
     Phone,
-    User,
     Save
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -52,7 +49,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Employee } from '@/app/dashboard/employees/data';
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -69,12 +66,15 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { mn } from 'date-fns/locale';
 import { PositionOverview } from './components/position-overview';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
-
-import { AssignEmployeeDialog } from '../../assign-employee-dialog';
 
 const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
     <div className="flex items-center gap-2.5 py-1">
@@ -123,8 +123,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [isApproving, setIsApproving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<Partial<Position> | null>(null);
-    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-    const [isReleaseConfirmOpen, setIsReleaseConfirmOpen] = useState(false);
+
+    const [approvalDate, setApprovalDate] = useState<Date>(new Date());
+    const [approvalNote, setApprovalNote] = useState('');
+    const [disapproveDate, setDisapproveDate] = useState<Date>(new Date());
+    const [disapproveNote, setDisapproveNote] = useState('');
 
     // Data Fetching
     const positionRef = useMemoFirebase(() => (firestore ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
@@ -148,31 +151,34 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const { data: allDepartments } = useCollection<any>(allDeptsQuery);
     const { data: allPositions } = useCollection<Position>(allPositionsQuery);
 
-    // Employees
-    const assignedEmployeesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('positionId', '==', positionId)) : null), [firestore, positionId]);
-    const { data: assignedEmployees } = useCollection<Employee>(assignedEmployeesQuery);
-
-    const allEmployeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-    const { data: allEmployeesData } = useCollection<Employee>(allEmployeesQuery);
-    const allEmployees = allEmployeesData || [];
-
     const validationChecklist = useMemo(() => {
+        const data = isEditing ? { ...position, ...formData } : position;
         const checks = {
-            hasTitle: !!position?.title?.trim(),
-            hasCode: !!position?.code?.trim(),
-            hasDepartment: !!position?.departmentId,
-            hasLevel: !!position?.levelId,
-            hasCategory: !!position?.jobCategoryId,
-            hasEmpType: !!position?.employmentTypeId,
-            hasSchedule: !!position?.workScheduleId,
-            hasPurpose: !!position?.purpose?.trim(),
-            hasResponsibilities: (position?.responsibilities?.length || 0) > 0,
-            hasSalary: !!(position?.compensation?.salaryRange?.mid && position.compensation.salaryRange.mid > 0)
+            hasTitle: !!data?.title?.trim(),
+            hasCode: !!data?.code?.trim(),
+            hasDepartment: !!data?.departmentId,
+            hasLevel: !!data?.levelId,
+            hasCategory: !!data?.jobCategoryId,
+            hasEmpType: !!data?.employmentTypeId,
+            hasSchedule: !!data?.workScheduleId,
+            hasPurpose: !!data?.purpose?.trim(),
+            hasResponsibilities: (data?.responsibilities?.length || 0) > 0,
+            hasJDFile: !!data?.jobDescriptionFile?.url,
+            hasSalary: !!(data?.compensation?.salaryRange?.mid && data.compensation.salaryRange.mid > 0)
         };
 
         const isComplete = Object.values(checks).every(Boolean);
         return { ...checks, isComplete };
-    }, [position]);
+    }, [position, formData, isEditing]);
+
+    const completionPercentage = useMemo(() => {
+        if (!validationChecklist) return 0;
+        const keys = Object.keys(validationChecklist).filter(k => k !== 'isComplete');
+        const total = keys.length;
+        if (total === 0) return 0;
+        const completed = keys.filter(k => (validationChecklist as any)[k]).length;
+        return Math.round((completed / total) * 100);
+    }, [validationChecklist]);
 
     const isDirty = useMemo(() => {
         if (!formData || !position) return false;
@@ -207,13 +213,29 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     // Actions
     const handleDisapprove = async () => {
         if (!firestore || !user) return;
-        const now = new Date().toISOString();
+        setIsApproving(true);
+        const disapprovedAt = disapproveDate.toISOString();
         // @ts-ignore
-        const logEntry = { action: 'disapprove', userId: user.uid, userName: user.displayName || user.email || 'Систем', timestamp: now, note: 'Батламжийг цуцаллаа' };
+        const logEntry = {
+            action: 'disapprove',
+            userId: user.uid,
+            userName: user.displayName || user.email || 'Систем',
+            timestamp: disapprovedAt,
+            note: disapproveNote || 'Батламжийг цуцаллаа'
+        };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), { isApproved: false, disapprovedAt: now, disapprovedBy: user.uid, disapprovedByName: user.displayName || user.email || 'Систем', approvalHistory: arrayUnion(logEntry) });
-            toast({ title: "Батламж цуцлагдлаа" }); setIsDisapproveConfirmOpen(false);
+            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+                isApproved: false,
+                disapprovedAt: disapprovedAt,
+                disapprovedBy: user.uid,
+                disapprovedByName: user.displayName || user.email || 'Систем',
+                approvalHistory: arrayUnion(logEntry)
+            });
+            toast({ title: "Батламж цуцлагдлаа" });
+            setIsDisapproveConfirmOpen(false);
+            setDisapproveNote('');
         } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
+        finally { setIsApproving(false); }
     };
     const handleDelete = async () => {
         if (!firestore) return;
@@ -222,126 +244,124 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const runApproval = async () => {
         if (!firestore || !user) return;
         setIsApproving(true);
-        const now = new Date().toISOString();
+        const approvedAt = approvalDate.toISOString();
         // @ts-ignore
-        const logEntry = { action: 'approve', userId: user.uid, userName: user.displayName || user.email || 'Систем', timestamp: now, note: 'Ажлын байрыг баталлаа' };
+        const logEntry = {
+            action: 'approve',
+            userId: user.uid,
+            userName: user.displayName || user.email || 'Систем',
+            timestamp: approvedAt,
+            note: approvalNote || 'Ажлын байрыг баталлаа'
+        };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), { isApproved: true, approvedAt: now, approvedBy: user.uid, approvedByName: user.displayName || user.email || 'Систем', approvalHistory: arrayUnion(logEntry) });
-            toast({ title: "Батлагдлаа" }); setIsApproveConfirmOpen(false);
+            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+                isApproved: true,
+                approvedAt: approvedAt,
+                approvedBy: user.uid,
+                approvedByName: user.displayName || user.email || 'Систем',
+                approvalHistory: arrayUnion(logEntry)
+            });
+            toast({ title: "Батлагдлаа" });
+            setIsApproveConfirmOpen(false);
+            setApprovalNote('');
         } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) } finally { setIsApproving(false); }
-    };
-
-    const handleRelease = async () => {
-        if (!firestore || !assignedEmployees || assignedEmployees.length === 0) return;
-        const employee = assignedEmployees[0];
-        try {
-            const batch = writeBatch(firestore);
-
-            // 1. Unassign employee
-            const empRef = doc(firestore, 'employees', employee.id);
-            batch.update(empRef, { positionId: null, jobTitle: null }); // Reset keys
-
-            // 2. Decrement position filled count
-            const posRef = doc(firestore, 'positions', positionId);
-            batch.update(posRef, { filled: increment(-1) });
-
-            // 3. Add History log to position (Optional but good)
-            // @ts-ignore
-            // const logEntry = { action: 'release', userId: user?.uid, userName: user?.displayName || 'System', timestamp: new Date().toISOString(), note: `${employee.firstName} ажилтныг чөлөөллөө.` };
-            // batch.update(posRef, { approvalHistory: arrayUnion(logEntry) });
-
-            await batch.commit();
-            toast({ title: "Ажилтан чөлөөлөгдлөө" });
-            setIsReleaseConfirmOpen(false);
-        } catch (e) {
-            console.error(e);
-            toast({ variant: 'destructive', title: "Алдаа гарлаа" });
-        }
     };
 
     return (
         <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <PageHeader
-                title={position.title}
-                description={`${department?.name} • ${position.code || 'Кодгүй'}`}
+                title={isEditing ? formData?.title || position.title : position.title}
+                description={`${department?.name} • ${isEditing ? formData?.code || position.code || 'Кодгүй' : position.code || 'Кодгүй'}`}
                 breadcrumbs={[
                     { label: 'Бүтэц', href: `/dashboard/organization/${position.departmentId}` },
-                    { label: position.title }
+                    { label: isEditing ? formData?.title || position.title : position.title }
                 ]}
                 showBackButton
             />
 
             {/* 1. Approval Checklist & Status Card */}
-            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative">
+            {/* 1. Approval Overview & Progress Card */}
+            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative transition-all hover:bg-indigo-50/50">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-                <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
-                    {/* Status Badge Side */}
-                    <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-xl border border-border/50 shrink-0">
-                        <div className="text-center px-2">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+
+                    {/* Left: Status & Progress */}
+                    <div className="flex-1 w-full md:w-auto flex flex-col sm:flex-row items-center gap-6">
+                        <div className="text-center px-4 py-2 bg-white/50 rounded-xl border border-indigo-100 shrink-0">
                             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5">Төлөв</p>
                             <Badge variant="outline" className={cn(
                                 "font-bold text-[10px] uppercase tracking-wider border-none px-3 py-1",
-                                position.isApproved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                                position.isApproved ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                             )}>
                                 {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
                             </Badge>
                         </div>
+
+                        <div className="flex-1 w-full space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-indigo-950">Мэдээлэл бөглөлт</span>
+                                <span className={cn(
+                                    "text-sm font-bold",
+                                    completionPercentage === 100 ? "text-emerald-600" : "text-indigo-600"
+                                )}>{completionPercentage}%</span>
+                            </div>
+                            <div className="h-3 w-full bg-white rounded-full overflow-hidden border border-indigo-100">
+                                <div
+                                    className={cn(
+                                        "h-full transition-all duration-500 ease-out rounded-full",
+                                        completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
+                                    )}
+                                    style={{ width: `${completionPercentage}%` }}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                {completionPercentage === 100 ? 'Бүх мэдээлэл бүрэн бөглөгдсөн.' : 'Мэдээлэл дутуу байна. Доорх табоудаас шалгана уу.'}
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Validation Checklist UI */}
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-3">
-                        <ChecklistItem label="Нэр" isDone={validationChecklist.hasTitle} />
-                        <ChecklistItem label="Код" isDone={validationChecklist.hasCode} />
-                        <ChecklistItem label="Нэгж" isDone={validationChecklist.hasDepartment} />
-                        <ChecklistItem label="Зэрэглэл" isDone={validationChecklist.hasLevel} />
-                        <ChecklistItem label="Ангилал" isDone={validationChecklist.hasCategory} />
-                        <ChecklistItem label="Төрөл" isDone={validationChecklist.hasEmpType} />
-                        <ChecklistItem label="Хуваарь" isDone={validationChecklist.hasSchedule} />
-                        <ChecklistItem label="Зорилго" isDone={validationChecklist.hasPurpose} />
-                        <ChecklistItem label="АБТ" isDone={validationChecklist.hasResponsibilities} />
-                        <ChecklistItem label="Цалингийн муж" isDone={validationChecklist.hasSalary} />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 shrink-0 self-center">
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-3 shrink-0">
                         <Button
                             variant="secondary"
                             size="sm"
-                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50"
+                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50 transition-colors"
                             onClick={() => setIsDeleteConfirmOpen(true)}
                         >
-                            <Trash2 className="w-4 h-4" /> Устгах
+                            <Trash2 className="w-4 h-4 mr-2" /> Устгах
                         </Button>
 
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button
-                                        variant={position.isApproved ? "warning" : (validationChecklist.isComplete ? "success" : "secondary")}
-                                        className={cn(
-                                            "h-10 px-6 font-bold gap-2",
-                                            !position.isApproved && !validationChecklist.isComplete && "bg-muted text-muted-foreground cursor-not-allowed"
-                                        )}
-                                        onClick={() => {
-                                            if (position.isApproved) {
-                                                setIsDisapproveConfirmOpen(true);
-                                            } else if (validationChecklist.isComplete) {
-                                                setIsApproveConfirmOpen(true);
-                                            }
-                                        }}
-                                        disabled={!position.isApproved && !validationChecklist.isComplete}
-                                    >
-                                        {position.isApproved ? (
-                                            <>
-                                                <XCircle className="w-4 h-4" /> Цуцлах
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sparkles className="w-4 h-4" />
-                                                Батлах
-                                            </>
-                                        )}
-                                    </Button>
+                                    <span tabIndex={0}>
+                                        <Button
+                                            variant={position.isApproved ? "warning" : (validationChecklist.isComplete ? "success" : "secondary")}
+                                            className={cn(
+                                                "h-10 px-6 font-bold gap-2 transition-all shadow-sm",
+                                                !position.isApproved && !validationChecklist.isComplete && "opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200"
+                                            )}
+                                            onClick={() => {
+                                                if (position.isApproved) {
+                                                    setIsDisapproveConfirmOpen(true);
+                                                } else if (validationChecklist.isComplete) {
+                                                    setIsApproveConfirmOpen(true);
+                                                }
+                                            }}
+                                            disabled={!position.isApproved && !validationChecklist.isComplete}
+                                        >
+                                            {position.isApproved ? (
+                                                <>
+                                                    <XCircle className="w-4 h-4" /> Цуцлах
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles className="w-4 h-4" />
+                                                    Батлах
+                                                </>
+                                            )}
+                                        </Button>
+                                    </span>
                                 </TooltipTrigger>
                                 {!position.isApproved && !validationChecklist.isComplete && (
                                     <TooltipContent side="top" className="text-xs">
@@ -354,75 +374,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 </div>
             </Card>
 
-            {/* 2. Employee Occupancy / Assignment Card */}
-            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
-                <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-5 w-full md:w-auto">
-                            <div className="shrink-0 relative">
-                                {assignedEmployees && assignedEmployees.length > 0 ? (
-                                    <>
-                                        <div className="h-16 w-16 rounded-full ring-2 ring-primary/20 ring-offset-2 overflow-hidden bg-muted">
-                                            {assignedEmployees[0].photoURL ? (
-                                                <img src={assignedEmployees[0].photoURL} alt="" className="h-full w-full object-cover" />
-                                            ) : (
-                                                <div className="h-full w-full flex items-center justify-center text-primary font-bold text-lg">
-                                                    {assignedEmployees[0].firstName?.[0]}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
-                                            <CheckCircle2 className="w-3 h-3 text-white" />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="h-16 w-16 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/30">
-                                        <User className="h-8 w-8" />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-1">
-                                {assignedEmployees && assignedEmployees.length > 0 ? (
-                                    <>
-                                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Одоо томилогдсон</p>
-                                        <h3 className="text-lg font-bold text-foreground">
-                                            {assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName}
-                                            <span className="ml-2 text-xs font-medium text-muted-foreground">({assignedEmployees[0].employeeCode})</span>
-                                        </h3>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-[10px] uppercase font-bold text-amber-500 tracking-widest">Сул орон тоо</p>
-                                        <h3 className="text-lg font-bold text-foreground">Ажилтан томилогдоогүй</h3>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="w-full md:w-auto flex items-center gap-3">
-                            {assignedEmployees && assignedEmployees.length > 0 ? (
-                                <Button
-                                    variant="secondary"
-                                    className="w-full md:w-auto font-bold border border-border/50 gap-2"
-                                    onClick={() => setIsReleaseConfirmOpen(true)}
-                                >
-                                    <UserCircle className="w-4 h-4" />
-                                    Чөлөөлөх
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="default"
-                                    className="w-full md:w-auto font-bold gap-2 px-8 shadow-sm"
-                                    onClick={() => setIsAssignDialogOpen(true)}
-                                >
-                                    <UserPlus className="w-4 h-4" />
-                                    Ажилтан томилох
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
             {/* 3. Details & Tabs Card */}
             <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
@@ -440,7 +391,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     value="competency"
                                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
                                 >
-                                    Ур чадвар & АБТ
+                                    АБТ
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="compensation"
@@ -497,6 +448,15 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     schedules={schedules || []}
                                     onUpdate={handleLocalUpdate}
                                     isEditing={isEditing}
+                                    validationChecklist={{
+                                        hasTitle: validationChecklist.hasTitle,
+                                        hasCode: validationChecklist.hasCode,
+                                        hasDepartment: validationChecklist.hasDepartment,
+                                        hasLevel: validationChecklist.hasLevel,
+                                        hasCategory: validationChecklist.hasCategory,
+                                        hasEmpType: validationChecklist.hasEmpType,
+                                        hasSchedule: validationChecklist.hasSchedule,
+                                    }}
                                 />
                             </TabsContent>
 
@@ -505,6 +465,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     position={isEditing ? (formData as Position) : position}
                                     onUpdate={handleLocalUpdate}
                                     isEditing={isEditing}
+                                    validationChecklist={{
+                                        hasPurpose: validationChecklist.hasPurpose,
+                                        hasResponsibilities: validationChecklist.hasResponsibilities,
+                                        hasJDFile: validationChecklist.hasJDFile,
+                                    }}
                                 />
                             </TabsContent>
 
@@ -513,6 +478,9 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     position={isEditing ? (formData as Position) : position}
                                     onUpdate={handleLocalUpdate}
                                     isEditing={isEditing}
+                                    validationChecklist={{
+                                        hasSalary: validationChecklist.hasSalary,
+                                    }}
                                 />
                             </TabsContent>
 
@@ -579,14 +547,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 </CardContent>
             </Card>
 
-            <AssignEmployeeDialog
-                open={isAssignDialogOpen}
-                onOpenChange={setIsAssignDialogOpen}
-                position={position}
-                employees={allEmployees}
-                selectedEmployee={((assignedEmployees && assignedEmployees.length > 0) ? assignedEmployees[0] : null)}
-                onAssignmentComplete={() => { }}
-            />
 
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
                 <AlertDialogContent>
@@ -602,48 +562,128 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
             </AlertDialog>
 
             <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-[500px]">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Ажлын байрыг батлах?</AlertDialogTitle>
-                        <AlertDialogDescription>Батласны дараа бүтэц дотор харагдаж эхэлнэ.</AlertDialogDescription>
+                        <AlertDialogTitle className="flex items-center gap-2 text-emerald-600">
+                            <CheckCircle2 className="h-5 w-5" />
+                            Ажлын байр батлах
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-600">
+                            Ажлын байрыг батлагдсанаар "Батлагдсан" төлөвт шилжиж, албан ёсны бүтэц дотор харагдаж эхэлнэ.
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Батлах огноо (Тушаалын огноо)</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal h-10 border-slate-200 rounded-xl",
+                                            !approvalDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {approvalDate ? (
+                                            format(approvalDate, "yyyy оны MM сарын dd", { locale: mn })
+                                        ) : (
+                                            <span>Огноо сонгох</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={approvalDate}
+                                        onSelect={(date) => date && setApprovalDate(date)}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Тэмдэглэл (Сонголттой)</Label>
+                            <Textarea
+                                placeholder="Батлахтай холбоотой тайлбар оруулна уу..."
+                                value={approvalNote}
+                                onChange={(e) => setApprovalNote(e.target.value)}
+                                className="min-h-[100px] rounded-xl border-slate-200 resize-none focus:ring-primary"
+                            />
+                        </div>
+                    </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={runApproval} className="bg-emerald-600 hover:bg-emerald-700">Батлах</AlertDialogAction>
+                        <AlertDialogCancel onClick={() => {
+                            setApprovalNote('');
+                            setApprovalDate(new Date());
+                        }}>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={runApproval} className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl font-semibold" disabled={isApproving}>Батлах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
             <AlertDialog open={isDisapproveConfirmOpen} onOpenChange={setIsDisapproveConfirmOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-[500px]">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Батламжийг цуцлах?</AlertDialogTitle>
-                        <AlertDialogDescription>Идэвхгүй төлөвт шилжинэ.</AlertDialogDescription>
+                        <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                            <HistoryIcon className="h-5 w-5" />
+                            Батламж цуцлах
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-600">
+                            Энэ үйлдлийг хийснээр ажлын байр "Батлагдаагүй" (Ноорог) төлөвт шилжихийг анхаарна уу.
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Цуцлах огноо</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal h-10 border-slate-200 rounded-xl",
+                                            !disapproveDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {disapproveDate ? (
+                                            format(disapproveDate, "yyyy оны MM сарын dd", { locale: mn })
+                                        ) : (
+                                            <span>Огноо сонгох</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={disapproveDate}
+                                        onSelect={(date) => date && setDisapproveDate(date)}
+                                        disabled={(date) => date > new Date()}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Цуцлах шалтгаан (Заавал биш)</Label>
+                            <Textarea
+                                placeholder="Шалтгаан эсвэл нэмэлт тайлбар..."
+                                value={disapproveNote}
+                                onChange={(e) => setDisapproveNote(e.target.value)}
+                                className="min-h-[100px] rounded-xl border-slate-200 resize-none focus:ring-amber-500"
+                            />
+                        </div>
+                    </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDisapprove} className="bg-amber-500 hover:bg-amber-600">Цуцлах</AlertDialogAction>
+                        <AlertDialogCancel onClick={() => {
+                            setDisapproveNote('');
+                            setDisapproveDate(new Date());
+                        }}>Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDisapprove} className="bg-amber-500 hover:bg-amber-600 h-10 px-6 rounded-xl font-semibold" disabled={isApproving}>Цуцлах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={isReleaseConfirmOpen} onOpenChange={setIsReleaseConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Ажилтныг чөлөөлөх үү?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {assignedEmployees && assignedEmployees.length > 0 ? (
-                                <span>{assignedEmployees[0].lastName?.substring(0, 1)}.{assignedEmployees[0].firstName} ажилтныг энэ албан тушаалаас чөлөөлөх үү?</span>
-                            ) : (
-                                <span>Ажилтныг чөлөөлөх үү?</span>
-                            )}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleRelease} className="bg-destructive hover:bg-destructive/90">Чөлөөлөх</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

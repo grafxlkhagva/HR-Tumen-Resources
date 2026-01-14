@@ -66,6 +66,11 @@ export type Position = {
             bonusDescription?: string;
             commissionDescription?: string;
             equityDescription?: string;
+            incentives?: {
+                name: string;
+                value: string;
+                period?: 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'one-time';
+            }[];
         };
     };
     benefits?: {
