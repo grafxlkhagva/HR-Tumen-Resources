@@ -58,7 +58,7 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
 
     const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
     const { data: allDepartments } = useCollection<Department>(deptsQuery);
-    const { data: leadPosition, isLoading: isPositionLoading } = useDoc<Position>(leadPositionRef);
+    const { data: leadPosition, isLoading: isPositionLoading } = useDoc<Position>(leadPositionRef as any);
     const { data: leadEmployees, isLoading: isEmployeesLoading } = useCollection<Employee>(leadEmployeesQuery);
 
     const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || 'Тодорхойгүй';
@@ -96,32 +96,22 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Албан код</p>
-                                <p className="font-semibold flex items-center gap-1.5 text-sm">
-                                    <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                                <p className="font-semibold text-sm">
                                     {department.code || '-'}
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Батлагдсан</p>
-                                <p className="font-semibold flex items-center gap-1.5 text-sm">
-                                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                                    {department.createdAt ? format(new Date(department.createdAt), 'yyyy-MM-dd') : '-'}
-                                </p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Дээд нэгж</p>
-                                <p className="font-semibold flex items-center gap-1.5 text-sm">
-                                    <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Харьяалагдах нэгж</p>
+                                <p className="font-semibold text-sm">
                                     {parentName}
                                 </p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Нийт ажилтан</p>
-                                <p className="font-semibold flex items-center gap-1.5 text-sm">
-                                    <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                                <p className="font-semibold text-sm">
                                     {department.filled || 0}
                                 </p>
                             </div>
@@ -209,12 +199,9 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
             {/* Content & Mission */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
-                            <Briefcase className="w-5 h-5" />
-                        </div>
+                    <CardHeader className="pb-2">
                         <div>
-                            <CardTitle className="text-lg">Чиг үүрэг</CardTitle>
+                            <CardTitle className="text-lg uppercase tracking-widest font-bold">Чиг үүрэг</CardTitle>
                             <CardDescription>Нэгжийн үндсэн үүрэг хариуцлага.</CardDescription>
                         </div>
                     </CardHeader>
@@ -233,12 +220,9 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
                 </Card>
 
                 <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                            <Target className="w-5 h-5" />
-                        </div>
+                    <CardHeader className="pb-2">
                         <div>
-                            <CardTitle className="text-lg">Зорилго</CardTitle>
+                            <CardTitle className="text-lg uppercase tracking-widest font-bold">Зорилго</CardTitle>
                             <CardDescription>Нэгжийн хэтийн зорилго болон алсын хараа.</CardDescription>
                         </div>
                     </CardHeader>
@@ -260,8 +244,8 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
             {/* Stats Card */}
             <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
-                    <CardTitle className="text-sm uppercase tracking-widest font-semibold flex items-center gap-2">
-                        <Users className="w-4 h-4 text-primary" /> Орон тооны үзүүлэлт
+                    <CardTitle className="text-sm uppercase tracking-widest font-bold">
+                        Орон тооны үзүүлэлт
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">

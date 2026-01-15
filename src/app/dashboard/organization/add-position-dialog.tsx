@@ -323,9 +323,9 @@ export function AddPositionDialog({
 
       if (newDocRef && newDocRef.id) {
         toast({ title: 'Амжилттай нэмэгдлээ.' });
-        // Redirect to the new position details page
+        // Close dialog but stays on the same page
         onOpenChange(false);
-        router.push(`/dashboard/organization/positions/${newDocRef.id}`);
+        // router.push removed as per request
       }
     }
 
@@ -366,7 +366,7 @@ export function AddPositionDialog({
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>{isEditMode ? 'Ажлын байр засах' : 'Ажлын байр нэмэх'}</DialogTitle>
             <DialogDescription>
-              Байгууллагынхаа ажлын байрны мэдээллийг эндээс удирдна уу.
+              Ажлын байрны ерөнхий мэдээллийг энд бүртгэж, дэлгэрэнгүй мэдээллийг дараагийн алхамд оруулна.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -381,7 +381,7 @@ export function AddPositionDialog({
                         <FormItem>
                           <FormLabel>Ажлын байрны нэр <span className="text-red-500">*</span></FormLabel>
                           <FormControl>
-                            <Input placeholder="Жишээ нь: Ахлах нягтлан бодогч" {...field} />
+                            <Input placeholder="Жишээ нь: Ахлах нягтлан бодогч" {...field} value={field.value || ''} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -395,9 +395,8 @@ export function AddPositionDialog({
                         <FormItem>
                           <FormLabel>Ажлын байрны код</FormLabel>
                           <FormControl>
-                            <Input placeholder="Жишээ нь: ACC001" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                            <Input placeholder="Жишээ нь: ACC001" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                           </FormControl>
-                          <FormDescription>Байгууллагын дотоод код</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -435,7 +434,7 @@ export function AddPositionDialog({
                       name="reportsTo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                          <FormLabel>Шууд удирдлага</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -451,9 +450,6 @@ export function AddPositionDialog({
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>
-                            Энэ ажлын байрны шууд удирдах албан тушаалыг сонгоно уу.
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -498,7 +494,7 @@ export function AddPositionDialog({
                                 <FormItem>
                                   <FormLabel>Албан тушаалын нэр</FormLabel>
                                   <FormControl>
-                                    <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} />
+                                    <Input placeholder="Жишээ нь: Програм хангамжийн ахлах инженер" {...field} value={field.value || ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -511,7 +507,7 @@ export function AddPositionDialog({
                                 <FormItem>
                                   <FormLabel>Ажлын байрны код</FormLabel>
                                   <FormControl>
-                                    <Input placeholder="Жишээ нь: DEV001" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                                    <Input placeholder="Жишээ нь: DEV001" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -547,7 +543,7 @@ export function AddPositionDialog({
                                 name="reportsTo"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Шууд харьяалагдах албан тушаал</FormLabel>
+                                    <FormLabel>Шууд удирдлага</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                       <FormControl>
                                         <SelectTrigger>
@@ -763,6 +759,7 @@ export function AddPositionDialog({
                                           type="number"
                                           placeholder="Жишээ нь: 50000"
                                           {...field}
+                                          value={field.value || 0}
                                           onChange={e => field.onChange(parseInt(e.target.value) || 0)}
                                         />
                                       </FormControl>
@@ -799,6 +796,7 @@ export function AddPositionDialog({
                                           placeholder="Ажлын байрны зорилгыг энд бичнэ үү..."
                                           className="min-h-[120px]"
                                           {...field}
+                                          value={field.value || ''}
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -816,6 +814,7 @@ export function AddPositionDialog({
                                           placeholder="Жишээ нь:&#10;Системийн хөгжүүлэлт хариуцах&#10;Код хянах&#10;Баг удирдах"
                                           className="min-h-[120px]"
                                           {...field}
+                                          value={field.value || ''}
                                         />
                                       </FormControl>
                                       <FormDescription>Чиг үүргүүдийг шинэ мөрөөр (Enter дарж) зааглан оруулна уу.</FormDescription>
@@ -842,7 +841,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Доод (Min)</FormLabel>
                                         <FormControl>
-                                          <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+                                          <Input type="number" {...field} value={field.value || 0} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -855,7 +854,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Дундаж (Mid)</FormLabel>
                                         <FormControl>
-                                          <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+                                          <Input type="number" {...field} value={field.value || 0} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -868,7 +867,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Дээд (Max)</FormLabel>
                                         <FormControl>
-                                          <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+                                          <Input type="number" {...field} value={field.value || 0} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -930,7 +929,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Бонус / Урамшуулал</FormLabel>
                                         <FormControl>
-                                          <Input placeholder="Жишээ: Жилийн бүтээмжийн бонус 10-20%" {...field} />
+                                          <Input placeholder="Жишээ: Жилийн бүтээмжийн бонус 10-20%" {...field} value={field.value || ''} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -943,7 +942,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Комисс / Борлуулалтын шагнал</FormLabel>
                                         <FormControl>
-                                          <Input placeholder="Жишээ: Борлуулалтын орлогын 2%" {...field} />
+                                          <Input placeholder="Жишээ: Борлуулалтын орлогын 2%" {...field} value={field.value || ''} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -956,7 +955,7 @@ export function AddPositionDialog({
                                       <FormItem>
                                         <FormLabel>Хувьцаа / ESOP</FormLabel>
                                         <FormControl>
-                                          <Input placeholder="Жишээ: 1000 нэгж хувьцаа, 4 жилийн хугацаанд" {...field} />
+                                          <Input placeholder="Жишээ: 1000 нэгж хувьцаа, 4 жилийн хугацаанд" {...field} value={field.value || ''} />
                                         </FormControl>
                                         <FormMessage />
                                       </FormItem>
@@ -1008,7 +1007,7 @@ export function AddPositionDialog({
                                     <FormItem>
                                       <FormLabel>Нэмэлт амралтын хоног (Жилд)</FormLabel>
                                       <FormControl>
-                                        <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+                                        <Input type="number" {...field} value={field.value || 0} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
                                       </FormControl>
                                       <FormDescription>Хуулийн дагуух 15 хоногоос гадуурх нэмэлт хоног.</FormDescription>
                                       <FormMessage />
@@ -1027,6 +1026,7 @@ export function AddPositionDialog({
                                           placeholder="Жишээ нь:&#10;Үнэгүй хоол&#10;Фитнес гишүүнчлэл&#10;Мэргэжлийн сургалтын төсөв"
                                           className="min-h-[120px]"
                                           {...field}
+                                          value={field.value || ''}
                                         />
                                       </FormControl>
                                       <FormMessage />

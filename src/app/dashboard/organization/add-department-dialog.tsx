@@ -114,7 +114,7 @@ export function AddDepartmentDialog({
     () => (firestore ? collection(firestore, 'departments') : null),
     [firestore]
   );
-  
+
   const onSubmit = async (data: DepartmentFormValues) => {
     if (!firestore) {
       toast({
@@ -126,13 +126,15 @@ export function AddDepartmentDialog({
     }
 
     const finalData: Partial<DepartmentFormValues> = {
-        name: data.name,
-        typeId: data.typeId,
-        color: data.color,
+      name: data.name,
+      typeId: data.typeId,
+      color: data.color,
     };
-    
+
     if (data.parentId && data.parentId !== '(none)') {
-        finalData.parentId = data.parentId;
+      finalData.parentId = data.parentId;
+    } else {
+      finalData.parentId = "";
     }
 
     if (isEditMode && editingDepartment) {
@@ -143,15 +145,15 @@ export function AddDepartmentDialog({
         description: `"${data.name}" нэгжийн мэдээлэл шинэчлэгдлээ.`,
       });
     } else {
-       if (!departmentsCollection) return;
-       const newDocRef = await addDocumentNonBlocking(departmentsCollection, finalData);
-       if (newDocRef && onDepartmentAdded) {
-         onDepartmentAdded(newDocRef.id);
-       }
-       toast({
-         title: 'Амжилттай',
-         description: `"${data.name}" нэгж амжилттай нэмэгдлээ.`,
-       });
+      if (!departmentsCollection) return;
+      const newDocRef = await addDocumentNonBlocking(departmentsCollection, finalData);
+      if (newDocRef && onDepartmentAdded) {
+        onDepartmentAdded(newDocRef.id);
+      }
+      toast({
+        title: 'Амжилттай',
+        description: `"${data.name}" нэгж амжилттай нэмэгдлээ.`,
+      });
     }
 
 
@@ -167,7 +169,7 @@ export function AddDepartmentDialog({
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <DialogHeader>
                 <DialogTitle>{isEditMode ? 'Бүтцийн нэгж засах' : 'Нэгж нэмэх'}</DialogTitle>
-                
+
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <FormField
@@ -183,7 +185,7 @@ export function AddDepartmentDialog({
                     </FormItem>
                   )}
                 />
-                 <FormField
+                <FormField
                   control={form.control}
                   name="typeId"
                   render={({ field }) => (
@@ -216,35 +218,36 @@ export function AddDepartmentDialog({
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Дээд нэгжийг сонгох (заавал биш)" />
+                            <SelectValue placeholder="Харьяалагдах нэгжийг сонгох (заавал биш)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="(none)">(Дээд нэгж байхгүй)</SelectItem>
+                          <SelectItem value="(none)">(Харьяалагдах нэгж байхгүй)</SelectItem>
                           {departments
-                          .filter(d => !editingDepartment || d.id !== editingDepartment.id)
-                          .map((dept) => (
-                            <SelectItem key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </SelectItem>
-                          ))}
+                            .filter(d => !editingDepartment || d.id !== editingDepartment.id)
+                            .map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                  <FormField
+
+                <FormField
                   control={form.control}
                   name="color"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Өнгө</FormLabel>
                       <FormControl>
-                          <div className="flex items-center gap-2">
-                              <Input type="color" {...field} className="w-12 h-10 p-1" />
-                              <Input placeholder="#RRGGBB" value={field.value || ''} onChange={field.onChange} />
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="color" {...field} value={field.value || '#ffffff'} className="w-12 h-10 p-1" />
+                          <Input placeholder="#RRGGBB" value={field.value || ''} onChange={field.onChange} />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

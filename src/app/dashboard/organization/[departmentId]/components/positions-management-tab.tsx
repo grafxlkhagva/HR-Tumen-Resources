@@ -43,32 +43,27 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-
-} from "@/components/ui/sheet"
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 interface PositionsManagementTabProps {
     department: Department;
+    hideChart?: boolean;
+    hideAddButton?: boolean;
     // We can pass lookup data here or fetch internally. Fetching internally within the tab allows this tab to be self-contained.
     // However, for performance, common lookups like Levels/Types might be better passed down if reused.
     // For now, let's fetch strictly needed data here.
 }
 
-
-
-
-export const PositionsManagementTab = ({ department }: PositionsManagementTabProps) => {
+export const PositionsManagementTab = ({ department, hideChart, hideAddButton }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
     const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
     const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-    const [viewMode, setViewMode] = useState<'list' | 'chart'>('chart');
+    const [viewMode, setViewMode] = useState<'list' | 'chart'>(hideChart ? 'list' : 'chart');
     const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>([]);
     // SettingTab is used instead of inline editing logic
 
@@ -105,14 +100,16 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
 
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
+
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Department delete states
+    const [isDeptDeleting, setIsDeptDeleting] = useState(false);
     const [isDeptDeleteConfirmOpen, setIsDeptDeleteConfirmOpen] = useState(false);
     const [isDisbandConfirmOpen, setIsDisbandConfirmOpen] = useState(false);
+    const [isPosDisbandConfirmOpen, setIsPosDisbandConfirmOpen] = useState(false);
+    const [disbandPosition, setDisbandPosition] = useState<Position | null>(null);
     const [disbandReason, setDisbandReason] = useState('');
-    const [isDeptDeleting, setIsDeptDeleting] = useState(false);
 
     const isLoading = isPositionsLoading || !levels || !empTypes;
 
@@ -134,14 +131,13 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
     }, [department, levels, empTypes, allDepartments, jobCategories, departmentTypes]);
 
     const validationChecklist = useMemo(() => {
-        const dept = department.draftData || department;
+        const dept = department;
         const checks = {
             hasName: !!dept.name?.trim(),
             hasCode: !!dept.code?.trim(),
             hasVision: !!dept.vision?.trim(),
             hasDescription: !!dept.description?.trim(),
             hasType: !!dept.typeId,
-            hasColor: !!dept.color,
             hasPositions: (positions?.length || 0) > 0,
             allPositionsApproved: (positions?.length || 0) > 0 && (stats.pending === 0)
         };
@@ -199,16 +195,30 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         }
     };
 
-    const handleDuplicatePosition = (pos: Position) => {
+    const handleDuplicatePosition = (pos: any) => {
         if (!firestore) return;
-        const { id, filled, ...clonedData } = pos;
+
+        // Strip UI-specific fields that might have been passed from React Flow node data
+        const {
+            id,
+            filled,
+            onPositionClick,
+            onAddChild,
+            onDuplicate,
+            levelName,
+            departmentColor,
+            ...clonedData
+        } = pos;
+
         const newPositionData = {
             ...clonedData,
-            title: `${pos.title} (Хуулбар)`,
+            title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
             filled: 0,
             isActive: true,
             isApproved: false,
+            createdAt: new Date().toISOString(),
         };
+
         addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
         toast({ title: "Амжилттай хувиллаа" });
     };
@@ -287,77 +297,6 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         }
     };
 
-    const handleApproveStructure = async () => {
-        if (!firestore || !positions || !department || !user) return;
-        if (stats.pending > 0) {
-            toast({ title: "Батлах боломжгүй", description: "Бүх ажлын байр батлагдсан байх ёстой.", variant: "destructive" });
-            return;
-        }
-
-        setIsApproving(true);
-        try {
-            const approvedAt = approvalDate.toISOString();
-
-            // 1. Prepare snapshot
-            const snapshotPositions = positions.map(pos => {
-                return {
-                    ...pos,
-                    levelName: lookups.levelMap[pos.levelId || ''] || ''
-                };
-            });
-
-            // 2. Find previous active history to update validTo
-            const historyRef = collection(firestore, 'departmentHistory');
-            const q = query(historyRef, where('departmentId', '==', department.id));
-            const historyDocs = await getDocs(q);
-
-            if (!historyDocs.empty) {
-                const sortedHistory = historyDocs.docs.sort((a, b) =>
-                    new Date(b.data().approvedAt).getTime() - new Date(a.data().approvedAt).getTime()
-                );
-                const prevDoc = sortedHistory[0];
-
-                if (!prevDoc.data().validTo) {
-                    await updateDocumentNonBlocking(doc(firestore, 'departmentHistory', prevDoc.id), {
-                        validTo: approvedAt
-                    });
-                }
-            }
-
-            // 3. Create new history record
-            const historyData: Omit<DepartmentHistory, 'id'> = {
-                departmentId: department.id,
-                approvedAt: approvedAt,
-                snapshot: {
-                    positions: snapshotPositions
-                }
-            };
-
-            await addDocumentNonBlocking(historyRef, historyData);
-
-            // 4. Sync draft data to root department if exists
-            if (department.draftData) {
-                const deptRef = doc(firestore, 'departments', department.id);
-                await updateDocumentNonBlocking(deptRef, {
-                    ...department.draftData,
-                    draftData: null // Clear draft after sync
-                });
-            }
-
-            toast({
-                title: "Бүтэц амжилттай батлагдлаа",
-                description: "Өөрчлөлтүүд түүх хэсэгт хадгалагдлаа."
-            });
-            setIsApproveConfirmOpen(false);
-            setApprovalNote('');
-        } catch (error) {
-            console.error("Error approving structure:", error);
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsApproving(false);
-        }
-    };
-
     const handleBulkDisapprove = async () => {
         if (!firestore || !positions || !user) return;
 
@@ -423,25 +362,27 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         setIsDeptDeleting(true);
 
         try {
+            const historyRef = collection(firestore, 'departmentHistory');
+            const hq = query(historyRef, where('departmentId', '==', department.id));
+            const historySnapshot = await getDocs(hq);
+            const hasHistory = !historySnapshot.empty;
+
             const positionsRef = collection(firestore, 'positions');
             const q = query(positionsRef, where('departmentId', '==', department.id));
             const snapshot = await getDocs(q);
+            const hasPositions = !snapshot.empty;
 
-            if (!snapshot.empty) {
+            if (hasPositions && !hasHistory) {
                 toast({
                     variant: "destructive",
                     title: "Устгах боломжгүй",
-                    description: `Энэ нэгжид ${snapshot.size} ажлын байр бүртгэлтэй байна. Эхлээд ажлын байруудыг устгах эсвэл шилжүүлэх шаардлагатай.`
+                    description: `Энэ нэгжид ${snapshot.size} ажлын байр бүртгэлтэй байна. Түүхгүй нэгжийг устгахын тулд эхлээд ажлын байруудыг устгах эсвэл шилжүүлэх шаардлагатай.`
                 });
                 setIsDeptDeleting(false);
                 return;
             }
 
-            const historyRef = collection(firestore, 'departmentHistory');
-            const hq = query(historyRef, where('departmentId', '==', department.id));
-            const historySnapshot = await getDocs(hq);
-
-            if (!historySnapshot.empty) {
+            if (hasHistory) {
                 setIsDisbandConfirmOpen(true);
             } else {
                 setIsDeptDeleteConfirmOpen(true);
@@ -475,26 +416,70 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         if (!firestore) return;
         setIsDeptDeleting(true);
         try {
-            const historyRef = collection(firestore, 'departmentHistory');
-            const q = query(historyRef, where('departmentId', '==', department.id), orderBy('approvedAt', 'desc'), limit(1));
-            const snapshot = await getDocs(q);
+            const timestamp = new Date().toISOString();
+
+            // 1. Fetch all employees in this department to include in snapshot
+            const employeesRef = collection(firestore, 'employees');
+            const eq = query(employeesRef, where('departmentId', '==', department.id));
+            const employeeSnapshot = await getDocs(eq);
+            const deptEmployees = employeeSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as any[];
 
             const batch = writeBatch(firestore);
 
-            if (!snapshot.empty) {
-                const latestDoc = snapshot.docs[0];
-                batch.update(doc(firestore, 'departmentHistory', latestDoc.id), {
-                    validTo: new Date().toISOString(),
-                    disbandReason: disbandReason,
-                    disbandedBy: user?.uid,
-                    disbandedByName: user?.displayName || user?.email
+            // 2. Prepare the final "Dissolution" history entry
+            const historyRef = collection(firestore, 'departmentHistory');
+            const newHistoryDoc = doc(historyRef);
+
+            const snapshot = {
+                departmentName: department.name,
+                disbandReason: disbandReason || 'Нэгжийг татан буулгав',
+                disbandedAt: timestamp,
+                disbandedBy: user?.uid || null,
+                disbandedByName: user?.displayName || user?.email || 'Систем',
+                positions: (positions || []).map(pos => ({
+                    ...pos,
+                    employees: deptEmployees
+                        .filter(emp => emp.positionId === pos.id)
+                        .map(emp => ({
+                            id: emp.id,
+                            firstName: emp.firstName,
+                            lastName: emp.lastName,
+                            employeeCode: emp.employeeCode
+                        }))
+                }))
+            };
+
+            batch.set(newHistoryDoc, {
+                departmentId: department.id,
+                approvedAt: timestamp,
+                validTo: timestamp,
+                isDissolution: true,
+                snapshot: snapshot
+            });
+
+            // 3. Mark existing history records as validTo = now
+            const oldHistoryQuery = query(historyRef, where('departmentId', '==', department.id));
+            const oldHistorySnapshot = await getDocs(oldHistoryQuery);
+            oldHistorySnapshot.docs.forEach(hDoc => {
+                if (!hDoc.data().validTo) {
+                    batch.update(hDoc.ref, { validTo: timestamp });
+                }
+            });
+
+            // 4. Delete the department and its positions
+            batch.delete(doc(firestore, 'departments', department.id));
+
+            if (positions) {
+                positions.forEach(pos => {
+                    batch.delete(doc(firestore, 'positions', pos.id));
                 });
             }
 
-            batch.delete(doc(firestore, 'departments', department.id));
-
             await batch.commit();
-            toast({ title: "Нэгж амжилттай татан буугдлаа" });
+            toast({ title: "Нэгж амжилттай татан буугдаж, түүх хадгалагдлаа" });
             router.push('/dashboard/organization');
         } catch (error) {
             console.error("Error disbanding department:", error);
@@ -503,147 +488,87 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
         }
     };
 
-    const parentName = department.draftData?.parentId
-        ? (allDepartments?.find(d => d.id === department.draftData?.parentId)?.name || 'Үндсэн нэгж')
-        : (department.parentId ? (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж') : 'Үндсэн нэгж');
-    const typeName = departmentTypes?.find(t => t.id === (department.draftData?.typeId || department.typeId))?.name || 'Нэгж';
+    const handleDisbandPosition = async () => {
+        if (!firestore || !disbandPosition || !user) return;
+        setIsDeleting(true);
+        try {
+            const timestamp = new Date().toISOString();
+            const logEntry = {
+                action: 'disapprove',
+                userId: user.uid,
+                userName: user.displayName || user.email || 'Систем',
+                timestamp: timestamp,
+                note: disbandReason || 'Албан тушаалыг татан буулгав'
+            };
+
+            await updateDocumentNonBlocking(doc(firestore, 'positions', disbandPosition.id), {
+                isActive: false,
+                isApproved: false,
+                disbandedAt: timestamp,
+                disbandedBy: user.uid,
+                disbandedByName: user.displayName || user.email || 'Систем',
+                approvalHistory: arrayUnion(logEntry)
+            });
+
+            toast({ title: "Албан тушаал амжилттай татан буугдлаа" });
+            setIsPosDisbandConfirmOpen(false);
+            setDisbandPosition(null);
+            setDisbandReason('');
+        } catch (error) {
+            console.error("Error disbanding position:", error);
+            toast({ title: "Алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const parentName = department.parentId
+        ? (allDepartments?.find(d => d.id === department.parentId)?.name || 'Үндсэн нэгж')
+        : 'Үндсэн нэгж';
+    const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || 'Нэгж';
 
 
     return (
         <div className="space-y-6">
-            {/* Approval Checklist & Action Card */}
-            {/* Approval Overview & Progress Card (Redesigned to match Job Position design) */}
-            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative transition-all hover:bg-indigo-50/50">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-
-                    {/* Left: Stats & Progress */}
-                    <div className="flex-1 w-full md:w-auto flex flex-col sm:flex-row items-center gap-6">
-                        <div className="flex items-center gap-4 p-4 bg-white/50 rounded-xl border border-indigo-100 shrink-0">
-                            <div className="text-center px-2">
-                                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5">Нийт</p>
-                                <p className="text-xl font-bold text-foreground tabular-nums">{stats.total}</p>
-                            </div>
-                            <Separator orientation="vertical" className="h-8" />
-                            <div className="text-center px-2">
-                                <p className="text-[10px] uppercase font-bold text-emerald-500 tracking-widest mb-1.5">Батлагдсан</p>
-                                <p className="text-xl font-bold text-emerald-600 tabular-nums">{stats.approved}</p>
-                            </div>
-                            <Separator orientation="vertical" className="h-8" />
-                            <div className="text-center px-2">
-                                <p className="text-[10px] uppercase font-bold text-amber-500 tracking-widest mb-1.5">Төсөл</p>
-                                <p className="text-xl font-bold text-amber-600 tabular-nums">{stats.pending}</p>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 w-full space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-indigo-950">Бүтэц төлөвлөлтийн явц</span>
-                                <span className={cn(
-                                    "text-sm font-bold",
-                                    completionPercentage === 100 ? "text-emerald-600" : "text-indigo-600"
-                                )}>{completionPercentage}%</span>
-                            </div>
-                            <div className="h-3 w-full bg-white rounded-full overflow-hidden border border-indigo-100">
-                                <div
-                                    className={cn(
-                                        "h-full transition-all duration-500 ease-out rounded-full",
-                                        completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
-                                    )}
-                                    style={{ width: `${completionPercentage}%` }}
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground font-medium">
-                                {completionPercentage === 100 ? 'Бүх мэдээлэл бүрэн бөглөгдсөн. Бүтцийг батлах боломжтой.' : 'Нэгжийн мэдээлэл эсвэл ажлын байруудын батламж дутуу байна.'}
-                                {!validationChecklist.allPositionsApproved && stats.pending > 0 && (
-                                    <span className="text-amber-600 ml-1">({stats.pending} ажлын байр батлагдаагүй байна)</span>
-                                )}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50 transition-colors"
-                            onClick={handleDeptDeleteClick}
-                            disabled={isDeptDeleting}
-                        >
-                            {isDeptDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />} Устгах
-                        </Button>
-
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span tabIndex={0}>
-                                        <Button
-                                            variant={validationChecklist.isComplete ? "success" : "secondary"}
-                                            className={cn(
-                                                "h-11 px-8 font-bold gap-2 transition-all shadow-sm",
-                                                !validationChecklist.isComplete && "opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200"
-                                            )}
-                                            onClick={() => validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
-                                            disabled={!validationChecklist.isComplete}
-                                        >
-                                            <Sparkles className="w-4 h-4" />
-                                            Бүтэц батлах
-                                        </Button>
-                                    </span>
-                                </TooltipTrigger>
-                                {!validationChecklist.isComplete && (
-                                    <TooltipContent side="top" className="text-xs max-w-[200px]">
-                                        Нэгжийн мэдээлэл дутуу эсвэл ажлын байрууд бүрэн батлагдаагүй байна
-                                    </TooltipContent>
-                                )}
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Department Settings (Replaces inline card) */}
-            <SettingsTab
-                department={department}
-                mode="draft"
-                validationChecklist={validationChecklist}
-            />
 
             <div className="space-y-6">
                 {/* Content Control Bar - Simplified */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-border/50">
                     <div className="flex items-center gap-3">
                         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-auto">
-                            <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 transition-all flex items-center">
-                                <TabsTrigger
-                                    value="chart"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
-                                >
-                                    <Network className="h-4 w-4" />
-                                    <span>Зураглал</span>
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="list"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
-                                >
-                                    <LayoutList className="h-4 w-4" />
-                                    <span>Жагсаалт</span>
-                                </TabsTrigger>
-                            </TabsList>
+                            {!hideChart && (
+                                <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 transition-all flex items-center">
+                                    <TabsTrigger
+                                        value="chart"
+                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
+                                    >
+                                        <Network className="h-4 w-4" />
+                                        <span>Зураглал</span>
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="list"
+                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
+                                    >
+                                        <LayoutList className="h-4 w-4" />
+                                        <span>Жагсаалт</span>
+                                    </TabsTrigger>
+                                </TabsList>
+                            )}
                         </Tabs>
 
                     </div>
 
-                    <Button
-                        variant="default"
-                        size="sm"
-                        className="h-9 rounded-xl font-bold gap-2 px-6 shadow-sm"
-                        onClick={handleAddPositionWithReset}
-                    >
-                        <PlusCircle className="h-4 w-4" />
-                        Ажлын байр нэмэх
-                    </Button>
+                    {!hideAddButton && (
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 rounded-xl font-bold gap-2 px-6 shadow-sm"
+                            onClick={handleAddPositionWithReset}
+                        >
+                            <PlusCircle className="h-4 w-4" />
+                            Ажлын байр нэмэх
+                        </Button>
+                    )}
                 </div>
                 {viewMode === 'chart' ? (
                     <PositionStructureChart
@@ -652,6 +577,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         isLoading={isLoading}
                         onPositionClick={handleEditPosition}
                         onAddChild={handleAddChildPosition}
+                        onDuplicate={handleDuplicatePosition}
                         lookups={lookups}
                     />
                 ) : (
@@ -664,6 +590,10 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                             onSelectionChange={setSelectedPositionIds}
                             onEdit={handleEditPosition}
                             onDelete={handleDeletePosition}
+                            onDisband={(pos) => {
+                                setDisbandPosition(pos);
+                                setIsPosDisbandConfirmOpen(true);
+                            }}
                             onDuplicate={handleDuplicatePosition}
                         />
                     </Card>
@@ -741,17 +671,13 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         <AlertDialogAction
                             onClick={(e) => {
                                 e.preventDefault();
-                                if (selectedPositionIds.length > 0) {
-                                    handleApproveSelected();
-                                } else {
-                                    handleApproveStructure();
-                                }
+                                handleApproveSelected();
                             }}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-10 px-6 rounded-xl transition-all"
-                            disabled={isApproving || (selectedPositionIds.length === 0 && stats.pending > 0)}
+                            disabled={isApproving}
                         >
                             {isApproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                            {selectedPositionIds.length > 0 ? "Ажлын байр батлах" : "Бүтэц батлах"}
+                            Ажлын байр батлах
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -905,37 +831,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Danger Zone */}
-            <div className="pt-12 border-t border-border/50">
-                <Card className="border-destructive/10 bg-destructive/[0.02] overflow-hidden rounded-xl">
-                    <CardHeader className="bg-destructive/[0.03] border-b border-destructive/10 py-3 px-6">
-                        <CardTitle className="text-destructive text-sm font-bold flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4" />
-                            Аюултай бүс
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-                            <div className="space-y-1">
-                                <p className="text-sm font-bold text-foreground">Нэгжийг устгах / Татан буулгах</p>
-                                <p className="text-xs text-muted-foreground max-w-lg">
-                                    Нэгжийг устгахын тулд ажлын байр бүртгэлгүй байх шаардлагатай. Түүхтэй нэгжийг зөвхөн татан буулгах боломжтой.
-                                </p>
-                            </div>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                className="bg-destructive/10 text-destructive hover:bg-destructive text-xs font-bold px-6 py-2 rounded-xl border-dashed border-destructive/30 hover:text-destructive-foreground transition-all shrink-0"
-                                onClick={handleDeptDeleteClick}
-                                disabled={isDeptDeleting}
-                            >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                {isDeptDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Нэгжийг устгах'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+
 
             {/* Department Deletion Dialogs */}
             <AlertDialog open={isDeptDeleteConfirmOpen} onOpenChange={setIsDeptDeleteConfirmOpen}>
@@ -983,7 +879,7 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                         </div>
                         <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-[11px] text-amber-900 leading-relaxed font-medium">
                             <strong className="block mb-1">Анхааруулга:</strong>
-                            Татан буулгаснаар энэ нэгжийн түүх архивлагдаж, идэвхтэй бүтцээс хасагдана. Бусад бүх мэдээлэл хадгалагдана.
+                            Татан буулгаснаар энэ нэгжийн түүх архивлагдаж, идэвхтэй бүтцээс хасагдана. Доторх бүх идэвхтэй ажлын байрууд мөн архивлагдах болно.
                         </div>
                     </div>
 
@@ -1001,6 +897,49 @@ export const PositionsManagementTab = ({ department }: PositionsManagementTabPro
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div >
+
+            <Dialog open={isPosDisbandConfirmOpen} onOpenChange={setIsPosDisbandConfirmOpen}>
+                <DialogContent className="sm:max-w-[500px] border-none shadow-2xl rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive font-bold text-xl">
+                            <AlertTriangle className="w-6 h-6" />
+                            Ажлын байр татан буулгах
+                        </DialogTitle>
+                        <DialogDescription className="font-medium text-slate-500 pt-2">
+                            "{disbandPosition?.title}" ажлын байрыг татан буулгаж, идэвхгүй төлөвт шилжүүлэх гэж байна.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-6">
+                        <div className="space-y-2">
+                            <Label className="font-bold text-xs uppercase tracking-wider text-slate-400">Татан буулгах шалтгаан / Тушаалын дугаар</Label>
+                            <Textarea
+                                placeholder="Жишээ: Гүйцэтгэх захирлын тушаал №..."
+                                value={disbandReason}
+                                onChange={(e) => setDisbandReason(e.target.value)}
+                                className="min-h-[120px] rounded-xl bg-muted/30 border-none focus-visible:ring-primary/20"
+                            />
+                        </div>
+                        <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-[11px] text-amber-900 leading-relaxed font-medium">
+                            <strong className="block mb-1">Мэдээлэл:</strong>
+                            Ажлын байрыг татан буулгаснаар тухайн ажлын байр идэвхгүй болж, бүтэц дээр харагдахаа болино. Түүхэн мэдээлэл хэвээр үлдэнэ.
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" className="font-bold rounded-xl border-none bg-muted hover:bg-muted/80" onClick={() => { setIsPosDisbandConfirmOpen(false); setDisbandPosition(null); }}>Болих</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDisbandPosition}
+                            className="font-bold rounded-xl shadow-lg shadow-destructive/20"
+                            disabled={isDeleting || !disbandReason.trim()}
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            Татан буулгах
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 };

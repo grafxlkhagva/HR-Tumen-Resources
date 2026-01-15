@@ -23,20 +23,20 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface HistoryTabProps {
-    department: Department;
+    departmentId: string;
 }
 
-export const HistoryTab = ({ department }: HistoryTabProps) => {
+export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
     const { firestore } = useFirebase();
     const [expandedSnapshot, setExpandedSnapshot] = useState<string | null>(null);
 
     const historyQuery = useMemoFirebase(() => {
-        if (!firestore || !department?.id) return null;
+        if (!firestore || !departmentId) return null;
         return query(
             collection(firestore, 'departmentHistory'),
-            where('departmentId', '==', department.id)
+            where('departmentId', '==', departmentId)
         );
-    }, [firestore, department?.id]);
+    }, [firestore, departmentId]);
 
     const { data: rawHistory, isLoading } = useCollection<DepartmentHistory>(historyQuery);
 

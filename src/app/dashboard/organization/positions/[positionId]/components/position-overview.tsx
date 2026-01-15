@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React, { useState, useMemo } from 'react';
 import {
     Select,
     SelectContent,
@@ -10,32 +8,48 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Building2, Briefcase, ArrowRight, Info, Users, Gem, Layers, Workflow, CalendarDays, Sparkles, UserCheck, Plane } from 'lucide-react';
-import { Position, JobCategory, PositionLevel, EmploymentType, WorkSchedule } from '../../../types';
-import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import {
+    Edit3,
+    Save,
+    X,
+    Briefcase,
+    Hash,
+    MapPin,
+    User,
+    Layers,
+    Clock,
+    Shield,
+    DollarSign,
+    Target,
+    Zap,
+    Users,
+    ChevronRight,
+    Search,
+    AlertCircle,
+    CheckCircle2
+} from 'lucide-react';
+import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule } from '../../../types';
+import { doc } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 import { ValidationIndicator } from './validation-indicator';
 
 interface PositionOverviewProps {
     position: Position;
-    departments: any[];
+    departments: Department[];
     allPositions: Position[];
     levels: PositionLevel[];
     categories: JobCategory[];
     employmentTypes: EmploymentType[];
     schedules: WorkSchedule[];
-    onUpdate: (data: Partial<Position>) => Promise<void>;
-    isEditing?: boolean;
     validationChecklist?: {
-        hasTitle: boolean;
-        hasCode: boolean;
-        hasDepartment: boolean;
-        hasLevel: boolean;
-        hasCategory: boolean;
-        hasEmpType: boolean;
-        hasSchedule: boolean;
+        hasBasicInfo: boolean;
+        hasReporting: boolean;
+        hasAttributes: boolean;
+        hasSettings: boolean;
     };
 }
 
@@ -47,299 +61,343 @@ export function PositionOverview({
     categories,
     employmentTypes,
     schedules,
-    onUpdate,
-    isEditing = false,
     validationChecklist
 }: PositionOverviewProps) {
-    const router = useRouter();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
     const [formData, setFormData] = useState({
         title: position.title || '',
         code: position.code || '',
         departmentId: position.departmentId || '',
-        reportsTo: position.reportsTo || '(none)',
+        reportsToId: position.reportsToId || '',
         levelId: position.levelId || '',
         jobCategoryId: position.jobCategoryId || '',
         employmentTypeId: position.employmentTypeId || '',
         workScheduleId: position.workScheduleId || '',
-        canApproveAttendance: position.canApproveAttendance || false,
-        canApproveVacation: position.canApproveVacation || false,
-        hasPointBudget: position.hasPointBudget || false,
-        yearlyPointBudget: position.yearlyPointBudget || 0
+        permissions: {
+            canApproveVacation: position.permissions?.canApproveVacation || false,
+            canApproveLeave: position.permissions?.canApproveLeave || false,
+        },
+        budget: {
+            yearlyBudget: position.budget?.yearlyBudget || 0,
+            currency: position.budget?.currency || 'MNT',
+        }
     });
 
-    const getDepartmentName = (id: string) => departments?.find(d => d.id === id)?.name || '-';
-    const getPositionTitle = (id: string) => allPositions?.find(p => p.id === id)?.title || 'Олдсонгүй';
-    const getLevelName = (id: string) => levels?.find(l => l.id === id)?.name || '-';
-    const getCategoryName = (id: string) => categories?.find(c => c.id === id)?.name || '-';
-    const getEmpTypeName = (id: string) => employmentTypes?.find(t => t.id === id)?.name || '-';
-    const getScheduleName = (id: string) => schedules?.find(s => s.id === id)?.name || '-';
-
     const handleFieldUpdate = (field: string, value: any) => {
-        const newData = { ...formData, [field]: value };
-        setFormData(newData);
-
-        let updateValue = value;
-        if (field === 'yearlyPointBudget') {
-            updateValue = parseInt(value) || 0;
-        }
-
-        onUpdate({
-            [field]: updateValue === '(none)' ? null : updateValue
-        });
+        setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const classificationItems = [
-        {
-            id: 'levelId',
-            label: 'Зэрэглэл',
-            value: getLevelName(position.levelId || ''),
-            icon: Gem,
-            options: levels,
-            placeholder: 'Зэрэглэл сонгох'
-        },
-        {
-            id: 'jobCategoryId',
-            label: 'Ажлын байрны ангилал',
-            value: getCategoryName(position.jobCategoryId || ''),
-            icon: Layers,
-            options: categories,
-            placeholder: 'Ангилал сонгох'
-        },
-        {
-            id: 'employmentTypeId',
-            label: 'Гэрээний төрөл',
-            value: getEmpTypeName(position.employmentTypeId || ''),
-            icon: Workflow,
-            options: employmentTypes,
-            placeholder: 'Төрөл сонгох'
-        },
-        {
-            id: 'workScheduleId',
-            label: 'Ажлын цагийн хуваарь',
-            value: getScheduleName(position.workScheduleId || ''),
-            icon: CalendarDays,
-            options: schedules,
-            placeholder: 'Хуваарь сонгох'
+    const handleSave = async () => {
+        if (!firestore) return;
+        setIsSaving(true);
+        try {
+            const updateData = {
+                title: formData.title,
+                code: formData.code,
+                departmentId: formData.departmentId,
+                reportsToId: formData.reportsToId,
+                levelId: formData.levelId,
+                jobCategoryId: formData.jobCategoryId,
+                employmentTypeId: formData.employmentTypeId,
+                workScheduleId: formData.workScheduleId,
+                permissions: formData.permissions,
+                budget: formData.budget,
+                updatedAt: new Date().toISOString(),
+            };
+            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), updateData);
+            toast({ title: "Мэдээлэл амжилттай хадгалагдлаа" });
+            setIsEditing(false);
+        } catch (e) {
+            toast({ title: "Алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
         }
-    ];
+    };
+
+    const handleCancel = () => {
+        setFormData({
+            title: position.title || '',
+            code: position.code || '',
+            departmentId: position.departmentId || '',
+            reportsToId: position.reportsToId || '',
+            levelId: position.levelId || '',
+            jobCategoryId: position.jobCategoryId || '',
+            employmentTypeId: position.employmentTypeId || '',
+            workScheduleId: position.workScheduleId || '',
+            permissions: {
+                canApproveVacation: position.permissions?.canApproveVacation || false,
+                canApproveLeave: position.permissions?.canApproveLeave || false,
+            },
+            budget: {
+                yearlyBudget: position.budget?.yearlyBudget || 0,
+                currency: position.budget?.currency || 'MNT',
+            }
+        });
+        setIsEditing(false);
+    };
+
+    const department = useMemo(() => departments.find(d => d.id === position.departmentId), [departments, position.departmentId]);
+    const supervisor = useMemo(() => allPositions.find(p => p.id === position.reportsToId), [allPositions, position.reportsToId]);
+    const level = useMemo(() => levels.find(l => l.id === position.levelId), [levels, position.levelId]);
+    const category = useMemo(() => categories.find(c => c.id === position.jobCategoryId), [categories, position.jobCategoryId]);
+    const employmentType = useMemo(() => employmentTypes.find(t => t.id === position.employmentTypeId), [employmentTypes, position.employmentTypeId]);
+    const schedule = useMemo(() => schedules.find(s => s.id === position.workScheduleId), [schedules, position.workScheduleId]);
 
     return (
-        <section className="space-y-8">
-            {/* Validation Indicator */}
-            {validationChecklist && (
+        <section className="space-y-12">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <Briefcase className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ерөнхий мэдээлэл</label>
+                        <h2 className="text-lg font-bold text-foreground">Албан тушаалын тодорхойлолт</h2>
+                    </div>
+                </div>
+                {!isEditing ? (
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl">
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Засах
+                    </Button>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl">
+                            Болих
+                        </Button>
+                        <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving} className="h-9 gap-2 bg-primary hover:bg-primary/90 shadow-sm font-bold text-[10px] uppercase tracking-widest rounded-xl">
+                            <Save className="w-3.5 h-3.5" />
+                            Хадгалах
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {/* Validation Overview */}
+            {validationChecklist && !isEditing && (
                 <ValidationIndicator
-                    title="Ерөнхий мэдээлэл"
+                    title="Мэдээллийн бүрдэл"
                     items={[
-                        { label: 'Нэр', isDone: validationChecklist.hasTitle },
-                        { label: 'Код', isDone: validationChecklist.hasCode },
-                        { label: 'Нэгж', isDone: validationChecklist.hasDepartment },
-                        { label: 'Зэрэглэл', isDone: validationChecklist.hasLevel },
-                        { label: 'Ангилал', isDone: validationChecklist.hasCategory },
-                        { label: 'Төрөл', isDone: validationChecklist.hasEmpType },
-                        { label: 'Хуваарь', isDone: validationChecklist.hasSchedule },
+                        { label: 'Үндсэн мэдээлэл', isDone: validationChecklist.hasBasicInfo },
+                        { label: 'Удирдлагын бүтэц', isDone: validationChecklist.hasReporting },
+                        { label: 'Ажлын нөхцөл', isDone: validationChecklist.hasAttributes },
+                        { label: 'Тохиргоо & Төсөв', isDone: validationChecklist.hasSettings },
                     ]}
                 />
             )}
 
-            {/* 1. Header Area: Position Title */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="md:col-span-3 space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Ажлын байрны нэр</label>
-                    {isEditing ? (
-                        <input
-                            className="flex h-12 w-full rounded-xl border bg-muted/30 px-4 py-2 text-lg font-bold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all font-sans"
-                            value={formData.title}
-                            onChange={(e) => handleFieldUpdate('title', e.target.value)}
-                            placeholder="Ажлын байрны нэр"
-                        />
-                    ) : (
-                        <h3 className="text-2xl font-bold tracking-tight">{position.title}</h3>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Ажлын байрны код</label>
-                    {isEditing ? (
-                        <input
-                            className="flex h-12 w-full rounded-xl border bg-muted/30 px-4 py-2 text-lg font-bold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all font-mono"
-                            value={formData.code}
-                            onChange={(e) => handleFieldUpdate('code', e.target.value.toUpperCase())}
-                            placeholder="КОД"
-                        />
-                    ) : (
-                        <div className="h-12 flex items-center px-4 rounded-xl border bg-muted/10">
-                            <span className="text-lg font-bold font-mono text-primary/80">{position.code || 'КОДГҮЙ'}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                {/* 1. Identification Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажлын байрны нэр</label>
+                            {isEditing ? (
+                                <Input
+                                    value={formData.title}
+                                    onChange={(e) => handleFieldUpdate('title', e.target.value)}
+                                    placeholder="Жишээ: Ахлах борлуулалтын менежер"
+                                    className="h-10 rounded-lg border-border bg-background"
+                                />
+                            ) : (
+                                <p className="text-sm font-bold text-foreground">{position.title}</p>
+                            )}
                         </div>
-                    )}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground">Ажлын байрны код</label>
+                            {isEditing ? (
+                                <Input
+                                    value={formData.code}
+                                    onChange={(e) => handleFieldUpdate('code', e.target.value)}
+                                    placeholder="Ж: SLS-01"
+                                    className="h-10 rounded-lg border-border bg-background text-xs font-mono"
+                                />
+                            ) : (
+                                <p className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded w-fit">{position.code || 'Кодгүй'}</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                {/* 2. Basic Info Grid */}
-                <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Харьяалагдах нэгж</label>
-                    {isEditing ? (
-                        <Select value={formData.departmentId} onValueChange={(val) => handleFieldUpdate('departmentId', val)}>
-                            <SelectTrigger className="h-11 rounded-xl border bg-muted/30 px-4">
-                                <SelectValue placeholder="Нэгж сонгох" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                                {departments?.map((dept) => (
-                                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <div className="flex items-center gap-3 p-3 rounded-xl border bg-muted/10">
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                <Building2 className="w-5 h-5" />
+                {/* 2. Organization Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Нэгж / Салбар</label>
+                            {isEditing ? (
+                                <Select value={formData.departmentId} onValueChange={(val) => handleFieldUpdate('departmentId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-primary" />
+                                    <p className="text-sm font-bold text-foreground">{department?.name || 'Нэгж оноогоогүй'}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Шууд удирдлага</label>
+                            {isEditing ? (
+                                <Select value={formData.reportsToId} onValueChange={(val) => handleFieldUpdate('reportsToId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="none">Удирдлагагүй (Дээд шат)</SelectItem>
+                                        {allPositions.filter(p => p.id !== position.id).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <User className="w-4 h-4 text-muted-foreground" />
+                                    <p className="text-sm font-bold text-foreground">{supervisor?.title || 'Тодорхойгүй'}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Classification Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Түвшин / Зэрэглэл</label>
+                            {isEditing ? (
+                                <Select value={formData.levelId} onValueChange={(val) => handleFieldUpdate('levelId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {levels.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <Badge variant="outline" className="bg-background border-border text-foreground font-bold px-3 py-1 rounded-lg">
+                                    {level?.name || 'Тохируулаагүй'}
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажил мэргэжлийн код (ЯАМАТ)</label>
+                            {isEditing ? (
+                                <Select value={formData.jobCategoryId} onValueChange={(val) => handleFieldUpdate('jobCategoryId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm font-bold text-foreground">{category?.name || 'Ангилал оноогоогүй'}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. Employment Terms Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажлын байрны төрөл</label>
+                            {isEditing ? (
+                                <Select value={formData.employmentTypeId} onValueChange={(val) => handleFieldUpdate('employmentTypeId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {employmentTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm font-bold text-foreground">{employmentType?.name || 'Бүртгэгдээгүй'}</p>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Цагийн хуваарь</label>
+                            {isEditing ? (
+                                <Select value={formData.workScheduleId} onValueChange={(val) => handleFieldUpdate('workScheduleId', val)}>
+                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm font-bold text-foreground">{schedule?.name || 'Тохируулаагүй'}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 5. Permissions & Settings Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border h-full">
+                        <div className="space-y-3">
+                            <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Системийн эрхүүд</label>
+                            <div className="grid gap-3">
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border transition-all shadow-sm">
+                                    <p className="text-xs font-semibold text-foreground">Ээлжийн амралтын хуваарийн хүсэлт батлах</p>
+                                    {isEditing ? (
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.permissions.canApproveVacation}
+                                            onChange={(e) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveVacation: e.target.checked })}
+                                            className="h-5 w-5 rounded-md border-border text-primary focus:ring-primary cursor-pointer"
+                                        />
+                                    ) : (
+                                        formData.permissions.canApproveVacation ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-muted-foreground/30" />
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border transition-all shadow-sm">
+                                    <p className="text-xs font-semibold text-foreground">Чөлөө батлах эрх</p>
+                                    {isEditing ? (
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.permissions.canApproveLeave}
+                                            onChange={(e) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveLeave: e.target.checked })}
+                                            className="h-5 w-5 rounded-md border-border text-primary focus:ring-primary cursor-pointer"
+                                        />
+                                    ) : (
+                                        formData.permissions.canApproveLeave ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-muted-foreground/30" />
+                                    )}
+                                </div>
                             </div>
-                            <p className="text-sm font-bold">{getDepartmentName(position.departmentId)}</p>
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Шууд удирдлага</label>
-                    {isEditing ? (
-                        <Select value={formData.reportsTo} onValueChange={(val) => handleFieldUpdate('reportsTo', val)}>
-                            <SelectTrigger className="h-11 rounded-xl border bg-muted/30 px-4">
-                                <SelectValue placeholder="Удирдах албан тушаал" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                                <SelectItem value="(none)" className="font-semibold text-muted-foreground">Шууд удирдлагагүй</SelectItem>
-                                {allPositions?.filter(p => p.id !== position.id).map((pos) => (
-                                    <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            {position.reportsTo ? (
-                                <div className="flex items-center justify-between w-full p-3 rounded-xl border bg-muted/10 hover:bg-muted/20 transition-colors group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-lg bg-background border flex items-center justify-center text-primary shadow-sm group-hover:scale-105 transition-transform">
-                                            <Briefcase className="w-5 h-5" />
-                                        </div>
-                                        <p className="text-sm font-bold">{getPositionTitle(position.reportsTo)}</p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="rounded-lg h-8 w-8 hover:bg-background" onClick={() => router.push(`/dashboard/organization/positions/${position.reportsTo}`)}>
-                                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                                    </Button>
+                {/* 6. Budget Section */}
+                <div className="space-y-6">
+                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border h-full">
+                        <div className="space-y-4">
+                            <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Жилийн төсөв (Орчим)</label>
+                            {isEditing ? (
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="number"
+                                        value={formData.budget.yearlyBudget}
+                                        onChange={(e) => handleFieldUpdate('budget', { ...formData.budget, yearlyBudget: Number(e.target.value) })}
+                                        className="h-10 rounded-lg border-border bg-background"
+                                    />
+                                    <Select value={formData.budget.currency} onValueChange={(val) => handleFieldUpdate('budget', { ...formData.budget, currency: val })}>
+                                        <SelectTrigger className="w-24 h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem value="MNT">₮</SelectItem>
+                                            <SelectItem value="USD">$</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-3 p-3 rounded-xl border border-dashed bg-muted/5 w-full">
-                                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/40">
-                                        <Users className="w-5 h-5" />
-                                    </div>
-                                    <p className="text-sm font-bold text-muted-foreground italic">Шууд удирдлагагүй</p>
+                                <div className="flex items-baseline gap-3">
+                                    <p className="text-2xl font-bold text-foreground">{formData.budget.yearlyBudget.toLocaleString()}</p>
+                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{formData.budget.currency}</p>
                                 </div>
                             )}
+                            <p className="text-[10px] font-medium text-muted-foreground italic">Энэхүү дүн нь зөвхөн төлөвлөлтөнд ашиглагдана.</p>
                         </div>
-                    )}
+                    </div>
                 </div>
-
-                {/* 3. Classification Grid */}
-                {classificationItems.map((item) => (
-                    <div key={item.id} className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground">{item.label}</label>
-                        {isEditing ? (
-                            <Select value={formData[item.id as keyof typeof formData] as string} onValueChange={(val) => handleFieldUpdate(item.id, val)}>
-                                <SelectTrigger className="h-11 rounded-xl border bg-muted/30 px-4">
-                                    <SelectValue placeholder={item.placeholder} />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    {item.options?.map((opt: any) => (
-                                        <SelectItem key={opt.id} value={opt.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold">{opt.name}</span>
-                                                {opt.code && <span className="text-[10px] opacity-40 uppercase tabular-nums">({opt.code})</span>}
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                            <div className="flex items-center gap-3 p-3 rounded-xl border bg-muted/10">
-                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                    <item.icon className="w-5 h-5" />
-                                </div>
-                                <p className="text-sm font-bold">{item.value}</p>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            <div className="h-px bg-border/50" />
-
-            {/* 4. Permissions & Budget Area */}
-            <div className="space-y-6">
-                <label className="text-xs font-medium text-muted-foreground">Нэмэлт эрх & Төсөв</label>
-                {isEditing ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex flex-row items-center justify-between p-4 rounded-xl border bg-muted/30">
-                            <div className="space-y-0.5">
-                                <p className="text-sm font-bold">Ирцийн хүсэлт батлах</p>
-                                <p className="text-xs text-muted-foreground">Доод албан тушаалтнуудын ирцийг батлах эрх</p>
-                            </div>
-                            <Switch checked={formData.canApproveAttendance} onCheckedChange={(val) => handleFieldUpdate('canApproveAttendance', val)} />
-                        </div>
-                        <div className="flex flex-row items-center justify-between p-4 rounded-xl border bg-muted/30">
-                            <div className="space-y-0.5">
-                                <p className="text-sm font-bold">Амралтын хүсэлт батлах</p>
-                                <p className="text-xs text-muted-foreground">Ажилчдын ээлжийн амралтыг батлах эрх</p>
-                            </div>
-                            <Switch checked={formData.canApproveVacation} onCheckedChange={(val) => handleFieldUpdate('canApproveVacation', val)} />
-                        </div>
-                        <div className={cn("p-4 rounded-xl border transition-all md:col-span-2", formData.hasPointBudget ? "bg-amber-50/30 border-amber-200" : "bg-muted/30")}>
-                            <div className="flex flex-row items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <p className="text-sm font-bold">Онооны төсөв</p>
-                                    <p className="text-xs text-muted-foreground">Урамшууллын оноо хуваарилах төсөв</p>
-                                </div>
-                                <Switch checked={formData.hasPointBudget} onCheckedChange={(val) => handleFieldUpdate('hasPointBudget', val)} />
-                            </div>
-                            {formData.hasPointBudget && (
-                                <div className="mt-4 pt-4 border-t border-amber-100 space-y-2">
-                                    <label className="text-xs font-medium text-amber-600">Жилийн төсөв</label>
-                                    <Input
-                                        type="text"
-                                        value={formData.yearlyPointBudget.toLocaleString('en-US')}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/,/g, '');
-                                            const numValue = parseInt(value) || 0;
-                                            handleFieldUpdate('yearlyPointBudget', numValue);
-                                        }}
-                                        className="h-10 bg-background border-amber-200"
-                                        placeholder="0"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className={cn("flex items-center gap-3 p-3 rounded-xl border", position.canApproveAttendance ? "bg-primary/5 border-primary/20" : "bg-muted/20 opacity-50")}>
-                            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", position.canApproveAttendance ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground/40")}><UserCheck className="w-5 h-5" /></div>
-                            <div><p className="text-sm font-bold">Ирц батлах</p><p className="text-xs font-medium text-muted-foreground">{position.canApproveAttendance ? 'Нээлттэй' : 'Хаалттай'}</p></div>
-                        </div>
-                        <div className={cn("flex items-center gap-3 p-3 rounded-xl border", position.canApproveVacation ? "bg-primary/5 border-primary/20" : "bg-muted/20 opacity-50")}>
-                            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", position.canApproveVacation ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground/40")}><Plane className="w-5 h-5" /></div>
-                            <div><p className="text-sm font-bold">Амралт батлах</p><p className="text-xs font-medium text-muted-foreground">{position.canApproveVacation ? 'Нээлттэй' : 'Хаалттай'}</p></div>
-                        </div>
-                        <div className={cn("flex items-center gap-3 p-3 rounded-xl border", position.hasPointBudget ? "bg-amber-50 border-amber-200" : "bg-muted/20 opacity-50")}>
-                            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", position.hasPointBudget ? "bg-amber-100 text-amber-600" : "bg-muted text-muted-foreground/40")}><Sparkles className="w-5 h-5" /></div>
-                            <div className="flex-1 text-sm font-bold">
-                                <p>Онооны төсөв</p>
-                                <div className="flex items-center justify-between mt-0.5">
-                                    <p className="text-xs font-medium text-amber-600/60">{position.hasPointBudget ? 'Идэвхтэй' : 'Байхгүй'}</p>
-                                    {position.hasPointBudget && <p className="text-amber-700">{position.yearlyPointBudget?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} /жил</p>}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </section>
     );
 }
+

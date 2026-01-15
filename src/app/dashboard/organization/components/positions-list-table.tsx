@@ -128,6 +128,7 @@ interface PositionsListTableProps {
     onSelectionChange: (ids: string[]) => void;
     onEdit: (pos: Position) => void;
     onDelete: (pos: Position) => void;
+    onDisband?: (pos: Position) => void;
     onDuplicate: (pos: Position) => void;
     onClearFilters?: () => void;
 }
@@ -140,6 +141,7 @@ export const PositionsListTable = ({
     onSelectionChange,
     onEdit,
     onDelete,
+    onDisband,
     onDuplicate,
     onClearFilters
 }: PositionsListTableProps) => {
@@ -303,6 +305,12 @@ export const PositionsListTable = ({
                                                     <Copy className="mr-2 h-4 w-4" /> Хувилах
                                                 </DropdownMenuItem>
                                             </AlertDialogTrigger>
+
+                                            {pos.isApproved === true && onDisband && (
+                                                <DropdownMenuItem onClick={() => onDisband(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
+                                                    <PowerOff className="mr-2 h-4 w-4" /> Татан буулгах
+                                                </DropdownMenuItem>
+                                            )}
 
                                             {pos.isApproved === false && (
                                                 <>

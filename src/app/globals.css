@@ -142,3 +142,18 @@
     /* Chrome, Safari and Opera */
   }
 }
+
+/* Org Chart Dot Grid Background */
+@layer utilities {
+  .bg-dot-pattern {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+  }
+
+  .dark .bg-dot-pattern {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.06) 1px, transparent 1px);
+  }
+}

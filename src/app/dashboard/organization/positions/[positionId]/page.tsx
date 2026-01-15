@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, useState, useMemo, useEffect } from 'react';
+import React, { use, useState, useMemo } from 'react';
 import { PageHeader } from '@/components/page-header';
 import {
     useFirebase,
@@ -10,37 +10,23 @@ import {
     updateDocumentNonBlocking,
     deleteDocumentNonBlocking
 } from '@/firebase';
-import { doc, collection, query, where, arrayUnion, writeBatch, increment } from 'firebase/firestore';
-import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department } from '../../types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { doc, collection, arrayUnion } from 'firebase/firestore';
+import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-    ChevronLeft,
     Settings,
-    Edit3,
     Trash2,
     Sparkles,
-    CheckCircle,
     XCircle,
     CheckCircle2,
-    Info,
     Calendar as CalendarIcon,
-    ArrowRight,
     FileText,
-    ShieldCheck,
     Download,
-    LayoutDashboard,
-    ListChecks,
-    BadgeDollarSign,
     History as HistoryIcon,
-    Briefcase,
-    Building2,
     Clock,
-    Users,
-    MapPin,
-    Mail,
-    Phone,
-    Save
+    User,
+    Edit3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -76,39 +62,21 @@ import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
 
-const ChecklistItem = ({ label, isDone }: { label: string; isDone: boolean }) => (
-    <div className="flex items-center gap-2.5 py-1">
-        {isDone ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-        ) : (
-            <XCircle className="w-4 h-4 text-muted-foreground/30 shrink-0" />
-        )}
-        <span className={cn(
-            "text-xs font-semibold transition-colors",
-            isDone ? "text-foreground" : "text-muted-foreground"
-        )}>
-            {label}
-        </span>
-    </div>
-);
-
 function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200">
-            <div className="p-2 bg-primary/10 rounded-full shrink-0">
-                <Icon className="h-4 w-4 text-primary" />
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/30 group hover:bg-muted/50 transition-all">
+            <div className="h-10 w-10 rounded-lg bg-background border border-border flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                <Icon className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
-                <div className="text-sm font-semibold text-foreground truncate">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+                <div className="text-sm font-semibold text-slate-700 truncate flex items-center gap-2">
                     {value || '-'}
                 </div>
             </div>
         </div>
     )
 }
-
-
 
 export default function PositionDetailPage({ params }: { params: Promise<{ positionId: string }> }) {
     const { positionId } = use(params);
@@ -121,8 +89,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
     const [isDisapproveConfirmOpen, setIsDisapproveConfirmOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState<Partial<Position> | null>(null);
 
     const [approvalDate, setApprovalDate] = useState<Date>(new Date());
     const [approvalNote, setApprovalNote] = useState('');
@@ -152,71 +118,40 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const { data: allPositions } = useCollection<Position>(allPositionsQuery);
 
     const validationChecklist = useMemo(() => {
-        const data = isEditing ? { ...position, ...formData } : position;
+        if (!position) return {
+            hasBasicInfo: false, hasReporting: false, hasAttributes: false, hasSettings: false, isComplete: false
+        };
         const checks = {
-            hasTitle: !!data?.title?.trim(),
-            hasCode: !!data?.code?.trim(),
-            hasDepartment: !!data?.departmentId,
-            hasLevel: !!data?.levelId,
-            hasCategory: !!data?.jobCategoryId,
-            hasEmpType: !!data?.employmentTypeId,
-            hasSchedule: !!data?.workScheduleId,
-            hasPurpose: !!data?.purpose?.trim(),
-            hasResponsibilities: (data?.responsibilities?.length || 0) > 0,
-            hasJDFile: !!data?.jobDescriptionFile?.url,
-            hasSalary: !!(data?.compensation?.salaryRange?.mid && data.compensation.salaryRange.mid > 0)
+            hasBasicInfo: !!position.title?.trim() && !!position.code?.trim(),
+            hasReporting: !!position.departmentId && !!position.reportsToId,
+            hasAttributes: !!position.levelId && !!position.jobCategoryId && !!position.employmentTypeId && !!position.workScheduleId,
+            hasSettings: !!position.budget?.yearlyBudget && position.budget.yearlyBudget > 0,
         };
 
         const isComplete = Object.values(checks).every(Boolean);
         return { ...checks, isComplete };
-    }, [position, formData, isEditing]);
+    }, [position]);
 
     const completionPercentage = useMemo(() => {
-        if (!validationChecklist) return 0;
-        const keys = Object.keys(validationChecklist).filter(k => k !== 'isComplete');
+        const keys = ['hasBasicInfo', 'hasReporting', 'hasAttributes', 'hasSettings'] as const;
         const total = keys.length;
-        if (total === 0) return 0;
-        const completed = keys.filter(k => (validationChecklist as any)[k]).length;
+        const completed = keys.filter(k => validationChecklist[k]).length;
         return Math.round((completed / total) * 100);
     }, [validationChecklist]);
 
-    const isDirty = useMemo(() => {
-        if (!formData || !position) return false;
-        return JSON.stringify(formData) !== JSON.stringify(position);
-    }, [formData, position]);
-
-    if (isPositionLoading) return <div className="p-8 space-y-6"><Skeleton className="h-64 w-full rounded-xl" /></div>;
+    if (isPositionLoading) return <div className="p-8 space-y-6"><Skeleton className="h-64 w-full rounded-2xl" /></div>;
     if (!position) return <div className="p-10 text-center">Ажлын байр олдсонгүй</div>;
-
-    // const reportToPosition = allPositions?.find(p => p.id === position.reportsToPositionId)?.title || '-';
-    // Using loose find in case reportsToPositionId is missing or invalid
-    const reportToPosition = position.reportsToPositionId ? (allPositions?.find(p => p.id === position.reportsToPositionId)?.title || 'Unknown') : '-';
-
 
     const history = [...(position.approvalHistory || [])].sort((a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-
-    // Edit logic
-    const enterEditMode = () => { setFormData(position); setIsEditing(true); };
-    const handleDiscard = () => { setFormData(null); setIsEditing(false); };
-    const handleGlobalSave = async () => {
-        if (!formData || !firestore) return;
-        try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), formData);
-            toast({ title: "Бүх өөрчлөлт хадгалагдлаа" });
-            setIsEditing(false); setFormData(null);
-        } catch (e) { toast({ title: "Алдаа", variant: "destructive" }); }
-    };
-    const handleLocalUpdate = async (data: Partial<Position>) => { setFormData(prev => ({ ...prev, ...data })); };
 
     // Actions
     const handleDisapprove = async () => {
         if (!firestore || !user) return;
         setIsApproving(true);
         const disapprovedAt = disapproveDate.toISOString();
-        // @ts-ignore
-        const logEntry = {
+        const logEntry: ApprovalLog = {
             action: 'disapprove',
             userId: user.uid,
             userName: user.displayName || user.email || 'Систем',
@@ -237,16 +172,21 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
         finally { setIsApproving(false); }
     };
+
     const handleDelete = async () => {
         if (!firestore) return;
-        try { await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId)); toast({ title: "Устгагдлаа" }); router.push(`/dashboard/organization/${position.departmentId}`); } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
+        try {
+            await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId));
+            toast({ title: "Устгагдлаа" });
+            router.push(`/dashboard/organization/${position.departmentId}`);
+        } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
     };
+
     const runApproval = async () => {
         if (!firestore || !user) return;
         setIsApproving(true);
         const approvedAt = approvalDate.toISOString();
-        // @ts-ignore
-        const logEntry = {
+        const logEntry: ApprovalLog = {
             action: 'approve',
             userId: user.uid,
             userName: user.displayName || user.email || 'Систем',
@@ -264,68 +204,86 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
             toast({ title: "Батлагдлаа" });
             setIsApproveConfirmOpen(false);
             setApprovalNote('');
-        } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) } finally { setIsApproving(false); }
+        } catch (e) { toast({ variant: 'destructive', title: 'Алдаа' }) }
+        finally { setIsApproving(false); }
     };
 
     return (
-        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+        <div className="pt-6 pb-32 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <PageHeader
-                title={isEditing ? formData?.title || position.title : position.title}
-                description={`${department?.name} • ${isEditing ? formData?.code || position.code || 'Кодгүй' : position.code || 'Кодгүй'}`}
+                title={position.title}
+                description={`${department?.name} • ${position.code || 'Кодгүй'}`}
                 breadcrumbs={[
                     { label: 'Бүтэц', href: `/dashboard/organization/${position.departmentId}` },
-                    { label: isEditing ? formData?.title || position.title : position.title }
+                    { label: position.title }
                 ]}
                 showBackButton
             />
 
-            {/* 1. Approval Checklist & Status Card */}
             {/* 1. Approval Overview & Progress Card */}
-            <Card className="overflow-hidden border border-indigo-100 bg-indigo-50/30 shadow-sm rounded-xl p-6 relative transition-all hover:bg-indigo-50/50">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-
+            <Card className="overflow-hidden border-none shadow-premium bg-background rounded-2xl p-8 relative group">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-10 relative z-10">
                     {/* Left: Status & Progress */}
-                    <div className="flex-1 w-full md:w-auto flex flex-col sm:flex-row items-center gap-6">
-                        <div className="text-center px-4 py-2 bg-white/50 rounded-xl border border-indigo-100 shrink-0">
-                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5">Төлөв</p>
+                    <div className="flex-1 w-full flex flex-col sm:flex-row items-center gap-10">
+                        <div className="text-center px-8 py-6 bg-muted/50 rounded-xl border border-border shrink-0 shadow-inner group-hover:bg-background transition-colors duration-500">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-3 leading-none italic">STATUS</p>
                             <Badge variant="outline" className={cn(
-                                "font-bold text-[10px] uppercase tracking-wider border-none px-3 py-1",
-                                position.isApproved ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                                "font-bold text-[11px] uppercase tracking-widest border-none px-4 py-1.5 shadow-sm rounded-lg",
+                                position.isApproved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                             )}>
                                 {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
                             </Badge>
                         </div>
 
-                        <div className="flex-1 w-full space-y-2">
+                        <div className="flex-1 w-full space-y-4">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-indigo-950">Мэдээлэл бөглөлт</span>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бөглөлт</span>
+                                    <h4 className="text-sm font-bold text-foreground">Мэдээллийн бүрэн байдал</h4>
+                                </div>
                                 <span className={cn(
-                                    "text-sm font-bold",
-                                    completionPercentage === 100 ? "text-emerald-600" : "text-indigo-600"
+                                    "text-2xl font-bold italic tracking-tighter",
+                                    completionPercentage === 100 ? "text-emerald-500" : "text-primary"
                                 )}>{completionPercentage}%</span>
                             </div>
-                            <div className="h-3 w-full bg-white rounded-full overflow-hidden border border-indigo-100">
+                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
                                 <div
                                     className={cn(
-                                        "h-full transition-all duration-500 ease-out rounded-full",
-                                        completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
+                                        "h-full transition-all duration-1000 ease-out rounded-full",
+                                        completionPercentage === 100 ? "bg-emerald-500" : "bg-primary"
                                     )}
                                     style={{ width: `${completionPercentage}%` }}
                                 />
                             </div>
-                            <p className="text-xs text-muted-foreground font-medium">
-                                {completionPercentage === 100 ? 'Бүх мэдээлэл бүрэн бөглөгдсөн.' : 'Мэдээлэл дутуу байна. Доорх табоудаас шалгана уу.'}
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", completionPercentage === 100 ? "bg-emerald-500" : "bg-amber-500")} />
+                                <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">
+                                    {completionPercentage === 100 ? 'Бүх мэдээлэл бүрэн бөглөгдсөн.' : 'Мэдээлэл дутуу байна. Доорх табоудаас шалгана уу.'}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex flex-wrap items-center justify-center gap-4 shrink-0">
+                        {position.jobDescriptionFile && (
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-12 w-12 rounded-2xl border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm"
+                                asChild
+                                title="АБТ Татах"
+                            >
+                                <a href={position.jobDescriptionFile.url} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-5 w-5" />
+                                </a>
+                            </Button>
+                        )}
+
                         <Button
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
-                            className="h-10 px-4 text-destructive hover:text-white hover:bg-destructive font-bold border-border/50 transition-colors"
+                            className="h-10 px-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all"
                             onClick={() => setIsDeleteConfirmOpen(true)}
                         >
                             <Trash2 className="w-4 h-4 mr-2" /> Устгах
@@ -336,10 +294,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                 <TooltipTrigger asChild>
                                     <span tabIndex={0}>
                                         <Button
-                                            variant={position.isApproved ? "warning" : (validationChecklist.isComplete ? "success" : "secondary")}
+                                            variant={position.isApproved ? "outline" : (validationChecklist.isComplete ? "default" : "secondary")}
                                             className={cn(
-                                                "h-10 px-6 font-bold gap-2 transition-all shadow-sm",
-                                                !position.isApproved && !validationChecklist.isComplete && "opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200"
+                                                "h-10 px-6 font-bold text-[11px] uppercase tracking-widest rounded-xl gap-3 transition-all active:scale-95",
+                                                !position.isApproved && !validationChecklist.isComplete && "opacity-50 cursor-not-allowed bg-muted text-muted-foreground",
+                                                position.isApproved ? "border-amber-200 text-amber-600 hover:bg-amber-50" : (validationChecklist.isComplete ? "bg-primary hover:primary/90 text-primary-foreground shadow-sm" : "")
                                             )}
                                             onClick={() => {
                                                 if (position.isApproved) {
@@ -364,7 +323,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     </span>
                                 </TooltipTrigger>
                                 {!position.isApproved && !validationChecklist.isComplete && (
-                                    <TooltipContent side="top" className="text-xs">
+                                    <TooltipContent side="top" className="text-[10px] font-bold uppercase py-2 bg-slate-900 border-none text-white rounded-lg px-4">
                                         Мэдээлэл дутуу тул батлах боломжгүй
                                     </TooltipContent>
                                 )}
@@ -374,166 +333,122 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 </div>
             </Card>
 
-
             {/* 3. Details & Tabs Card */}
-            <Card className="overflow-hidden border bg-card shadow-sm rounded-xl">
+            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
                 <CardContent className="p-0">
                     <Tabs defaultValue="overview" className="w-full">
-                        <div className="flex flex-col sm:flex-row items-center justify-between border-b bg-muted/5 px-6 gap-4">
-                            <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 overflow-x-auto">
+                        <div className="bg-muted/50 rounded-xl p-1 inline-flex mt-10 mb-8 overflow-x-auto max-w-full scrollbar-hide ml-10">
+                            <TabsList className="bg-transparent h-10 gap-1 px-1 text-muted-foreground">
                                 <TabsTrigger
                                     value="overview"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
                                     Ерөнхий
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="competency"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
                                     АБТ
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="compensation"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
                                     Цалин & Бонус
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="benefits"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
                                     Хангамж
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="history"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium transition-all"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
                                     Түүх
                                 </TabsTrigger>
                             </TabsList>
-
-                            <div className="flex items-center gap-2 py-3 sm:py-0">
-                                {!isEditing ? (
-                                    <>
-                                        <Button variant="outline" size="sm" className="h-8 font-bold px-3 text-[11px] uppercase tracking-wider" onClick={() => {/* JD */ }}>
-                                            <Download className="w-3.5 h-3.5 mr-1.5" /> JD Татах
-                                        </Button>
-                                        <Button variant="default" size="sm" className="h-8 font-bold px-4 shadow-sm text-[11px] uppercase tracking-wider" onClick={enterEditMode}>
-                                            <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Засах
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button variant="outline" size="sm" className="h-8 font-bold text-[11px] uppercase tracking-wider" onClick={handleDiscard}>
-                                            Болих
-                                        </Button>
-                                        <Button variant="success" size="sm" className="h-8 font-bold px-5 shadow-sm text-[11px] uppercase tracking-wider" onClick={handleGlobalSave} disabled={!isDirty}>
-                                            <Save className="w-3.5 h-3.5 mr-1.5" /> Хадгалах
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
                         </div>
 
-                        <div className="p-8 min-h-[400px]">
+                        <div className="min-h-[400px] px-10 pt-10 pb-40">
                             <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
                                 <PositionOverview
-                                    position={isEditing ? (formData as Position) : position}
+                                    position={position}
                                     departments={allDepartments || []}
                                     allPositions={allPositions || []}
                                     levels={levels || []}
                                     categories={categories || []}
                                     employmentTypes={empTypes || []}
                                     schedules={schedules || []}
-                                    onUpdate={handleLocalUpdate}
-                                    isEditing={isEditing}
-                                    validationChecklist={{
-                                        hasTitle: validationChecklist.hasTitle,
-                                        hasCode: validationChecklist.hasCode,
-                                        hasDepartment: validationChecklist.hasDepartment,
-                                        hasLevel: validationChecklist.hasLevel,
-                                        hasCategory: validationChecklist.hasCategory,
-                                        hasEmpType: validationChecklist.hasEmpType,
-                                        hasSchedule: validationChecklist.hasSchedule,
-                                    }}
+                                    validationChecklist={validationChecklist}
                                 />
                             </TabsContent>
 
                             <TabsContent value="competency" className="mt-0 focus-visible:outline-none">
                                 <PositionCompetency
-                                    position={isEditing ? (formData as Position) : position}
-                                    onUpdate={handleLocalUpdate}
-                                    isEditing={isEditing}
-                                    validationChecklist={{
-                                        hasPurpose: validationChecklist.hasPurpose,
-                                        hasResponsibilities: validationChecklist.hasResponsibilities,
-                                        hasJDFile: validationChecklist.hasJDFile,
-                                    }}
+                                    position={position}
                                 />
                             </TabsContent>
 
                             <TabsContent value="compensation" className="mt-0 focus-visible:outline-none">
                                 <PositionCompensation
-                                    position={isEditing ? (formData as Position) : position}
-                                    onUpdate={handleLocalUpdate}
-                                    isEditing={isEditing}
-                                    validationChecklist={{
-                                        hasSalary: validationChecklist.hasSalary,
-                                    }}
+                                    position={position}
                                 />
                             </TabsContent>
 
                             <TabsContent value="benefits" className="mt-0 focus-visible:outline-none">
                                 <PositionBenefits
-                                    position={isEditing ? (formData as Position) : position}
-                                    onUpdate={handleLocalUpdate}
-                                    isEditing={isEditing}
+                                    position={position}
                                 />
                             </TabsContent>
 
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                                <section className="space-y-6">
+                                <section className="space-y-8">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-primary/10 rounded-lg">
-                                            <HistoryIcon className="h-5 w-5 text-primary" />
+                                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <HistoryIcon className="h-5 w-5" />
                                         </div>
-                                        <h3 className="text-xl font-bold tracking-tight">Үйл ажиллагааны түүх</h3>
+                                        <div>
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Үйл ажиллагаа</label>
+                                            <h3 className="text-lg font-bold text-foreground">Өөрчлөлтийн түүх</h3>
+                                        </div>
                                     </div>
 
                                     {!history.length ? (
-                                        <div className="flex flex-col items-center justify-center py-24 text-center border-dashed border-2 rounded-xl">
-                                            <HistoryIcon className="h-10 w-10 text-muted-foreground opacity-20 mb-4" />
-                                            <p className="text-sm font-medium text-muted-foreground">Түүх одоогоор байхгүй байна.</p>
+                                        <div className="flex flex-col items-center justify-center py-24 text-center border-dashed border-2 border-border rounded-xl">
+                                            <HistoryIcon className="h-10 w-10 text-muted-foreground/30 mb-4" />
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Түүх одоогоор байхгүй байна</p>
                                         </div>
                                     ) : (
-                                        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-muted/60">
-                                            {history.map((log, idx) => (
-                                                <div key={idx} className="relative flex items-start gap-10 pl-14">
+                                        <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-border">
+                                            {history.map((log, idx: number) => (
+                                                <div key={idx} className="relative flex items-start gap-10 pl-14 group">
                                                     <div className={cn(
-                                                        "absolute left-0 mt-1 h-10 w-10 rounded-xl border bg-card shadow-sm flex items-center justify-center transition-all",
-                                                        log.action === 'approve' ? "text-emerald-500 border-emerald-100" : "text-amber-500 border-amber-100"
+                                                        "absolute left-0 mt-1 h-10 w-10 rounded-xl bg-background border border-border flex items-center justify-center transition-all shadow-premium group-hover:scale-110",
+                                                        log.action === 'approve' ? "text-emerald-500" : "text-destructive"
                                                     )}>
                                                         {log.action === 'approve' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                                                     </div>
                                                     <div className="flex-1 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <div className="space-y-0.5">
-                                                                <p className="text-base font-bold">{log.userName}</p>
+                                                                <p className="text-sm font-bold text-foreground">{log.userName}</p>
                                                                 <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5 uppercase tracking-widest">
                                                                     <Clock className="w-3 h-3" />
                                                                     {format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}
                                                                 </p>
                                                             </div>
                                                             <Badge variant="outline" className={cn(
-                                                                "text-[10px] font-bold uppercase tracking-widest py-1 px-3 border-none",
-                                                                log.action === 'approve' ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                                                                "text-[10px] font-bold uppercase tracking-widest py-1 px-3 border-none rounded-lg",
+                                                                log.action === 'approve' ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"
                                                             )}>
                                                                 {log.action === 'approve' ? 'Батлагдсан' : 'Цуцлагдсан'}
                                                             </Badge>
                                                         </div>
-                                                        <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
-                                                            <p className="text-sm text-foreground font-medium leading-relaxed">{log.note}</p>
+                                                        <div className="bg-muted/30 p-4 rounded-xl border border-border">
+                                                            <p className="text-xs text-muted-foreground font-medium leading-relaxed">{log.note}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -547,40 +462,39 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 </CardContent>
             </Card>
 
-
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="rounded-xl border-border p-8">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Ажлын байрыг устгах?</AlertDialogTitle>
-                        <AlertDialogDescription>Энэ үйлдлийг буцаах боломжгүй.</AlertDialogDescription>
+                        <AlertDialogTitle className="text-lg font-bold text-foreground">Ажлын байрыг устгах?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">Та энэхүү ажлын байрыг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй бөгөөд холбоотой бүх мэдээлэл устах болно.</AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Устгах</AlertDialogAction>
+                    <AlertDialogFooter className="mt-4 gap-3">
+                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground">Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-md">Устгах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
             <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>
-                <AlertDialogContent className="sm:max-w-[500px]">
+                <AlertDialogContent className="sm:max-w-[500px] rounded-xl border-border p-8">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2 text-emerald-600">
-                            <CheckCircle2 className="h-5 w-5" />
+                        <AlertDialogTitle className="flex items-center gap-2 text-primary font-bold text-xl">
+                            <Sparkles className="h-6 w-6" />
                             Ажлын байр батлах
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-slate-600">
+                        <AlertDialogDescription className="text-muted-foreground font-medium leading-relaxed text-sm">
                             Ажлын байрыг батлагдсанаар "Батлагдсан" төлөвт шилжиж, албан ёсны бүтэц дотор харагдаж эхэлнэ.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Батлах огноо (Тушаалын огноо)</Label>
+                    <div className="py-6 space-y-6">
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest pl-1">Батлах огноо (Тушаалын огноо)</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
-                                            "w-full pl-3 text-left font-normal h-10 border-slate-200 rounded-xl",
+                                            "w-full pl-4 text-left font-bold h-11 border-border bg-muted/50 rounded-xl text-foreground transition-all hover:bg-background hover:border-primary/30 shadow-sm",
                                             !approvalDate && "text-muted-foreground"
                                         )}
                                     >
@@ -589,10 +503,10 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                         ) : (
                                             <span>Огноо сонгох</span>
                                         )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        <CalendarIcon className="ml-auto h-5 w-5 opacity-40" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 rounded-xl overflow-hidden border-border shadow-premium" align="start">
                                     <Calendar
                                         mode="single"
                                         selected={approvalDate}
@@ -603,45 +517,46 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                             </Popover>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Тэмдэглэл (Сонголттой)</Label>
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest pl-1">Тэмдэглэл (Сонголттой)</Label>
                             <Textarea
                                 placeholder="Батлахтай холбоотой тайлбар оруулна уу..."
                                 value={approvalNote}
                                 onChange={(e) => setApprovalNote(e.target.value)}
-                                className="min-h-[100px] rounded-xl border-slate-200 resize-none focus:ring-primary"
+                                className="min-h-[120px] rounded-xl border-border bg-muted/30 p-4 resize-none transition-all focus:bg-background focus:border-primary/30 shadow-sm text-sm"
                             />
                         </div>
                     </div>
-                    <AlertDialogFooter>
+                    <AlertDialogFooter className="gap-3">
                         <AlertDialogCancel onClick={() => {
                             setApprovalNote('');
                             setApprovalDate(new Date());
-                        }}>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction onClick={runApproval} className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl font-semibold" disabled={isApproving}>Батлах</AlertDialogAction>
+                        }} className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground">Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction onClick={runApproval} className="bg-primary hover:bg-primary/90 h-10 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-premium transition-all active:scale-95" disabled={isApproving}>Батлах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
             <AlertDialog open={isDisapproveConfirmOpen} onOpenChange={setIsDisapproveConfirmOpen}>
-                <AlertDialogContent className="sm:max-w-[500px]">
+                <AlertDialogContent className="sm:max-w-[500px] rounded-xl border-border p-8">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-                            <HistoryIcon className="h-5 w-5" />
+                        <AlertDialogTitle className="flex items-center gap-2 text-warning font-bold text-xl">
+                            <HistoryIcon className="h-6 w-6" />
                             Батламж цуцлах
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-slate-600">
+                        <AlertDialogDescription className="text-muted-foreground font-medium leading-relaxed text-sm">
                             Энэ үйлдлийг хийснээр ажлын байр "Батлагдаагүй" (Ноорог) төлөвт шилжихийг анхаарна уу.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Цуцлах огноо</Label>
+                    <div className="py-6 space-y-6">
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest pl-1">Цуцлах огноо</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
-                                            "w-full pl-3 text-left font-normal h-10 border-slate-200 rounded-xl",
+                                            "w-full pl-4 text-left font-bold h-11 border-border bg-muted/50 rounded-xl text-foreground transition-all hover:bg-background hover:border-primary/30 shadow-sm",
                                             !disapproveDate && "text-muted-foreground"
                                         )}
                                     >
@@ -650,10 +565,10 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                         ) : (
                                             <span>Огноо сонгох</span>
                                         )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        <CalendarIcon className="ml-auto h-5 w-5 opacity-40" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 rounded-xl overflow-hidden border-border shadow-premium" align="start">
                                     <Calendar
                                         mode="single"
                                         selected={disapproveDate}
@@ -664,26 +579,26 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Цуцлах шалтгаан (Заавал биш)</Label>
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest pl-1">Цуцлах шалтгаан (Заавал биш)</Label>
                             <Textarea
                                 placeholder="Шалтгаан эсвэл нэмэлт тайлбар..."
                                 value={disapproveNote}
                                 onChange={(e) => setDisapproveNote(e.target.value)}
-                                className="min-h-[100px] rounded-xl border-slate-200 resize-none focus:ring-amber-500"
+                                className="min-h-[120px] rounded-xl border-border bg-muted/30 p-4 resize-none transition-all focus:bg-background focus:border-primary/30 shadow-sm text-sm"
                             />
                         </div>
                     </div>
-                    <AlertDialogFooter>
+                    <AlertDialogFooter className="gap-3">
                         <AlertDialogCancel onClick={() => {
                             setDisapproveNote('');
                             setDisapproveDate(new Date());
-                        }}>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDisapprove} className="bg-amber-500 hover:bg-amber-600 h-10 px-6 rounded-xl font-semibold" disabled={isApproving}>Цуцлах</AlertDialogAction>
+                        }} className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground">Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDisapprove} className="bg-amber-500 hover:bg-amber-600 h-10 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-premium transition-all active:scale-95" disabled={isApproving}>Цуцлах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
         </div>
     );
 }
+

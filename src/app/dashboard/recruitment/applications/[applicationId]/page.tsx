@@ -59,6 +59,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { sendSMS } from '@/lib/notifications';
 import { InterviewScorecard, ScorecardCriteria } from '../../components/interview-scorecard';
 import { ScheduleInterviewDialog } from '../../components/schedule-interview-dialog';
 import {
@@ -71,6 +72,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 // --- Types & Helpers ---
@@ -332,15 +334,29 @@ export default function CandidateDetailPage() {
         setSendingMessage(true);
         try {
             await logEvent('MESSAGE', 'Мессеж илгээсэн', previewText);
-            toast({
-                title: 'Мессеж амжилттай илгээгдлээ',
-                description: sendAsSms ? 'SMS илгээгдэх болно.' : 'Түүхэнд хадгалагдлаа.'
-            });
+
+            if (sendAsSms && candidate.phone) {
+                await sendSMS(candidate.phone, previewText);
+                toast({
+                    title: 'Мессеж амжилттай SMS-ээр илгээгдлээ',
+                    description: 'Хэрэглэгчийн утас руу илгээгдсэн.'
+                });
+            } else {
+                toast({
+                    title: 'Мессеж амжилттай илгээгдлээ',
+                    description: 'Түүхэнд хадгалагдлаа.'
+                });
+            }
+
             setShowPreview(false);
             setPreviewText('');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error sending message:", error);
-            toast({ title: 'Мессеж илгээж чадсангүй', variant: 'destructive' });
+            toast({
+                title: 'Мессеж илгээж чадсангүй',
+                description: error.message || 'Сүлжээний алдаа.',
+                variant: 'destructive'
+            });
         } finally {
             setSendingMessage(false);
         }
@@ -684,8 +700,8 @@ export default function CandidateDetailPage() {
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
-                                                        {/* Optional SMS toggle logic here */}
-                                                        {/* <Switch checked={sendAsSms} onCheckedChange={setSendAsSms} /> <Label>SMS-ээр илгээх</Label> */}
+                                                        <Switch checked={sendAsSms} onCheckedChange={setSendAsSms} />
+                                                        <Label>SMS-ээр илгээх</Label>
                                                     </div>
                                                     <div className="flex gap-3">
                                                         <Button variant="outline" onClick={() => setShowPreview(false)}>Болих</Button>

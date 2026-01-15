@@ -71,17 +71,31 @@ export async function sendSMS(
     phoneNumber: string,
     text: string
 ): Promise<boolean> {
-    console.log(`[SMS Gateway] Preparing to send to ${phoneNumber}`);
+    console.log(`[Notification Service] Sending SMS to ${phoneNumber} via API`);
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 600));
+    try {
+        const response = await fetch('/api/sms', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: phoneNumber,
+                text: text,
+            }),
+        });
 
-    console.log(`
-    ----------------------------------------------------
-    SMS TO: ${phoneNumber}
-    CONTENT: ${text}
-    ----------------------------------------------------
-    `);
+        const data = await response.json();
 
-    return true;
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to send SMS');
+        }
+
+        console.log('[Notification Service] SMS sent successfully:', data);
+        return true;
+    } catch (error) {
+        console.error('[Notification Service] Failed to send SMS:', error);
+        // We re-throw the error so the UI can handle it and show a toast
+        throw error;
+    }
 }

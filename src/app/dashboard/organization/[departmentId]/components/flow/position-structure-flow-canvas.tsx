@@ -1,0 +1,179 @@
+'use client';
+
+import React, { useMemo, useCallback, useEffect } from 'react';
+import ReactFlow, {
+    Background,
+    Controls,
+    useNodesState,
+    useEdgesState,
+    Node,
+    Edge,
+    BackgroundVariant,
+    ConnectionLineType,
+    Panel,
+    ReactFlowProvider,
+    useReactFlow,
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import dagre from 'dagre';
+import { PositionFlowNode } from './position-flow-node';
+import { Position, Department } from '../../../types';
+import { Button } from '@/components/ui/button';
+import { LayoutTemplate } from 'lucide-react';
+
+const nodeTypes = {
+    positionNode: PositionFlowNode,
+};
+
+interface PositionStructureFlowCanvasProps {
+    positions: Position[];
+    department: Department;
+    lookups: any;
+    onPositionClick?: (pos: Position) => void;
+    onAddChild?: (parentId: string) => void;
+    onDuplicate?: (pos: Position) => void;
+}
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+    const nodeWidth = 260;
+    const nodeHeight = 160;
+
+    dagreGraph.setGraph({ rankdir: direction, nodesep: 70, ranksep: 100 });
+
+    nodes.forEach((node) => {
+        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edges.forEach((edge) => {
+        dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    nodes.forEach((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        node.targetPosition = 'top' as any;
+        node.sourcePosition = 'bottom' as any;
+
+        node.position = {
+            x: nodeWithPosition.x - nodeWidth / 2,
+            y: nodeWithPosition.y - nodeHeight / 2,
+        };
+
+        return node;
+    });
+
+    return { nodes, edges };
+};
+
+function FlowInner({
+    positions,
+    department,
+    lookups,
+    onPositionClick,
+    onAddChild,
+    initialNodes,
+    initialEdges
+}: PositionStructureFlowCanvasProps & { initialNodes: Node[], initialEdges: Edge[] }) {
+    const { fitView } = useReactFlow();
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+    useEffect(() => {
+        setNodes(initialNodes);
+        setEdges(initialEdges);
+        setTimeout(() => fitView({ duration: 800 }), 100);
+    }, [initialNodes, initialEdges, setNodes, setEdges, fitView]);
+
+    const onLayout = useCallback(() => {
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
+        setNodes([...layoutedNodes]);
+        setEdges([...layoutedEdges]);
+        window.requestAnimationFrame(() => fitView({ duration: 800 }));
+    }, [nodes, edges, setNodes, setEdges, fitView]);
+
+    return (
+        <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={nodeTypes as any}
+            connectionLineType={ConnectionLineType.SmoothStep}
+            fitView
+            className="bg-dot-pattern"
+        >
+            <Background gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-50" />
+            <Controls showInteractive={false} className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl rounded-xl p-1" />
+
+            <Panel position="top-left" className="flex flex-col gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-md hover:shadow-lg transition-all gap-2 h-9 px-3 rounded-xl border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                    onClick={onLayout}
+                >
+                    <LayoutTemplate className="h-4 w-4 text-indigo-500" />
+                    <span>Байршил цэгцлэх</span>
+                </Button>
+            </Panel>
+        </ReactFlow>
+    );
+}
+
+export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasProps) {
+    const { positions, department, lookups, onPositionClick, onAddChild, onDuplicate } = props;
+
+    const { initialNodes, initialEdges } = useMemo(() => {
+        const nodes: Node[] = [];
+        const edges: Edge[] = [];
+
+        // Build a Map for quick lookup
+        const posMap = new Map<string, Position>(positions.map(p => [p.id, p]));
+
+        positions.forEach(pos => {
+            nodes.push({
+                id: pos.id,
+                type: 'positionNode',
+                data: {
+                    ...pos,
+                    levelName: lookups.levelMap[pos.levelId || ''] || 'Түвшин -',
+                    departmentColor: lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor,
+                    onPositionClick,
+                    onAddChild,
+                    onDuplicate
+                },
+                position: { x: 0, y: 0 },
+            });
+
+            if (pos.reportsTo && posMap.has(pos.reportsTo)) {
+                edges.push({
+                    id: `e-${pos.reportsTo}-${pos.id}`,
+                    source: pos.reportsTo,
+                    target: pos.id,
+                    type: 'smoothstep',
+                    animated: false,
+                    style: { stroke: 'hsl(var(--muted-foreground) / 0.2)', strokeWidth: 2, strokeDasharray: '5,5' },
+                });
+            }
+        });
+
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
+        return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
+    }, [positions, lookups, onPositionClick, onAddChild, onDuplicate]);
+
+    return (
+        <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-hidden relative group">
+            <ReactFlowProvider>
+                <FlowInner
+                    {...props}
+                    initialNodes={initialNodes}
+                    initialEdges={initialEdges}
+                />
+            </ReactFlowProvider>
+        </div>
+    );
+}

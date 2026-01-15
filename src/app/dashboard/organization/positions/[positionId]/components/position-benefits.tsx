@@ -1,191 +1,217 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Gift, PlusCircle, Trash2, DollarSign } from 'lucide-react';
+import {
+    PlusCircle,
+    X,
+    Save,
+    Coffee,
+    Smartphone,
+    Car,
+    Laptop,
+    Trash2,
+    Gift,
+    Shield,
+    Edit3,
+    Plus
+} from 'lucide-react';
 import { Position } from '../../../types';
-
-interface Allowance {
-    name: string;
-    amount: number;
-    currency?: string;
-    period?: 'daily' | 'monthly';
-}
+import { doc } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { CurrencyInput } from './currency-input';
 
 interface PositionBenefitsProps {
     position: Position;
-    onUpdate: (data: Partial<Position>) => Promise<void>;
-    isEditing?: boolean;
 }
 
 export function PositionBenefits({
-    position,
-    onUpdate,
-    isEditing = false
+    position
 }: PositionBenefitsProps) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
     const [formData, setFormData] = useState({
-        allowances: (position.benefits?.allowances || []).map((a: any) => ({
-            name: a.name || '',
-            amount: a.amount || 0,
-            currency: a.currency || 'MNT',
-            period: a.period || 'monthly'
-        }))
+        allowances: position.allowances || [],
     });
 
-    const handleFieldUpdate = (field: string, value: any) => {
-        const newData = { ...formData, [field]: value };
-        setFormData(newData);
+    const handleAddAllowance = () => {
+        setFormData(prev => ({
+            ...prev,
+            allowances: [...prev.allowances, { type: '', amount: 0, currency: 'MNT', period: 'monthly' }]
+        }));
+    };
 
-        // Map back to the Position structure
-        onUpdate({
-            benefits: {
-                ...position.benefits,
-                allowances: field === 'allowances' ? value : formData.allowances
-            }
+    const removeAllowance = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            allowances: prev.allowances.filter((_, i) => i !== index)
+        }));
+    };
+
+    const updateAllowance = (index: number, field: string, value: any) => {
+        setFormData(prev => {
+            const newList = [...prev.allowances];
+            newList[index] = { ...newList[index], [field]: value };
+            return { ...prev, allowances: newList };
         });
     };
 
-    const handleAddAllowance = () => {
-        const newAllowances = [...formData.allowances, { name: '', amount: 0, currency: 'MNT', period: 'monthly' }];
-        handleFieldUpdate('allowances', newAllowances);
+    const handleSave = async () => {
+        if (!firestore) return;
+        setIsSaving(true);
+        try {
+            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                allowances: formData.allowances,
+                updatedAt: new Date().toISOString(),
+            });
+            toast({ title: "Хангамжийн мэдээлэл хадгалагдлаа" });
+            setIsEditing(false);
+        } catch (e) {
+            toast({ title: "Алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleRemoveAllowance = (index: number) => {
-        const newAllowances = formData.allowances.filter((_: any, i: number) => i !== index);
-        handleFieldUpdate('allowances', newAllowances);
+    const handleCancel = () => {
+        setFormData({
+            allowances: position.allowances || [],
+        });
+        setIsEditing(false);
     };
 
-    const handleUpdateAllowance = (index: number, field: keyof Allowance, value: any) => {
-        const newAllowances = [...formData.allowances];
-        newAllowances[index] = { ...newAllowances[index], [field]: value };
-        handleFieldUpdate('allowances', newAllowances);
+    const getIcon = (type: string) => {
+        const t = type.toLowerCase();
+        if (t.includes('утас') || t.includes('phone')) return <Smartphone className="w-5 h-5" />;
+        if (t.includes('хоол') || t.includes('meal') || t.includes('food')) return <Coffee className="w-5 h-5" />;
+        if (t.includes('бензин') || t.includes('car') || t.includes('transport')) return <Car className="w-5 h-5" />;
+        if (t.includes('компьютер') || t.includes('laptop')) return <Laptop className="w-5 h-5" />;
+        return <Gift className="w-5 h-5" />;
     };
 
     return (
-        <section className="space-y-8">
-            <div>
-                <h3 className="text-lg font-semibold tracking-tight">Хамгамж ба хөнгөлөлт</h3>
-                <p className="text-xs text-muted-foreground font-semibold">Ажлын байрны нэмэлт хангамж, хөнгөлөлтүүд</p>
+        <section className="space-y-12">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <Gift className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Хэрэглээ & Хангамж</label>
+                        <h2 className="text-lg font-bold text-foreground">Хангамж & Хөнгөлөлт</h2>
+                    </div>
+                </div>
+                {!isEditing ? (
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Засах
+                    </Button>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                            Болих
+                        </Button>
+                        <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving} className="h-9 gap-2 bg-primary hover:bg-primary/90 shadow-sm font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                            <Save className="w-3.5 h-3.5" />
+                            Хадгалах
+                        </Button>
+                    </div>
+                )}
             </div>
 
-            <div className="space-y-10">
-                {/* Allowances Section */}
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-muted-foreground">Мөнгөн хангамж</label>
-                        {isEditing && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleAddAllowance}
-                                className="h-8 rounded-lg border-dashed font-bold text-[10px] uppercase tracking-wider hover:bg-primary/5 hover:text-primary transition-all"
-                            >
-                                <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
-                                Нэмэх
-                            </Button>
-                        )}
-                    </div>
+            <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Мөнгөн бус болон тогтмол хангамжууд</label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {isEditing ? (
-                        <div className="space-y-3">
-                            {formData.allowances.length === 0 ? (
-                                <div className="py-10 flex flex-col items-center justify-center text-center border-2 border-dashed rounded-xl bg-muted/30">
-                                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                                        <DollarSign className="w-5 h-5 text-muted-foreground/30" />
+                        <>
+                            {formData.allowances.map((al, i) => (
+                                <div key={i} className="p-6 rounded-xl border border-border bg-background shadow-premium space-y-5 group relative">
+                                    <button
+                                        onClick={() => removeAllowance(i)}
+                                        className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+
+                                    <div className="space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Хангамжийн төрөл</label>
+                                            <Input
+                                                value={al.type}
+                                                onChange={(e) => updateAllowance(i, 'type', e.target.value)}
+                                                placeholder="Жишээ: Гар утас, Унааны зардал"
+                                                className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all font-bold text-sm"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Мөнгөн дүн & Хугацаа</label>
+                                            <div className="flex gap-2">
+                                                <CurrencyInput
+                                                    value={al.amount}
+                                                    onValueChange={(val) => updateAllowance(i, 'amount', val)}
+                                                    className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all flex-1"
+                                                    placeholder="Дүн"
+                                                />
+                                                <select
+                                                    value={al.period}
+                                                    onChange={(e) => updateAllowance(i, 'period', e.target.value)}
+                                                    className="w-24 rounded-lg border border-border bg-background text-[9px] font-bold uppercase px-2 shadow-sm focus:ring-1 focus:ring-primary outline-none"
+                                                >
+                                                    <option value="monthly">Сар бүр</option>
+                                                    <option value="yearly">Жил бүр</option>
+                                                    <option value="once">Нэг удаа</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="text-xs font-bold text-muted-foreground/50 uppercase tracking-widest">Хангамж нэмэгдээгүй байна</p>
                                 </div>
-                            ) : (
-                                formData.allowances.map((allowance: Allowance, index: number) => (
-                                    <div key={index} className="flex gap-3 p-3 rounded-xl border bg-muted/20 items-end">
-                                        <div className="flex-1 space-y-1.5">
-                                            <label className="text-xs font-medium text-muted-foreground ml-1">Нэр</label>
-                                            <Input
-                                                value={allowance.name}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateAllowance(index, 'name', e.target.value)}
-                                                placeholder="Жишээ: Хоолны мөнгө"
-                                                className="h-10 rounded-lg border bg-background"
-                                            />
-                                        </div>
-                                        <div className="w-40 space-y-1.5">
-                                            <label className="text-xs font-medium text-muted-foreground ml-1">Дүн</label>
-                                            <Input
-                                                type="text"
-                                                value={allowance.amount.toLocaleString('en-US')}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                    const value = e.target.value.replace(/,/g, '');
-                                                    const numValue = parseFloat(value) || 0;
-                                                    handleUpdateAllowance(index, 'amount', numValue);
-                                                }}
-                                                placeholder="0"
-                                                className="h-10 rounded-lg border bg-background"
-                                            />
-                                        </div>
-                                        <div className="w-32 space-y-1.5">
-                                            <label className="text-xs font-medium text-muted-foreground ml-1">Мөчлөг</label>
-                                            <Select
-                                                value={allowance.period || 'monthly'}
-                                                onValueChange={(val) => handleUpdateAllowance(index, 'period', val)}
-                                            >
-                                                <SelectTrigger className="h-10 rounded-lg border bg-background">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl">
-                                                    <SelectItem value="monthly">Сараар</SelectItem>
-                                                    <SelectItem value="daily">Өдөрөөр</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleRemoveAllowance(index)}
-                                            className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
+                            ))}
+                            <Button
+                                variant="outline"
+                                onClick={handleAddAllowance}
+                                className="h-full min-h-[160px] border-dashed border-2 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col gap-3 group"
+                            >
+                                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-all">
+                                    <PlusCircle className="w-6 h-6" />
+                                </div>
+                                <span className="text-[11px] font-bold uppercase tracking-widest">Хангамж нэмэх</span>
+                            </Button>
+                        </>
                     ) : (
-                        position.benefits?.allowances && position.benefits.allowances.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {position.benefits.allowances.map((allowance: Allowance, i: number) => (
-                                    <div key={i} className="flex items-center justify-between p-4 rounded-xl border bg-muted/5 group hover:bg-muted/10 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
-                                                <DollarSign className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold">{allowance.name}</p>
-                                                <p className="text-xs font-medium text-muted-foreground">
-                                                    {allowance.period === 'daily' ? 'Өдөр бүр' : 'Сар бүр'}
-                                                </p>
-                                            </div>
+                        formData.allowances.length > 0 ? (
+                            formData.allowances.map((al, i) => (
+                                <div key={i} className="p-6 rounded-xl border border-border bg-muted/30 group hover:border-primary/20 transition-all shadow-premium">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="h-12 w-12 rounded-lg bg-background border border-border flex items-center justify-center text-primary shadow-premium transition-transform group-hover:scale-110">
+                                            {getIcon(al.type)}
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-black text-primary">{allowance.amount.toLocaleString()}</p>
-                                            <p className="text-[10px] text-muted-foreground font-bold">{allowance.currency || 'MNT'}</p>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-foreground">{al.type}</h4>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                {al.period === 'monthly' ? 'Сар бүр' : al.period === 'yearly' ? 'Жил бүр' : 'Нэг удаа'}
+                                            </p>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
-                                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                                    <DollarSign className="w-6 h-6 text-muted-foreground/30" />
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-xl font-bold text-foreground">{al.amount.toLocaleString()}</span>
+                                        <span className="text-sm font-bold text-muted-foreground">₮</span>
+                                    </div>
                                 </div>
-                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Хангамж бүртгэгдээгүй</p>
+                            ))
+                        ) : (
+                            <div className="lg:col-span-3 py-16 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2 border-border rounded-xl">
+                                <Gift className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Хөнгөлөлт хангамж бүртгэгдээгүй</p>
                             </div>
                         )
                     )}
@@ -194,3 +220,4 @@ export function PositionBenefits({
         </section>
     );
 }
+

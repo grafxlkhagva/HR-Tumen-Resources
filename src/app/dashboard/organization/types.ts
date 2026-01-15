@@ -6,7 +6,9 @@ export type Department = {
     // Locally computed properties
     children?: Department[];
     filled: number;
+    approvedCount?: number;
     typeName?: string;
+    typeLevel?: number;
     positions?: Position[];
     description?: string;
     vision?: string;
@@ -16,12 +18,12 @@ export type Department = {
     createdAt?: string; // ISO date string
     status?: 'active' | 'inactive';
     color?: string;
-    draftData?: Partial<Omit<Department, 'id' | 'children' | 'filled' | 'typeName' | 'positions' | 'draftData'>>;
 };
 
 export type DepartmentType = {
     id: string;
     name: string;
+    level: number;
 };
 
 export type Position = {
@@ -30,8 +32,7 @@ export type Position = {
     code?: string;
     departmentId: string;
     filled: number;
-    reportsTo?: string;
-    reportsToPositionId?: string;
+    reportsToId?: string; // Standardized
     levelId?: string;
     employmentTypeId?: string;
     jobCategoryId?: string;
@@ -39,11 +40,7 @@ export type Position = {
     isActive?: boolean;
     createdAt?: string;
     canApproveAttendance?: boolean;
-    hasPointBudget?: boolean;
-    yearlyPointBudget?: number;
-    remainingPointBudget?: number;
     onboardingProgramIds?: string[];
-    canApproveVacation?: boolean;
     isApproved?: boolean;
     approvedAt?: string;
     approvedBy?: string;
@@ -53,42 +50,60 @@ export type Position = {
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
     purpose?: string;
-    responsibilities?: string[];
-    compensation?: {
-        salaryRange?: {
-            min: number;
-            mid: number;
-            max: number;
-            currency: string;
-            period: 'monthly' | 'yearly';
-        };
-        variablePay?: {
-            bonusDescription?: string;
-            commissionDescription?: string;
-            equityDescription?: string;
-            incentives?: {
-                name: string;
-                value: string;
-                period?: 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'one-time';
-            }[];
-        };
+    responsibilities?: {
+        title: string;
+        description: string;
+    }[];
+    salaryRange?: {
+        min: number;
+        max: number;
+        currency: string;
+        id?: string; // Linked preset ID
     };
-    benefits?: {
-        insuranceIds?: string[];
-        isRemoteAllowed?: boolean;
-        flexibleHours?: boolean;
-        vacationDays?: number;
-        allowances?: {
-            name: string;
-            amount: number;
-            currency?: string;
-        }[];
-        otherBenefits?: string[];
+    incentives?: {
+        type: string;
+        description: string;
+        amount: number;
+        currency: string;
+        unit: string;
+    }[];
+    allowances?: {
+        type: string;
+        amount: number;
+        currency: string;
+        period: string;
+    }[];
+    permissions?: {
+        canApproveVacation: boolean;
+        canApproveLeave: boolean;
+    };
+    budget?: {
+        yearlyBudget: number;
+        currency: string;
     };
     jobDescriptionFile?: {
         name: string;
         url: string;
+        size: number;
         uploadedAt: string;
+    };
+    skills?: {
+        name: string;
+        level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+    }[];
+    experience?: {
+        totalYears: number;
+        educationLevel: string;
+        leadershipYears?: number;
+        professions?: string[];
+    };
+    salarySteps?: {
+        items: {
+            name: string;
+            value: number;
+        }[];
+        activeIndex: number;
+        currency: string;
     };
 };
 
@@ -133,12 +148,25 @@ export type WorkSchedule = {
     name: string;
 }
 
+export type SalaryRangeVersion = {
+    id: string;
+    name: string;
+    min: number;
+    max: number;
+    currency: string;
+}
+
 export type DepartmentHistory = {
     id: string;
     departmentId: string;
     approvedAt: string;
     validTo?: string;
+    isDissolution?: boolean;
     snapshot: {
+        departmentName?: string;
+        disbandReason?: string;
+        disbandedAt?: string;
+        disbandedByName?: string;
         positions: (Position & {
             levelName?: string;
             employees?: {

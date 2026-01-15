@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare, Key, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -98,7 +98,12 @@ export function RecruitmentSettings() {
     const [stages, setStages] = useState<RecruitmentStage[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [initialState, setInitialState] = useState<{ stages: RecruitmentStage[], criteria: any[], templates: MessageTemplate[] } | null>(null);
+    const [initialState, setInitialState] = useState<{
+        stages: RecruitmentStage[],
+        criteria: any[],
+        templates: MessageTemplate[],
+        smsConfig: { apiKey: string, apiSecret: string, senderId: string }
+    } | null>(null);
 
     // New Stage State
     const [newStageTitle, setNewStageTitle] = useState('');
@@ -117,10 +122,20 @@ export function RecruitmentSettings() {
     const [newTemplateBody, setNewTemplateBody] = useState('');
     const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
 
+    // SMS Config State
+    const [smsConfig, setSmsConfig] = useState({ apiKey: '', apiSecret: '', senderId: 'Mocean' });
+
+    // Edit Template State
+    const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+    const [editTemplateTitle, setEditTemplateTitle] = useState('');
+    const [editTemplateBody, setEditTemplateBody] = useState('');
+    const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
+
     useEffect(() => {
         const fetchSettings = async () => {
             if (!firestore) return;
             try {
+                // Fetch General Settings
                 const docRef = doc(firestore, 'recruitment_settings', 'default');
                 const docSnap = await getDoc(docRef);
 
@@ -131,12 +146,28 @@ export function RecruitmentSettings() {
                     setStages(fetchedStages);
                     setCriteria(fetchedCriteria);
                     setTemplates(fetchedTemplates);
-                    setInitialState({ stages: fetchedStages, criteria: fetchedCriteria, templates: fetchedTemplates });
+
+                    // Fetch SMS Config (stored in the same doc for simplicity or separate, let's keep it in same doc for atomic save)
+                    const fetchedSmsConfig = docSnap.data().smsConfig || { apiKey: '', apiSecret: '', senderId: 'Mocean' };
+                    setSmsConfig(fetchedSmsConfig);
+
+                    setInitialState({
+                        stages: fetchedStages,
+                        criteria: fetchedCriteria,
+                        templates: fetchedTemplates,
+                        smsConfig: fetchedSmsConfig
+                    });
                 } else {
                     setStages(DEFAULT_STAGES);
                     setCriteria(DEFAULT_CRITERIA);
                     setTemplates(DEFAULT_TEMPLATES);
-                    setInitialState({ stages: DEFAULT_STAGES, criteria: DEFAULT_CRITERIA, templates: DEFAULT_TEMPLATES });
+                    setSmsConfig({ apiKey: '', apiSecret: '', senderId: 'Mocean' });
+                    setInitialState({
+                        stages: DEFAULT_STAGES,
+                        criteria: DEFAULT_CRITERIA,
+                        templates: DEFAULT_TEMPLATES,
+                        smsConfig: { apiKey: '', apiSecret: '', senderId: 'Mocean' }
+                    });
                 }
             } catch (error) {
                 console.error("Failed to fetch settings:", error);
@@ -244,6 +275,31 @@ export function RecruitmentSettings() {
         });
     };
 
+    const openEditTemplate = (template: MessageTemplate) => {
+        setEditingTemplate(template);
+        setEditTemplateTitle(template.title);
+        setEditTemplateBody(template.body);
+        setIsEditTemplateOpen(true);
+    };
+
+    const handleUpdateTemplate = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingTemplate || !editTemplateTitle.trim() || !editTemplateBody.trim()) return;
+
+        setTemplates(prev => prev.map(t =>
+            t.id === editingTemplate.id
+                ? { ...t, title: editTemplateTitle, body: editTemplateBody, updatedAt: new Date().toISOString() }
+                : t
+        ));
+
+        setIsEditTemplateOpen(false);
+        setEditingTemplate(null);
+        toast({
+            title: 'Загвар шинэчлэгдлээ',
+            description: 'Өөрчлөлт хадгалагдлаа.',
+        });
+    };
+
     const handleSave = async () => {
         if (!firestore) return;
         setSaving(true);
@@ -254,10 +310,16 @@ export function RecruitmentSettings() {
                 defaultStages: orderedStages,
                 defaultCriteria: criteria,
                 messageTemplates: templates,
+                smsConfig: smsConfig,
                 updatedAt: new Date().toISOString()
             });
 
-            setInitialState({ stages: orderedStages, criteria: criteria, templates: templates });
+            setInitialState({
+                stages: orderedStages,
+                criteria: criteria,
+                templates: templates,
+                smsConfig: smsConfig
+            });
 
             toast({
                 title: 'Тохиргоо хадгалагдлаа',
@@ -277,7 +339,8 @@ export function RecruitmentSettings() {
 
     const hasChanges = JSON.stringify(initialState?.stages) !== JSON.stringify(stages) ||
         JSON.stringify(initialState?.criteria) !== JSON.stringify(criteria) ||
-        JSON.stringify(initialState?.templates) !== JSON.stringify(templates);
+        JSON.stringify(initialState?.templates) !== JSON.stringify(templates) ||
+        JSON.stringify(initialState?.smsConfig) !== JSON.stringify(smsConfig);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -575,6 +638,45 @@ export function RecruitmentSettings() {
                                     </form>
                                 </DialogContent>
                             </Dialog>
+
+                            <Dialog open={isEditTemplateOpen} onOpenChange={setIsEditTemplateOpen}>
+                                <DialogContent className="sm:max-w-[500px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Загвар засах</DialogTitle>
+                                        <DialogDescription>
+                                            Мессежний загварт өөрчлөлт оруулах.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleUpdateTemplate} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-tpl-title">Загварын нэр</Label>
+                                            <Input
+                                                id="edit-tpl-title"
+                                                placeholder="Жишээ: Ярилцлагын урилга..."
+                                                value={editTemplateTitle}
+                                                onChange={(e) => setEditTemplateTitle(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-tpl-body">Мессежний агуулга</Label>
+                                            <Textarea
+                                                id="edit-tpl-body"
+                                                placeholder="Мессежний агуулгыг энд бичнэ үү..."
+                                                className="min-h-[150px]"
+                                                value={editTemplateBody}
+                                                onChange={(e) => setEditTemplateBody(e.target.value)}
+                                            />
+                                            <p className="text-[10px] text-muted-foreground italic">
+                                                Зөвлөмж: {'{{name}}'} гэж бичвэл нэр дэвшигчийн нэрээр солигдоно.
+                                            </p>
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsEditTemplateOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Хадгалах</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -585,14 +687,24 @@ export function RecruitmentSettings() {
                                                 <Mail className="h-4 w-4 text-blue-500" />
                                                 <h4 className="text-sm font-semibold text-slate-900">{tpl.title}</h4>
                                             </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleDeleteTemplate(tpl.id)}
-                                                className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => openEditTemplate(tpl)}
+                                                    className="h-7 w-7 text-slate-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDeleteTemplate(tpl.id)}
+                                                    className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                         <CardContent className="p-4">
                                             <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed whitespace-pre-wrap">
@@ -607,6 +719,65 @@ export function RecruitmentSettings() {
                                         <p className="text-sm">Загвар тохируулаагүй байна.</p>
                                     </div>
                                 )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* SMS Integration Card */}
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                            <div>
+                                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                                    <Key className="h-5 w-5 text-amber-500" />
+                                    SMS Integration (MoceanAPI)
+                                </CardTitle>
+                                <CardDescription className="mt-1">
+                                    Мессеж илгээх үйлчилгээний тохиргоо (MoceanAPI).
+                                </CardDescription>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open('https://dashboard.moceanapi.com/', '_blank')}
+                                className="gap-2"
+                            >
+                                Dashboard нээх
+                                <Info className="h-4 w-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4 max-w-2xl">
+                            <div className="grid gap-2">
+                                <Label htmlFor="api-key">API Key</Label>
+                                <Input
+                                    id="api-key"
+                                    value={smsConfig.apiKey}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, apiKey: e.target.value })}
+                                    placeholder="Mocean API Key..."
+                                    className="font-mono text-sm"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="api-secret">API Secret</Label>
+                                <Input
+                                    id="api-secret"
+                                    type="password"
+                                    value={smsConfig.apiSecret}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, apiSecret: e.target.value })}
+                                    placeholder="••••••••"
+                                    className="font-mono text-sm"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="sender-id">Sender ID (Заавал биш)</Label>
+                                <Input
+                                    id="sender-id"
+                                    value={smsConfig.senderId}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, senderId: e.target.value })}
+                                    placeholder="Жишээ: CompanyName (Латин үсгээр)"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Илгээгчийн нэр. Хэрэв хоосон орхивол 'Mocean' гэж очно.
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
