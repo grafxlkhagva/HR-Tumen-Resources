@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { User, CheckCircle, Plus, ChevronRight, Copy } from 'lucide-react';
+import { User, CheckCircle, Plus, ChevronRight, Copy, UserPlus } from 'lucide-react';
 import { Position as PositionType } from '../../../types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ interface PositionNodeData extends PositionType {
     onPositionClick?: (pos: PositionType) => void;
     onAddChild?: (parentId: string) => void;
     onDuplicate?: (pos: PositionType) => void;
+    onAppoint?: (pos: PositionType) => void;
 }
 
 export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNodeData>) => {
@@ -21,11 +22,13 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         code,
         isActive,
         isApproved,
+        filled,
         levelName,
         departmentColor,
         onPositionClick,
         onAddChild,
-        onDuplicate
+        onDuplicate,
+        onAppoint
     } = data;
 
     const isColored = !!departmentColor;
@@ -159,6 +162,28 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
                         )}
                     </div>
                 </div>
+
+                {isApproved && (filled || 0) === 0 && (
+                    <div className="pt-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                                "w-full h-8 text-[10px] font-bold uppercase tracking-wider gap-2 rounded-lg shadow-sm transition-all shadow-none",
+                                isColored
+                                    ? "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/40"
+                                    : "bg-primary/5 border-primary/20 text-primary hover:bg-primary hover:text-white"
+                            )}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onAppoint) onAppoint(data as PositionType);
+                            }}
+                        >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            Томилгоо хийх
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Output Handle (Source) - Bottom */}

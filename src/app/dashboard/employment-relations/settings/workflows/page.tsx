@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useCollection, useFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
 import { ERWorkflow } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,7 @@ export default function WorkflowsPage() {
         if (!firestore) return;
 
         try {
-            await deleteDocumentNonBlocking(collection(firestore, 'er_workflows'), id);
+            await deleteDocumentNonBlocking(doc(firestore, 'er_workflows', id));
             toast({ title: "Амжилттай", description: "Устгагдлаа" });
         } catch (error) {
             toast({ title: "Алдаа", description: "Устгахад алдаа гарлаа", variant: "destructive" });
@@ -64,7 +64,7 @@ export default function WorkflowsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-lg font-medium">Батлах урсгал (Workflows)</h3>
+                    <h3 className="text-lg font-medium">Ажлын урсгал (Workflows)</h3>
                     <p className="text-sm text-muted-foreground">Баримт бичиг хянах, батлах шат дамжлагуудыг тохируулах</p>
                 </div>
                 <Button onClick={() => setIsDialogOpen(true)}>

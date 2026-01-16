@@ -20,6 +20,7 @@ import { PositionFlowNode } from './position-flow-node';
 import { Position, Department } from '../../../types';
 import { Button } from '@/components/ui/button';
 import { LayoutTemplate } from 'lucide-react';
+import { AppointEmployeeDialog } from './appoint-employee-dialog';
 
 const nodeTypes = {
     positionNode: PositionFlowNode,
@@ -126,6 +127,8 @@ function FlowInner({
 
 export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasProps) {
     const { positions, department, lookups, onPositionClick, onAddChild, onDuplicate } = props;
+    const [isAppointDialogOpen, setIsAppointDialogOpen] = React.useState(false);
+    const [selectedPosition, setSelectedPosition] = React.useState<Position | null>(null);
 
     const { initialNodes, initialEdges } = useMemo(() => {
         const nodes: Node[] = [];
@@ -144,15 +147,19 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
                     departmentColor: lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor,
                     onPositionClick,
                     onAddChild,
-                    onDuplicate
+                    onDuplicate,
+                    onAppoint: (pos: Position) => {
+                        setSelectedPosition(pos);
+                        setIsAppointDialogOpen(true);
+                    }
                 },
                 position: { x: 0, y: 0 },
             });
 
-            if (pos.reportsTo && posMap.has(pos.reportsTo)) {
+            if (pos.reportsToId && posMap.has(pos.reportsToId)) {
                 edges.push({
-                    id: `e-${pos.reportsTo}-${pos.id}`,
-                    source: pos.reportsTo,
+                    id: `e-${pos.reportsToId}-${pos.id}`,
+                    source: pos.reportsToId,
                     target: pos.id,
                     type: 'smoothstep',
                     animated: false,
@@ -174,6 +181,12 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
                     initialEdges={initialEdges}
                 />
             </ReactFlowProvider>
+
+            <AppointEmployeeDialog
+                open={isAppointDialogOpen}
+                onOpenChange={setIsAppointDialogOpen}
+                position={selectedPosition}
+            />
         </div>
     );
 }

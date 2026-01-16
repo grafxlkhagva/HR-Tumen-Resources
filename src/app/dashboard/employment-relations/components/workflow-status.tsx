@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ERWorkflowStep, DocumentStatus, ERDocumentHistory } from '../types';
-import { CheckCircle2, Circle, Clock, XCircle, FileText } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, XCircle, FileText, Check, FileCheck } from 'lucide-react';
 import { formatDateTime } from '../utils';
 
 interface WorkflowStatusProps {
@@ -13,95 +13,88 @@ interface WorkflowStatusProps {
 }
 
 export function WorkflowStatus({ status, currentStepId, steps, history = [] }: WorkflowStatusProps) {
-    if (!steps || steps.length === 0) return null;
+    if (!steps) return null;
 
-    // Helper to find history item for a step
     const getHistoryForStep = (stepId: string) => {
-        // Find the latest history entry for this step? Or any matching?
-        // Usually workflows go forward, but rejections might loop back.
-        // We'll simplisticly look for the last approval/rejection for this step
         return history.findLast(h => h.stepId === stepId || (status === 'APPROVED' && currentStepId === stepId));
     };
 
+    // Define the full sequence: Draft -> Workflow Steps -> Final (Approved/Signed)
+    const allStates = [
+        { id: 'DRAFT', name: 'Ноорог', type: 'system' },
+        ...steps.map(s => ({ ...s, type: 'workflow' })),
+        { id: 'FINAL', name: status === 'SIGNED' ? 'Гэрээлсэн' : 'Батлагдсан', type: 'system' }
+    ];
+
     return (
-        <div className="w-full py-4 overflow-x-auto">
-            <div className="flex items-center min-w-max px-4">
-                {/* Initial Step (Draft) */}
-                <div className="flex flex-col items-center relative z-10">
-                    <div className={`
-                        w-8 h-8 rounded-full flex items-center justify-center border-2 bg-white
-                        ${status !== 'DRAFT' ? 'border-primary text-primary' : 'border-blue-500 text-blue-500'}
-                    `}>
-                        {status !== 'DRAFT' ? <CheckCircle2 className="h-5 w-5" /> : <FileText className="h-4 w-4" />}
-                    </div>
-                    <div className="mt-2 text-xs font-medium text-center max-w-[100px]">Ноорог</div>
-                    <div className="text-[10px] text-muted-foreground">
-                        {history.find(h => h.action === 'CREATE') ? formatDateTime(history.find(h => h.action === 'CREATE')?.timestamp) : '-'}
-                    </div>
-                </div>
+        <div className="w-full py-6 overflow-x-auto no-scrollbar">
+            <div className="flex items-center min-w-max px-8 justify-center">
+                {allStates.map((state, index) => {
+                    let stepState: 'completed' | 'current' | 'pending' | 'rejected' = 'pending';
 
-                {/* Line to next */}
-                <div className={`h-0.5 w-16 ${status !== 'DRAFT' ? 'bg-primary' : 'bg-slate-200'}`} />
+                    if (state.id === 'DRAFT') {
+                        stepState = status !== 'DRAFT' ? 'completed' : 'current';
+                    } else if (state.id === 'FINAL') {
+                        stepState = (status === 'APPROVED' || status === 'SIGNED') ? 'completed' : 'pending';
+                    } else {
+                        const isCurrent = state.id === currentStepId && status === 'PENDING';
+                        const isCompleted = history.some(h => h.stepId === state.id && h.action === 'APPROVE') || (status === 'APPROVED' || status === 'SIGNED');
+                        const isRejected = history.some(h => h.stepId === state.id && h.action === 'REJECT') && isCurrent;
 
-                {steps.map((step, index) => {
-                    // Determine state of this step
-                    // 1. Completed: It's in history as approved OR current step is past this one
-                    // 2. Current: id matches currentStepId
-                    // 3. Pending: upcoming
-
-                    const isCurrent = step.id === currentStepId && status === 'PENDING';
-                    const isCompleted = history.some(h => h.stepId === step.id && h.action === 'APPROVE') || status === 'APPROVED' || status === 'SIGNED';
-                    const isRejected = history.some(h => h.stepId === step.id && h.action === 'REJECT') && isCurrent; // if rejected and currently stuck here? Usually returns to draft or stays.
-
-                    // Logic simplification:
-                    // If status is APPROVED/SIGNED, all steps are done.
-
-                    let state: 'completed' | 'current' | 'pending' | 'rejected' = 'pending';
-                    if (status === 'APPROVED' || status === 'SIGNED' || status === 'ARCHIVED') {
-                        state = 'completed';
-                    } else if (isRejected) {
-                        state = 'rejected';
-                    } else if (isCurrent) {
-                        state = 'current';
-                    } else if (history.some(h => h.stepId === step.id && h.action === 'APPROVE')) {
-                        // Check if later step is current, then this is definitely completed
-                        // For now assume linear history
-                        state = 'completed';
+                        if (isRejected) stepState = 'rejected';
+                        else if (isCompleted) stepState = 'completed';
+                        else if (isCurrent) stepState = 'current';
                     }
 
+                    // Icon selection
+                    let Icon = Circle;
+                    if (state.id === 'DRAFT') Icon = FileText;
+                    else if (state.id === 'FINAL') Icon = status === 'SIGNED' ? FileCheck : CheckCircle2;
+                    else if (stepState === 'completed') Icon = Check;
+                    else if (stepState === 'current') Icon = Clock;
+                    else if (stepState === 'rejected') Icon = XCircle;
+
                     return (
-                        <React.Fragment key={step.id}>
-                            <div className="flex flex-col items-center relative z-10 group">
+                        <React.Fragment key={state.id}>
+                            <div className="flex flex-col items-center relative group">
                                 <div className={`
-                                    w-8 h-8 rounded-full flex items-center justify-center border-2 bg-white transition-colors
-                                    ${state === 'completed' ? 'border-primary text-primary' :
-                                        state === 'current' ? 'border-blue-500 text-blue-500 animate-pulse' :
-                                            state === 'rejected' ? 'border-red-500 text-red-500' : 'border-slate-200 text-slate-300'}
+                                    w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-sm border-2
+                                    ${stepState === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white shadow-emerald-200' :
+                                        stepState === 'current' ? 'bg-white border-primary text-primary shadow-primary/20 ring-4 ring-primary/5 animate-pulse' :
+                                            stepState === 'rejected' ? 'bg-rose-500 border-rose-500 text-white shadow-rose-200' :
+                                                'bg-slate-50 border-slate-200 text-slate-300'}
                                 `}>
-                                    {state === 'completed' ? <CheckCircle2 className="h-5 w-5" /> :
-                                        state === 'current' ? <Clock className="h-4 w-4" /> :
-                                            state === 'rejected' ? <XCircle className="h-5 w-5" /> :
-                                                <Circle className="h-4 w-4" />}
+                                    <Icon className={`h-6 w-6 ${stepState === 'current' ? 'animate-spin-slow' : ''}`} />
                                 </div>
-                                <div className={`mt-2 text-xs font-medium text-center max-w-[120px] ${state === 'current' ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                    {step.name}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                    {/* Show date if completed */}
-                                    {state === 'completed' ?
-                                        formatDateTime(getHistoryForStep(step.id)?.timestamp) : '-'}
+                                <div className="absolute -bottom-10 flex flex-col items-center w-32">
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest text-center leading-tight transition-colors
+                                        ${stepState === 'current' ? 'text-primary' : 'text-slate-500'}
+                                    `}>
+                                        {state.name}
+                                    </span>
+                                    {(stepState === 'completed' || state.id === 'DRAFT') && (
+                                        <span className="text-[9px] text-slate-400 mt-0.5 font-medium">
+                                            {state.id === 'DRAFT' ?
+                                                formatDateTime(history.find(h => h.action === 'CREATE')?.timestamp || history[0]?.timestamp).split(' ')[0] :
+                                                formatDateTime(getHistoryForStep(state.id)?.timestamp).split(' ')[0]
+                                            }
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Connect line to next step or finish */}
-                            {index < steps.length - 1 && (
-                                <div className={`h-0.5 w-16 ${state === 'completed' ? 'bg-primary' : 'bg-slate-200'
-                                    }`} />
+                            {index < allStates.length - 1 && (
+                                <div className="flex-1 min-w-[40px] px-2 flex items-center mb-0">
+                                    <div className={`h-[3px] w-full rounded-full transition-colors duration-700
+                                        ${stepState === 'completed' ? 'bg-emerald-500' : 'bg-slate-100'}
+                                    `} />
+                                </div>
                             )}
                         </React.Fragment>
                     );
                 })}
             </div>
+            <div className="h-10" /> {/* Spacer for labels */}
         </div>
     );
 }

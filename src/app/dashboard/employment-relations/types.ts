@@ -1,6 +1,24 @@
-export type DocumentStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'SIGNED' | 'ARCHIVED';
+export type DocumentStatus = 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
 export type ActionType = 'REVIEW' | 'APPROVE' | 'SIGN' | 'ARCHIVE' | 'CREATE' | 'UPDATE' | 'REJECT';
-export type ApproverRole = 'MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | 'EMPLOYEE' | 'SPECIFIC_USER';
+export type ApproverRole = 'MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | 'EMPLOYEE' | 'SPECIFIC_USER' | 'POSITION';
+
+export interface PrintSettings {
+    pageSize: 'A4' | 'A5';
+    orientation: 'portrait' | 'landscape';
+    margins: {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
+    header?: string;
+    footer?: string;
+    watermark?: string;
+    showQRCode?: boolean;
+    showLogo?: boolean;
+    companyName?: string;
+    documentTitle?: string;
+}
 
 export interface ERDocumentType {
     id: string;
@@ -20,6 +38,7 @@ export interface ERTemplate {
     requiredFields: string[];
     version: number;
     isActive: boolean;
+    printSettings?: PrintSettings;
     createdAt?: any;
     updatedAt?: any;
 }
@@ -30,6 +49,7 @@ export interface ERWorkflowStep {
     order: number;
     approverRole: ApproverRole;
     approverUserId?: string; // If 'SPECIFIC_USER'
+    approverPositionId?: string; // If 'POSITION'
     actionType: ActionType;
     description?: string;
 }
@@ -51,15 +71,21 @@ export interface ERDocument {
     employeeId: string;
     creatorId: string;
     status: DocumentStatus;
-    currentStepId?: string | null;
     content: string;
     version: number;
     metadata: Record<string, any>;
     history: ERDocumentHistory[];
     attachments?: ERAttachment[];
+    printSettings?: PrintSettings;
     createdAt?: any;
     updatedAt?: any;
-    signedUrl?: string;
+
+    // Workflow Data
+    reviewers?: string[]; // List of User IDs who need to review
+    approvals?: Record<string, boolean>; // map[userId] = true/false
+    rejectionReason?: string;
+    approverId?: string; // The final approver who uploads signed doc
+    signedDocUrl?: string; // URL of the uploaded signed document
 }
 
 export interface ERDocumentHistory {
@@ -99,8 +125,8 @@ export interface StatusConfig {
 
 export const DOCUMENT_STATUSES: Record<DocumentStatus, StatusConfig> = {
     DRAFT: { label: 'Ноорог', color: 'bg-slate-100 text-slate-700' },
-    PENDING: { label: 'Хүлээгдэж буй', color: 'bg-blue-100 text-blue-700' },
-    APPROVED: { label: 'Зөвшөөрсөн', color: 'bg-green-100 text-green-700' },
-    SIGNED: { label: 'Гарын үсэг зурсан', color: 'bg-emerald-100 text-emerald-700' },
+    IN_REVIEW: { label: 'Хянагдаж буй', color: 'bg-indigo-100 text-indigo-700' },
+    APPROVED: { label: 'Батлагдсан', color: 'bg-green-100 text-green-700' }, // Final state with signed doc
+    REJECTED: { label: 'Татгалзсан', color: 'bg-red-100 text-red-700' },
     ARCHIVED: { label: 'Архивлагдсан', color: 'bg-gray-100 text-gray-700' },
 };

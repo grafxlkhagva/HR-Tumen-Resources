@@ -19,7 +19,7 @@ const sidebarItems = [
         icon: PenTool
     },
     {
-        title: 'Урсгал тохиргоо',
+        title: 'Ажлын урсгал',
         href: '/dashboard/employment-relations/settings/workflows',
         icon: GitBranch
     }

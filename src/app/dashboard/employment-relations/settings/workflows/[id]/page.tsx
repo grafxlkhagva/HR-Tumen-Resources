@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { doc, Timestamp } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useFirebase, useDoc, updateDocumentNonBlocking, useCollection } from '@/firebase';
+import { doc, Timestamp, collection, query, where, orderBy } from 'firebase/firestore';
 import { ERWorkflow, ERWorkflowStep, ApproverRole, ActionType } from '../../../types';
+import { Position } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, GripVertical, Plus, Trash2, Save, ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, ArrowDown, ArrowUp, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -20,11 +21,7 @@ interface PageProps {
 }
 
 const APPROVER_ROLES: Record<string, string> = {
-    'MANAGER': 'Шууд удирдлага',
-    'HR_MANAGER': 'ХН менежер',
-    'DIRECTOR': 'Захирал',
-    'EMPLOYEE': 'Ажилтан өөрөө',
-    'SPECIFIC_USER': 'Тодорхой хэрэглэгч'
+    'POSITION': 'Тодорхой ажлын байр'
 };
 
 const ACTION_TYPES: Record<string, string> = {
@@ -39,23 +36,28 @@ export default function WorkflowEditPage({ params }: PageProps) {
     const { toast } = useToast();
     const router = useRouter();
 
-    // Unwrap params using React.use()
     const resolvedParams = React.use(params);
     const id = resolvedParams.id;
 
-    const docRef = React.useMemo(() => firestore ? doc(firestore, 'er_workflows', id) : null, [firestore, id]);
-    const { data: workflow, isLoading } = useDoc<ERWorkflow>(docRef);
+    const docRef = useMemo(() => firestore ? doc(firestore, 'er_workflows', id) : null, [firestore, id]);
+    const { data: workflow, isLoading } = useDoc<ERWorkflow>(docRef as any);
+
+    // Fetch approved positions
+    const positionsQuery = useMemo(() =>
+        firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true), orderBy('title')) : null
+        , [firestore]);
+    const { data: positions } = useCollection<Position>(positionsQuery as any);
 
     const [steps, setSteps] = useState<ERWorkflowStep[]>([]);
     const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
     const [editingStep, setEditingStep] = useState<ERWorkflowStep | null>(null);
     const [stepForm, setStepForm] = useState<Partial<ERWorkflowStep>>({
         name: '',
-        approverRole: 'MANAGER',
-        actionType: 'REVIEW'
+        approverRole: 'POSITION',
+        actionType: 'REVIEW',
+        approverPositionId: ''
     });
 
-    // Load steps when workflow loads
     useEffect(() => {
         if (workflow?.steps) {
             setSteps(workflow.steps);
@@ -78,7 +80,7 @@ export default function WorkflowEditPage({ params }: PageProps) {
 
     const handleAddStep = () => {
         setEditingStep(null);
-        setStepForm({ name: '', approverRole: 'MANAGER', actionType: 'REVIEW' });
+        setStepForm({ name: '', approverRole: 'POSITION', actionType: 'REVIEW', approverPositionId: '' });
         setIsStepDialogOpen(true);
     };
 
@@ -91,6 +93,12 @@ export default function WorkflowEditPage({ params }: PageProps) {
     const handleStepSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Basic validation for POSITION role
+        if (stepForm.approverRole === 'POSITION' && !stepForm.approverPositionId) {
+            toast({ title: "Алдаа", description: "Ажлын байр сонгоно уу", variant: "destructive" });
+            return;
+        }
+
         let newSteps = [...steps];
         if (editingStep) {
             newSteps = newSteps.map(s => s.id === editingStep.id ? { ...s, ...stepForm } as ERWorkflowStep : s);
@@ -101,6 +109,7 @@ export default function WorkflowEditPage({ params }: PageProps) {
                 name: stepForm.name || 'Шинэ алхам',
                 approverRole: stepForm.approverRole as ApproverRole,
                 actionType: stepForm.actionType as ActionType,
+                approverPositionId: stepForm.approverPositionId,
                 ...stepForm
             } as ERWorkflowStep;
             newSteps.push(newStep);
@@ -121,12 +130,11 @@ export default function WorkflowEditPage({ params }: PageProps) {
         } else if (direction === 'down' && index < newSteps.length - 1) {
             [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]];
         }
-        // Re-assign orders
         newSteps.forEach((s, i) => s.order = i + 1);
         setSteps(newSteps);
     };
 
-    if (isLoading) return <div className="p-8">Loading...</div>;
+    if (isLoading) return <div className="p-8 flex justify-center"><Plus className="animate-spin" /></div>;
     if (!workflow) return <div className="p-8">Workflow not found</div>;
 
     return (
@@ -163,53 +171,46 @@ export default function WorkflowEditPage({ params }: PageProps) {
                             Одоогоор алхам нэмэгдээгүй байна
                         </div>
                     )}
-                    {steps.map((step, index) => (
-                        <div key={step.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card hover:border-primary/50 transition-colors group">
-                            <div className="flex flex-col gap-1 text-muted-foreground/50">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    disabled={index === 0}
-                                    onClick={() => moveStep(index, 'up')}
-                                >
-                                    <ArrowUp className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    disabled={index === steps.length - 1}
-                                    onClick={() => moveStep(index, 'down')}
-                                >
-                                    <ArrowDown className="h-3 w-3" />
-                                </Button>
-                            </div>
+                    {steps.map((step, index) => {
+                        const positionName = positions?.find(p => p.id === step.approverPositionId)?.title;
 
-                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
-                                {index + 1}
-                            </div>
+                        return (
+                            <div key={step.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card hover:border-primary/50 transition-colors group">
+                                <div className="flex flex-col gap-1 text-muted-foreground/50">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
+                                        <ArrowUp className="h-3 w-3" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
+                                        <ArrowDown className="h-3 w-3" />
+                                    </Button>
+                                </div>
 
-                            <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">{step.name}</div>
-                                <div className="text-xs text-muted-foreground flex gap-2">
-                                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
-                                        {APPROVER_ROLES[step.approverRole]}
-                                    </span>
-                                    <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                                        → {ACTION_TYPES[step.actionType]}
-                                    </span>
+                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                                    {index + 1}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">{step.name}</div>
+                                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 flex items-center gap-1.5">
+                                            <Briefcase className="h-3 w-3" />
+                                            {positionName || 'Ажлын байр сонгоогүй'}
+                                        </span>
+                                        <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                            → {ACTION_TYPES[step.actionType]}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleEditStep(step)}>Засах</Button>
+                                    <Button variant="ghost" size="sm" className="text-rose-500 hover:text-rose-600" onClick={() => handleDeleteStep(step.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
-
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => handleEditStep(step)}>Засах</Button>
-                                <Button variant="ghost" size="sm" className="text-rose-500 hover:text-rose-600" onClick={() => handleDeleteStep(step.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </CardContent>
             </Card>
 
@@ -230,42 +231,46 @@ export default function WorkflowEditPage({ params }: PageProps) {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Хариуцагч</Label>
-                                <Select
-                                    value={stepForm.approverRole}
-                                    onValueChange={(val) => setStepForm({ ...stepForm, approverRole: val as ApproverRole })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(APPROVER_ROLES).map(([key, label]) => (
-                                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Үйлдэл</Label>
-                                <Select
-                                    value={stepForm.actionType}
-                                    onValueChange={(val) => setStepForm({ ...stepForm, actionType: val as ActionType })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(ACTION_TYPES).map(([key, label]) => (
-                                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                                <Briefcase className="h-4 w-4 text-primary" />
+                                Хариуцах ажлын байр
+                            </Label>
+                            <Select
+                                value={stepForm.approverPositionId}
+                                onValueChange={(val) => setStepForm({ ...stepForm, approverPositionId: val })}
+                            >
+                                <SelectTrigger className="h-11">
+                                    <SelectValue placeholder="Ажлын байр сонгоно уу..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {positions?.map((pos) => (
+                                        <SelectItem key={pos.id} value={pos.id}>
+                                            {pos.title}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        <DialogFooter>
+                        <div className="space-y-2">
+                            <Label>Гүйцэтгэх үйлдэл</Label>
+                            <Select
+                                value={stepForm.actionType}
+                                onValueChange={(val) => setStepForm({ ...stepForm, actionType: val as ActionType })}
+                            >
+                                <SelectTrigger className="h-11">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(ACTION_TYPES).map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setIsStepDialogOpen(false)}>Цуцлах</Button>
                             <Button type="submit">{editingStep ? 'Хадгалах' : 'Нэмэх'}</Button>
                         </DialogFooter>

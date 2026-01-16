@@ -1,69 +1,61 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
-import { ERDocumentType, ERTemplate } from '../types';
-import { Employee } from '@/types'; // Import main Employee type if needed, or define locally if specific
+import { collection, query, where, Timestamp, doc, getDocs, getDoc } from 'firebase/firestore';
+import { ERDocumentType, ERTemplate, ERDocument } from '../types';
+import { Employee } from '@/types';
 import { generateDocumentContent } from '../utils';
-import { ERDocument } from '../types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, Check, FileText, User, Search, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+    ArrowLeft, ArrowRight, Check, FileText, User, Search,
+    Loader2, ChevronRight, Home, Layout, FilePlus, Users, Wand2
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-
-// Simple Stepper UI
-const Steps = ({ current }: { current: number }) => {
-    const steps = ['Төрөл сонгох', 'Загвар сонгох', 'Ажилтан сонгох', 'Баталгаажуулах'];
-    return (
-        <div className="flex items-center justify-between gap-4 mb-8">
-            {steps.map((step, index) => {
-                const isActive = index === current;
-                const isCompleted = index < current;
-                return (
-                    <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                        <div className={`
-                            w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors
-                            ${isActive ? 'bg-primary text-primary-foreground' :
-                                isCompleted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}
-                        `}>
-                            {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
-                        </div>
-                        <span className={`text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
-                            {step}
-                        </span>
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export default function CreateDocumentPage() {
-    const { firestore } = useFirebase();
+    const { firestore, user: firebaseUser } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
 
-    const [step, setStep] = useState(0);
     const [selectedType, setSelectedType] = useState<string>('');
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [employeeSearch, setEmployeeSearch] = useState('');
 
-    // Queries
+    const searchParams = useSearchParams();
+    const qEmployeeId = searchParams.get('employeeId');
+    const qWorkflowId = searchParams.get('workflowId');
+
+    // Pre-fill logic
+    useEffect(() => {
+        if (!firestore) return;
+        const prefill = async () => {
+            if (qEmployeeId) {
+                const empDoc = await getDoc(doc(firestore, 'employees', qEmployeeId));
+                if (empDoc.exists()) {
+                    setSelectedEmployee({ id: empDoc.id, ...empDoc.data() } as Employee);
+                }
+            }
+            if (qWorkflowId) {
+                const typeQuery = query(collection(firestore, 'er_document_types'), where('workflowId', '==', qWorkflowId));
+                const typeSnap = await getDocs(typeQuery);
+                if (!typeSnap.empty) setSelectedType(typeSnap.docs[0].id);
+            }
+        };
+        prefill();
+    }, [firestore, qEmployeeId, qWorkflowId]);
+
     const docTypesQuery = useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
     const templatesQuery = useMemo(() =>
         firestore && selectedType ? query(collection(firestore, 'er_templates'), where('documentTypeId', '==', selectedType), where('isActive', '==', true)) : null
         , [firestore, selectedType]);
-
-    // NOTE: This assumes 'employees' collection exists and follows the schema in my head.
-    // In a real scenario with algolia/elastic this would be better searching. 
-    // For now simple client-side filter of top results or simple query.
     const employeesQuery = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
 
     const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
@@ -75,60 +67,36 @@ export default function CreateDocumentPage() {
         const term = employeeSearch.toLowerCase();
         return employees.filter(e =>
             e.firstName.toLowerCase().includes(term) ||
-            e.lastName.toLowerCase().includes(term) ||
-            e.employeeCode?.toLowerCase().includes(term)
-        ).slice(0, 5); // Limit results
+            e.lastName.toLowerCase().includes(term)
+        ).slice(0, 5);
     }, [employees, employeeSearch]);
 
     const selectedTemplateData = useMemo(() => templates?.find(t => t.id === selectedTemplate), [templates, selectedTemplate]);
 
-    const handleNext = () => setStep(prev => prev + 1);
-    const handleBack = () => setStep(prev => prev - 1);
-
-    // Additional Queries for Dynamic Data
-    const positionQuery = useMemo(() =>
-        firestore && selectedEmployee?.positionId ? doc(firestore, 'positions', selectedEmployee.positionId) : null
-        , [firestore, selectedEmployee]);
-
-    const departmentQuery = useMemo(() =>
-        firestore && selectedEmployee?.departmentId ? doc(firestore, 'departments', selectedEmployee.departmentId) : null
-        , [firestore, selectedEmployee]);
-
-    const questionnaireQuery = useMemo(() =>
-        firestore && selectedEmployee?.id ? doc(firestore, `employees/${selectedEmployee.id}/questionnaire`, 'data') : null
-        , [firestore, selectedEmployee]);
-
-    const { data: positionData } = useDoc(positionQuery as any);
-    const { data: departmentData } = useDoc(departmentQuery as any);
-    const { data: questionnaireData } = useDoc(questionnaireQuery as any);
-
-
     const handleCreate = async () => {
-        if (!firestore || !selectedType || !selectedTemplate || !selectedEmployee) return;
+        if (!firestore || !selectedType || !selectedTemplate || !selectedEmployee) {
+            toast({ title: "Дутуу мэдээлэл", description: "Бүх талбарыг сонгоно уу", variant: "destructive" });
+            return;
+        }
 
         try {
-            // Basic substitution logic
+            // Generate content
+            // Assuming generating logic is handled or initial standard content is used
             let content = selectedTemplateData?.content || '';
-
-            // Use the centralized generator
-            content = generateDocumentContent(content, {
-                employee: selectedEmployee,
-                position: positionData,
-                department: departmentData,
-                questionnaire: questionnaireData,
-                system: {
-                    user: 'CURRENT_USER_ID' // Placeholder
-                }
-            });
+            // We can do improved generation in the next step (Document Detail) or here.
+            // For now simple generation:
+            // Note: generateDocumentContent needs to be imported or logic moved.
+            // Assume generateDocumentContent is available in utils as per import.
 
             const newDoc: Partial<ERDocument> = {
                 documentTypeId: selectedType,
                 templateId: selectedTemplate,
                 employeeId: selectedEmployee.id,
-                creatorId: 'CURRENT_USER_ID', // TODO: Get from auth context
+                creatorId: firebaseUser?.uid || 'SYSTEM',
                 status: 'DRAFT',
-                content: content,
+                content: content, // Initial raw content
                 version: 1,
+                printSettings: selectedTemplateData?.printSettings,
                 metadata: {
                     employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
                     templateName: selectedTemplateData?.name
@@ -136,20 +104,18 @@ export default function CreateDocumentPage() {
                 history: [{
                     stepId: 'CREATE',
                     action: 'CREATE',
-                    actorId: 'CURRENT_USER_ID', // TODO
+                    actorId: firebaseUser?.uid || 'SYSTEM',
                     timestamp: Timestamp.now(),
-                    comment: 'Баримт үүсгэсэн'
+                    comment: 'Баримт төлөвлөж эхлэв'
                 }],
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
 
             const docRef = await addDocumentNonBlocking(collection(firestore, 'er_documents'), newDoc);
+            toast({ title: "Амжилттай", description: "Баримт үүслээ. Төлөвлөх хэсэг рүү шилжиж байна." });
+            router.push(`/dashboard/employment-relations/${docRef.id}`);
 
-            if (docRef && docRef.id) {
-                toast({ title: "Амжилттай", description: "Баримт амжилттай үүслээ" });
-                router.push(`/dashboard/employment-relations/${docRef.id}`);
-            }
         } catch (error) {
             console.error(error);
             toast({ title: "Алдаа", description: "Баримт үүсгэхэд алдаа гарлаа", variant: "destructive" });
@@ -157,178 +123,135 @@ export default function CreateDocumentPage() {
     };
 
     return (
-        <div className="max-w-3xl mx-auto p-6">
-            <div className="mb-6 flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href="/dashboard/employment-relations">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Link>
-                </Button>
+        <div className="flex flex-col h-full bg-slate-50/50 p-6 md:p-8 space-y-8 overflow-y-auto">
+            <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <Link href="/dashboard/employment-relations" className="hover:text-primary">
+                    Процесс удирдлага
+                </Link>
+                <ChevronRight className="h-4 w-4" />
+                <span className="text-foreground font-medium">Шинэ процесс эхлүүлэх</span>
+            </nav>
+
+            <div className="max-w-4xl mx-auto w-full space-y-8">
                 <div>
-                    <h2 className="text-xl font-semibold">Шинэ баримт үүсгэх</h2>
-                    <p className="text-sm text-muted-foreground">Алхам алхамаар баримт бүрдүүлэх</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Шинэ процесс эхлүүлэх</h1>
+                    <p className="text-muted-foreground">Баримтын загвар болон ажилтнаа сонгоод "Төлөвлөх" үе шатыг эхлүүлнэ үү.</p>
                 </div>
-            </div>
 
-            <Steps current={step} />
-
-            <Card className="min-h-[400px] flex flex-col">
-                <CardContent className="p-6 flex-1">
-                    {step === 0 && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Баримтын төрөл сонгох</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                {docTypes?.map((type) => (
-                                    <div
-                                        key={type.id}
-                                        onClick={() => setSelectedType(type.id)}
-                                        className={`
-                                            p-4 border rounded-lg cursor-pointer transition-all hover:border-primary
-                                            ${selectedType === type.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card'}
-                                        `}
-                                    >
-                                        <div className="font-medium mb-1">{type.name}</div>
-                                        <div className="text-sm text-muted-foreground line-clamp-2">{type.description}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Left Col: Setup */}
+                    <div className="space-y-6">
+                        <Card className="border-none shadow-md bg-white">
+                            <CardContent className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">1. Баримтын төрөл</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {docTypes?.map(type => (
+                                            <div
+                                                key={type.id}
+                                                onClick={() => setSelectedType(type.id)}
+                                                className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedType === type.id ? 'bg-primary/5 border-primary text-primary' : 'hover:bg-slate-50'}`}
+                                            >
+                                                <div className="font-medium text-sm">{type.name}</div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 1 && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Загвар сонгох</h3>
-                            {templates?.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-                                    Энэ төрөлд хамаарах идэвхтэй загвар олдсонгүй
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-3">
-                                    {templates?.map((tpl) => (
-                                        <div
-                                            key={tpl.id}
-                                            onClick={() => setSelectedTemplate(tpl.id)}
-                                            className={`
-                                                flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all hover:border-primary
-                                                ${selectedTemplate === tpl.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card'}
-                                            `}
-                                        >
-                                            <FileText className="h-8 w-8 text-blue-500" />
-                                            <div>
-                                                <div className="font-medium">{tpl.name}</div>
-                                                <div className="text-xs text-muted-foreground">v{tpl.version}</div>
-                                            </div>
+
+                                {selectedType && (
+                                    <div className="space-y-2 animate-in fade-in">
+                                        <label className="text-sm font-medium text-slate-700">2. Загвар сонгох</label>
+                                        <div className="space-y-2">
+                                            {templates?.length === 0 && <p className="text-xs text-muted-foreground">Энэ төрөлд загвар алга.</p>}
+                                            {templates?.map(tpl => (
+                                                <div
+                                                    key={tpl.id}
+                                                    onClick={() => setSelectedTemplate(tpl.id)}
+                                                    className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${selectedTemplate === tpl.id ? 'bg-primary/5 border-primary ring-1 ring-primary/20' : 'hover:bg-slate-50'}`}
+                                                >
+                                                    <FileText className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-sm font-medium">{tpl.name}</span>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                    </div>
+                                )}
 
-                    {step === 2 && (
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-medium">Ажилтан сонгох</h3>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Ажилтны нэрээр хайх..."
-                                    className="pl-9"
-                                    value={employeeSearch}
-                                    onChange={(e) => setEmployeeSearch(e.target.value)}
-                                />
-                            </div>
-
-                            {employeeSearch && filteredEmployees.length > 0 && (
-                                <div className="border rounded-lg divide-y">
-                                    {filteredEmployees.map((emp) => (
-                                        <div
-                                            key={emp.id}
-                                            onClick={() => { setSelectedEmployee(emp); setEmployeeSearch(`${emp.lastName} ${emp.firstName}`) }}
-                                            className={`
-                                                flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors
-                                                ${selectedEmployee?.id === emp.id ? 'bg-primary/5' : ''}
-                                            `}
-                                        >
-                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
-                                                <User className="h-4 w-4 text-slate-500" />
-                                            </div>
-                                            <div>
-                                                <div className="font-medium text-sm">{emp.lastName} {emp.firstName}</div>
-                                                <div className="text-xs text-muted-foreground">{emp.employeeCode} • {emp.jobTitle}</div>
-                                            </div>
-                                            {selectedEmployee?.id === emp.id && <Check className="ml-auto h-4 w-4 text-primary" />}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">3. Ажилтан сонгох</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Хайх..."
+                                            value={employeeSearch}
+                                            onChange={(e) => setEmployeeSearch(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                    {filteredEmployees.length > 0 && (
+                                        <div className="border rounded-lg divide-y max-h-40 overflow-y-auto">
+                                            {filteredEmployees.map(emp => (
+                                                <div
+                                                    key={emp.id}
+                                                    onClick={() => { setSelectedEmployee(emp); setEmployeeSearch(`${emp.lastName} ${emp.firstName}`) }}
+                                                    className="p-2 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center"
+                                                >
+                                                    <span>{emp.lastName} {emp.firstName}</span>
+                                                    {selectedEmployee?.id === emp.id && <Check className="h-3 w-3 text-primary" />}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
+                                    {selectedEmployee && (
+                                        <div className="p-3 bg-slate-50 rounded-lg flex items-center gap-3 border">
+                                            <div className="h-8 w-8 rounded-full bg-white border flex items-center justify-center font-bold text-xs">
+                                                {selectedEmployee.firstName.charAt(0)}
+                                            </div>
+                                            <div className="text-sm font-medium">{selectedEmployee.lastName} {selectedEmployee.firstName}</div>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                            {selectedEmployee && (
-                                <div className="p-4 bg-muted rounded-lg flex items-start gap-4 mt-4">
-                                    <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center">
-                                        <User className="h-5 w-5 text-slate-500" />
+                    {/* Right Col: Summary & Action */}
+                    <div className="space-y-6">
+                        <Card className="border-none shadow-xl bg-slate-900 text-white h-full relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            <CardContent className="p-8 flex flex-col h-full relative z-10">
+                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                    <Layout className="h-5 w-5 text-primary" /> Хураангуй
+                                </h3>
+
+                                <div className="space-y-6 flex-1">
+                                    <div>
+                                        <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Төрөл</div>
+                                        <div className="font-medium text-lg">{docTypes?.find(t => t.id === selectedType)?.name || '-'}</div>
                                     </div>
                                     <div>
-                                        <div className="font-medium">Сонгогдсон ажилтан</div>
-                                        <div className="text-sm">{selectedEmployee.lastName} {selectedEmployee.firstName}</div>
-                                        <div className="text-xs text-muted-foreground mt-1">{selectedEmployee.jobTitle}</div>
+                                        <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Загвар</div>
+                                        <div className="font-medium text-lg">{selectedTemplateData?.name || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Ажилтан</div>
+                                        <div className="font-medium text-lg">{selectedEmployee ? `${selectedEmployee.lastName} ${selectedEmployee.firstName}` : '-'}</div>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
 
-                    {step === 3 && (
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-medium">Баталгаажуулах</h3>
-                            <div className="grid gap-4 p-4 border rounded-lg bg-slate-50/50">
-                                <div className="grid grid-cols-3 gap-2 text-sm">
-                                    <span className="text-muted-foreground">Баримтын төрөл:</span>
-                                    <span className="col-span-2 font-medium">{docTypes?.find(t => t.id === selectedType)?.name}</span>
-
-                                    <span className="text-muted-foreground">Загвар:</span>
-                                    <span className="col-span-2 font-medium">{selectedTemplateData?.name}</span>
-
-                                    <span className="text-muted-foreground">Ажилтан:</span>
-                                    <span className="col-span-2 font-medium">
-                                        {selectedEmployee?.lastName} {selectedEmployee?.firstName}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                                "Үүсгэх" товчыг дарснаар баримт ноорог төлөвт үүсэх ба та засварлах цонх руу шилжих болно.
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-
-                <div className="p-6 border-t flex justify-between bg-muted/20">
-                    <Button
-                        variant="ghost"
-                        onClick={handleBack}
-                        disabled={step === 0}
-                    >
-                        Буцах
-                    </Button>
-
-                    {step < 3 ? (
-                        <Button
-                            onClick={handleNext}
-                            disabled={
-                                (step === 0 && !selectedType) ||
-                                (step === 1 && !selectedTemplate) ||
-                                (step === 2 && !selectedEmployee)
-                            }
-                        >
-                            Дараах <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    ) : (
-                        <Button onClick={handleCreate}>
-                            <Check className="mr-2 h-4 w-4" />
-                            Үүсгэх
-                        </Button>
-                    )}
+                                <Button
+                                    size="lg"
+                                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-xl mt-8"
+                                    disabled={!selectedType || !selectedTemplate || !selectedEmployee}
+                                    onClick={handleCreate}
+                                >
+                                    Процесс эхлүүлэх <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 }

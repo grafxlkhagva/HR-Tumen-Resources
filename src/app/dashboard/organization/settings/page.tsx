@@ -2,8 +2,9 @@
 
 import { PageHeader } from '@/components/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Briefcase, FileText, Layers, Tag } from 'lucide-react';
+import { Building2, Briefcase, FileText, Layers, Tag, GitBranch } from 'lucide-react';
 import { LookupManagement } from './components/lookup-management';
+import { ProcessWorkflowSettings } from './components/process-workflow-settings';
 
 export default function OrganizationSettingsPage() {
     return (
@@ -24,7 +25,7 @@ export default function OrganizationSettingsPage() {
                         </TabsTrigger>
                         <TabsTrigger value="job-categories" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
                             <Layers className="w-4 h-4" />
-                            Ажил мэргэжлийн код (ЯАМАТ)
+                            Ажил мэргэжлийн код
                         </TabsTrigger>
                         <TabsTrigger value="levels" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
                             <Tag className="w-4 h-4" />
@@ -34,9 +35,16 @@ export default function OrganizationSettingsPage() {
                             <FileText className="w-4 h-4" />
                             Ажлын байрны төрөл
                         </TabsTrigger>
+                        <TabsTrigger value="workflows" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
+                            <GitBranch className="w-4 h-4" />
+                            Ажлын урсгал
+                        </TabsTrigger>
                     </TabsList>
 
                     <div className="mt-8">
+                        <TabsContent value="workflows" className="space-y-4 focus-visible:outline-none">
+                            <ProcessWorkflowSettings />
+                        </TabsContent>
                         <TabsContent value="dept-types" className="space-y-4 focus-visible:outline-none">
                             <LookupManagement
                                 collectionName="departmentTypes"
