@@ -133,14 +133,36 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     };
 
     const handleInfoSave = async () => {
-        if (!firestore || !department) return;
+        if (!firestore || !department || !deptDocRef) return;
         setIsSavingInfo(true);
         try {
-            await updateDocumentNonBlocking(deptDocRef as any, infoForm);
+            // Remove undefined values to prevent Firestore errors
+            const cleanData = Object.entries(infoForm).reduce((acc, [key, value]) => {
+                if (value !== undefined) acc[key] = value;
+                return acc;
+            }, {} as any);
+
+            // Dynamically import updateDoc to ensure it's available
+            const { updateDoc } = await import('firebase/firestore');
+            await updateDoc(deptDocRef, cleanData);
+
             setIsEditingInfo(false);
             toast({ title: "Мэдээлэл хадгалагдлаа" });
-        } catch (e) {
-            toast({ title: "Алдаа", variant: "destructive" });
+        } catch (e: any) {
+            console.error("Save error:", e);
+            let errorMessage = "Мэдээлэл хадгалахад алдаа гарлаа";
+
+            if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
+                errorMessage = "Та энэ үйлдлийг хийх эрхгүй байна. (Админ эрх шаардлагатай)";
+            } else if (e.message) {
+                errorMessage = e.message;
+            }
+
+            toast({
+                title: "Алдаа",
+                description: errorMessage,
+                variant: "destructive"
+            });
         } finally {
             setIsSavingInfo(false);
         }
