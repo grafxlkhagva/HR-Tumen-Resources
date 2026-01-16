@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, FileCode, Pencil, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, FileCode, Pencil, Trash2, Copy, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
@@ -99,11 +99,18 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button asChild className="bg-slate-900 text-white hover:bg-slate-800 shadow-sm">
-                    <Link href="/dashboard/employment-relations/templates/create">
-                        <Plus className="mr-2 h-4 w-4" /> Шинэ загвар
-                    </Link>
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" asChild className="bg-white hover:bg-slate-50 shadow-sm w-10 p-0 text-slate-600">
+                        <Link href="/dashboard/employment-relations/settings/document-types">
+                            <Settings className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <Button asChild className="bg-slate-900 text-white hover:bg-slate-800 shadow-sm">
+                        <Link href="/dashboard/employment-relations/templates/create">
+                            <Plus className="mr-2 h-4 w-4" /> Шинэ загвар
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

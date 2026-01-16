@@ -39,6 +39,12 @@ export interface ERTemplate {
     version: number;
     isActive: boolean;
     printSettings?: PrintSettings;
+    customInputs?: {
+        key: string;
+        label: string;
+        description?: string;
+        required?: boolean;
+    }[];
     createdAt?: any;
     updatedAt?: any;
 }
@@ -69,6 +75,8 @@ export interface ERDocument {
     documentTypeId: string;
     templateId: string;
     employeeId: string;
+    positionId?: string;
+    departmentId?: string;
     creatorId: string;
     status: DocumentStatus;
     content: string;
@@ -77,12 +85,17 @@ export interface ERDocument {
     history: ERDocumentHistory[];
     attachments?: ERAttachment[];
     printSettings?: PrintSettings;
+    customInputs?: Record<string, any>;
     createdAt?: any;
     updatedAt?: any;
 
     // Workflow Data
     reviewers?: string[]; // List of User IDs who need to review
-    approvals?: Record<string, boolean>; // map[userId] = true/false
+    approvalStatus?: Record<string, {
+        status: 'PENDING' | 'APPROVED' | 'REJECTED';
+        comment?: string;
+        updatedAt: any;
+    }>;
     rejectionReason?: string;
     approverId?: string; // The final approver who uploads signed doc
     signedDocUrl?: string; // URL of the uploaded signed document

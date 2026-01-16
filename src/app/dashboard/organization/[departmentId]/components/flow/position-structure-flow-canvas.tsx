@@ -28,6 +28,7 @@ const nodeTypes = {
 
 interface PositionStructureFlowCanvasProps {
     positions: Position[];
+    employees: any[];
     department: Department;
     lookups: any;
     onPositionClick?: (pos: Position) => void;
@@ -126,7 +127,7 @@ function FlowInner({
 }
 
 export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasProps) {
-    const { positions, department, lookups, onPositionClick, onAddChild, onDuplicate } = props;
+    const { positions = [], employees = [], department, lookups, onPositionClick, onAddChild, onDuplicate } = props;
     const [isAppointDialogOpen, setIsAppointDialogOpen] = React.useState(false);
     const [selectedPosition, setSelectedPosition] = React.useState<Position | null>(null);
 
@@ -137,7 +138,20 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
         // Build a Map for quick lookup
         const posMap = new Map<string, Position>(positions.map(p => [p.id, p]));
 
+        // Build employee map by positionId
+        const employeeMap = new Map<string, any>(
+            (employees || []).filter(emp => emp?.positionId).map(emp => [emp.positionId, {
+                id: emp.id,
+                firstName: emp.firstName,
+                lastName: emp.lastName,
+                employeeCode: emp.employeeCode,
+                photoURL: emp.photoURL,
+                status: emp.status
+            }])
+        );
+
         positions.forEach(pos => {
+            const assignedEmployee = employeeMap.get(pos.id);
             nodes.push({
                 id: pos.id,
                 type: 'positionNode',
@@ -145,6 +159,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
                     ...pos,
                     levelName: lookups.levelMap[pos.levelId || ''] || 'Түвшин -',
                     departmentColor: lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor,
+                    assignedEmployee,
                     onPositionClick,
                     onAddChild,
                     onDuplicate,
@@ -170,7 +185,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
 
         const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
         return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-    }, [positions, lookups, onPositionClick, onAddChild, onDuplicate]);
+    }, [positions, employees, lookups, onPositionClick, onAddChild, onDuplicate]);
 
     return (
         <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-hidden relative group">

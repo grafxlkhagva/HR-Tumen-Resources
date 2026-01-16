@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Printer, Save, ArrowLeft } from 'lucide-react';
+import { Printer, Save, ArrowLeft, Plus, Trash2, Settings2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DynamicFieldSelector } from './dynamic-field-selector';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 
 interface TemplateFormProps {
     initialData?: Partial<ERTemplate>;
@@ -37,6 +38,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const { toast } = useToast();
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isInputsDialogOpen, setIsInputsDialogOpen] = useState(false);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
     const [formData, setFormData] = useState<Partial<ERTemplate>>({
@@ -44,6 +46,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         version: 1,
         printSettings: DEFAULT_PRINT_SETTINGS,
         requiredFields: [],
+        customInputs: [],
         ...initialData
     });
 
@@ -73,6 +76,28 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             // Fallback if ref is not attached for some reason
             setFormData(prev => ({ ...prev, content: (prev.content || '') + field }));
         }
+    };
+
+    const addCustomInput = () => {
+        setFormData(prev => ({
+            ...prev,
+            customInputs: [...(prev.customInputs || []), { key: '', label: '', description: '', required: true }]
+        }));
+    };
+
+    const removeCustomInput = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            customInputs: prev.customInputs?.filter((_, i) => i !== index)
+        }));
+    };
+
+    const updateCustomInput = (index: number, field: string, value: any) => {
+        setFormData(prev => {
+            const inputs = [...(prev.customInputs || [])];
+            inputs[index] = { ...inputs[index], [field]: value };
+            return { ...prev, customInputs: inputs };
+        });
     };
 
     const handleSubmit = async () => {
@@ -165,13 +190,8 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                     <Card className="border-none shadow-sm flex-1">
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle>HTML Агуулга</CardTitle>
-                                    <CardDescription>Баримтын эх бэлтгэлийг энд оруулна</CardDescription>
-                                </div>
-                                <DynamicFieldSelector onSelect={handleFieldSelect} />
-                            </div>
+                            <CardTitle>HTML Агуулга</CardTitle>
+                            <CardDescription>Баримтын эх бэлтгэлийг энд оруулна</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Textarea
@@ -186,7 +206,6 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                 </div>
 
                 {/* Settings - Right Side */}
-                {/* (Rest of the settings content remains same, just ensuring context for replacement) */}
                 <div className="space-y-6">
                     <Card className="border-none shadow-sm">
                         <CardHeader>
@@ -202,6 +221,46 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                 />
                             </div>
                         </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm">
+                        <CardHeader>
+                            <CardTitle>Хувьсагч ашиглах</CardTitle>
+                            <CardDescription>Баримтад ашиглах систем болон өөрийн тодорхойлсон хувьсагчууд</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-col gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full justify-start gap-2 border-dashed border-primary/40 text-primary hover:bg-primary/5"
+                                    onClick={() => setIsInputsDialogOpen(true)}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" /> Шинэ оролтын утга нэмэх
+                                </Button>
+                            </div>
+
+                            <DynamicFieldSelector
+                                onSelect={handleFieldSelect}
+                                customFields={formData.customInputs?.map(i => ({
+                                    key: `{{${i.key}}}`,
+                                    label: i.label,
+                                    example: i.description || ''
+                                }))}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Оролтын утгууд</CardTitle>
+                                <CardDescription>Нийт {formData.customInputs?.length || 0} утга тодорхойлсон байна</CardDescription>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setIsInputsDialogOpen(true)}>
+                                <Settings2 className="h-4 w-4 mr-1" /> Засах
+                            </Button>
+                        </CardHeader>
                     </Card>
 
                     <Card className="border-none shadow-sm">
@@ -237,6 +296,80 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                     </Card>
                 </div>
             </div>
-        </div>
+
+            {/* Custom Inputs Dialog */}
+            <Dialog open={isInputsDialogOpen} onOpenChange={setIsInputsDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Оролтын утгууд (Custom Inputs)</DialogTitle>
+                        <DialogDescription>
+                            Баримт үүсгэх үед нэмэлтээр бөглөх шаардлагатай утгуудыг энд тохируулна.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {(!formData.customInputs || formData.customInputs.length === 0) && (
+                            <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl bg-slate-50/50">
+                                <p>Одоогоор өөрийн тодорхойлсон оролтын утга байхгүй байна.</p>
+                                <Button variant="outline" size="sm" className="mt-4" onClick={addCustomInput}>
+                                    <Plus className="h-4 w-4 mr-2" /> Томъёо нэмэх
+                                </Button>
+                            </div>
+                        )}
+
+                        {formData.customInputs?.map((input, index) => (
+                            <div key={index} className="flex flex-col gap-4 p-4 bg-slate-50 border rounded-xl relative group">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-2 right-2 text-rose-500 hover:bg-rose-50"
+                                    onClick={() => removeCustomInput(index)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын нэр (Label)</Label>
+                                        <Input
+                                            value={input.label}
+                                            onChange={(e) => updateCustomInput(index, 'label', e.target.value)}
+                                            placeholder="Жишээ: Гэрээний дугаар"
+                                            className="bg-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Хувьсагчийн нэр (Key)</Label>
+                                        <div className="flex items-center gap-2">
+                                            <code className="text-primary font-bold">{"{{"}</code>
+                                            <Input
+                                                value={input.key}
+                                                onChange={(e) => updateCustomInput(index, 'key', e.target.value.replace(/\s+/g, '_'))}
+                                                placeholder="contract_number"
+                                                className="bg-white"
+                                            />
+                                            <code className="text-primary font-bold">{"}}"}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Тайлбар (Заавар)</Label>
+                                    <Input
+                                        value={input.description}
+                                        onChange={(e) => updateCustomInput(index, 'description', e.target.value)}
+                                        placeholder="Жишээ: Гэрээний дүрмийн дагуу дугаарыг оруулна уу"
+                                        className="bg-white"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter className="flex justify-between items-center sm:justify-between border-t pt-4">
+                        <Button variant="outline" size="sm" onClick={addCustomInput}>
+                            <Plus className="h-4 w-4 mr-2" /> Шинэ талбар нэмэх
+                        </Button>
+                        <Button onClick={() => setIsInputsDialogOpen(false)}>Болсон</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }

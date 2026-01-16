@@ -1,116 +1,136 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Search, Braces } from "lucide-react"
+import { Search, Copy, Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { ALL_DYNAMIC_FIELDS, FieldDefinition } from "../data/field-dictionary"
-import { Badge } from "@/components/ui/badge"
 
 interface DynamicFieldSelectorProps {
     onSelect: (field: string) => void;
+    customFields?: { key: string; label: string; example?: string }[];
 }
 
-export function DynamicFieldSelector({ onSelect }: DynamicFieldSelectorProps) {
-    const [open, setOpen] = React.useState(false)
-    const [search, setSearch] = React.useState("")
+const CATEGORIES = [
+    { id: 'Company', label: 'Байгууллага', icon: '🏢' },
+    { id: 'Employee', label: 'Ажилтан', icon: '👤' },
+    { id: 'Position', label: 'Ажлын байр', icon: '💼' },
+    { id: 'Department', label: 'Албан нэгж', icon: '👥' },
+    { id: 'System', label: 'Систем', icon: '⚙️' },
+    { id: 'Custom', label: 'Өөрийн', icon: '✨' },
+] as const;
 
-    const groups = Array.from(new Set(ALL_DYNAMIC_FIELDS.map(f => f.group)));
+export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSelectorProps) {
+    const [activeCategory, setActiveCategory] = React.useState<string>('Company');
+    const [search, setSearch] = React.useState("")
+    const [copiedField, setCopiedField] = React.useState<string | null>(null);
 
     const filteredFields = React.useMemo(() => {
-        if (!search) return ALL_DYNAMIC_FIELDS;
-        const lower = search.toLowerCase();
-        return ALL_DYNAMIC_FIELDS.filter(f =>
-            f.label.toLowerCase().includes(lower) ||
-            f.key.toLowerCase().includes(lower) ||
-            f.example?.toLowerCase().includes(lower)
-        );
-    }, [search]);
+        let fields: any[] = [];
+
+        if (activeCategory === 'Custom') {
+            fields = customFields || [];
+        } else {
+            fields = ALL_DYNAMIC_FIELDS.filter(f => f.group === activeCategory);
+        }
+
+        if (search) {
+            const lower = search.toLowerCase();
+            fields = fields.filter(f =>
+                f.label.toLowerCase().includes(lower) ||
+                f.key.toLowerCase().includes(lower) ||
+                (f.example && f.example.toLowerCase().includes(lower))
+            );
+        }
+        return fields;
+    }, [activeCategory, search, customFields]);
 
     const handleSelect = (field: string) => {
         onSelect(field);
-        setOpen(false);
-        setSearch("");
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 1000);
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" aria-expanded={open} className="w-[300px] justify-between text-muted-foreground hover:text-foreground">
-                    <span className="flex items-center gap-2">
-                        <Braces className="h-4 w-4" />
-                        Талбар оруулах...
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="end">
-                <div className="flex items-center border-b px-3">
-                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <Input
-                        placeholder="Талбар хайх (Жишээ нь: Нэр, Цалин...)"
-                        className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground border-none shadow-none focus-visible:ring-0 px-0"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-                <ScrollArea className="h-[300px]">
-                    <div className="p-1">
-                        {filteredFields.length === 0 && (
-                            <div className="py-6 text-center text-sm text-muted-foreground">
-                                Талбар олдсонгүй.
-                            </div>
+        <div className="flex flex-col gap-4 w-full">
+            {/* Category Selector */}
+            <div className="grid grid-cols-2 gap-2">
+                {CATEGORIES.map((cat) => (
+                    <Button
+                        key={cat.id}
+                        variant={activeCategory === cat.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={cn(
+                            "justify-start h-9 px-2 text-xs",
+                            activeCategory === cat.id ? "bg-slate-800 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
                         )}
+                    >
+                        <span className="mr-2 opacity-70">{cat.icon}</span>
+                        {cat.label}
+                    </Button>
+                ))}
+            </div>
 
-                        {groups.map((group) => {
-                            const groupFields = filteredFields.filter(f => f.group === group);
-                            if (groupFields.length === 0) return null;
+            {/* Search */}
+            <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                    placeholder="Талбар хайх..."
+                    className="pl-8 h-9 text-xs"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                />
+            </div>
 
-                            return (
-                                <div key={group}>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30">
-                                        {group}
+            {/* Fields List */}
+            <div className="border rounded-lg bg-slate-50/50 overflow-hidden">
+                <ScrollArea className="h-[400px]">
+                    <div className="p-2 space-y-1">
+                        {filteredFields.length === 0 ? (
+                            <div className="py-8 text-center text-xs text-muted-foreground">
+                                Талбар олдсонгүй
+                            </div>
+                        ) : (
+                            filteredFields.map((field) => (
+                                <button
+                                    key={field.key}
+                                    onClick={() => handleSelect(field.key)}
+                                    className="w-full text-left group flex flex-col gap-1 rounded-md p-2 hover:bg-white hover:shadow-sm hover:border-slate-200 border border-transparent transition-all"
+                                >
+                                    <div className="flex items-center justify-between w-full">
+                                        <span className="text-xs font-semibold text-slate-700 group-hover:text-primary">
+                                            {field.label}
+                                        </span>
+                                        {copiedField === field.key ? (
+                                            <Check className="h-3 w-3 text-green-500" />
+                                        ) : (
+                                            <Copy className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        )}
                                     </div>
-                                    {groupFields.map((field) => (
-                                        <div
-                                            key={field.key}
-                                            onClick={() => handleSelect(field.key)}
-                                            className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                                        >
-                                            <div className="flex flex-col w-full gap-1">
-                                                <div className="flex w-full items-center justify-between">
-                                                    <span className="font-medium">{field.label}</span>
-                                                    <span className="font-mono text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded border">
-                                                        {field.key}
-                                                    </span>
-                                                </div>
-                                                {field.example && (
-                                                    <span className="text-xs text-muted-foreground truncate w-full opacity-80">
-                                                        Жишээ: {field.example}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <Separator className="my-1 opacity-50" />
-                                </div>
-                            )
-                        })}
+                                    <div className="flex items-center gap-2 w-full overflow-hidden">
+                                        <code className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded truncate">
+                                            {field.key}
+                                        </code>
+                                    </div>
+                                    {field.example && (
+                                        <span className="text-[10px] text-muted-foreground truncate w-full opacity-70">
+                                            Жишээ: {field.example}
+                                        </span>
+                                    )}
+                                </button>
+                            ))
+                        )}
                     </div>
                 </ScrollArea>
-                <div className="border-t p-2 text-xs text-center text-muted-foreground bg-muted/10">
+                <div className="bg-white border-t p-2 text-[10px] text-center text-muted-foreground">
                     Нийт {filteredFields.length} талбар
                 </div>
-            </PopoverContent>
-        </Popover>
+            </div>
+        </div>
     )
 }

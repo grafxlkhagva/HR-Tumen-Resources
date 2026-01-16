@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, Timestamp, doc, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
 import { generateDocumentContent } from '../utils';
@@ -10,14 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import {
     ArrowLeft, ArrowRight, Check, FileText, User, Search,
-    Loader2, ChevronRight, Home, Layout, FilePlus, Users, Wand2
+    Loader2, ChevronRight, Home, Layout, FilePlus, Users, Wand2, Building2, Briefcase
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { format } from 'date-fns';
 
 export default function CreateDocumentPage() {
     const { firestore, user: firebaseUser } = useFirebase();
@@ -27,7 +30,10 @@ export default function CreateDocumentPage() {
     const [selectedType, setSelectedType] = useState<string>('');
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+    const [selectedPosition, setSelectedPosition] = useState<string>('');
     const [employeeSearch, setEmployeeSearch] = useState('');
+    const [customInputValues, setCustomInputValues] = useState<Record<string, any>>({});
 
     const searchParams = useSearchParams();
     const qEmployeeId = searchParams.get('employeeId');
@@ -57,10 +63,25 @@ export default function CreateDocumentPage() {
         firestore && selectedType ? query(collection(firestore, 'er_templates'), where('documentTypeId', '==', selectedType), where('isActive', '==', true)) : null
         , [firestore, selectedType]);
     const employeesQuery = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
+    const positionsQuery = useMemo(() =>
+        firestore && selectedDepartment ? query(collection(firestore, 'positions'), where('departmentId', '==', selectedDepartment)) : null
+        , [firestore, selectedDepartment]);
 
     const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
     const { data: templates } = useCollection<ERTemplate>(templatesQuery);
     const { data: employees } = useCollection<Employee>(employeesQuery);
+    const { data: departments } = useCollection<any>(departmentsQuery);
+    const { data: positions } = useCollection<any>(positionsQuery);
+
+    const [companyProfile, setCompanyProfile] = useState<any>(null);
+
+    useEffect(() => {
+        if (!firestore) return;
+        getDocs(collection(firestore, 'company_profile')).then(snap => {
+            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        });
+    }, [firestore]);
 
     const filteredEmployees = useMemo(() => {
         if (!employees || !employeeSearch) return [];
@@ -73,6 +94,19 @@ export default function CreateDocumentPage() {
 
     const selectedTemplateData = useMemo(() => templates?.find(t => t.id === selectedTemplate), [templates, selectedTemplate]);
 
+    // Initialize custom inputs when template takes effect
+    useEffect(() => {
+        if (selectedTemplateData?.customInputs) {
+            const initialValues: Record<string, any> = {};
+            selectedTemplateData.customInputs.forEach(input => {
+                initialValues[input.key] = '';
+            });
+            setCustomInputValues(initialValues);
+        } else {
+            setCustomInputValues({});
+        }
+    }, [selectedTemplateData]);
+
     const handleCreate = async () => {
         if (!firestore || !selectedType || !selectedTemplate || !selectedEmployee) {
             toast({ title: "Дутуу мэдээлэл", description: "Бүх талбарыг сонгоно уу", variant: "destructive" });
@@ -80,26 +114,44 @@ export default function CreateDocumentPage() {
         }
 
         try {
+            // Fetch full data for replacement
+            const empDoc = await getDoc(doc(firestore, 'employees', selectedEmployee.id));
+            const deptData = departments?.find(d => d.id === selectedDepartment);
+            const posData = positions?.find(p => p.id === selectedPosition);
+
             // Generate content
-            // Assuming generating logic is handled or initial standard content is used
-            let content = selectedTemplateData?.content || '';
-            // We can do improved generation in the next step (Document Detail) or here.
-            // For now simple generation:
-            // Note: generateDocumentContent needs to be imported or logic moved.
-            // Assume generateDocumentContent is available in utils as per import.
+            let content = generateDocumentContent(selectedTemplateData?.content || '', {
+                employee: { id: empDoc.id, ...empDoc.data() },
+                department: deptData,
+                position: posData,
+                company: companyProfile,
+                system: {
+                    date: format(new Date(), 'yyyy-MM-dd'),
+                    year: format(new Date(), 'yyyy'),
+                    month: format(new Date(), 'MM'),
+                    day: format(new Date(), 'dd'),
+                    user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
+                },
+                customInputs: customInputValues
+            });
 
             const newDoc: Partial<ERDocument> = {
                 documentTypeId: selectedType,
                 templateId: selectedTemplate,
                 employeeId: selectedEmployee.id,
+                departmentId: selectedDepartment || undefined,
+                positionId: selectedPosition || undefined,
                 creatorId: firebaseUser?.uid || 'SYSTEM',
                 status: 'DRAFT',
-                content: content, // Initial raw content
+                content: content, // Now populated
                 version: 1,
                 printSettings: selectedTemplateData?.printSettings,
+                customInputs: customInputValues,
                 metadata: {
                     employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-                    templateName: selectedTemplateData?.name
+                    templateName: selectedTemplateData?.name,
+                    departmentName: deptData?.name,
+                    positionName: posData?.title
                 },
                 history: [{
                     stepId: 'CREATE',
@@ -112,7 +164,7 @@ export default function CreateDocumentPage() {
                 updatedAt: Timestamp.now()
             };
 
-            const docRef = await addDocumentNonBlocking(collection(firestore, 'er_documents'), newDoc);
+            const docRef = await addDoc(collection(firestore, 'er_documents'), newDoc);
             toast({ title: "Амжилттай", description: "Баримт үүслээ. Төлөвлөх хэсэг рүү шилжиж байна." });
             router.push(`/dashboard/employment-relations/${docRef.id}`);
 
@@ -211,6 +263,64 @@ export default function CreateDocumentPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">4. Албан нэгж сонгох</label>
+                                    <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                                        <SelectTrigger className="bg-white">
+                                            <Building2 className="h-4 w-4 mr-2 text-slate-400" />
+                                            <SelectValue placeholder="Албан нэгж сонгох" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {departments?.map(dept => (
+                                                <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">5. Ажлын байр сонгох</label>
+                                    <Select
+                                        value={selectedPosition}
+                                        onValueChange={setSelectedPosition}
+                                        disabled={!selectedDepartment}
+                                    >
+                                        <SelectTrigger className="bg-white">
+                                            <Briefcase className="h-4 w-4 mr-2 text-slate-400" />
+                                            <SelectValue placeholder={selectedDepartment ? "Ажлын байр сонгох" : "Эхлээд албан нэгж сонгоно уу"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {positions?.map(pos => (
+                                                <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {selectedTemplateData?.customInputs && selectedTemplateData.customInputs.length > 0 && (
+                                    <div className="space-y-4 pt-4 border-t animate-in slide-in-from-top-4">
+                                        <div className="flex items-center gap-2 text-primary">
+                                            <Wand2 className="h-4 w-4" />
+                                            <label className="text-sm font-bold uppercase tracking-wider">Шаардлагатай мэдээллүүд</label>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {selectedTemplateData.customInputs.map(input => (
+                                                <div key={input.key} className="space-y-1.5">
+                                                    <Label className="text-xs font-semibold text-slate-600">
+                                                        {input.label} {input.required && <span className="text-rose-500">*</span>}
+                                                    </Label>
+                                                    <Input
+                                                        value={customInputValues[input.key] || ''}
+                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                        placeholder={input.description || `${input.label} оруулна уу...`}
+                                                        className="h-10 border-slate-200 focus:border-primary focus:ring-primary/10"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -237,12 +347,22 @@ export default function CreateDocumentPage() {
                                         <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Ажилтан</div>
                                         <div className="font-medium text-lg">{selectedEmployee ? `${selectedEmployee.lastName} ${selectedEmployee.firstName}` : '-'}</div>
                                     </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="text-slate-400 text-xs uppercase tracking-wider mb-1 text-[10px]">Албан нэгж</div>
+                                            <div className="font-medium text-sm truncate">{departments?.find(d => d.id === selectedDepartment)?.name || '-'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-400 text-xs uppercase tracking-wider mb-1 text-[10px]">Ажлын байр</div>
+                                            <div className="font-medium text-sm truncate">{positions?.find(p => p.id === selectedPosition)?.title || '-'}</div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <Button
                                     size="lg"
                                     className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-xl mt-8"
-                                    disabled={!selectedType || !selectedTemplate || !selectedEmployee}
+                                    disabled={!selectedType || !selectedTemplate || !selectedEmployee || (selectedTemplateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
                                     onClick={handleCreate}
                                 >
                                     Процесс эхлүүлэх <ArrowRight className="ml-2 h-4 w-4" />

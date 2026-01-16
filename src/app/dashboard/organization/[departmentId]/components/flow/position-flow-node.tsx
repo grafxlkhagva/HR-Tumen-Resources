@@ -1,14 +1,24 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { User, CheckCircle, Plus, ChevronRight, Copy, UserPlus } from 'lucide-react';
+import { User, CheckCircle, Plus, ChevronRight, Copy, UserPlus, Briefcase, Zap, ShieldCheck, Clock, ExternalLink, Eye } from 'lucide-react';
 import { Position as PositionType } from '../../../types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useRouter } from 'next/navigation';
 
 interface PositionNodeData extends PositionType {
     levelName?: string;
     departmentColor?: string;
+    assignedEmployee?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        employeeCode: string;
+        photoURL?: string;
+        status?: string;
+    };
     onPositionClick?: (pos: PositionType) => void;
     onAddChild?: (parentId: string) => void;
     onDuplicate?: (pos: PositionType) => void;
@@ -16,6 +26,7 @@ interface PositionNodeData extends PositionType {
 }
 
 export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNodeData>) => {
+    const router = useRouter();
     const {
         id,
         title,
@@ -25,172 +36,226 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         filled,
         levelName,
         departmentColor,
+        assignedEmployee,
         onPositionClick,
         onAddChild,
         onDuplicate,
         onAppoint
     } = data;
 
-    const isColored = !!departmentColor;
+    // Robust color logic - ensures background color is applied correctly
+    const backgroundColor = departmentColor && departmentColor !== '' ? departmentColor : '#ffffff';
+    const isColored = backgroundColor.toLowerCase() !== '#ffffff' && backgroundColor.toLowerCase() !== 'white';
+    const isAppointing = assignedEmployee?.status === 'Томилогдож буй';
 
     return (
         <div
             className={cn(
-                "relative z-10 w-60 rounded-xl p-5 text-center shadow-sm transition-all group border",
-                isColored ? "border-transparent text-white" : "border-border/50 bg-card text-card-foreground",
-                selected && (isColored ? "ring-2 ring-white/50" : "ring-2 ring-primary/50 border-primary/30"),
-                !isActive && !isColored && "opacity-60 grayscale"
+                "relative z-10 w-64 rounded-[20px] overflow-hidden transition-all duration-300 group selection:bg-none",
+                isColored ? "text-white" : "bg-white text-slate-900 border-slate-100",
+                selected ? "ring-4 ring-primary/30 scale-[1.02] shadow-2xl" : "shadow-md hover:shadow-xl hover:-translate-y-1",
+                isActive === false && "opacity-60 grayscale"
             )}
             style={{
-                backgroundColor: departmentColor || undefined,
+                backgroundColor: backgroundColor,
+                borderColor: isColored ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)',
+                borderWidth: '1px'
             }}
         >
-            {/* Input Handle (Target) - Top */}
+            {/* Top Handle */}
             <Handle
                 type="target"
                 position={Position.Top}
-                className="!bg-muted-foreground/20 !w-2 !h-2 !border-0 !top-0 opacity-0"
+                className="!bg-slate-400/20 !w-2 !h-2 !border-none !top-0"
             />
 
-            {/* Quick Actions Bar - Top Right */}
-            <div className="absolute top-2 right-2 flex items-center gap-1 z-50">
-                {onAddChild && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
+            {/* Glossy Overlay for colored nodes */}
+            {isColored && (
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+            )}
+
+            {/* Actions Bar */}
+            <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+                {onPositionClick && (
+                    <button
                         className={cn(
-                            "h-6 w-6 rounded-full transition-colors",
-                            isColored ? "hover:bg-white/20 text-white/80 hover:text-white" : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
+                            "p-1.5 rounded-full backdrop-blur-md transition-all shadow-sm",
+                            isColored ? "bg-white/20 hover:bg-white/40 text-white" : "bg-white border border-slate-100 hover:bg-slate-50 text-slate-500 hover:text-slate-900"
                         )}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onAddChild(id);
-                        }}
-                        title="Дэд ажлын байр нэмэх"
+                        onClick={(e) => { e.stopPropagation(); onPositionClick(data as PositionType); }}
+                        title="Дэлгэрэнгүй харах"
                     >
-                        <Plus className="h-3.5 w-3.5" />
-                    </Button>
+                        <Eye className="h-3 w-3" />
+                    </button>
+                )}
+                {onAddChild && (
+                    <button
+                        className={cn(
+                            "p-1.5 rounded-full backdrop-blur-md transition-all shadow-sm",
+                            isColored ? "bg-white/20 hover:bg-white/40 text-white" : "bg-white border border-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600"
+                        )}
+                        onClick={(e) => { e.stopPropagation(); onAddChild(id); }}
+                        title="Дэд албан тушаал нэмэх"
+                    >
+                        <Plus className="h-3 w-3" />
+                    </button>
                 )}
                 {onDuplicate && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
+                    <button
                         className={cn(
-                            "h-6 w-6 rounded-full transition-colors",
-                            isColored ? "hover:bg-white/20 text-white/80 hover:text-white" : "hover:bg-blue-50 text-muted-foreground hover:text-blue-600"
+                            "p-1.5 rounded-full backdrop-blur-md transition-all shadow-sm",
+                            isColored ? "bg-white/20 hover:bg-white/40 text-white" : "bg-white border border-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600"
                         )}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDuplicate(data as PositionType);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onDuplicate(data as PositionType); }}
                         title="Хувилах"
                     >
-                        <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                )}
-                {onPositionClick && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                            "h-6 w-6 rounded-full transition-colors",
-                            isColored ? "hover:bg-white/20 text-white/80 hover:text-white" : "hover:bg-slate-100 text-muted-foreground hover:text-slate-900"
-                        )}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onPositionClick(data as PositionType);
-                        }}
-                        title="Дэлгэрэнгүй"
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
+                        <Copy className="h-3 w-3" />
+                    </button>
                 )}
             </div>
 
-            <div className="space-y-3 pt-1">
-                <div className="flex flex-col items-center gap-2">
-                    <div className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        isColored ? "bg-white/20 text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+            <div className="p-4 flex flex-col gap-3 relative z-10">
+                {/* Header Area */}
+                <div className="flex flex-col gap-1">
+                    <h3 className={cn(
+                        "text-[12px] font-extrabold leading-tight line-clamp-2 min-h-[30px] pr-12",
+                        isColored ? "text-white" : "text-slate-900"
                     )}>
-                        <User className="w-4 h-4" />
-                    </div>
-
-                    <div className="space-y-1 w-full">
+                        {title}
+                    </h3>
+                    <div className="flex items-center flex-wrap gap-2">
                         <p className={cn(
-                            "text-xs font-semibold tracking-tight leading-tight line-clamp-2 min-h-[32px] flex items-center justify-center",
-                            isColored ? "text-white" : "text-foreground"
+                            "text-[9px] font-bold opacity-70 uppercase tracking-tighter",
+                            isColored ? "text-white/80" : "text-slate-500"
                         )}>
-                            {title}
+                            {code || `POS-${id.slice(-4).toUpperCase()}`}
                         </p>
-
-                        {code && (
-                            <p className={cn(
-                                "text-[10px] font-medium",
-                                isColored ? "text-white/80" : "text-muted-foreground"
-                            )}>
-                                {code}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center gap-1.5 pt-1">
-                    <div className="flex flex-wrap items-center justify-center gap-1.5">
-                        {levelName && (
-                            <Badge variant="outline" className={cn(
-                                "text-[9px] font-medium px-1.5 py-0 h-4 border",
-                                isColored ? "bg-white/20 text-white border-white/20" : "bg-muted/30 border-muted-foreground/10 text-foreground"
-                            )}>
-                                {levelName}
-                            </Badge>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-1">
                         {isApproved === false ? (
-                            <Badge variant="outline" className="text-[8px] uppercase tracking-tighter text-amber-600 border-amber-200 bg-amber-50 font-bold px-1.5 h-4">
-                                Батлагдаагүй
-                            </Badge>
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[7px] font-black uppercase tracking-tighter text-amber-600">
+                                <Clock className="w-2.5 h-2.5" /> ХҮЛЭЭГДЭЖ БУЙ
+                            </div>
                         ) : (
-                            <Badge variant="outline" className={cn(
-                                "text-[8px] uppercase tracking-tighter font-bold px-1.5 h-4",
-                                isColored ? "bg-white/20 text-white border-white/20" : "text-emerald-600 border-emerald-200 bg-emerald-50"
+                            <div className={cn(
+                                "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter border",
+                                isColored ? "bg-white/15 border-white/20 text-white" : "bg-emerald-50 border-emerald-100 text-emerald-600"
                             )}>
-                                Батлагдсан
-                            </Badge>
+                                <ShieldCheck className="w-2.5 h-2.5" /> БАТЛАГДСАН
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {isApproved && (filled || 0) === 0 && (
-                    <div className="pt-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
+                {/* Status/Level Badges */}
+                <div className="flex items-center gap-2">
+                    {levelName && (
+                        <div className={cn(
+                            "text-[8px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border",
+                            isColored ? "bg-white/10 border-white/10 text-white/90" : "bg-slate-50 border-slate-100 text-slate-500"
+                        )}>
+                            {levelName}
+                        </div>
+                    )}
+                    {isAppointing && (
+                        <div className="flex items-center animate-pulse gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                            <span className={cn("text-[8px] font-black uppercase", isColored ? "text-white/90" : "text-amber-600")}>ПРОЦЕСС</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Employee Body */}
+                <div className="pt-1">
+                    {assignedEmployee ? (
+                        <div
                             className={cn(
-                                "w-full h-8 text-[10px] font-bold uppercase tracking-wider gap-2 rounded-lg shadow-sm transition-all shadow-none",
+                                "p-3 rounded-2xl flex items-center gap-3 transition-all border cursor-pointer group/emp",
                                 isColored
-                                    ? "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/40"
-                                    : "bg-primary/5 border-primary/20 text-primary hover:bg-primary hover:text-white"
+                                    ? "bg-black/15 border-white/10 hover:bg-black/25"
+                                    : "bg-slate-50 border-slate-100 hover:border-primary/30 hover:bg-primary/5"
                             )}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (onAppoint) onAppoint(data as PositionType);
+                                router.push(`/dashboard/employees/${assignedEmployee.id}`);
                             }}
                         >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            Томилгоо хийх
-                        </Button>
-                    </div>
-                )}
+                            <div className="relative shrink-0">
+                                <Avatar className="h-10 w-10 border-2 border-white/30 shadow-sm !rounded-full overflow-hidden aspect-square">
+                                    <AvatarImage src={assignedEmployee.photoURL} className="object-cover w-full h-full" />
+                                    <AvatarFallback className={cn(
+                                        "text-xs font-black w-full h-full flex items-center justify-center !rounded-full",
+                                        isColored ? "bg-white/20 text-white" : "bg-primary text-white"
+                                    )} style={{ borderRadius: '9999px' }}>
+                                        {assignedEmployee.firstName?.charAt(0)}{assignedEmployee.lastName?.charAt(0)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {isAppointing && (
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full border-2 border-white flex items-center justify-center animate-bounce">
+                                        <Zap className="w-2 h-2 text-white fill-current" />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                    <p className={cn(
+                                        "text-[11px] font-black truncate leading-none group-hover/emp:text-primary transition-colors",
+                                        isColored ? "text-white group-hover/emp:text-white" : "text-slate-900"
+                                    )}>
+                                        {assignedEmployee.firstName} {assignedEmployee.lastName}
+                                    </p>
+                                    <ExternalLink className={cn("w-2.5 h-2.5 opacity-0 group-hover/emp:opacity-100 transition-opacity", isColored ? "text-white" : "text-primary")} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn(
+                                        "text-[9px] font-bold font-mono opacity-60",
+                                        isColored ? "text-white" : "text-slate-200/80"
+                                    )}>
+                                        #{assignedEmployee.employeeCode}
+                                    </span>
+                                    {isAppointing ? (
+                                        <Badge className="h-3 px-1 text-[7px] font-black bg-amber-500 text-white border-none rounded-sm">
+                                            ТОМИЛЖ БУЙ
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline" className={cn(
+                                            "h-3 px-1 text-[7px] font-black border-none rounded-sm",
+                                            isColored ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700"
+                                        )}>
+                                            {assignedEmployee.status || 'ИДЭВХТЭЙ'}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {isApproved && (
+                                <Button
+                                    size="sm"
+                                    className={cn(
+                                        "w-full h-9 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all gap-2 shadow-sm",
+                                        isColored
+                                            ? "bg-white/20 hover:bg-white/30 text-white border border-white/20 shadow-none"
+                                            : "bg-slate-900 text-white hover:bg-primary shadow-slate-200"
+                                    )}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onAppoint) onAppoint(data as PositionType);
+                                    }}
+                                >
+                                    <UserPlus className="w-3.5 h-3.5" />
+                                    Томилгоо хийх
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Output Handle (Source) - Bottom */}
+            {/* Bottom Handle */}
             <Handle
                 type="source"
                 position={Position.Bottom}
-                className="!bg-muted-foreground/20 !w-2 !h-2 !border-0 !bottom-0 opacity-0"
+                className="!bg-slate-400/20 !w-2 !h-2 !border-none !bottom-0"
             />
         </div>
     );

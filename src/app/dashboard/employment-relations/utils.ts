@@ -1,5 +1,5 @@
 import { ActionType, DocumentStatus, StatusConfig, DOCUMENT_STATUSES } from './types';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, collection, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { ALL_DYNAMIC_FIELDS } from './data/field-dictionary';
@@ -46,7 +46,8 @@ export function getReplacementMap(data: {
     department?: any,
     questionnaire?: any,
     system?: any,
-    company?: any
+    company?: any,
+    customInputs?: Record<string, any>
 }): Record<string, string> {
     const map: Record<string, string> = {};
 
@@ -80,6 +81,14 @@ export function getReplacementMap(data: {
 
         map[field.key] = formattedValue;
     });
+
+    // Add custom inputs to the map
+    if (data.customInputs) {
+        Object.entries(data.customInputs).forEach(([key, value]) => {
+            const fullKey = `{{${key}}}`;
+            map[fullKey] = value !== undefined && value !== null && value !== '' ? String(value) : '________________';
+        });
+    }
 
     return map;
 }

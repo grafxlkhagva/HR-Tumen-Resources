@@ -44,13 +44,15 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <Label>Загварын агуулга</Label>
-                <DynamicFieldSelector onSelect={handleInsertField} />
+                <Label className="text-lg font-bold">Баримтын агуулга</Label>
+                <div className="text-xs text-muted-foreground bg-slate-100 px-3 py-1 rounded-full">
+                    Загварчлах горим
+                </div>
             </div>
 
-            <div className="flex justify-center bg-slate-200/50 p-8 rounded-xl overflow-auto border-inner shadow-inner min-h-[600px]">
+            <div className="flex justify-center bg-slate-200/50 p-4 md:p-8 rounded-xl overflow-auto border-inner shadow-inner min-h-[600px]">
                 <Card
                     className={`
                         border-none shadow-2xl bg-white transition-all duration-300 relative overflow-hidden
@@ -136,8 +138,21 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                 </Card>
             </div>
 
-            <div className="text-xs text-muted-foreground">
-                Тайлбар: Та <code>{'{{dynamic.field}}'}</code> хэлбэрээр динамик талбаруудыг ашиглах боломжтой.
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6 border-t">
+                <div className="lg:col-span-1 space-y-2">
+                    <Label className="text-base font-bold text-slate-900">Динамик талбарууд</Label>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Та хүссэн талбараа дээрх текст рүү чирч оруулж эсвэл жагсаалтаас сонгож нэмэх боломжтой. Сонгосон талбар нь тухайн ажилтны бодит мэдээллээр автоматаар солигдоно.
+                    </p>
+                    <div className="pt-2">
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-[10px] italic">
+                            Жишээ: <code>{`{{employee.firstName}}`}</code> гэж бичвэл ажилтны нэрээр солигдоно.
+                        </div>
+                    </div>
+                </div>
+                <div className="lg:col-span-2">
+                    <DynamicFieldSelector onSelect={handleInsertField} />
+                </div>
             </div>
         </div>
     );

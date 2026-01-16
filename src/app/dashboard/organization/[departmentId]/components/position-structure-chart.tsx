@@ -8,6 +8,7 @@ import { PositionStructureFlowCanvas } from './flow/position-structure-flow-canv
 
 interface PositionStructureChartProps {
     positions: Position[];
+    employees: any[];
     department: Department;
     isLoading?: boolean;
     onPositionClick?: (pos: Position) => void;
@@ -18,6 +19,7 @@ interface PositionStructureChartProps {
 
 export const PositionStructureChart = ({
     positions,
+    employees,
     department,
     isLoading,
     onPositionClick,
@@ -52,6 +54,7 @@ export const PositionStructureChart = ({
         <div className="h-[650px] w-full bg-background rounded-xl border-none shadow-inner isolation-auto overflow-hidden">
             <PositionStructureFlowCanvas
                 positions={positions}
+                employees={employees}
                 department={department}
                 lookups={lookups}
                 onPositionClick={onPositionClick}

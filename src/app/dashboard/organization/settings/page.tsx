@@ -2,9 +2,9 @@
 
 import { PageHeader } from '@/components/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Briefcase, FileText, Layers, Tag, GitBranch } from 'lucide-react';
+import { Building2, Briefcase, FileText, Layers, Tag, Zap } from 'lucide-react';
 import { LookupManagement } from './components/lookup-management';
-import { ProcessWorkflowSettings } from './components/process-workflow-settings';
+import { OrganizationActionSettings } from './components/organization-action-settings';
 
 export default function OrganizationSettingsPage() {
     return (
@@ -35,15 +35,15 @@ export default function OrganizationSettingsPage() {
                             <FileText className="w-4 h-4" />
                             Ажлын байрны төрөл
                         </TabsTrigger>
-                        <TabsTrigger value="workflows" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <GitBranch className="w-4 h-4" />
-                            Ажлын урсгал
+                        <TabsTrigger value="actions" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
+                            <Zap className="w-4 h-4" />
+                            Үйлдэл
                         </TabsTrigger>
                     </TabsList>
 
                     <div className="mt-8">
-                        <TabsContent value="workflows" className="space-y-4 focus-visible:outline-none">
-                            <ProcessWorkflowSettings />
+                        <TabsContent value="actions" className="space-y-4 focus-visible:outline-none">
+                            <OrganizationActionSettings />
                         </TabsContent>
                         <TabsContent value="dept-types" className="space-y-4 focus-visible:outline-none">
                             <LookupManagement

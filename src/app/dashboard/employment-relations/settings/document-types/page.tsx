@@ -19,35 +19,31 @@ export default function DocumentTypesPage() {
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingType, setEditingType] = useState<ERDocumentType | null>(null);
-    const [formData, setFormData] = useState({ name: '', code: '', description: '', workflowId: '' });
+    const [formData, setFormData] = useState({ name: '' });
 
     const typesQuery = React.useMemo(() =>
         firestore ? query(collection(firestore, 'er_document_types'), orderBy('name')) : null
         , [firestore]);
 
-    const { data: docTypes, isLoading, error } = useCollection<ERDocumentType>(typesQuery);
-
-    const workflowsQuery = React.useMemo(() =>
-        firestore ? query(collection(firestore, 'er_workflows'), orderBy('name')) : null
-        , [firestore]);
-    const { data: workflows } = useCollection<ERWorkflow>(workflowsQuery); // Assuming ERWorkflow is imported? Need to check imports.
+    const { data: docTypes, isLoading } = useCollection<ERDocumentType>(typesQuery);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!firestore) return;
 
         try {
+            const dataToSave = {
+                ...formData,
+                updatedAt: Timestamp.now()
+            };
+
             if (editingType) {
-                await updateDocumentNonBlocking(doc(firestore, 'er_document_types', editingType.id), {
-                    ...formData,
-                    updatedAt: Timestamp.now()
-                });
+                await updateDocumentNonBlocking(doc(firestore, 'er_document_types', editingType.id), dataToSave);
                 toast({ title: "Амжилттай", description: "Баримтын төрөл шинэчлэгдлээ" });
             } else {
                 await addDocumentNonBlocking(collection(firestore, 'er_document_types'), {
-                    ...formData,
-                    createdAt: Timestamp.now(),
-                    updatedAt: Timestamp.now()
+                    ...dataToSave,
+                    createdAt: Timestamp.now()
                 });
                 toast({ title: "Амжилттай", description: "Шинэ төрөл үүсгэгдлээ" });
             }
@@ -72,13 +68,13 @@ export default function DocumentTypesPage() {
 
     const openEdit = (type: ERDocumentType) => {
         setEditingType(type);
-        setFormData({ name: type.name, code: type.code, description: type.description || '', workflowId: type.workflowId || '' });
+        setFormData({ name: type.name });
         setIsDialogOpen(true);
     };
 
     const resetForm = () => {
         setEditingType(null);
-        setFormData({ name: '', code: '', description: '', workflowId: '' });
+        setFormData({ name: '' });
     };
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
@@ -101,16 +97,13 @@ export default function DocumentTypesPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Нэр</TableHead>
-                            <TableHead>Код</TableHead>
-                            <TableHead>Үндсэн урсгал</TableHead>
-                            <TableHead>Тайлбар</TableHead>
                             <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {docTypes?.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
                                     Одоогоор бүртгэл байхгүй байна
                                 </TableCell>
                             </TableRow>
@@ -118,11 +111,6 @@ export default function DocumentTypesPage() {
                         {docTypes?.map((type) => (
                             <TableRow key={type.id}>
                                 <TableCell className="font-medium">{type.name}</TableCell>
-                                <TableCell className="font-mono text-xs">{type.code}</TableCell>
-                                <TableCell className="text-sm">
-                                    {workflows?.find(w => w.id === type.workflowId)?.name || <span className="text-muted-foreground">-</span>}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground">{type.description}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <Button variant="ghost" size="icon" onClick={() => openEdit(type)}>
@@ -153,43 +141,6 @@ export default function DocumentTypesPage() {
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 placeholder="Жишээ: Хөдөлмөрийн гэрээ"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="code">Код</Label>
-                            <Input
-                                id="code"
-                                required
-                                value={formData.code}
-                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                placeholder="CONTRACT_LABOR"
-                            />
-                            <p className="text-xs text-muted-foreground">Системд ашиглагдах дахин давтагдашгүй код</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Үндсэн батлах урсгал (Default Workflow)</Label>
-                            <Select
-                                value={formData.workflowId}
-                                onValueChange={(val) => setFormData({ ...formData, workflowId: val })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Урсгал сонгох" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {workflows?.map((w) => (
-                                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Тайлбар</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             />
                         </div>
                         <DialogFooter>

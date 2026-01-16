@@ -62,6 +62,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from '@/components/ui/accordion';
+import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
 
 import { Progress } from '@/components/ui/progress';
 import { AssignProgramDialog, type AssignedProgram, type AssignedTask, type AssignedStage } from './AssignProgramDialog';
@@ -659,20 +660,117 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
 
 
 const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
+    const { firestore } = useFirebase();
+
+    const erDocumentsQuery = React.useMemo(() =>
+        firestore ? query(
+            collection(firestore, 'er_documents'),
+            where('employeeId', '==', employeeId)
+        ) : null
+        , [firestore, employeeId]);
+
+    const { data: erDocuments, isLoading, error } = useCollection<ERDocument>(erDocumentsQuery as any);
+
+    if (error) {
+        console.error("ER Documents query error:", error);
+    }
+
     return (
         <div className="space-y-10">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <Clock className="h-5 w-5" />
+            {/* Documents Section */}
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                            <FileText className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Бичиг баримт</label>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                Хөдөлмөрийн харилцааны баримтууд
+                                {erDocuments && erDocuments.length > 0 && (
+                                    <Badge variant="secondary" className="ml-2 bg-indigo-50 text-indigo-600 border-none px-2">
+                                        {erDocuments.length}
+                                    </Badge>
+                                )}
+                            </h3>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">History</label>
-                    <h3 className="text-lg font-bold text-slate-800">Шилжилт хөдөлгөөн</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {isLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-40 rounded-3xl" />
+                        ))
+                    ) : erDocuments && erDocuments.length > 0 ? (
+                        erDocuments.map((doc) => (
+                            <Link key={doc.id} href={`/dashboard/employment-relations/${doc.id}`}>
+                                <Card className="group h-full border-none shadow-sm bg-white overflow-hidden transition-all hover:shadow-md hover:ring-1 hover:ring-indigo-100">
+                                    <div className="p-5 flex flex-col h-full">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 transition-transform group-hover:scale-110">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", DOCUMENT_STATUSES[doc.status].color)}>
+                                                {DOCUMENT_STATUSES[doc.status].label}
+                                            </Badge>
+                                        </div>
+
+                                        <div className="space-y-1 mb-4 flex-1">
+                                            <h4 className="text-sm font-bold text-slate-700 leading-tight">
+                                                {doc.metadata?.templateName || 'Нэргүй баримт'}
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                #{doc.id.slice(-6).toUpperCase()}
+                                            </p>
+                                        </div>
+
+                                        <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold text-slate-400">
+                                            <span className="flex items-center gap-1">
+                                                <Calendar className="h-3 w-3" />
+                                                {doc.createdAt ? (
+                                                    doc.createdAt.seconds
+                                                        ? new Date(doc.createdAt.seconds * 1000).toLocaleDateString()
+                                                        : new Date(doc.createdAt).toLocaleDateString()
+                                                ) : '-'}
+                                            </span>
+                                            <span className="flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+                                                Харах <ChevronRight className="h-3 w-3" />
+                                            </span>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </Link>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-12 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
+                            <FileText className="h-8 w-8 text-slate-200 mb-3" />
+                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
+                                {error ? `Алдаа гарлаа: ${error.message}` : 'Баримт байхгүй'}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="bg-white rounded-3xl p-2 shadow-sm border border-slate-50">
-                <EmploymentHistoryTimeline employeeId={employeeId} />
+            <Separator className="bg-slate-100" />
+
+            {/* Timeline Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                        <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Түүх</label>
+                        <h3 className="text-lg font-bold text-slate-800">Шилжилт хөдөлгөөний түүх</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-slate-50/50">
+                    <EmploymentHistoryTimeline employeeId={employeeId} />
+                </div>
             </div>
         </div>
     )
@@ -1073,7 +1171,7 @@ export default function EmployeeProfilePage() {
                                     value="history"
                                     className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
                                 >
-                                    Түүх
+                                    Хөдөлмөрийн харилцаа
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="documents"

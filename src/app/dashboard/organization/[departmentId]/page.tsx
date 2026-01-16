@@ -78,6 +78,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const deptEmployeesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй'])) : null), [firestore, departmentId]);
 
     const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
     const { data: allDepartments } = useCollection<Department>(deptsQuery);
@@ -85,6 +86,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     const { data: categories } = useCollection<JobCategory>(categoriesQuery);
     const { data: empTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: schedules } = useCollection<WorkSchedule>(schedulesQuery);
+    const { data: allActiveEmployees } = useCollection<any>(deptEmployeesQuery as any);
 
     // -- Derived Data --
     const lookups = useMemo(() => {
@@ -104,7 +106,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
             levelMap,
             empTypeMap,
             jobCategoryMap,
-            departmentColor: department?.color
+            departmentColor: department?.color || '#ffffff'
         };
     }, [allDepartments, department, levels, empTypes, categories, departmentId]);
 
@@ -569,6 +571,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                                         <div className="bg-slate-50/50 aspect-[16/9] max-h-[600px] relative border-b border-border/50">
                                             <PositionStructureChart
                                                 positions={positions || []}
+                                                employees={allActiveEmployees || []}
                                                 department={department}
                                                 isLoading={isDeptLoading}
                                                 lookups={lookups}

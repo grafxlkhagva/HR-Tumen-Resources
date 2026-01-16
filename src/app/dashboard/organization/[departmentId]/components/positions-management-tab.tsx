@@ -90,7 +90,13 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
 
 
 
+    const employeesQuery = useMemoFirebase(() => {
+        if (!firestore || !department?.id) return null;
+        return query(collection(firestore, 'employees'), where('departmentId', '==', department.id));
+    }, [firestore, department?.id]);
+
     const { data: positions, isLoading: isPositionsLoading } = useCollection<Position>(positionsQuery);
+    const { data: employees } = useCollection<any>(employeesQuery);
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
     const { data: empTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: allDepartments } = useCollection<Department>(departmentsQuery);
@@ -240,7 +246,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                 hasPurpose: !!pos.purpose?.trim(),
                 hasResponsibilities: (pos.responsibilities?.length || 0) > 0,
                 hasJDFile: !!pos.jobDescriptionFile?.url,
-                hasSalary: !!(pos.compensation?.salaryRange?.mid && pos.compensation.salaryRange.mid > 0)
+                hasSalary: !!(pos.salaryRange?.min && pos.salaryRange?.max)
             };
             return !Object.values(checks).every(Boolean);
         });
@@ -573,6 +579,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                 {viewMode === 'chart' ? (
                     <PositionStructureChart
                         positions={positions || []}
+                        employees={employees || []}
                         department={department}
                         isLoading={isLoading}
                         onPositionClick={handleEditPosition}

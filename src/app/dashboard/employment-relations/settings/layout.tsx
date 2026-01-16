@@ -12,16 +12,6 @@ const sidebarItems = [
         title: 'Баримтын төрөл',
         href: '/dashboard/employment-relations/settings/document-types',
         icon: FileText
-    },
-    {
-        title: 'Загварууд',
-        href: '/dashboard/employment-relations/settings/templates',
-        icon: PenTool
-    },
-    {
-        title: 'Ажлын урсгал',
-        href: '/dashboard/employment-relations/settings/workflows',
-        icon: GitBranch
     }
 ];
 
