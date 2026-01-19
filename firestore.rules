@@ -187,6 +187,73 @@ service cloud.firestore {
         allow write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.approverId);
     }
     
+    
+    // --- Employment Relations Module Rules ---
+    
+    // Document Types - Admin only
+    match /er_document_types/{typeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Templates - Admin only for write, all signed-in users can read active templates
+    match /er_templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Workflows - Admin only
+    match /er_workflows/{workflowId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Documents - Complex rules based on status and role
+    match /er_documents/{documentId} {
+      // Read access:
+      // - Creator can always read their own documents
+      // - Reviewers can read documents they need to review
+      // - Admins can read all
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        request.auth.uid == resource.data.creatorId ||
+        request.auth.uid == resource.data.employeeId ||
+        request.auth.uid in resource.data.get('reviewers', []) ||
+        (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', []))
+      );
+      
+      // Create: Any signed-in user can create documents
+      allow create: if isSignedIn();
+      
+      // Update access:
+      // - Creator can update their own DRAFT documents
+      // - Reviewers can update approvalStatus when document is IN_REVIEW
+      // - Creator can finalize approval when status is REVIEWED
+      // - Admins can update anything
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        // Creator updating their own draft
+        (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT') ||
+        // Creator finalizing approval when all reviewers approved
+        (request.auth.uid == resource.data.creatorId && resource.data.status == 'REVIEWED' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        // Reviewer updating approval status
+        (resource.data.status == 'IN_REVIEW' && 
+         (request.auth.uid in resource.data.get('reviewers', []) ||
+          (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', []))) &&
+         // Only allow updating specific fields
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus', 'status', 'updatedAt', 'rejectionReason']))
+      );
+      
+      // Delete: Only creator can delete their own drafts, or admins
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT')
+      );
+    }
+    
     // --- Recruitment Module Rules ---
     
     match /vacancies/{vacancyId} {

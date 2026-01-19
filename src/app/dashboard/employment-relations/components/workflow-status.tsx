@@ -23,7 +23,7 @@ export function WorkflowStatus({ status, currentStepId, steps, history = [] }: W
     const allStates = [
         { id: 'DRAFT', name: 'Ноорог', type: 'system' },
         ...steps.map(s => ({ ...s, type: 'workflow' })),
-        { id: 'FINAL', name: status === 'SIGNED' ? 'Гэрээлсэн' : 'Батлагдсан', type: 'system' }
+        { id: 'FINAL', name: 'Батлагдсан', type: 'system' }
     ];
 
     return (
@@ -35,10 +35,11 @@ export function WorkflowStatus({ status, currentStepId, steps, history = [] }: W
                     if (state.id === 'DRAFT') {
                         stepState = status !== 'DRAFT' ? 'completed' : 'current';
                     } else if (state.id === 'FINAL') {
-                        stepState = (status === 'APPROVED' || status === 'SIGNED') ? 'completed' : 'pending';
+                        stepState = status === 'APPROVED' ? 'completed' :
+                            status === 'REVIEWED' ? 'current' : 'pending';
                     } else {
-                        const isCurrent = state.id === currentStepId && status === 'PENDING';
-                        const isCompleted = history.some(h => h.stepId === state.id && h.action === 'APPROVE') || (status === 'APPROVED' || status === 'SIGNED');
+                        const isCurrent = state.id === currentStepId && status === 'IN_REVIEW';
+                        const isCompleted = history.some(h => h.stepId === state.id && h.action === 'APPROVE') || (status === 'REVIEWED' || status === 'APPROVED');
                         const isRejected = history.some(h => h.stepId === state.id && h.action === 'REJECT') && isCurrent;
 
                         if (isRejected) stepState = 'rejected';
@@ -49,7 +50,7 @@ export function WorkflowStatus({ status, currentStepId, steps, history = [] }: W
                     // Icon selection
                     let Icon = Circle;
                     if (state.id === 'DRAFT') Icon = FileText;
-                    else if (state.id === 'FINAL') Icon = status === 'SIGNED' ? FileCheck : CheckCircle2;
+                    else if (state.id === 'FINAL') Icon = CheckCircle2;
                     else if (stepState === 'completed') Icon = Check;
                     else if (stepState === 'current') Icon = Clock;
                     else if (stepState === 'rejected') Icon = XCircle;

@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2 } from 'lucide-react';
+import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
@@ -24,6 +24,10 @@ import { generateDocumentContent } from '../../../../employment-relations/utils'
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { mn } from 'date-fns/locale';
 
 interface AppointEmployeeDialogProps {
     open: boolean;
@@ -345,12 +349,37 @@ export function AppointEmployeeDialog({
                                                             <Label className="text-xs font-bold text-slate-600 ml-1">
                                                                 {input.label} {input.required && <span className="text-rose-500">*</span>}
                                                             </Label>
-                                                            <Input
-                                                                value={customInputValues[input.key] || ''}
-                                                                onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
-                                                                placeholder={input.description || `${input.label} оруулна уу...`}
-                                                                className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
-                                                            />
+                                                            {input.label === 'Томилогдсон огноо' ? (
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant={"outline"}
+                                                                            className={cn(
+                                                                                "h-11 w-full justify-start text-left font-medium rounded-xl border-slate-200",
+                                                                                !customInputValues[input.key] && "text-muted-foreground"
+                                                                            )}
+                                                                        >
+                                                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                            {customInputValues[input.key] ? format(new Date(customInputValues[input.key]), "PPP", { locale: mn }) : <span>Огноо сонгох</span>}
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                        <Calendar
+                                                                            mode="single"
+                                                                            selected={customInputValues[input.key] ? new Date(customInputValues[input.key]) : undefined}
+                                                                            onSelect={(date) => setCustomInputValues(prev => ({ ...prev, [input.key]: date ? format(date, 'yyyy-MM-dd') : '' }))}
+                                                                            initialFocus
+                                                                        />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            ) : (
+                                                                <Input
+                                                                    value={customInputValues[input.key] || ''}
+                                                                    onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                                    placeholder={input.description || `${input.label} оруулна уу...`}
+                                                                    className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
+                                                                />
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -358,12 +387,20 @@ export function AppointEmployeeDialog({
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="p-6 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-sm">
+                                    <div className="p-6 rounded-2xl bg-red-50 border border-red-100 text-red-700 text-sm">
                                         <p className="font-bold flex items-center gap-2 mb-1">
-                                            <GitBranch className="h-4 w-4" />
-                                            Системийн тохиргоо дутуу
+                                            <X className="h-4 w-4" />
+                                            Томилгоо хийх боломжгүй
                                         </p>
-                                        <p className="opacity-80">Томилгооны баримтын загвар тохируулаагүй байна. Процесс эхлүүлэхэд баримт үүсэхгүй болохыг анхаарна уу.</p>
+                                        <p className="opacity-80 mb-3">Томилгооны баримтын загвар тохируулаагүй байна. <br />Доорх товчлуурыг ашиглан тохиргоог хийнэ үү.</p>
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 px-4 rounded-lg bg-white border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 text-[10px] uppercase font-bold tracking-wider w-full gap-2"
+                                            onClick={() => window.open('/dashboard/organization/settings', '_blank')}
+                                        >
+                                            <ExternalLink className="h-3.5 w-3.5" />
+                                            Тохиргоо хийх
+                                        </Button>
                                     </div>
                                 )}
                             </div>
@@ -407,7 +444,7 @@ export function AppointEmployeeDialog({
                             </Button>
                             <Button
                                 onClick={handleStartProcess}
-                                disabled={isSubmitting || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
+                                disabled={isSubmitting || !templateData || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
                                 className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-indigo-200"
                             >
                                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

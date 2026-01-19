@@ -12,7 +12,7 @@ import { ALL_DYNAMIC_FIELDS, FieldDefinition } from "../data/field-dictionary"
 
 interface DynamicFieldSelectorProps {
     onSelect: (field: string) => void;
-    customFields?: { key: string; label: string; example?: string }[];
+    customFields?: { key: string; label: string; example?: string; type?: string }[];
 }
 
 const CATEGORIES = [
@@ -112,10 +112,15 @@ export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSel
                                             <Copy className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2 w-full overflow-hidden">
+                                    <div className="flex items-center gap-2 w-full overflow-hidden mt-1">
                                         <code className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded truncate">
                                             {field.key}
                                         </code>
+                                        {field.type && (
+                                            <span className="text-[9px] uppercase tracking-wider bg-indigo-50 text-indigo-600 px-1 rounded border border-indigo-100">
+                                                {field.type}
+                                            </span>
+                                        )}
                                     </div>
                                     {field.example && (
                                         <span className="text-[10px] text-muted-foreground truncate w-full opacity-70">
@@ -130,7 +135,7 @@ export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSel
                 <div className="bg-white border-t p-2 text-[10px] text-center text-muted-foreground">
                     Нийт {filteredFields.length} талбар
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }

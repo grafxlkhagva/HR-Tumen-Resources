@@ -10,8 +10,9 @@ import {
     updateDocumentNonBlocking,
     deleteDocumentNonBlocking
 } from '@/firebase';
-import { doc, collection, arrayUnion } from 'firebase/firestore';
+import { doc, collection, arrayUnion, query, where, orderBy, limit } from 'firebase/firestore'; // Added query, where
 import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
+import { ERDocument } from '../../../employment-relations/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,8 +27,15 @@ import {
     History as HistoryIcon,
     Clock,
     User,
-    Edit3
+    Edit3,
+    UserPlus,
+    Mail,
+    UserMinus,
+    UserX // Added UserX
 } from 'lucide-react';
+import { writeBatch, increment as firestoreIncrement, getDocs } from 'firebase/firestore';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AppointEmployeeDialog } from '../../[departmentId]/components/flow/appoint-employee-dialog';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -94,6 +102,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [approvalNote, setApprovalNote] = useState('');
     const [disapproveDate, setDisapproveDate] = useState<Date>(new Date());
     const [disapproveNote, setDisapproveNote] = useState('');
+    const [isAppointDialogOpen, setIsAppointDialogOpen] = useState(false);
+    const [isRemoveEmployeeConfirmOpen, setIsRemoveEmployeeConfirmOpen] = useState(false); // State for remove confirm
+    const [isCancelAppointmentConfirmOpen, setIsCancelAppointmentConfirmOpen] = useState(false); // State for cancel appointment confirm
+    const [isConfirmAppointmentConfirmOpen, setIsConfirmAppointmentConfirmOpen] = useState(false);
+    const [isActionLoading, setIsActionLoading] = useState(false);
 
     // Data Fetching
     const positionRef = useMemoFirebase(() => (firestore ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
@@ -116,6 +129,24 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const { data: schedules } = useCollection<WorkSchedule>(schedulesQuery);
     const { data: allDepartments } = useCollection<any>(allDeptsQuery);
     const { data: allPositions } = useCollection<Position>(allPositionsQuery);
+
+    // Fetch assigned employee
+    const employeeQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('positionId', '==', positionId), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй'])) : null), [firestore, positionId]);
+    const { data: employees } = useCollection<any>(employeeQuery as any);
+    const assignedEmployee = employees?.[0];
+
+    // Fetch Appointment Document if "Appointing"
+    const docQuery = useMemoFirebase(() => {
+        if (!firestore || !assignedEmployee || assignedEmployee.status !== 'Томилогдож буй') return null;
+        return query(
+            collection(firestore, 'er_documents'),
+            where('employeeId', '==', assignedEmployee.id),
+            where('positionId', '==', positionId)
+        );
+    }, [firestore, assignedEmployee, positionId]);
+    const { data: appointmentDocs } = useCollection<ERDocument>(docQuery);
+    const appointmentDoc = appointmentDocs?.[0];
+    const [isDocStatusOpen, setIsDocStatusOpen] = useState(false);
 
     const validationChecklist = useMemo(() => {
         if (!position) return {
@@ -208,6 +239,126 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         finally { setIsApproving(false); }
     };
 
+    const handleRemoveEmployee = async () => {
+        if (!firestore || !assignedEmployee || !position) return;
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Update Employee: Clear position data and set to Active
+            const empRef = doc(firestore, 'employees', assignedEmployee.id);
+            batch.update(empRef, {
+                positionId: null,
+                jobTitle: null,
+                departmentId: null,
+                status: 'Идэвхтэй', // Reset status to Active
+                updatedAt: new Date()
+            });
+
+            // 2. Update Position: Decrement filled count
+            const posRef = doc(firestore, 'positions', positionId);
+            batch.update(posRef, {
+                filled: firestoreIncrement(-1),
+                updatedAt: new Date()
+            });
+
+            await batch.commit();
+
+            toast({ title: "Ажилтныг чөлөөллөө" });
+            setIsRemoveEmployeeConfirmOpen(false);
+        } catch (e) {
+            console.error("Remove employee error:", e);
+            toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
+        }
+    };
+
+    const handleCancelAppointment = async () => {
+        if (!firestore || !assignedEmployee || !position) return;
+
+        // Safety check: Cannot cancel if document is already APPROVED or SIGNED
+        if (appointmentDoc && (appointmentDoc.status === 'APPROVED' || appointmentDoc.status === 'SIGNED')) {
+            toast({ variant: 'destructive', title: 'Цуцлах боломжгүй', description: 'Бичиг баримт батлагдсан эсвэл баталгаажсан тул цуцлах боломжгүй.' });
+            return;
+        }
+
+        setIsActionLoading(true);
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Find and Delete ALL ER Documents for this appointment (if they weren't approved yet)
+            const docsQuery = query(
+                collection(firestore, 'er_documents'),
+                where('employeeId', '==', assignedEmployee.id),
+                where('positionId', '==', positionId)
+            );
+            const docsSnap = await getDocs(docsQuery);
+            docsSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                // Double check status just in case
+                if (data.status !== 'APPROVED' && data.status !== 'SIGNED') {
+                    batch.delete(docSnap.ref);
+                }
+            });
+
+            // 2. Reset Employee Data
+            const empRef = doc(firestore, 'employees', assignedEmployee.id);
+            batch.update(empRef, {
+                positionId: null,
+                jobTitle: null,
+                departmentId: null,
+                status: 'Идэвхтэй',
+                updatedAt: new Date()
+            });
+
+            // 3. Decrement Position Filled Count
+            const posRef = doc(firestore, 'positions', positionId);
+            batch.update(posRef, {
+                filled: firestoreIncrement(-1),
+                updatedAt: new Date()
+            });
+
+            await batch.commit();
+
+            toast({ title: "Томилгоо цуцлагдлаа", description: "Холбогдох баримтууд устгагдсан." });
+            setIsCancelAppointmentConfirmOpen(false);
+        } catch (e) {
+            console.error("Cancel appointment error:", e);
+            toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleConfirmAppointment = async () => {
+        if (!firestore || !assignedEmployee || !position) return;
+
+        if (!appointmentDoc || appointmentDoc.status !== 'SIGNED') {
+            toast({ variant: 'destructive', title: 'Баталгаажуулах боломжгүй', description: 'Эх хувь хавсаргаж, SIGNED төлөвтэй болсны дараа баталгаажна.' });
+            return;
+        }
+
+        setIsActionLoading(true);
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Update Employee: Set status to Active
+            const empRef = doc(firestore, 'employees', assignedEmployee.id);
+            batch.update(empRef, {
+                status: 'Идэвхтэй',
+                updatedAt: new Date()
+            });
+
+            await batch.commit();
+
+            toast({ title: "Томилгоо баталгаажлаа", description: "Ажилтан албан ёсоор томилогдлоо." });
+            setIsConfirmAppointmentConfirmOpen(false);
+        } catch (e) {
+            console.error("Confirm appointment error:", e);
+            toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
     return (
         <div className="pt-6 pb-32 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <PageHeader
@@ -219,6 +370,164 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 ]}
                 showBackButton
             />
+
+            {/* Employee Summary Card */}
+            <Card className="border-none shadow-premium bg-white rounded-2xl p-6 relative overflow-hidden group/card">
+                <div className="absolute -top-6 -right-6 p-4 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover/card:rotate-0 group-hover/card:scale-110">
+                    <User className="w-48 h-48 text-primary" />
+                </div>
+                <div className="flex items-center gap-6 relative z-10">
+                    {assignedEmployee ? (
+                        <>
+                            <div className="relative">
+                                <Avatar className="h-20 w-20 border-4 border-white shadow-lg ring-1 ring-slate-100">
+                                    <AvatarImage src={assignedEmployee.photoURL} className="object-cover" />
+                                    <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-primary/10 to-primary/5 text-primary">
+                                        {assignedEmployee.firstName?.[0]}{assignedEmployee.lastName?.[0]}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {assignedEmployee.status === 'Томилогдож буй' && (
+                                    <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center animate-pulse">
+                                        <Clock className="w-3 h-3 text-white" />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <h3 className="text-xl font-bold text-slate-900 truncate">{assignedEmployee.firstName} {assignedEmployee.lastName}</h3>
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "uppercase text-[10px] tracking-widest border-none px-2 py-0.5 rounded-md",
+                                            assignedEmployee.status === 'Томилогдож буй' ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                                        )}
+                                    >
+                                        {assignedEmployee.status}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm font-medium text-slate-500 flex-wrap">
+                                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+                                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Код:</span>
+                                        <span className="font-mono font-bold text-slate-700 text-xs">#{assignedEmployee.employeeCode}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:bg-slate-100 transition-colors">
+                                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">И-мэйл:</span>
+                                        <span className="font-bold text-slate-700 text-xs">{assignedEmployee.email || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-slate-50 border-slate-200"
+                                onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}
+                            >
+                                <User className="w-4 h-4" />
+                                Дэлгэрэнгүй
+                            </Button>
+
+                            {assignedEmployee.status === 'Томилогдож буй' ? (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-slate-50 border-slate-200"
+                                        onClick={() => setIsDocStatusOpen(true)}
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        Баримтын явц
+                                    </Button>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 transition-all shadow-sm",
+                                                            appointmentDoc?.status === 'SIGNED'
+                                                                ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
+                                                                : "bg-slate-50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                                                        )}
+                                                        disabled={appointmentDoc?.status !== 'SIGNED' || isActionLoading}
+                                                        onClick={() => setIsConfirmAppointmentConfirmOpen(true)}
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        Баталгаажуулах
+                                                    </Button>
+                                                </span>
+                                            </TooltipTrigger>
+                                            {appointmentDoc?.status !== 'SIGNED' && (
+                                                <TooltipContent className="text-[10px] uppercase font-bold bg-slate-900 border-none text-white py-2 px-4 rounded-lg shadow-xl">
+                                                    Бичиг баримт "SIGNED" төлөвт орсны дараа томилгоог баталгаажуулах боломжтой
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 transition-all",
+                                                            (appointmentDoc?.status === 'APPROVED' || appointmentDoc?.status === 'SIGNED')
+                                                                ? "bg-slate-50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                                                                : "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
+                                                        )}
+                                                        disabled={(appointmentDoc?.status === 'APPROVED' || appointmentDoc?.status === 'SIGNED') || isActionLoading}
+                                                        onClick={() => setIsCancelAppointmentConfirmOpen(true)}
+                                                    >
+                                                        <UserX className="w-4 h-4" />
+                                                        Томилгоо цуцлах
+                                                    </Button>
+                                                </span>
+                                            </TooltipTrigger>
+                                            {(appointmentDoc?.status === 'APPROVED' || appointmentDoc?.status === 'SIGNED') && (
+                                                <TooltipContent className="text-[10px] uppercase font-bold bg-slate-900 border-none text-white py-2 px-4 rounded-lg shadow-xl">
+                                                    Бичиг баримт батлагдсан эсвэл баталгаажсан тул томилгоог цуцлах боломжгүй
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-rose-50 border-rose-200 text-rose-600 hover:text-rose-700"
+                                    onClick={() => setIsRemoveEmployeeConfirmOpen(true)}
+                                >
+                                    <UserMinus className="w-4 h-4" />
+                                    Чөлөөлөх
+                                </Button>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-20 w-20 rounded-full bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center shrink-0">
+                                <UserPlus className="w-8 h-8 text-slate-300" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-slate-900">Ажилтан томилогдоогүй байна</h3>
+                                <p className="text-sm text-slate-500 font-medium mt-1">
+                                    {!position.isApproved
+                                        ? "Ажлын байр батлагдаагүй (ноорог) төлөвт байгаа тул томилгоо хийх боломжгүй."
+                                        : "Энэхүү албан тушаалд одоогоор ямар нэгэн ажилтан томилогдоогүй байна."}
+                                </p>
+                            </div>
+                            {position.isApproved && (
+                                <Button
+                                    className="h-12 px-8 rounded-xl font-bold uppercase tracking-widest bg-primary text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-1 transition-all gap-2"
+                                    onClick={() => setIsAppointDialogOpen(true)}
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Ажилтан томилох
+                                </Button>
+                            )}
+                        </>
+                    )}
+                </div>
+            </Card>
 
             {/* 1. Approval Overview & Progress Card */}
             <Card className="overflow-hidden border-none shadow-premium bg-background rounded-2xl p-8 relative group">
@@ -598,6 +907,135 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            <AlertDialog open={isRemoveEmployeeConfirmOpen} onOpenChange={setIsRemoveEmployeeConfirmOpen}>
+                <AlertDialogContent className="rounded-xl border-border p-8">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <UserMinus className="h-5 w-5 text-destructive" />
+                            Ажилтныг чөлөөлөх?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
+                            Та <b>{assignedEmployee?.firstName} {assignedEmployee?.lastName}</b>-г энэхүү албан тушаалаас чөлөөлөхдөө итгэлтэй байна уу?
+                            <br /><br />
+                            Энэ үйлдлийг хийснээр ажилтны төлөв "Идэвхтэй" болж, өөр албан тушаалд томилогдох боломжтой болно.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4 gap-3">
+                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground">Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRemoveEmployee} className="bg-destructive hover:bg-destructive/90 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-md">Чөлөөлөх</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isCancelAppointmentConfirmOpen} onOpenChange={setIsCancelAppointmentConfirmOpen}>
+                <AlertDialogContent className="rounded-xl border-border p-8">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <UserX className="h-5 w-5 text-amber-600" />
+                            Томилгоо цуцлах?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
+                            Та <b>{assignedEmployee?.firstName} {assignedEmployee?.lastName}</b>-н томилгооны процессыг цуцлахдаа итгэлтэй байна уу?
+                            <br /><br />
+                            <span className="text-amber-600 font-bold block mt-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                                Анхаар: Энэ үйлдлийг хийснээр тухайн ажилтанд үүсгэсэн томилгооны баримт (APPROVED/SIGNED болоогүй) бүрмөсөн устах болно.
+                            </span>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4 gap-3">
+                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground">Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCancelAppointment} className="bg-amber-500 hover:bg-amber-600 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-md" disabled={isActionLoading}>Томилгоо цуцлах</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isConfirmAppointmentConfirmOpen} onOpenChange={setIsConfirmAppointmentConfirmOpen}>
+                <AlertDialogContent className="rounded-xl border-border p-8">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                            Томилгоо баталгаажуулах?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
+                            Та <b>{assignedEmployee?.firstName} {assignedEmployee?.lastName}</b>-н томилгоог эцэслэн баталгаажуулахдаа итгэлтэй байна уу?
+                            <br /><br />
+                            Баримт бичиг бүрэн баталгаажсан (SIGNED) тул ажилтны төлөв "Идэвхтэй" болох болно.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4 gap-3">
+                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground">Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAppointment} className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-md" disabled={isActionLoading}>Баталгаажуулах</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isDocStatusOpen} onOpenChange={setIsDocStatusOpen}>
+                <AlertDialogContent className="sm:max-w-[500px] rounded-xl border-border p-8">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-primary font-bold text-xl">
+                            <FileText className="h-6 w-6" />
+                            Баримтын явц
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground font-medium text-sm">
+                            Томилгоотой холбоотой үүсгэсэн баримтын одоогийн төлөв байдал.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {appointmentDoc ? (
+                        <div className="py-6 space-y-6">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Баримтын нэр</label>
+                                    <p className="font-bold text-slate-800">{appointmentDoc.metadata?.templateName || 'Тодорхойгүй'}</p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Төлөв</label>
+                                        <div className="mt-1">
+                                            <Badge variant="outline" className="bg-white">
+                                                {appointmentDoc.status === 'DRAFT' && 'Ноорог (Draft)'}
+                                                {appointmentDoc.status === 'IN_REVIEW' && 'Хянагдаж буй'}
+                                                {appointmentDoc.status === 'APPROVED' && 'Батлагдсан'}
+                                                {appointmentDoc.status === 'SIGNED' && 'Гарын үсэг зурсан'}
+                                                {!['DRAFT', 'IN_REVIEW', 'APPROVED', 'SIGNED'].includes(appointmentDoc.status) && appointmentDoc.status}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Үүсгэсэн</label>
+                                        <p className="font-medium text-sm text-slate-600 mt-1">
+                                            {format(appointmentDoc.createdAt.toDate(), 'yyyy/MM/dd HH:mm')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="py-10 text-center">
+                            <FileText className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                            <p className="text-sm font-bold text-slate-500">Баримт олдсонгүй</p>
+                        </div>
+                    )}
+
+                    <AlertDialogFooter className="gap-3">
+                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground">Хаах</AlertDialogCancel>
+                        {appointmentDoc && (
+                            <AlertDialogAction
+                                onClick={() => window.open(`/dashboard/employment-relations/${appointmentDoc.id}`, '_blank')}
+                                className="bg-primary hover:bg-primary/90 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-premium"
+                            >
+                                Баримт руу очих
+                            </AlertDialogAction>
+                        )}
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AppointEmployeeDialog
+                open={isAppointDialogOpen}
+                onOpenChange={setIsAppointDialogOpen}
+                position={position}
+            />
         </div>
     );
 }

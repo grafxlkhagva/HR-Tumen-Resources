@@ -43,6 +43,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
     const [formData, setFormData] = useState<Partial<ERTemplate>>({
         isActive: true,
+        isDeletable: false, // Default to false
         version: 1,
         printSettings: DEFAULT_PRINT_SETTINGS,
         requiredFields: [],
@@ -81,7 +82,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const addCustomInput = () => {
         setFormData(prev => ({
             ...prev,
-            customInputs: [...(prev.customInputs || []), { key: '', label: '', description: '', required: true }]
+            customInputs: [...(prev.customInputs || []), { key: '', label: '', description: '', required: true, type: 'text' }]
         }));
     };
 
@@ -220,6 +221,19 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                     onCheckedChange={(c) => setFormData(prev => ({ ...prev, isActive: c }))}
                                 />
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border mt-2">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="allow-delete" className="cursor-pointer">Шууд устгах боломжтой</Label>
+                                    <p className="text-[10px] text-slate-500">
+                                        Баримт үүсгэсний дараа шууд устгах эрхтэй эсэх
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="allow-delete"
+                                    checked={formData.isDeletable}
+                                    onCheckedChange={(c) => setFormData(prev => ({ ...prev, isDeletable: c }))}
+                                />
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -242,10 +256,11 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                             <DynamicFieldSelector
                                 onSelect={handleFieldSelect}
-                                customFields={formData.customInputs?.map(i => ({
-                                    key: `{{${i.key}}}`,
-                                    label: i.label,
-                                    example: i.description || ''
+                                customFields={formData.customInputs?.map((i, idx) => ({
+                                    key: i.key ? `{{${i.key}}}` : `{{new_field_${idx}}}`,
+                                    label: i.label || `New Field ${idx + 1}`,
+                                    example: i.description || '',
+                                    type: i.type || 'text'
                                 }))}
                             />
                         </CardContent>
@@ -348,6 +363,23 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                             />
                                             <code className="text-primary font-bold">{"}}"}</code>
                                         </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын төрөл</Label>
+                                        <Select
+                                            value={input.type || 'text'}
+                                            onValueChange={(val) => updateCustomInput(index, 'type', val)}
+                                        >
+                                            <SelectTrigger className="bg-white">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="text">Текст (Text)</SelectItem>
+                                                <SelectItem value="number">Тоо (Number)</SelectItem>
+                                                <SelectItem value="date">Огноо (Date)</SelectItem>
+                                                <SelectItem value="boolean">Тийм/Үгүй (Checkbox)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
                                 <div className="space-y-2">

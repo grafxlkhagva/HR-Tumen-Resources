@@ -18,13 +18,14 @@ const COLUMNS: { status: DocumentStatus; label: string; icon: any; color: string
     { status: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
     { status: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
     { status: 'APPROVED', label: 'Батлах', icon: CheckCircle2, color: 'text-emerald-500' },
+    { status: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-700' },
 ];
 
 export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentPipelineProps) {
     if (isLoading) {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="space-y-4">
                         <div className="h-10 bg-slate-100 rounded-lg animate-pulse" />
                         <div className="h-64 bg-slate-50 rounded-xl animate-pulse" />
@@ -35,7 +36,7 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
             {COLUMNS.map((column) => {
                 const columnDocs = documents.filter((doc) => doc.status === column.status);
                 const Icon = column.icon;

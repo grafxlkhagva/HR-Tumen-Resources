@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFirebase, useDoc, useCollection } from '@/firebase';
 import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus } from '../types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,15 +31,19 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useReactToPrint } from 'react-to-print';
+import { PrintLayout } from '../components/print-layout';
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
 export default function DocumentDetailPage({ params }: PageProps) {
-    const { firestore, user: currentUser } = useFirebase();
+    const { firestore, storage, user: currentUser } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
 
@@ -48,12 +53,17 @@ export default function DocumentDetailPage({ params }: PageProps) {
     const docRef = useMemo(() => firestore ? doc(firestore, 'er_documents', id) : null, [firestore, id]);
     const { data: document, isLoading } = useDoc<ERDocument>(docRef as any);
 
+    // Fetch template to check permissions
+    const templateRef = useMemo(() => firestore && document?.templateId ? doc(firestore, 'er_templates', document.templateId) : null, [firestore, document?.templateId]);
+    const { data: template } = useDoc<any>(templateRef);
+
     // Metadata & Entities
     const [editContent, setEditContent] = useState('');
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [selectedDept, setSelectedDept] = useState<string>('');
     const [selectedPos, setSelectedPos] = useState<string>('');
     const [reviewers, setReviewers] = useState<string[]>([]);
+    const [isReviewRequired, setIsReviewRequired] = useState(true);
 
     const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
     const { data: departments } = useCollection<any>(departmentsQuery);
@@ -72,7 +82,10 @@ export default function DocumentDetailPage({ params }: PageProps) {
     const occupiedPositions = useMemo(() => {
         if (!allPositions || !employeesList) return [];
         return allPositions.map(pos => {
-            const occupant = employeesList.find((emp: any) => emp.positionId === pos.id || emp.id === pos.managerId);
+            const occupant = employeesList.find((emp: any) =>
+                (emp.positionId === pos.id || emp.id === pos.managerId) &&
+                ['Идэвхтэй', 'Томилогдож буй'].includes(emp.status || 'Идэвхтэй') // Ensure active/onboarding only
+            );
             return occupant ? { ...pos, occupant } : null;
         }).filter(Boolean);
     }, [allPositions, employeesList]);
@@ -86,7 +99,18 @@ export default function DocumentDetailPage({ params }: PageProps) {
     }, [firestore]);
 
     // UI States
+    // UI States
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Print Handling
+    const printComponentRef = React.useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printComponentRef,
+        documentTitle: document?.metadata?.templateName || 'Document',
+        onAfterPrint: () => toast({ title: "Хэвлэх үйлдэл дууслаа" })
+    });
     const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [returnReason, setReturnReason] = useState('');
@@ -99,6 +123,8 @@ export default function DocumentDetailPage({ params }: PageProps) {
             if (!selectedPos) setSelectedPos(document.positionId || '');
             if (reviewers.length === 0) setReviewers(document.reviewers || []);
 
+            if (reviewers.length === 0) setReviewers(document.reviewers || []);
+
             if (document.employeeId && !selectedEmployee) {
                 getDoc(doc(firestore!, 'employees', document.employeeId)).then(snap => {
                     if (snap.exists()) setSelectedEmployee({ id: snap.id, ...snap.data() });
@@ -107,17 +133,33 @@ export default function DocumentDetailPage({ params }: PageProps) {
         }
     }, [document, firestore]);
 
+    // Fetch current user's employee profile for position-based checks
+    const { data: currentUserProfile } = useDoc<any>(
+        useMemo(() => firestore && currentUser ? doc(firestore, 'employees', currentUser.uid) : null, [firestore, currentUser])
+    );
+
+    const isApprover = useMemo(() => {
+        if (!document?.reviewers || !currentUserProfile) return false;
+        // Check if user's position matches any reviewer position
+        return document.reviewers.some(rid =>
+            rid === currentUserProfile.positionId ||
+            rid === currentUserProfile.id // Keep support for direct UID if needed
+        );
+    }, [document?.reviewers, currentUserProfile]);
+
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
 
     const currentStatus = document.status;
     const isOwner = document.creatorId === currentUser?.uid;
-    const isApprover = document.reviewers?.includes(currentUser?.uid || '');
+
+
 
     const steps = [
         { id: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
         { id: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
         { id: 'APPROVED', label: 'Батлах', icon: CheckCircle2, color: 'text-emerald-500' },
+        { id: 'SIGNED', label: 'Баталгаажих', icon: FileText, color: 'text-emerald-700' },
     ];
 
     const handleSaveDraft = async () => {
@@ -146,28 +188,42 @@ export default function DocumentDetailPage({ params }: PageProps) {
 
     const handleSendForReview = async () => {
         if (!docRef) return;
+
+        if (isReviewRequired && reviewers.length === 0) {
+            toast({
+                title: "Анхааруулга",
+                description: "Хянуулах шаардлагатай үед заавал хянагч сонгох ёстой.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         setIsSaving(true);
         try {
-            const hasReviewers = reviewers.length > 0;
             const initialApprovalStatus: Record<string, any> = {};
 
-            if (hasReviewers) {
+            if (isReviewRequired && reviewers.length > 0) {
                 reviewers.forEach(uid => {
                     initialApprovalStatus[uid] = { status: 'PENDING', updatedAt: Timestamp.now() };
                 });
             }
 
-            const nextStatus = hasReviewers ? 'IN_REVIEW' : 'APPROVED';
+            // If review is not required, jump straight to APPROVED (or REVIEWED if simpler, but APPROVED fits 'skip' better)
+            // But usually 'Send for Review' implies starting a process. 
+            // If No Review Required -> Document becomes Valid immediately? 
+            // Let's assume 'APPROVED' as the final valid state.
+            const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'APPROVED';
 
             await updateDoc(docRef, {
                 status: nextStatus,
+                reviewers: isReviewRequired ? reviewers : [],
                 approvalStatus: initialApprovalStatus,
                 updatedAt: Timestamp.now()
             });
 
             toast({
                 title: nextStatus === 'APPROVED' ? "Батлагдлаа" : "Илгээгдлээ",
-                description: nextStatus === 'APPROVED' ? "Баримт хянагчгүй тул шууд батлагдлаа" : "Баримт хянах шат руу шилжлээ"
+                description: nextStatus === 'APPROVED' ? "Хянах шат алгасан шууд батлагдлаа" : "Баримт хянах шат руу шилжлээ"
             });
         } catch (e) {
             toast({ title: "Алдаа", description: "Илгээхэд алдаа гарлаа", variant: "destructive" });
@@ -181,21 +237,53 @@ export default function DocumentDetailPage({ params }: PageProps) {
         setIsSaving(true);
         try {
             const newApprovalStatus = { ...document.approvalStatus };
-            newApprovalStatus[currentUser.uid] = {
-                status: 'APPROVED',
-                updatedAt: Timestamp.now()
-            };
 
-            // Check if all approved
+            // Find which reviewer record the current user matches (either by PID or UID)
+            const matchedReviewerKey = reviewers.find(rid =>
+                rid === currentUser.uid || (currentUserProfile && rid === currentUserProfile.positionId)
+            );
+
+            if (matchedReviewerKey) {
+                newApprovalStatus[matchedReviewerKey] = {
+                    status: 'APPROVED',
+                    actorId: currentUser.uid,
+                    updatedAt: Timestamp.now()
+                };
+            } else {
+                // Fallback for direct UID if not found as PID
+                newApprovalStatus[currentUser.uid] = {
+                    status: 'APPROVED',
+                    updatedAt: Timestamp.now()
+                };
+            }
+
+            // Check if all approved (using the keys from the reviewers array)
             const allApproved = reviewers.every(id => newApprovalStatus[id]?.status === 'APPROVED');
 
             await updateDoc(docRef, {
                 approvalStatus: newApprovalStatus,
-                status: allApproved ? 'APPROVED' : 'IN_REVIEW',
+                status: allApproved ? 'REVIEWED' : 'IN_REVIEW',
                 updatedAt: Timestamp.now()
             });
 
-            toast({ title: "Зөвшөөрлөө", description: allApproved ? "Баримт бүрэн батлагдлаа" : "Таны зөвшөөрөл бүртгэгдлээ" });
+            toast({ title: "Зөвшөөрлөө", description: allApproved ? "Бүх хянагчид зөвшөөрсөн. Эцсийн батлалт хүлээж байна." : "Таны зөвшөөрөл бүртгэгдлээ" });
+        } catch (e) {
+            toast({ title: "Алдаа", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleFinalApprove = async () => {
+        if (!docRef) return;
+        setIsSaving(true);
+        try {
+            await updateDoc(docRef, {
+                status: 'APPROVED',
+                updatedAt: Timestamp.now()
+            });
+
+            toast({ title: "Батлагдлаа", description: "Баримт эцэслэн батлагдлаа" });
         } catch (e) {
             toast({ title: "Алдаа", variant: "destructive" });
         } finally {
@@ -260,6 +348,37 @@ export default function DocumentDetailPage({ params }: PageProps) {
         } finally {
             setIsSaving(false);
             setIsDeleteDialogOpen(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !docRef || !storage) return;
+
+        setIsUploading(true);
+        try {
+            // Create a reference to 'signed_docs/<docId>/<filename>'
+            const storageRef = ref(storage, `signed_docs/${id}/${Date.now()}_${file.name}`);
+
+            // Upload
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            // Update document
+            await updateDoc(docRef, {
+                signedDocUrl: downloadURL,
+                status: 'SIGNED',
+                updatedAt: Timestamp.now()
+            });
+
+            toast({ title: "Амжилттай", description: "Эх хувь баталгаажиж, процесс дууслаа" });
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Алдаа", description: "Файл хуулахад алдаа гарлаа", variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+            // Reset input
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -364,51 +483,76 @@ export default function DocumentDetailPage({ params }: PageProps) {
                             </CardHeader>
                             <CardContent className="p-4 space-y-4">
                                 {currentStatus === 'DRAFT' && (
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-400">Хянагч нэмэх</Label>
-                                        <div className="flex gap-2">
-                                            <Select onValueChange={(posId) => {
-                                                const pos = occupiedPositions.find((p: any) => p?.id === posId);
-                                                const uid = pos?.occupant?.id;
-                                                if (uid && !reviewers.includes(uid)) {
-                                                    setReviewers([...reviewers, uid]);
-                                                }
-                                            }}>
-                                                <SelectTrigger className="text-xs h-9">
-                                                    <Plus className="h-3 w-3 mr-1" /> Ажлын байраар сонгох
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {occupiedPositions?.map(p => {
-                                                        const pos = p as any;
-                                                        return (
-                                                            <SelectItem key={pos.id} value={pos.id}>
-                                                                {pos.title} ({pos.occupant?.firstName} {pos.occupant?.lastName})
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                            <Label className="text-xs font-bold text-slate-700">Хянуулах шаардлагатай</Label>
+                                            <Switch
+                                                checked={isReviewRequired}
+                                                onCheckedChange={(checked) => {
+                                                    setIsReviewRequired(checked);
+                                                    if (!checked) setReviewers([]); // Clear reviewers if not required logic prefers
+                                                }}
+                                            />
                                         </div>
+
+                                        {isReviewRequired && (
+                                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <Label className="text-[10px] uppercase font-bold text-slate-400">Албан тушаалаар сонгох</Label>
+                                                <Select onValueChange={(posId) => {
+                                                    if (posId && !reviewers.includes(posId)) {
+                                                        setReviewers([...reviewers, posId]);
+                                                    }
+                                                }}>
+                                                    <SelectTrigger className="text-xs h-9 bg-slate-50 border-slate-200">
+                                                        <Briefcase className="h-3 w-3 mr-2 text-slate-400" />
+                                                        <SelectValue placeholder="Сонгох..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {occupiedPositions?.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-slate-400 text-center">Сонгох боломжтой албан тушаал алга</div>
+                                                        ) : (
+                                                            occupiedPositions?.map(p => {
+                                                                const pos = p as any;
+                                                                return (
+                                                                    <SelectItem key={pos.id} value={pos.id}>
+                                                                        <span className="font-bold">{pos.title}</span> <span className="text-slate-400">- {pos.occupant?.firstName}</span>
+                                                                    </SelectItem>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-[10px] text-slate-400 pt-1">
+                                                    * Зөвхөн ажилтан томилогдсон ажлын байр харагдана.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 <div className="space-y-3 pt-2">
-                                    {reviewers.map((uid, idx) => {
-                                        const rUser = employeesList?.find(u => u.id === uid);
-                                        const status = document.approvalStatus?.[uid];
+                                    {reviewers.map((rid, idx) => {
+                                        const pos = allPositions?.find(p => p.id === rid);
+                                        const occupant = employeesList?.find(u => u.positionId === rid || u.id === rid);
+                                        const status = document.approvalStatus?.[occupant?.id || rid];
 
                                         return (
-                                            <div key={uid} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 group">
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-7 w-7 border">
-                                                        <AvatarImage src={rUser?.photoURL} />
-                                                        <AvatarFallback className="text-[10px]">{rUser?.firstName?.charAt(0)}</AvatarFallback>
+                                            <div key={rid} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 group">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <Avatar className="h-7 w-7 border shrink-0">
+                                                        <AvatarImage src={occupant?.photoURL} />
+                                                        <AvatarFallback className="text-[10px]">{pos?.title?.charAt(0) || '?'}</AvatarFallback>
                                                     </Avatar>
-                                                    <div>
-                                                        <div className="text-[11px] font-bold line-clamp-1">{rUser?.firstName} {rUser?.lastName}</div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter truncate">
+                                                            {pos?.title || 'Тодорхойгүй талбар'}
+                                                        </div>
+                                                        <div className="text-[11px] font-bold text-slate-800 truncate">
+                                                            {occupant ? `${occupant.firstName} ${occupant.lastName}` : 'Сул орон тоо'}
+                                                        </div>
                                                         {status && (
                                                             <div className={cn(
-                                                                "text-[9px] font-bold uppercase",
+                                                                "text-[9px] font-bold uppercase mt-0.5",
                                                                 status.status === 'APPROVED' ? "text-emerald-500" :
                                                                     status.status === 'REJECTED' ? "text-rose-500" : "text-amber-500"
                                                             )}>
@@ -418,12 +562,12 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                                     </div>
                                                 </div>
                                                 {currentStatus === 'DRAFT' && (
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-500" onClick={() => setReviewers(reviewers.filter(r => r !== uid))}>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-500" onClick={() => setReviewers(reviewers.filter(r => r !== rid))}>
                                                         <X className="h-3 w-3" />
                                                     </Button>
                                                 )}
-                                                {status?.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                                                {status?.status === 'REJECTED' && <XCircle className="h-4 w-4 text-rose-500" />}
+                                                {status?.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                                                {status?.status === 'REJECTED' && <XCircle className="h-4 w-4 text-rose-500 shrink-0" />}
                                             </div>
                                         );
                                     })}
@@ -468,10 +612,12 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                 <div className="flex items-center gap-2">
                                     {currentStatus === 'DRAFT' && (
                                         <>
-                                            <Button variant="outline" size="sm" className="text-rose-600 hover:bg-rose-50 border-rose-200" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving}>
-                                                <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                Устгах
-                                            </Button>
+                                            {(template?.isDeletable ?? true) && (
+                                                <Button variant="outline" size="sm" className="text-rose-600 hover:bg-rose-50 border-rose-200" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving}>
+                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                    Устгах
+                                                </Button>
+                                            )}
                                             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSaving}>
                                                 {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5 mr-2" />}
                                                 Хадгалах
@@ -500,22 +646,57 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                             </Button>
                                         </>
                                     )}
+                                    {currentStatus === 'REVIEWED' && isOwner && (
+                                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleFinalApprove} disabled={isSaving}>
+                                            <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+                                            Эцэслэн батлах
+                                        </Button>
+                                    )}
                                     {currentStatus === 'APPROVED' && (
-                                        <Button variant="outline" size="sm" className="border-slate-300">
-                                            <Upload className="h-3.5 w-3.5 mr-2" />
-                                            Эх хувийг хавсаргах
+                                        <>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                onChange={handleFileUpload}
+                                            />
+                                            <Button variant="outline" size="sm" className="border-slate-300" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                                                {isUploading ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-2" /> : <Upload className="h-3.5 w-3.5 mr-2" />}
+                                                {isUploading ? 'Хуулж байна...' : 'Эх хувийг хавсаргах'}
+                                            </Button>
+                                        </>
+                                    )}
+                                    {currentStatus === 'SIGNED' && document.signedDocUrl && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                            onClick={() => window.open(document.signedDocUrl, '_blank')}
+                                        >
+                                            <FileText className="h-3.5 w-3.5 mr-2" />
+                                            Эх хувийг харах
                                         </Button>
                                     )}
                                     <div className="h-6 w-px bg-slate-200 mx-2" />
-                                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handlePrint && handlePrint()}>
                                         <Printer className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handlePrint && handlePrint()}>
                                         <Download className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Hidden Print Layout */}
+                        <div style={{ display: 'none' }}>
+                            <PrintLayout
+                                ref={printComponentRef}
+                                content={editContent || document.content || ''}
+                                settings={document?.metadata?.printSettings}
+                            />
+                        </div>
 
                         {/* Document Content */}
                         <Card className="border-none shadow-lg bg-white overflow-hidden min-h-[800px]">
@@ -585,8 +766,9 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                 </CardHeader>
                                 <CardContent className="p-4 space-y-4">
                                     {Object.entries(document.approvalStatus || {}).map(([uid, data]: [string, any]) => {
-                                        const rUser = employeesList?.find(u => u.id === uid);
-                                        if (data.status === 'PENDING' && currentStatus === 'IN_REVIEW') return null;
+                                        const rUser = employeesList?.find(u => u.id === uid || u.id === data.actorId || u.positionId === uid);
+                                        // Still show even if pending so creator knows who is outstanding
+                                        // if (data.status === 'PENDING' && currentStatus === 'IN_REVIEW') return null;
 
                                         return (
                                             <div key={uid} className="flex gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
@@ -596,15 +778,21 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                                 </Avatar>
                                                 <div className="space-y-2 flex-1">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="font-bold text-slate-900">{rUser?.firstName} {rUser?.lastName}</div>
+                                                        <div className="font-bold text-slate-900">
+                                                            {rUser ? `${rUser.firstName} ${rUser.lastName}` : (allPositions?.find(p => p.id === uid)?.title || 'Батлах түвшин')}
+                                                        </div>
                                                         <div className="text-[10px] text-slate-400">{formatDateTime(data.updatedAt)}</div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Badge className={cn(
                                                             "text-[10px] py-0 h-5",
-                                                            data.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                                                            data.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
+                                                                data.status === 'REJECTED' ? "bg-rose-100 text-rose-700" :
+                                                                    "bg-amber-100 text-amber-700"
                                                         )}>
-                                                            {data.status === 'APPROVED' ? 'Батлагдсан' : 'Буцаасан'}
+                                                            {data.status === 'APPROVED' ? 'Батлагдсан' :
+                                                                data.status === 'REJECTED' ? 'Буцаасан' :
+                                                                    'Хүлээгдэж буй'}
                                                         </Badge>
                                                     </div>
                                                     {data.comment && (

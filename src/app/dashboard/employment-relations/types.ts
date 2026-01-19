@@ -1,4 +1,4 @@
-export type DocumentStatus = 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
+export type DocumentStatus = 'DRAFT' | 'IN_REVIEW' | 'REVIEWED' | 'APPROVED' | 'SIGNED' | 'REJECTED' | 'ARCHIVED';
 export type ActionType = 'REVIEW' | 'APPROVE' | 'SIGN' | 'ARCHIVE' | 'CREATE' | 'UPDATE' | 'REJECT';
 export type ApproverRole = 'MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | 'EMPLOYEE' | 'SPECIFIC_USER' | 'POSITION';
 
@@ -38,12 +38,14 @@ export interface ERTemplate {
     requiredFields: string[];
     version: number;
     isActive: boolean;
+    isDeletable?: boolean;
     printSettings?: PrintSettings;
     customInputs?: {
         key: string;
         label: string;
         description?: string;
         required?: boolean;
+        type: 'text' | 'number' | 'date' | 'boolean';
     }[];
     createdAt?: any;
     updatedAt?: any;
@@ -94,6 +96,7 @@ export interface ERDocument {
     approvalStatus?: Record<string, {
         status: 'PENDING' | 'APPROVED' | 'REJECTED';
         comment?: string;
+        actorId?: string;
         updatedAt: any;
     }>;
     rejectionReason?: string;
@@ -139,7 +142,9 @@ export interface StatusConfig {
 export const DOCUMENT_STATUSES: Record<DocumentStatus, StatusConfig> = {
     DRAFT: { label: 'Ноорог', color: 'bg-slate-100 text-slate-700' },
     IN_REVIEW: { label: 'Хянагдаж буй', color: 'bg-indigo-100 text-indigo-700' },
-    APPROVED: { label: 'Батлагдсан', color: 'bg-green-100 text-green-700' }, // Final state with signed doc
+    REVIEWED: { label: 'Хянагдсан', color: 'bg-blue-100 text-blue-700' },
+    APPROVED: { label: 'Батлагдсан', color: 'bg-green-100 text-green-700' },
+    SIGNED: { label: 'Баталгаажсан', color: 'bg-emerald-100 text-emerald-800' },
     REJECTED: { label: 'Татгалзсан', color: 'bg-red-100 text-red-700' },
     ARCHIVED: { label: 'Архивлагдсан', color: 'bg-gray-100 text-gray-700' },
 };
