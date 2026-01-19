@@ -13,7 +13,7 @@ import {
     Loader2, ArrowLeft, CheckCircle2, Circle, Clock,
     User, Briefcase, Building2, Send, Save, Undo2,
     MessageSquare, Check, X, Upload, Printer, Download,
-    Search, Plus, Trash2, FileText, Sparkles, Users, XCircle, AlertCircle
+    Search, Plus, Trash2, FileText, Sparkles, Users, XCircle, AlertCircle, Wand2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -64,6 +64,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
     const [selectedPos, setSelectedPos] = useState<string>('');
     const [reviewers, setReviewers] = useState<string[]>([]);
     const [isReviewRequired, setIsReviewRequired] = useState(true);
+    const [customInputValues, setCustomInputValues] = useState<Record<string, any>>({});
 
     const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
     const { data: departments } = useCollection<any>(departmentsQuery);
@@ -102,6 +103,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
     // UI States
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Print Handling
@@ -121,7 +123,10 @@ export default function DocumentDetailPage({ params }: PageProps) {
             if (!selectedPos) setSelectedPos(document.positionId || '');
             if (reviewers.length === 0) setReviewers(document.reviewers || []);
 
-            if (reviewers.length === 0) setReviewers(document.reviewers || []);
+            // Initialize custom inputs if not set
+            if (Object.keys(customInputValues).length === 0 && document.customInputs) {
+                setCustomInputValues(document.customInputs);
+            }
 
             if (document.employeeId && !selectedEmployee) {
                 getDoc(doc(firestore!, 'employees', document.employeeId)).then(snap => {
@@ -141,14 +146,13 @@ export default function DocumentDetailPage({ params }: PageProps) {
     }, [currentUserProfile]);
 
     const isApprover = useMemo(() => {
-        if (isAdmin) return true;
         if (!document?.reviewers || !currentUserProfile) return false;
         // Check if user's position matches any reviewer position
         return document.reviewers.some(rid =>
             rid === currentUserProfile.positionId ||
             rid === currentUserProfile.id // Keep support for direct UID if needed
         );
-    }, [document?.reviewers, currentUserProfile, isAdmin]);
+    }, [document?.reviewers, currentUserProfile]);
 
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
@@ -165,6 +169,15 @@ export default function DocumentDetailPage({ params }: PageProps) {
         { id: 'APPROVED', label: 'Батлагдсан', icon: FileText, color: 'text-emerald-600' },
     ];
 
+    const restoreTemplateContent = () => {
+        if (!template?.content) {
+            toast({ title: "Алдаа", description: "Эх загвар олдсонгүй", variant: "destructive" });
+            return;
+        }
+        setEditContent(template.content);
+        toast({ title: "Сэргээгдлээ", description: "Баримтын агуулгыг анхны эх загвараар сольж сэргээлээ." });
+    };
+
     const handleSaveDraft = async () => {
         if (!docRef) return;
         setIsSaving(true);
@@ -174,6 +187,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                 departmentId: selectedDept,
                 positionId: selectedPos,
                 reviewers: reviewers,
+                customInputs: customInputValues, // Added this
                 metadata: {
                     ...document.metadata,
                     departmentName: departments?.find(d => d.id === selectedDept)?.name,
@@ -211,11 +225,8 @@ export default function DocumentDetailPage({ params }: PageProps) {
                 });
             }
 
-            // If review is not required, jump straight to APPROVED (or REVIEWED if simpler, but APPROVED fits 'skip' better)
-            // But usually 'Send for Review' implies starting a process. 
-            // If No Review Required -> Document becomes Valid immediately? 
-            // Let's assume 'APPROVED' as the final valid state.
-            const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'APPROVED';
+            // If review is not required, jump straight to REVIEWED to allow uploading original document
+            const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'REVIEWED';
 
             await updateDoc(docRef, {
                 status: nextStatus,
@@ -229,13 +240,13 @@ export default function DocumentDetailPage({ params }: PageProps) {
             await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
-                content: nextStatus === 'APPROVED' ? 'Шууд батлагдав' : 'Хянахаар илгээв',
+                content: nextStatus === 'REVIEWED' ? 'Хянагдсан төлөвт шилжив' : 'Хянахаар илгээв',
                 createdAt: Timestamp.now()
             });
 
             toast({
-                title: nextStatus === 'APPROVED' ? "Батлагдлаа" : "Илгээгдлээ",
-                description: nextStatus === 'APPROVED' ? "Хянах шат алгасан шууд батлагдлаа" : "Баримт хянах шат руу шилжлээ"
+                title: nextStatus === 'REVIEWED' ? "Хянагдсан" : "Илгээгдлээ",
+                description: nextStatus === 'REVIEWED' ? "Хянах шат алгасан хянагдсан төлөвт шилжлээ. Одоо эх хувийг хавсаргана уу." : "Баримт хянах шат руу шилжлээ"
             });
         } catch (e) {
             toast({ title: "Алдаа", description: "Илгээхэд алдаа гарлаа", variant: "destructive" });
@@ -297,6 +308,17 @@ export default function DocumentDetailPage({ params }: PageProps) {
 
     const handleFinalApprove = async () => {
         if (!docRef) return;
+
+        // Enforce original copy check
+        if (!document.signedDocUrl) {
+            toast({
+                title: "Анхааруулга",
+                description: "Баримтыг эцэслэн батлахын тулд эх хувийг (сканнердсан хувилбар) заавал хавсаргасан байх ёстой.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         setIsSaving(true);
         try {
             await updateDoc(docRef, {
@@ -560,6 +582,48 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Custom Inputs Editing Section - Only in Draft/Review */}
+                        {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && template?.customInputs && template.customInputs.length > 0 && (
+                            <Card className="border-none shadow-sm bg-white overflow-hidden">
+                                <CardHeader className="bg-primary/5 p-4 border-b">
+                                    <CardTitle className="text-xs font-bold flex items-center gap-2 text-primary">
+                                        <Wand2 className="h-4 w-4" /> Шаардлагатай утгууд
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-4">
+                                    {[...(template.customInputs || [])]
+                                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                        .map(input => (
+                                            <div key={input.key} className="space-y-1.5">
+                                                <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                                                    <span>{input.label} {input.required && <span className="text-rose-500">*</span>}</span>
+                                                    {input.type === 'boolean' && (
+                                                        <Switch
+                                                            checked={customInputValues[input.key] === 'Тийм'}
+                                                            onCheckedChange={(c) => setCustomInputValues(prev => ({ ...prev, [input.key]: c ? 'Тийм' : 'Үгүй' }))}
+                                                        />
+                                                    )}
+                                                </Label>
+
+                                                {input.type !== 'boolean' && (
+                                                    <Input
+                                                        type={input.type === 'number' ? 'number' : input.type === 'date' ? 'date' : 'text'}
+                                                        value={customInputValues[input.key] || ''}
+                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                        placeholder={input.description || `${input.label} оруулна уу...`}
+                                                        className="h-9 text-xs border-slate-200 focus:border-primary focus:ring-primary/10 bg-slate-50/30"
+                                                    />
+                                                )}
+                                                {input.type === 'boolean' && (
+                                                    <p className="text-[9px] text-muted-foreground">{input.description || 'Сонголтыг идэвхжүүлэх эсвэл цуцлах'}</p>
+                                                )}
+                                            </div>
+                                        ))
+                                    }
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
 
                     {/* Main Content: Content & Collaboration */}
@@ -658,6 +722,17 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                             Эх хувийг харах
                                         </Button>
                                     )}
+                                    {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-9 w-9 bg-primary/5 text-primary border-primary/20 hover:bg-primary/10"
+                                            onClick={() => setIsEditorOpen(true)}
+                                            title="Загварчлах"
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                     <div className="h-6 w-px bg-slate-200 mx-2" />
                                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handlePrint && handlePrint()}>
                                         <Printer className="h-4 w-4" />
@@ -679,45 +754,28 @@ export default function DocumentDetailPage({ params }: PageProps) {
                         </div>
 
                         {/* Document Content */}
-                        <Card className="border-none shadow-lg bg-white overflow-hidden min-h-[800px]">
-                            <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-                                <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-primary" /> Баримтын агуулга
-                                </CardTitle>
-                                {currentStatus !== 'DRAFT' && currentStatus !== 'IN_REVIEW' && <Badge variant="outline" className="text-[10px] uppercase font-bold text-slate-400">Зөвхөн харах</Badge>}
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {/* Editable in DRAFT and IN_REVIEW */}
-                                {currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW' ? (
-                                    <div className="p-8">
-                                        <TemplateBuilder
-                                            content={editContent}
-                                            onChange={setEditContent}
-                                            resolvers={getReplacementMap({
-                                                employee: selectedEmployee,
-                                                department: departments?.find(d => d.id === selectedDept),
-                                                position: positions?.find(p => p.id === selectedPos),
-                                                company: companyProfile,
-                                                system: {
-                                                    date: format(new Date(), 'yyyy-MM-dd'),
-                                                    year: format(new Date(), 'yyyy'),
-                                                    month: format(new Date(), 'MM'),
-                                                    day: format(new Date(), 'dd'),
-                                                    user: currentUser?.displayName || 'Системийн хэрэглэгч'
-                                                },
-                                                customInputs: document.customInputs
-                                            })}
-                                            printSettings={document.printSettings}
-                                            customInputs={template?.customInputs || []}
-                                        />
+                        <Card className="border-none shadow-xl bg-white overflow-hidden min-h-[850px] flex flex-col">
+                            <CardHeader className="p-4 px-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                        <Sparkles className="h-4 w-4 text-primary" />
                                     </div>
-                                ) : (
-                                    <div className="bg-slate-200/30 p-12 min-h-[600px] flex justify-center overflow-auto">
+                                    <div>
+                                        <CardTitle className="text-sm font-black tracking-tight uppercase">Урьдчилан харах</CardTitle>
+                                        <p className="text-[10px] text-muted-foreground font-bold">Баримтын бодит харагдац</p>
+                                    </div>
+                                </div>
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] uppercase font-bold px-2 py-0.5 animate-pulse">
+                                    Live Preview
+                                </Badge>
+                            </CardHeader>
+                            <CardContent className="p-0 flex-1 overflow-hidden">
+                                <div className="bg-slate-200/40 p-12 h-full flex justify-center overflow-auto scrollbar-thin">
+                                    <div className="flex flex-col items-center">
                                         <div
-                                            className="bg-white shadow-2xl p-[20mm] prose prose-slate max-w-none w-[210mm] min-h-[297mm] ring-1 ring-slate-900/5 relative"
+                                            className="bg-white shadow-2xl p-[20mm] prose prose-slate max-w-none w-[210mm] min-h-[297mm] ring-1 ring-slate-900/10 relative transition-all duration-500 animate-in fade-in zoom-in-95"
                                             dangerouslySetInnerHTML={{
-                                                // Even in review/approved, we should probably resolve if any are left
-                                                __html: generateDocumentContent(document.content, {
+                                                __html: generateDocumentContent(editContent || document.content, {
                                                     employee: selectedEmployee,
                                                     department: departments?.find(d => d.id === selectedDept),
                                                     position: positions?.find(p => p.id === selectedPos),
@@ -729,14 +787,71 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                                         day: format(new Date(), 'dd'),
                                                         user: currentUser?.displayName || 'Системийн хэрэглэгч'
                                                     },
-                                                    customInputs: document.customInputs
+                                                    customInputs: customInputValues
                                                 }).replace(/\n/g, '<br/>')
                                             }}
                                         />
                                     </div>
-                                )}
+                                </div>
                             </CardContent>
                         </Card>
+
+                        {/* Editor Dialog */}
+                        <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+                            <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0 overflow-hidden">
+                                <DialogHeader className="p-6 border-b bg-slate-50 shrink-0">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <DialogTitle className="text-lg font-black tracking-tight uppercase">Загварчлах горим</DialogTitle>
+                                                <p className="text-xs text-muted-foreground">Баримтын анхны эх кодыг засах хэсэг</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 mr-8">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-9 text-xs font-bold text-slate-500"
+                                                onClick={restoreTemplateContent}
+                                            >
+                                                <Undo2 className="h-4 w-4 mr-2" /> Загвар сэргээх
+                                            </Button>
+                                            <Button
+                                                className="h-9 text-xs font-bold px-6"
+                                                onClick={() => setIsEditorOpen(false)}
+                                            >
+                                                <Check className="h-4 w-4 mr-2" /> Дуусгах
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </DialogHeader>
+                                <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50">
+                                    <TemplateBuilder
+                                        content={editContent}
+                                        onChange={setEditContent}
+                                        resolvers={getReplacementMap({
+                                            employee: selectedEmployee,
+                                            department: departments?.find(d => d.id === selectedDept),
+                                            position: positions?.find(p => p.id === selectedPos),
+                                            company: companyProfile,
+                                            system: {
+                                                date: format(new Date(), 'yyyy-MM-dd'),
+                                                year: format(new Date(), 'yyyy'),
+                                                month: format(new Date(), 'MM'),
+                                                day: format(new Date(), 'dd'),
+                                                user: currentUser?.displayName || 'Системийн хэрэглэгч'
+                                            },
+                                            customInputs: customInputValues
+                                        })}
+                                        printSettings={document.printSettings}
+                                        customInputs={template?.customInputs || []}
+                                    />
+                                </div>
+                            </DialogContent>
+                        </Dialog>
 
                         {/* Review History / Comments (Visible in Review & Approved) */}
                         {currentStatus !== 'DRAFT' && (
@@ -752,9 +867,9 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         employeesList={employeesList || []}
                                         isApprover={isApprover}
                                         isAdmin={isAdmin}
-                                        canApprove={currentStatus === 'IN_REVIEW' && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED'}
+                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED'}
                                         onApprove={handleApprove}
-                                        canFinalApprove={(isOwner || isAdmin) && (currentStatus === 'REVIEWED' || (currentStatus === 'IN_REVIEW' && (!document.reviewers || document.reviewers.length === 0)))}
+                                        canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}
                                     />
                                 </CardContent>

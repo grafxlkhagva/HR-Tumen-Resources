@@ -85,8 +85,9 @@ export function getReplacementMap(data: {
     // Add custom inputs to the map
     if (data.customInputs) {
         Object.entries(data.customInputs).forEach(([key, value]) => {
-            const fullKey = `{{${key}}}`;
-            map[fullKey] = value !== undefined && value !== null && value !== '' ? String(value) : '________________';
+            const valStr = value !== undefined && value !== null && value !== '' ? String(value) : '________________';
+            map[`{{${key}}}`] = valStr;
+            map[`{{custom.${key}}}`] = valStr; // Handle the custom. prefix as well
         });
     }
 
@@ -97,15 +98,18 @@ export function generateDocumentContent(
     templateContent: string,
     data: Parameters<typeof getReplacementMap>[0]
 ): string {
-    let content = templateContent;
     const replacements = getReplacementMap(data);
 
-    // Replace all occurrences
-    Object.entries(replacements).forEach(([key, value]) => {
-        // Escape special regex chars in key (like braces)
-        const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-        content = content.replace(regex, value);
+    // Use a regex to find any sequence of 2+ curly braces wrapping a key
+    // This allows us to replace {{{key}}} or {{{{key}}}} entirely with the value,
+    // solving the 'extra braces' issue reported by users.
+    return (templateContent || '').replace(/{{+([^{}]+)}+/g, (match, inner) => {
+        const key = inner.trim();
+        // Check if {{key}} exists in our replacement map
+        const lookup = `{{${key}}}`;
+        if (replacements[lookup] !== undefined) {
+            return replacements[lookup];
+        }
+        return match; // Return original text if no replacement found
     });
-
-    return content;
 }

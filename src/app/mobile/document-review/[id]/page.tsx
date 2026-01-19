@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { formatDateTime } from '../../../dashboard/employment-relations/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { generateDocumentContent, formatDateTime } from '../../../dashboard/employment-relations/utils';
+import { format } from 'date-fns';
+import { getDoc, getDocs } from 'firebase/firestore';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -80,6 +82,25 @@ export default function DocumentReviewDetailPage({ params }: PageProps) {
     const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
     const [actionType, setActionType] = useState<'APPROVE'>('APPROVE'); // Only Approve remaining for Dialog
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // Dynamic Data for resolution
+    const [companyProfile, setCompanyProfile] = useState<any>(null);
+    const [targetEmployee, setTargetEmployee] = useState<any>(null);
+
+    useEffect(() => {
+        if (!firestore) return;
+        getDocs(collection(firestore, 'company_profile')).then(snap => {
+            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        });
+    }, [firestore]);
+
+    useEffect(() => {
+        if (document?.employeeId && firestore) {
+            getDoc(doc(firestore, 'employees', document.employeeId)).then(snap => {
+                if (snap.exists()) setTargetEmployee({ id: snap.id, ...snap.data() });
+            });
+        }
+    }, [document?.employeeId, firestore]);
 
     // Current User Status
     const myReviewStatus = useMemo(() => {
@@ -234,9 +255,22 @@ export default function DocumentReviewDetailPage({ params }: PageProps) {
                             </div>
                             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Баримтын агуулга</h2>
                         </div>
-                        <div className="prose prose-slate prose-sm max-w-none bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                        <div className="prose prose-slate prose-sm max-w-none bg-slate-50/50 p-4 rounded-2xl border border-slate-100 min-h-[400px]">
                             <div
-                                dangerouslySetInnerHTML={{ __html: document.content?.replace(/\n/g, '<br/>') || '' }}
+                                dangerouslySetInnerHTML={{
+                                    __html: generateDocumentContent(document.content || '', {
+                                        employee: targetEmployee,
+                                        company: companyProfile,
+                                        system: {
+                                            date: format(new Date(), 'yyyy-MM-dd'),
+                                            year: format(new Date(), 'yyyy'),
+                                            month: format(new Date(), 'MM'),
+                                            day: format(new Date(), 'dd'),
+                                            user: employeeProfile?.firstName || 'Системийн хэрэглэгч'
+                                        },
+                                        customInputs: document.customInputs
+                                    }).replace(/\n/g, '<br/>')
+                                }}
                             />
                         </div>
                     </div>

@@ -48,9 +48,9 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
     const customFieldsForSelector = React.useMemo(() => {
         if (!customInputs || !Array.isArray(customInputs)) return [];
         return customInputs.map(input => ({
-            key: `custom.${input.id}`,
+            key: `custom.${input.key}`,
             label: input.label,
-            example: input.placeholder || '',
+            example: input.description || '',
             type: input.type
         }));
     }, [customInputs]);
