@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { DynamicFieldSelector } from './dynamic-field-selector';
 import { Label } from '@/components/ui/label';
-import { QrCode, Building2 } from 'lucide-react';
+import { QrCode, Building2, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { PrintSettings } from '../types';
 
@@ -15,14 +15,16 @@ interface TemplateBuilderProps {
     resolvers?: Record<string, string>; // Map of {{field}} -> "Real Value"
     printSettings?: PrintSettings;
     companyProfile?: any;
+    customInputs?: any[]; // Array of definitions { id, label, type ... }
 }
 
-export function TemplateBuilder({ content, onChange, resolvers, printSettings, companyProfile }: TemplateBuilderProps) {
+export function TemplateBuilder({ content, onChange, resolvers, printSettings, companyProfile, customInputs }: TemplateBuilderProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [isFieldsOpen, setIsFieldsOpen] = React.useState(false); // Default to collapsed as requested "too much space"
 
     const handleInsertField = (field: string) => {
-        // If resolvers exist and contain the field, insert the real value. Otherwise insert the placeholder.
-        const textToInsert = (resolvers && resolvers[field]) ? resolvers[field] : field;
+        // ... existing logic ...
+        const textToInsert = `{{${field}}}`; // Always insert as placeholder tag for editing
 
         const textarea = textareaRef.current;
         if (!textarea) return;
@@ -36,15 +38,26 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
         const newContent = before + textToInsert + after;
         onChange(newContent);
 
-        // Restore cursor position after update
         setTimeout(() => {
             textarea.focus();
             textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
         }, 0);
     };
 
+    // ... customFieldsForSelector logic ...
+    const customFieldsForSelector = React.useMemo(() => {
+        if (!customInputs || !Array.isArray(customInputs)) return [];
+        return customInputs.map(input => ({
+            key: `custom.${input.id}`,
+            label: input.label,
+            example: input.placeholder || '',
+            type: input.type
+        }));
+    }, [customInputs]);
+
     return (
         <div className="space-y-6">
+            {/* ... Content Editor ... */}
             <div className="flex items-center justify-between">
                 <Label className="text-lg font-bold">Баримтын агуулга</Label>
                 <div className="text-xs text-muted-foreground bg-slate-100 px-3 py-1 rounded-full">
@@ -62,7 +75,7 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                         padding: printSettings ? `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm` : '20mm'
                     }}
                 >
-                    {/* Watermark Overlay */}
+                    {/* ... Watermark ... */}
                     {printSettings?.watermark && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] select-none overflow-hidden">
                             <span className="text-[120px] font-black tracking-tighter -rotate-45 whitespace-nowrap uppercase">
@@ -72,7 +85,7 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                     )}
 
                     <CardContent className="p-0 h-full flex flex-col relative z-10 bg-transparent">
-                        {/* Professional Structured Header */}
+                        {/* ... Header ... */}
                         {(printSettings?.showLogo || printSettings?.companyName || printSettings?.documentTitle) && (
                             <div className="mb-8 flex flex-col items-center text-center space-y-4">
                                 {printSettings?.showLogo && (
@@ -138,21 +151,39 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6 border-t">
-                <div className="lg:col-span-1 space-y-2">
-                    <Label className="text-base font-bold text-slate-900">Динамик талбарууд</Label>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                        Та хүссэн талбараа дээрх текст рүү чирч оруулж эсвэл жагсаалтаас сонгож нэмэх боломжтой. Сонгосон талбар нь тухайн ажилтны бодит мэдээллээр автоматаар солигдоно.
-                    </p>
-                    <div className="pt-2">
-                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-[10px] italic">
-                            Жишээ: <code>{`{{employee.firstName}}`}</code> гэж бичвэл ажилтны нэрээр солигдоно.
+            {/* Collapsible Dynamic Fields Section */}
+            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                <button
+                    onClick={() => setIsFieldsOpen(!isFieldsOpen)}
+                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                >
+                    <div className="flex items-center gap-2">
+                        {isFieldsOpen ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+                        <div>
+                            <span className="font-bold text-slate-700 text-sm">Динамик талбарууд ашиглах</span>
+                            {!isFieldsOpen && <p className="text-[10px] text-slate-400 font-normal">Баримтад ажилтан, байгууллагын мэдээллийг автоматаар бөглөх талбарууд</p>}
                         </div>
                     </div>
-                </div>
-                <div className="lg:col-span-2">
-                    <DynamicFieldSelector onSelect={handleInsertField} />
-                </div>
+                </button>
+
+                {isFieldsOpen && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
+                        <div className="lg:col-span-1 space-y-2">
+                            <Label className="text-base font-bold text-slate-900">Заавар</Label>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Та хүссэн талбараа дээрх текст рүү чирч оруулж эсвэл жагсаалтаас сонгож нэмэх боломжтой. Сонгосон талбар нь тухайн ажилтны бодит мэдээллээр автоматаар солигдоно.
+                            </p>
+                            <div className="pt-2">
+                                <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-[10px] italic">
+                                    Жишээ: <code>{`{{employee.firstName}}`}</code> гэж бичвэл ажилтны нэрээр солигдоно.
+                                </div>
+                            </div>
+                        </div>
+                        <div className="lg:col-span-2">
+                            <DynamicFieldSelector onSelect={handleInsertField} customFields={customFieldsForSelector} />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

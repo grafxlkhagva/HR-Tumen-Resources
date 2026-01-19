@@ -46,6 +46,7 @@ export interface ERTemplate {
         description?: string;
         required?: boolean;
         type: 'text' | 'number' | 'date' | 'boolean';
+        order: number;
     }[];
     createdAt?: any;
     updatedAt?: any;
@@ -102,6 +103,9 @@ export interface ERDocument {
     rejectionReason?: string;
     approverId?: string; // The final approver who uploads signed doc
     signedDocUrl?: string; // URL of the uploaded signed document
+
+    // New: Real-time Activity Feed
+    activity?: ProcessActivity[];
 }
 
 export interface ERDocumentHistory {
@@ -110,6 +114,15 @@ export interface ERDocumentHistory {
     actorId: string;
     timestamp: any;
     comment?: string;
+}
+
+export interface ProcessActivity {
+    id: string; // uuid
+    type: 'COMMENT' | 'APPROVE' | 'REJECT' | 'STATUS_CHANGE';
+    actorId: string;
+    content?: string;
+    recipientId?: string; // If replying to someone
+    createdAt: any;
 }
 
 export interface ERAttachment {

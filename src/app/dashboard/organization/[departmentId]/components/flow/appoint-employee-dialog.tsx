@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
@@ -24,6 +24,7 @@ import { generateDocumentContent } from '../../../../employment-relations/utils'
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ export function AppointEmployeeDialog({
     const [search, setSearch] = React.useState('');
     const [step, setStep] = React.useState(1);
     const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
+    const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
 
@@ -61,10 +63,10 @@ export function AppointEmployeeDialog({
 
     const { data: allEmployees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
 
-    // 2. Fetch System Appointment Action Config
+    // 2. Fetch System Appointment Action Config based on selection
     const actionConfigRef = React.useMemo(() =>
-        firestore ? doc(firestore, 'organization_actions', 'appointment') : null
-        , [firestore]);
+        firestore && selectedActionId ? doc(firestore, 'organization_actions', selectedActionId) : null
+        , [firestore, selectedActionId]);
     const { data: appointmentAction } = useDoc<any>(actionConfigRef);
 
     // 3. Fetch Template if configured
@@ -102,6 +104,7 @@ export function AppointEmployeeDialog({
         if (!open) {
             setStep(1);
             setSelectedEmployee(null);
+            setSelectedActionId(null);
             setSearch('');
             setCustomInputValues({});
         }
@@ -306,6 +309,41 @@ export function AppointEmployeeDialog({
                                 </div>
                             </ScrollArea>
                         </>
+                    ) : step === 2 ? (
+                        <ScrollArea className="flex-1">
+                            <div className="p-8 space-y-6">
+                                <div className="text-center space-y-2 mb-8">
+                                    <h3 className="text-lg font-bold text-slate-900">Томилгооны төрөл сонгох</h3>
+                                    <p className="text-sm text-muted-foreground">Тухайн ажилтанд тохирох томилгооны төрлийг сонгоно уу.</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    {[
+                                        { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', icon: UserPlus, color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
+                                        { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', icon: Clock, color: 'bg-amber-50 text-amber-600 border-amber-100' },
+                                        { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', icon: GitBranch, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+                                    ].map((type) => (
+                                        <button
+                                            key={type.id}
+                                            onClick={() => {
+                                                setSelectedActionId(type.id);
+                                                setStep(3);
+                                            }}
+                                            className="flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 bg-white hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-50 transition-all text-left group"
+                                        >
+                                            <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", type.color)}>
+                                                <type.icon className="h-6 w-6" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-slate-900">{type.name}</div>
+                                                <div className="text-xs text-muted-foreground mt-0.5">Томилгооны баримт үүсгэгдэх болно</div>
+                                            </div>
+                                            <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </ScrollArea>
                     ) : (
                         <ScrollArea className="flex-1">
                             <div className="p-8 space-y-6">
@@ -349,7 +387,7 @@ export function AppointEmployeeDialog({
                                                             <Label className="text-xs font-bold text-slate-600 ml-1">
                                                                 {input.label} {input.required && <span className="text-rose-500">*</span>}
                                                             </Label>
-                                                            {input.label === 'Томилогдсон огноо' ? (
+                                                            {input.type === 'date' ? (
                                                                 <Popover>
                                                                     <PopoverTrigger asChild>
                                                                         <Button
@@ -372,6 +410,22 @@ export function AppointEmployeeDialog({
                                                                         />
                                                                     </PopoverContent>
                                                                 </Popover>
+                                                            ) : input.type === 'number' ? (
+                                                                <Input
+                                                                    type="number"
+                                                                    value={customInputValues[input.key] || ''}
+                                                                    onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                                    placeholder={input.description || `${input.label} оруулна уу...`}
+                                                                    className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
+                                                                />
+                                                            ) : input.type === 'boolean' ? (
+                                                                <div className="flex items-center space-x-2 h-11 px-4 bg-slate-50/50 rounded-xl border border-slate-100">
+                                                                    <Switch
+                                                                        checked={!!customInputValues[input.key]}
+                                                                        onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.key]: checked }))}
+                                                                    />
+                                                                    <span className="text-sm text-slate-500">{customInputValues[input.key] ? 'Тийм' : 'Үгүй'}</span>
+                                                                </div>
                                                             ) : (
                                                                 <Input
                                                                     value={customInputValues[input.key] || ''}
@@ -436,7 +490,7 @@ export function AppointEmployeeDialog({
                         <div className="flex w-full gap-3">
                             <Button
                                 variant="outline"
-                                onClick={() => setStep(1)}
+                                onClick={() => setStep(step - 1)}
                                 className="flex-1 rounded-xl h-11 font-bold uppercase tracking-wider text-[10px]"
                                 disabled={isSubmitting}
                             >

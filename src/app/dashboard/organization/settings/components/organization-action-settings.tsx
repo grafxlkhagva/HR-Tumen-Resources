@@ -18,7 +18,9 @@ export function OrganizationActionSettings() {
 
     // Fixed System Actions
     const SYSTEM_ACTIONS = [
-        { id: 'appointment', name: 'Томилгоо хийх', description: 'Ажилтныг албан тушаалд томилох үед үүсэх баримт' }
+        { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', description: 'Үндсэн ажилтны томилгооны баримтын загвар' },
+        { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', description: 'Туршилтын хугацаатай томилгооны баримтын загвар' },
+        { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', description: 'Ажилтныг эргүүлэн томилох баримтын загвар' },
     ];
 
     // Fetch Actions from Firestore to get the configured templateId

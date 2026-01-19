@@ -9,29 +9,18 @@ import {
     X,
     Clock,
     Search,
-    MessageSquare,
     Loader2,
     CheckCircle2,
     Eye
 } from 'lucide-react';
 import { useFirebase, useCollection } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, where, doc, updateDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { ERDocument } from '../../dashboard/employment-relations/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-    DialogDescription
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '../../dashboard/employment-relations/utils';
 
@@ -39,16 +28,7 @@ export default function DocumentReviewPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
-    const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-
-    // Review Actions State
-    const [selectedDoc, setSelectedDoc] = useState<ERDocument | null>(null);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
-    const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | null>(null);
-    const [comment, setComment] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
 
     // Fetch documents based on the user's position
     const docsQuery = useMemo(() => {
@@ -74,70 +54,6 @@ export default function DocumentReviewPage() {
             doc.metadata?.employeeName?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [documents, searchTerm]);
-
-    const handleAction = async () => {
-        if (!selectedDoc || !actionType || !employeeProfile || !firestore) return;
-
-        setIsProcessing(true);
-        try {
-            const docRef = doc(firestore, 'er_documents', selectedDoc.id);
-            const newApprovalStatus = { ...(selectedDoc.approvalStatus || {}) };
-
-            // Find which reviewer record the current user matches (either by PID or UID)
-            const matchedReviewerKey = selectedDoc.reviewers?.find(rid =>
-                rid === employeeProfile.id || (employeeProfile.positionId && rid === employeeProfile.positionId)
-            );
-
-            if (matchedReviewerKey) {
-                newApprovalStatus[matchedReviewerKey] = {
-                    status: actionType === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-                    comment: comment,
-                    actorId: employeeProfile.id,
-                    updatedAt: Timestamp.now()
-                };
-            } else {
-                // Fallback for safety
-                newApprovalStatus[employeeProfile.id] = {
-                    status: actionType === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-                    comment: comment,
-                    updatedAt: Timestamp.now()
-                };
-            }
-
-            // Check if all designated reviewers have an approval
-            const allApproved = selectedDoc.reviewers?.every(rid =>
-                newApprovalStatus[rid]?.status === 'APPROVED'
-            );
-
-            const updateData: any = {
-                approvalStatus: newApprovalStatus,
-                updatedAt: Timestamp.now()
-            };
-
-            if (actionType === 'REJECT') {
-                updateData.status = 'DRAFT';
-                updateData.rejectionReason = comment;
-            } else if (allApproved) {
-                updateData.status = 'APPROVED';
-            }
-
-            await updateDoc(docRef, updateData);
-
-            toast({
-                title: actionType === 'APPROVE' ? "Батлагдлаа" : "Буцаагдлаа",
-                description: actionType === 'APPROVE' ? "Таны зөвшөөрөл бүртгэгдлээ" : "Баримтыг засвар руу буцаалаа"
-            });
-
-            setIsActionDialogOpen(false);
-            setComment('');
-            setSelectedDoc(null);
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsProcessing(false);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col pb-10">
@@ -246,6 +162,7 @@ export default function DocumentReviewPage() {
                                     "border-none shadow-premium overflow-hidden transition-all active:scale-[0.98] group relative rounded-3xl",
                                     isHandled ? "opacity-60" : "hover:border-primary/20"
                                 )}
+                                onClick={() => router.push(`/mobile/document-review/${doc.id}`)}
                             >
                                 <CardContent className="p-5 flex flex-col gap-4">
                                     <div className="flex justify-between items-start">
@@ -281,37 +198,10 @@ export default function DocumentReviewPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex gap-2 pt-1">
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            className="flex-1 h-10 rounded-xl bg-slate-50 font-bold text-[11px] text-slate-600 hover:bg-slate-100 transition-all border border-slate-100"
-                                            onClick={() => { setSelectedDoc(doc); setIsPreviewOpen(true); }}
-                                        >
-                                            <Eye className="h-3.5 w-3.5 mr-2" />
-                                            Унших
-                                        </Button>
-                                        {!isHandled && (
-                                            <div className="flex gap-2 flex-[2]">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="flex-1 h-10 rounded-xl border-rose-100 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all font-bold text-[11px]"
-                                                    onClick={() => { setSelectedDoc(doc); setActionType('REJECT'); setIsActionDialogOpen(true); }}
-                                                >
-                                                    <X className="h-3.5 w-3.5 mr-2" />
-                                                    Буцаах
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200 transition-all font-bold text-[11px]"
-                                                    onClick={() => { setSelectedDoc(doc); setActionType('APPROVE'); setIsActionDialogOpen(true); }}
-                                                >
-                                                    <Check className="h-3.5 w-3.5 mr-2" />
-                                                    Батлах
-                                                </Button>
-                                            </div>
-                                        )}
+                                    <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
+                                        <span className="text-[10px] font-bold text-primary flex items-center gap-1">
+                                            <Eye className="h-3 w-3" /> Дэлгэрэнгүй харах
+                                        </span>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -319,97 +209,6 @@ export default function DocumentReviewPage() {
                     })
                 )}
             </div>
-
-            {/* Preview Dialog */}
-            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-[95vw] h-[85vh] p-0 overflow-hidden flex flex-col rounded-[32px]">
-                    <DialogHeader className="p-6 border-b shrink-0">
-                        <DialogTitle className="text-lg font-bold truncate">{selectedDoc?.metadata?.templateName}</DialogTitle>
-                        <DialogDescription className="text-xs">{selectedDoc?.metadata?.employeeName}</DialogDescription>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-auto bg-slate-100/50 p-4 flex justify-center">
-                        <div
-                            className="bg-white p-6 shadow-sm w-full min-h-full rounded-2xl preview-content prose prose-slate prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: selectedDoc?.content?.replace(/\n/g, '<br/>') || '' }}
-                        />
-                    </div>
-                    <DialogFooter className="p-4 border-t shrink-0 flex gap-3 sm:justify-start">
-                        <Button
-                            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 font-bold"
-                            onClick={() => { setIsPreviewOpen(false); setActionType('APPROVE'); setIsActionDialogOpen(true); }}
-                        >
-                            Батлах
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="flex-1 h-12 rounded-2xl border-rose-100 text-rose-600 hover:bg-rose-50 font-bold"
-                            onClick={() => { setIsPreviewOpen(false); setActionType('REJECT'); setIsActionDialogOpen(true); }}
-                        >
-                            Буцаах
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Action Dialog (Approve/Reject with comment) */}
-            <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
-                <DialogContent className="max-w-[90vw] rounded-[32px] p-8">
-                    <DialogHeader className="space-y-4">
-                        <div className={cn(
-                            "h-16 w-16 rounded-[24px] flex items-center justify-center mx-auto mb-2",
-                            actionType === 'APPROVE' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                        )}>
-                            {actionType === 'APPROVE' ? <CheckCircle2 className="h-8 w-8" /> : <MessageSquare className="h-8 w-8" />}
-                        </div>
-                        <DialogTitle className="text-2xl font-black text-center tracking-tight">
-                            {actionType === 'APPROVE' ? 'Батлах уу?' : 'Буцаах уу?'}
-                        </DialogTitle>
-                        <DialogDescription className="text-center text-slate-500 font-medium leading-relaxed">
-                            {actionType === 'APPROVE'
-                                ? 'Та энэ бичиг баримтыг хянаж үзээд зөвшөөрч байгаа бол баталгаажуулна уу.'
-                                : 'Засварлах шаардлагатай мэдээллийг доорх коммент хэсэгт бичиж үлдээнэ үү.'}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="py-6">
-                        <Textarea
-                            placeholder={actionType === 'APPROVE' ? "Нэмэлт тайлбар (заавал биш)..." : "Засварлах шалтгаан (заавал)..."}
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            className="min-h-[140px] rounded-2xl bg-slate-50/50 border-slate-100 focus:ring-primary/10 transition-all p-4"
-                        />
-                    </div>
-
-                    <DialogFooter className="flex flex-col gap-3">
-                        <Button
-                            className={cn(
-                                "w-full h-14 rounded-2xl font-bold text-base shadow-lg transition-all active:scale-[0.98]",
-                                actionType === 'APPROVE' ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200" : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"
-                            )}
-                            disabled={isProcessing || (actionType === 'REJECT' && !comment)}
-                            onClick={handleAction}
-                        >
-                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                            {actionType === 'APPROVE' ? 'Батлах' : 'Буцаах'}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className="w-full h-12 rounded-2xl font-bold text-slate-400"
-                            onClick={() => { setIsActionDialogOpen(false); setComment(''); }}
-                        >
-                            Цуцлах
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <style jsx global>{`
-                .preview-content h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; }
-                .preview-content h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.5rem; }
-                .preview-content p { margin-bottom: 0.75rem; line-height: 1.6; }
-                .preview-content table { width: 100%; border-collapse: collapse; margin-block: 1rem; }
-                .preview-content td, .preview-content th { border: 1px solid #e2e8f0; padding: 0.5rem; }
-            `}</style>
         </div>
     );
 }

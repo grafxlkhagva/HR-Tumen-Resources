@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, Timestamp, doc } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 import { ERTemplate, ERDocumentType, PrintSettings } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +13,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Printer, Save, ArrowLeft, Plus, Trash2, Settings2 } from 'lucide-react';
+import { Printer, Save, ArrowLeft, Plus, Trash2, Settings2, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DynamicFieldSelector } from './dynamic-field-selector';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface TemplateFormProps {
     initialData?: Partial<ERTemplate>;
@@ -80,25 +98,85 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     };
 
     const addCustomInput = () => {
+        const currentInputs = formData.customInputs || [];
+        const nextOrder = currentInputs.length > 0
+            ? Math.max(...currentInputs.map(i => i.order || 0)) + 1
+            : 0;
+
         setFormData(prev => ({
             ...prev,
-            customInputs: [...(prev.customInputs || []), { key: '', label: '', description: '', required: true, type: 'text' }]
+            customInputs: [...currentInputs, { key: '', label: '', description: '', required: true, type: 'text', order: nextOrder }]
         }));
     };
 
-    const removeCustomInput = (index: number) => {
+    const removeCustomInput = (order: number) => {
         setFormData(prev => ({
             ...prev,
-            customInputs: prev.customInputs?.filter((_, i) => i !== index)
+            customInputs: prev.customInputs
+                ?.filter((input) => input.order !== order)
+                .map((input, idx) => ({ ...input, order: idx })) // Re-index order
         }));
     };
 
-    const updateCustomInput = (index: number, field: string, value: any) => {
+    const updateCustomInput = (order: number, field: string, value: any) => {
         setFormData(prev => {
-            const inputs = [...(prev.customInputs || [])];
-            inputs[index] = { ...inputs[index], [field]: value };
+            const inputs = prev.customInputs?.map(input =>
+                input.order === order ? { ...input, [field]: value } : input
+            );
             return { ...prev, customInputs: inputs };
         });
+    };
+
+    const moveCustomInput = (index: number, direction: 'up' | 'down') => {
+        setFormData(prev => {
+            const currentInputs = [...(prev.customInputs || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+            if (direction === 'up' && index > 0) {
+                const newInputs = arrayMove(currentInputs, index, index - 1);
+                // Update order properties
+                return {
+                    ...prev,
+                    customInputs: newInputs.map((input, idx) => ({ ...input, order: idx }))
+                };
+            } else if (direction === 'down' && index < currentInputs.length - 1) {
+                const newInputs = arrayMove(currentInputs, index, index + 1);
+                // Update order properties
+                return {
+                    ...prev,
+                    customInputs: newInputs.map((input, idx) => ({ ...input, order: idx }))
+                };
+            }
+            return prev;
+        });
+    };
+
+    // DND Hooks
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Require 8px of movement before starting drag (allows clicking)
+            }
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            setFormData((prev) => {
+                const currentInputs = [...(prev.customInputs || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+                const oldIndex = currentInputs.findIndex((i) => i.key === active.id || `input-${i.order}` === active.id);
+                const newIndex = currentInputs.findIndex((i) => i.key === over.id || `input-${i.order}` === over.id);
+
+                const newInputs = arrayMove(currentInputs, oldIndex, newIndex);
+                return {
+                    ...prev,
+                    customInputs: newInputs.map((input, idx) => ({ ...input, order: idx }))
+                };
+            });
+        }
     };
 
     const handleSubmit = async () => {
@@ -256,12 +334,14 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                             <DynamicFieldSelector
                                 onSelect={handleFieldSelect}
-                                customFields={formData.customInputs?.map((i, idx) => ({
-                                    key: i.key ? `{{${i.key}}}` : `{{new_field_${idx}}}`,
-                                    label: i.label || `New Field ${idx + 1}`,
-                                    example: i.description || '',
-                                    type: i.type || 'text'
-                                }))}
+                                customFields={[...(formData.customInputs || [])]
+                                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                    .map((i, idx) => ({
+                                        key: i.key ? `{{${i.key}}}` : `{{new_field_${idx}}}`,
+                                        label: i.label || `New Field ${idx + 1}`,
+                                        example: i.description || '',
+                                        type: i.type || 'text'
+                                    }))}
                             />
                         </CardContent>
                     </Card>
@@ -331,68 +411,33 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                             </div>
                         )}
 
-                        {formData.customInputs?.map((input, index) => (
-                            <div key={index} className="flex flex-col gap-4 p-4 bg-slate-50 border rounded-xl relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute top-2 right-2 text-rose-500 hover:bg-rose-50"
-                                    onClick={() => removeCustomInput(index)}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын нэр (Label)</Label>
-                                        <Input
-                                            value={input.label}
-                                            onChange={(e) => updateCustomInput(index, 'label', e.target.value)}
-                                            placeholder="Жишээ: Гэрээний дугаар"
-                                            className="bg-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Хувьсагчийн нэр (Key)</Label>
-                                        <div className="flex items-center gap-2">
-                                            <code className="text-primary font-bold">{"{{"}</code>
-                                            <Input
-                                                value={input.key}
-                                                onChange={(e) => updateCustomInput(index, 'key', e.target.value.replace(/\s+/g, '_'))}
-                                                placeholder="contract_number"
-                                                className="bg-white"
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={(formData.customInputs || []).map(i => i.key || `input-${i.order}`)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <div className="space-y-3">
+                                    {[...(formData.customInputs || [])]
+                                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                        .map((input, index, allInputs) => (
+                                            <SortableInputItem
+                                                key={input.key || `input-${input.order}`}
+                                                id={input.key || `input-${input.order}`}
+                                                input={input}
+                                                index={index}
+                                                isLast={index === allInputs.length - 1}
+                                                onUpdate={updateCustomInput}
+                                                onRemove={removeCustomInput}
+                                                onMove={moveCustomInput}
                                             />
-                                            <code className="text-primary font-bold">{"}}"}</code>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын төрөл</Label>
-                                        <Select
-                                            value={input.type || 'text'}
-                                            onValueChange={(val) => updateCustomInput(index, 'type', val)}
-                                        >
-                                            <SelectTrigger className="bg-white">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="text">Текст (Text)</SelectItem>
-                                                <SelectItem value="number">Тоо (Number)</SelectItem>
-                                                <SelectItem value="date">Огноо (Date)</SelectItem>
-                                                <SelectItem value="boolean">Тийм/Үгүй (Checkbox)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                        ))}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Тайлбар (Заавар)</Label>
-                                    <Input
-                                        value={input.description}
-                                        onChange={(e) => updateCustomInput(index, 'description', e.target.value)}
-                                        placeholder="Жишээ: Гэрээний дүрмийн дагуу дугаарыг оруулна уу"
-                                        className="bg-white"
-                                    />
-                                </div>
-                            </div>
-                        ))}
+                            </SortableContext>
+                        </DndContext>
                     </div>
                     <DialogFooter className="flex justify-between items-center sm:justify-between border-t pt-4">
                         <Button variant="outline" size="sm" onClick={addCustomInput}>
@@ -403,5 +448,139 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                 </DialogContent>
             </Dialog>
         </div >
+    );
+}
+
+function SortableInputItem({ id, input, index, isLast, onUpdate, onRemove, onMove }: {
+    id: string;
+    input: any;
+    index: number;
+    isLast: boolean;
+    onUpdate: (order: number, field: string, value: any) => void;
+    onRemove: (order: number) => void;
+    onMove: (index: number, direction: 'up' | 'down') => void;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 'auto',
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={cn(
+                "flex gap-4 p-4 bg-white border rounded-xl relative group hover:border-primary/30 transition-all shadow-sm",
+                isDragging && "shadow-2xl border-primary ring-2 ring-primary/10"
+            )}
+        >
+            {/* Left Handle Decor */}
+            <div
+                {...attributes}
+                {...listeners}
+                className="flex flex-col items-center justify-center text-slate-300 cursor-grab active:cursor-grabbing hover:text-primary transition-colors"
+                title="Чирч эрэмбэлэх"
+            >
+                <GripVertical className="h-5 w-5" />
+            </div>
+
+            <div className="flex-1 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын нэр (Label)</Label>
+                        <Input
+                            value={input.label}
+                            onChange={(e) => onUpdate(input.order, 'label', e.target.value)}
+                            placeholder="Жишээ: Гэрээний дугаар"
+                            className="bg-slate-50/50 border-slate-200 h-9 text-xs"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Хувьсагчийн нэр (Key)</Label>
+                        <div className="flex items-center gap-2">
+                            <code className="text-primary font-bold">{"{{"}</code>
+                            <Input
+                                value={input.key}
+                                onChange={(e) => onUpdate(input.order, 'key', e.target.value.replace(/\s+/g, '_'))}
+                                placeholder="contract_number"
+                                className="bg-slate-50/50 border-slate-200 h-9 text-xs"
+                            />
+                            <code className="text-primary font-bold">{"}}"}</code>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Утгын төрөл</Label>
+                        <Select
+                            value={input.type || 'text'}
+                            onValueChange={(val) => onUpdate(input.order, 'type', val)}
+                        >
+                            <SelectTrigger className="bg-slate-50/50 border-slate-200 h-9 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="text">Текст (Text)</SelectItem>
+                                <SelectItem value="number">Тоо (Number)</SelectItem>
+                                <SelectItem value="date">Огноо (Date)</SelectItem>
+                                <SelectItem value="boolean">Тийм/Үгүй (Checkbox)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Тайлбар (Заавар)</Label>
+                        <Input
+                            value={input.description}
+                            onChange={(e) => onUpdate(input.order, 'description', e.target.value)}
+                            placeholder="Заавал бөглөх утга"
+                            className="bg-slate-50/50 border-slate-200 h-9 text-xs"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Action Sidebar */}
+            <div className="flex flex-col gap-1 border-l pl-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
+                    onClick={() => onMove(index, 'up')}
+                    disabled={index === 0}
+                    title="Дээшлүүлэх"
+                >
+                    <ChevronUp className="h-5 w-5" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
+                    onClick={() => onMove(index, 'down')}
+                    disabled={isLast}
+                    title="Доошлуулах"
+                >
+                    <ChevronDown className="h-5 w-5" />
+                </Button>
+                <div className="flex-1 min-h-[4px]" />
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-rose-400 hover:text-rose-600 hover:bg-rose-50"
+                    onClick={() => onRemove(input.order)}
+                    title="Устгах"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
     );
 }

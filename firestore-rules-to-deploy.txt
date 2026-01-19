@@ -229,15 +229,11 @@ service cloud.firestore {
       // Update access:
       // - Creator can update their own DRAFT documents
       // - Reviewers can update approvalStatus when document is IN_REVIEW
-      // - Creator can finalize approval when status is REVIEWED
       // - Admins can update anything
       allow update: if isSignedIn() && (
         isAdmin() ||
         // Creator updating their own draft
         (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT') ||
-        // Creator finalizing approval when all reviewers approved
-        (request.auth.uid == resource.data.creatorId && resource.data.status == 'REVIEWED' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
         // Reviewer updating approval status
         (resource.data.status == 'IN_REVIEW' && 
          (request.auth.uid in resource.data.get('reviewers', []) ||
@@ -252,27 +248,6 @@ service cloud.firestore {
         isAdmin() ||
         (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT')
       );
-      // Activity Subcollection for Real-time History
-      match /activity/{activityId} {
-        // Read: Same as parent document (reviewers, creator, admin)
-        allow read: if isSignedIn() && (
-            isAdmin() ||
-            request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
-            request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.employeeId ||
-            request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
-            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
-        );
-
-        // Create: Reviewers and Creator can add comments/logs
-        allow create: if isSignedIn() && (
-            isAdmin() ||
-            request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
-            request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
-            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
-        );
-      }
     }
     
     // --- Recruitment Module Rules ---

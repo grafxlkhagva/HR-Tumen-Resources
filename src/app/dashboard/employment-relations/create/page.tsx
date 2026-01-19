@@ -306,32 +306,34 @@ export default function CreateDocumentPage() {
                                             <label className="text-sm font-bold uppercase tracking-wider">Шаардлагатай мэдээллүүд</label>
                                         </div>
                                         <div className="grid grid-cols-1 gap-4">
-                                            {selectedTemplateData.customInputs.map(input => (
-                                                <div key={input.key} className="space-y-1.5">
-                                                    <Label className="text-xs font-semibold text-slate-600 flex items-center justify-between">
-                                                        <span>{input.label} {input.required && <span className="text-rose-500">*</span>}</span>
-                                                        {input.type === 'boolean' && (
-                                                            <Switch
-                                                                checked={customInputValues[input.key] === 'Тийм'}
-                                                                onCheckedChange={(c) => setCustomInputValues(prev => ({ ...prev, [input.key]: c ? 'Тийм' : 'Үгүй' }))}
+                                            {[...(selectedTemplateData.customInputs || [])]
+                                                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                                .map(input => (
+                                                    <div key={input.key} className="space-y-1.5">
+                                                        <Label className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                                                            <span>{input.label} {input.required && <span className="text-rose-500">*</span>}</span>
+                                                            {input.type === 'boolean' && (
+                                                                <Switch
+                                                                    checked={customInputValues[input.key] === 'Тийм'}
+                                                                    onCheckedChange={(c) => setCustomInputValues(prev => ({ ...prev, [input.key]: c ? 'Тийм' : 'Үгүй' }))}
+                                                                />
+                                                            )}
+                                                        </Label>
+
+                                                        {input.type !== 'boolean' && (
+                                                            <Input
+                                                                type={input.type === 'number' ? 'number' : input.type === 'date' ? 'date' : 'text'}
+                                                                value={customInputValues[input.key] || ''}
+                                                                onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                                placeholder={input.description || `${input.label} оруулна уу...`}
+                                                                className="h-10 border-slate-200 focus:border-primary focus:ring-primary/10"
                                                             />
                                                         )}
-                                                    </Label>
-
-                                                    {input.type !== 'boolean' && (
-                                                        <Input
-                                                            type={input.type === 'number' ? 'number' : input.type === 'date' ? 'date' : 'text'}
-                                                            value={customInputValues[input.key] || ''}
-                                                            onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
-                                                            placeholder={input.description || `${input.label} оруулна уу...`}
-                                                            className="h-10 border-slate-200 focus:border-primary focus:ring-primary/10"
-                                                        />
-                                                    )}
-                                                    {input.type === 'boolean' && (
-                                                        <p className="text-[10px] text-muted-foreground">{input.description || 'Сонголтыг идэвхжүүлэх эсвэл цуцлах'}</p>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                        {input.type === 'boolean' && (
+                                                            <p className="text-[10px] text-muted-foreground">{input.description || 'Сонголтыг идэвхжүүлэх эсвэл цуцлах'}</p>
+                                                        )}
+                                                    </div>
+                                                ))}
                                         </div>
                                     </div>
                                 )}
