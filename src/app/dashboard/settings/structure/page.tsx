@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code, ArrowUpRight } from 'lucide-react';
+import { Code, ArrowUpRight, FileText, Database, Files } from 'lucide-react';
 
 export default function OrganizationSettingsHub() {
   return (
@@ -52,6 +52,82 @@ export default function OrganizationSettingsHub() {
                 <p className="text-xs text-muted-foreground">
                   <span className="font-semibold">Жишээ форматууд:</span> EMP0001, STAFF-101, E-2024-001
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Questionnaire Reference - Restored Feature */}
+        <Link href="/dashboard/settings/questionnaire" className="group block mt-6">
+          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15">
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 rounded-xl bg-blue-500 text-white shadow-lg">
+                    <Database className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-semibold">Анкетний лавлах сан</CardTitle>
+                    <CardDescription className="mt-1.5 text-base">
+                      Ажилд орох өргөдлийн асуулга, сонголтуудыг удирдах
+                    </CardDescription>
+                  </div>
+                </div>
+                <ArrowUpRight className="h-6 w-6 text-blue-500 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Боловсрол, мэргэшлийн сонголтууд</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Ур чадварын жагсаалт</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Гэр бүлийн байдал, бусад тохиргоо</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Document Types Reference - Restored Feature */}
+        <Link href="/dashboard/settings/document-types" className="group block mt-6">
+          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15">
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 rounded-xl bg-purple-500 text-white shadow-lg">
+                    <Files className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-semibold">Бичиг баримтын төрөл</CardTitle>
+                    <CardDescription className="mt-1.5 text-base">
+                      Албан бичиг, тушаал, гэрээний төрлүүдийг удирдах
+                    </CardDescription>
+                  </div>
+                </div>
+                <ArrowUpRight className="h-6 w-6 text-purple-500 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                  <span>Тушаалын төрөл, ангилал</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                  <span>Гэрээний загвар, төрлүүд</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                  <span>Албан бичгийн стандарт</span>
+                </div>
               </div>
             </CardContent>
           </Card>

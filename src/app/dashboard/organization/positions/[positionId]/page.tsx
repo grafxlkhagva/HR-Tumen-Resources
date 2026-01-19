@@ -31,11 +31,13 @@ import {
     UserPlus,
     Mail,
     UserMinus,
-    UserX // Added UserX
+    UserX,
+    Loader2
 } from 'lucide-react';
 import { writeBatch, increment as firestoreIncrement, getDocs } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AppointEmployeeDialog } from '../../[departmentId]/components/flow/appoint-employee-dialog';
+import { ReleaseEmployeeDialog } from '../../[departmentId]/components/flow/release-employee-dialog';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -69,6 +71,7 @@ import { PositionOverview } from './components/position-overview';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
+import { PositionOnboarding } from './components/position-onboarding';
 
 function InfoItem({ icon: Icon, label, value }: { icon: any, label: string, value: React.ReactNode }) {
     return (
@@ -103,7 +106,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [disapproveDate, setDisapproveDate] = useState<Date>(new Date());
     const [disapproveNote, setDisapproveNote] = useState('');
     const [isAppointDialogOpen, setIsAppointDialogOpen] = useState(false);
-    const [isRemoveEmployeeConfirmOpen, setIsRemoveEmployeeConfirmOpen] = useState(false); // State for remove confirm
     const [isCancelAppointmentConfirmOpen, setIsCancelAppointmentConfirmOpen] = useState(false); // State for cancel appointment confirm
     const [isConfirmAppointmentConfirmOpen, setIsConfirmAppointmentConfirmOpen] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -147,6 +149,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const { data: appointmentDocs } = useCollection<ERDocument>(docQuery);
     const appointmentDoc = appointmentDocs?.[0];
     const [isDocStatusOpen, setIsDocStatusOpen] = useState(false);
+    const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
     const validationChecklist = useMemo(() => {
         if (!position) return {
@@ -239,37 +242,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         finally { setIsApproving(false); }
     };
 
-    const handleRemoveEmployee = async () => {
-        if (!firestore || !assignedEmployee || !position) return;
-        try {
-            const batch = writeBatch(firestore);
-
-            // 1. Update Employee: Clear position data and set to Active
-            const empRef = doc(firestore, 'employees', assignedEmployee.id);
-            batch.update(empRef, {
-                positionId: null,
-                jobTitle: null,
-                departmentId: null,
-                status: 'Идэвхтэй', // Reset status to Active
-                updatedAt: new Date()
-            });
-
-            // 2. Update Position: Decrement filled count
-            const posRef = doc(firestore, 'positions', positionId);
-            batch.update(posRef, {
-                filled: firestoreIncrement(-1),
-                updatedAt: new Date()
-            });
-
-            await batch.commit();
-
-            toast({ title: "Ажилтныг чөлөөллөө" });
-            setIsRemoveEmployeeConfirmOpen(false);
-        } catch (e) {
-            console.error("Remove employee error:", e);
-            toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
-        }
-    };
 
     const handleCancelAppointment = async () => {
         if (!firestore || !assignedEmployee || !position) return;
@@ -331,8 +303,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const handleConfirmAppointment = async () => {
         if (!firestore || !assignedEmployee || !position) return;
 
-        if (!appointmentDoc || appointmentDoc.status !== 'SIGNED') {
-            toast({ variant: 'destructive', title: 'Баталгаажуулах боломжгүй', description: 'Эх хувь хавсаргаж, SIGNED төлөвтэй болсны дараа баталгаажна.' });
+        if (!appointmentDoc || !['APPROVED', 'SIGNED'].includes(appointmentDoc.status)) {
+            toast({
+                variant: 'destructive',
+                title: 'Баталгаажуулах боломжгүй',
+                description: 'Бичиг баримт батлагдсан (APPROVED) эсвэл Гарын үсэг зурагдсан (SIGNED) байх шаардлагатай.'
+            });
             return;
         }
 
@@ -379,8 +355,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                 <div className="flex items-center gap-6 relative z-10">
                     {assignedEmployee ? (
                         <>
-                            <div className="relative">
-                                <Avatar className="h-20 w-20 border-4 border-white shadow-lg ring-1 ring-slate-100">
+                            <div
+                                className="relative cursor-pointer group/avatar"
+                                onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}
+                            >
+                                <Avatar className="h-20 w-20 border-4 border-white shadow-lg ring-1 ring-slate-100 group-hover/avatar:ring-primary/30 transition-all">
                                     <AvatarImage src={assignedEmployee.photoURL} className="object-cover" />
                                     <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-primary/10 to-primary/5 text-primary">
                                         {assignedEmployee.firstName?.[0]}{assignedEmployee.lastName?.[0]}
@@ -394,7 +373,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                             </div>
                             <div className="flex-1 min-w-0 space-y-2">
                                 <div className="flex items-center gap-3">
-                                    <h3 className="text-xl font-bold text-slate-900 truncate">{assignedEmployee.firstName} {assignedEmployee.lastName}</h3>
+                                    <h3
+                                        className="text-xl font-bold text-slate-900 truncate cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}
+                                    >
+                                        {assignedEmployee.firstName} {assignedEmployee.lastName}
+                                    </h3>
                                     <Badge
                                         variant="outline"
                                         className={cn(
@@ -416,23 +400,22 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     </div>
                                 </div>
                             </div>
-                            <Button
-                                variant="outline"
-                                className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-slate-50 border-slate-200"
-                                onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}
-                            >
-                                <User className="w-4 h-4" />
-                                Дэлгэрэнгүй
-                            </Button>
 
                             {assignedEmployee.status === 'Томилогдож буй' ? (
                                 <>
                                     <Button
                                         variant="outline"
                                         className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-slate-50 border-slate-200"
-                                        onClick={() => setIsDocStatusOpen(true)}
+                                        disabled={isActionLoading}
+                                        onClick={() => {
+                                            if (['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') && assignedEmployee?.status === 'Томилогдож буй') {
+                                                handleConfirmAppointment();
+                                            } else {
+                                                setIsDocStatusOpen(true);
+                                            }
+                                        }}
                                     >
-                                        <FileText className="w-4 h-4" />
+                                        {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                                         Баримтын явц
                                     </Button>
                                     <TooltipProvider>
@@ -443,11 +426,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                                         variant="outline"
                                                         className={cn(
                                                             "h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 transition-all shadow-sm",
-                                                            appointmentDoc?.status === 'SIGNED'
+                                                            ['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '')
                                                                 ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
                                                                 : "bg-slate-50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
                                                         )}
-                                                        disabled={appointmentDoc?.status !== 'SIGNED' || isActionLoading}
+                                                        disabled={!['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') || isActionLoading}
                                                         onClick={() => setIsConfirmAppointmentConfirmOpen(true)}
                                                     >
                                                         <CheckCircle2 className="w-4 h-4" />
@@ -455,9 +438,9 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>
-                                            {appointmentDoc?.status !== 'SIGNED' && (
+                                            {(!appointmentDoc || !['APPROVED', 'SIGNED'].includes(appointmentDoc.status)) && (
                                                 <TooltipContent className="text-[10px] uppercase font-bold bg-slate-900 border-none text-white py-2 px-4 rounded-lg shadow-xl">
-                                                    Бичиг баримт "SIGNED" төлөвт орсны дараа томилгоог баталгаажуулах боломжтой
+                                                    Бичиг баримт "APPROVED" эсвэл "SIGNED" төлөвт орсны дараа томилгоог баталгаажуулах боломжтой
                                                 </TooltipContent>
                                             )}
                                         </Tooltip>
@@ -494,11 +477,11 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                             ) : (
                                 <Button
                                     variant="outline"
-                                    className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 hover:bg-rose-50 border-rose-200 text-rose-600 hover:text-rose-700"
-                                    onClick={() => setIsRemoveEmployeeConfirmOpen(true)}
+                                    className="h-12 px-6 rounded-xl font-bold uppercase tracking-widest gap-2 bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100 shadow-sm"
+                                    onClick={() => setIsReleaseDialogOpen(true)}
                                 >
                                     <UserMinus className="w-4 h-4" />
-                                    Чөлөөлөх
+                                    Ажлын байрнаас чөлөөлөх
                                 </Button>
                             )}
                         </>
@@ -673,6 +656,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     Хангамж
                                 </TabsTrigger>
                                 <TabsTrigger
+                                    value="onboarding"
+                                    className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                                >
+                                    Onboarding
+                                </TabsTrigger>
+                                <TabsTrigger
                                     value="history"
                                     className="h-8 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                                 >
@@ -709,6 +698,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
 
                             <TabsContent value="benefits" className="mt-0 focus-visible:outline-none">
                                 <PositionBenefits
+                                    position={position}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
+                                <PositionOnboarding
                                     position={position}
                                 />
                             </TabsContent>
@@ -907,25 +902,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            <AlertDialog open={isRemoveEmployeeConfirmOpen} onOpenChange={setIsRemoveEmployeeConfirmOpen}>
-                <AlertDialogContent className="rounded-xl border-border p-8">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-                            <UserMinus className="h-5 w-5 text-destructive" />
-                            Ажилтныг чөлөөлөх?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
-                            Та <b>{assignedEmployee?.firstName} {assignedEmployee?.lastName}</b>-г энэхүү албан тушаалаас чөлөөлөхдөө итгэлтэй байна уу?
-                            <br /><br />
-                            Энэ үйлдлийг хийснээр ажилтны төлөв "Идэвхтэй" болж, өөр албан тушаалд томилогдох боломжтой болно.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="mt-4 gap-3">
-                        <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground">Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleRemoveEmployee} className="bg-destructive hover:bg-destructive/90 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-md">Чөлөөлөх</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
 
             <AlertDialog open={isCancelAppointmentConfirmOpen} onOpenChange={setIsCancelAppointmentConfirmOpen}>
                 <AlertDialogContent className="rounded-xl border-border p-8">
@@ -1020,12 +996,25 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                     <AlertDialogFooter className="gap-3">
                         <AlertDialogCancel className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-border text-muted-foreground">Хаах</AlertDialogCancel>
                         {appointmentDoc && (
-                            <AlertDialogAction
-                                onClick={() => window.open(`/dashboard/employment-relations/${appointmentDoc.id}`, '_blank')}
-                                className="bg-primary hover:bg-primary/90 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-premium"
-                            >
-                                Баримт руу очих
-                            </AlertDialogAction>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => window.open(`/dashboard/employment-relations/${appointmentDoc.id}`, '_blank')}
+                                    className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-slate-200 text-slate-600"
+                                >
+                                    Баримт руу очих
+                                </Button>
+                                {appointmentDoc && ['APPROVED', 'SIGNED'].includes(appointmentDoc.status) && assignedEmployee?.status === 'Томилогдож буй' && (
+                                    <AlertDialogAction
+                                        onClick={handleConfirmAppointment}
+                                        className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest border-none shadow-premium transition-all"
+                                        disabled={isActionLoading}
+                                    >
+                                        {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                                        Томилгоог баталгаажуулах
+                                    </AlertDialogAction>
+                                )}
+                            </div>
                         )}
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1034,6 +1023,13 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
             <AppointEmployeeDialog
                 open={isAppointDialogOpen}
                 onOpenChange={setIsAppointDialogOpen}
+                position={position}
+            />
+
+            <ReleaseEmployeeDialog
+                open={isReleaseDialogOpen}
+                onOpenChange={setIsReleaseDialogOpen}
+                employee={assignedEmployee}
                 position={position}
             />
         </div>

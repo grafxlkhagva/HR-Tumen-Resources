@@ -36,7 +36,8 @@ import {
     GraduationCap,
     Download,
     Paperclip,
-    ShieldCheck
+    ShieldCheck,
+    Activity
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -65,9 +66,7 @@ import {
 import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
 
 import { Progress } from '@/components/ui/progress';
-import { AssignProgramDialog, type AssignedProgram, type AssignedTask, type AssignedStage } from './AssignProgramDialog';
 import { VacationTabContent } from './vacation-tab-content';
-import { TaskStatusDropdown } from './TaskStatusDropdown';
 import { OffboardingDialog } from './OffboardingDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -244,311 +243,7 @@ function ProfileSkeleton() {
     )
 }
 
-const OnboardingTabContent = ({ employee }: { employee: Employee }) => {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
 
-    const assignedProgramsQuery = useMemoFirebase(
-        () =>
-            firestore
-                ? query(
-                    collection(firestore, `employees/${employee.id}/assignedPrograms`),
-                    orderBy('startDate', 'desc')
-                )
-                : null,
-        [firestore, employee.id]
-    );
-
-    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<AssignedProgram>(assignedProgramsQuery as any);
-
-    // --- Automatic Data Migration & Cleanup ---
-    React.useEffect(() => {
-        if (!assignedPrograms || !firestore) return;
-
-        assignedPrograms.forEach((program) => {
-            // Check if program is legacy (has tasks but no stages, or stages is empty)
-            const legacyTasks = (program as any).tasks;
-            const hasLegacyTasks = Array.isArray(legacyTasks) && legacyTasks.length > 0;
-            const hasStages = Array.isArray(program.stages) && program.stages.length > 0;
-
-            if (hasLegacyTasks && !hasStages) {
-                console.log(`Migrating legacy program: ${program.programName} (${program.id})`);
-
-                const migratedStage: AssignedStage = {
-                    stageId: 'migrated-legacy-stage',
-                    title: 'Үндсэн даалгаврууд',
-                    order: 0,
-                    tasks: legacyTasks.map((t: any) => ({
-                        ...t,
-                        // Ensure required fields exist
-                        status: t.status || 'TODO',
-                        description: t.description || '',
-                        requiresVerification: t.requiresVerification || false,
-                    }))
-                };
-
-                const docRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
-                updateDocumentNonBlocking(docRef, {
-                    stages: [migratedStage],
-                    tasks: null // Clear legacy field
-                });
-            } else if (hasLegacyTasks && hasStages) {
-                // If both exist, we assume 'stages' is the source of truth and clear 'tasks' to avoid confusion
-                console.log(`Cleaning up duplicate data for: ${program.programName} (${program.id})`);
-                const docRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
-                updateDocumentNonBlocking(docRef, { tasks: null });
-            }
-        });
-    }, [assignedPrograms, firestore, employee.id]);
-
-
-    const handleStatusChange = (program: AssignedProgram, stageIndex: number, taskIndex: number, newStatus: AssignedTask['status']) => {
-        if (!firestore || !program.stages) return;
-
-        const updatedStages = [...program.stages];
-        const stage = updatedStages[stageIndex];
-        if (!stage) return;
-
-        const updatedTasks = [...stage.tasks];
-        const taskToUpdate = updatedTasks[taskIndex];
-
-        if (taskToUpdate) {
-            const isVerification = newStatus === 'VERIFIED';
-            const isDone = newStatus === 'DONE' || isVerification;
-
-            // Build the updated task object, only including timestamp fields when they have values
-            const updatedTask: AssignedTask = {
-                ...taskToUpdate,
-                status: newStatus,
-            };
-
-            // Only add completedAt if the task is done or verified
-            if (isDone) {
-                updatedTask.completedAt = new Date().toISOString();
-            }
-
-            // Only add verifiedAt if the task is verified
-            if (isVerification) {
-                updatedTask.verifiedAt = new Date().toISOString();
-            }
-
-            updatedTasks[taskIndex] = updatedTask;
-
-            updatedStages[stageIndex] = { ...stage, tasks: updatedTasks };
-
-            // Recalculate progress
-            let totalTasks = 0;
-            let completedTasks = 0;
-
-            updatedStages.forEach(s => {
-                s.tasks.forEach(t => {
-                    totalTasks++;
-                    if (t.status === 'VERIFIED') completedTasks++;
-                    else if (t.status === 'DONE') {
-                        // DONE with verification required counts as 0.8, else 1
-                        completedTasks += t.requiresVerification ? 0.8 : 1;
-                    }
-                    else if (t.status === 'IN_PROGRESS') completedTasks += 0.4;
-                })
-            });
-
-            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-            const programStatus = progress === 100 ? 'COMPLETED' : 'IN_PROGRESS';
-
-            const programDocRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
-
-            updateDocumentNonBlocking(programDocRef, { stages: updatedStages, progress, status: programStatus });
-
-            toast({ title: "Даалгаврын төлөв шинэчлэгдлээ." });
-        }
-    };
-
-    const handleDeleteProgram = (program: AssignedProgram) => {
-        if (!firestore) return;
-        const docRef = doc(firestore, `employees/${employee.id}/assignedPrograms`, program.id);
-        deleteDocumentNonBlocking(docRef);
-        toast({
-            variant: "destructive",
-            title: "Хөтөлбөр устгагдлаа",
-            description: `"${program.programName}" хөтөлбөрийг ажилтнаас хаслаа.`,
-        });
-    }
-
-    if (isLoadingAssigned) {
-        return (
-            <div className="space-y-4">
-                {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-            </div>
-        )
-    }
-
-    return (
-        <div className="space-y-10">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                        <BookOpen className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Onboarding</label>
-                        <h3 className="text-lg font-bold text-slate-800">Дасан зохицох хөтөлбөрүүд</h3>
-                    </div>
-                </div>
-                <Button
-                    onClick={() => setIsAssignDialogOpen(true)}
-                    size="sm"
-                    className="h-10 px-5 gap-2 bg-indigo-600 hover:bg-indigo-700 font-bold text-[10px] uppercase tracking-wider rounded-xl shadow-md shadow-indigo-100 transition-all active:scale-95"
-                >
-                    <PlusCircle className="h-4 w-4" />
-                    Хөтөлбөр оноох
-                </Button>
-            </div>
-
-            <AssignProgramDialog
-                open={isAssignDialogOpen}
-                onOpenChange={setIsAssignDialogOpen}
-                employee={employee}
-                assignedProgramIds={assignedPrograms?.map(p => p.programId) || []}
-            />
-
-            {assignedPrograms && assignedPrograms.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full space-y-4">
-                    {assignedPrograms.map(program => {
-                        const displayStages = program.stages || [];
-                        const totalTasks = displayStages.reduce((acc, s) => acc + s.tasks.length, 0);
-
-                        return (
-                            <AccordionItem value={program.id} key={program.id} className="border-none bg-white rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
-                                <div className="flex items-center justify-between p-6 group">
-                                    <AccordionTrigger className="flex-1 hover:no-underline p-0">
-                                        <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-6 pr-6">
-                                            <div className="text-left space-y-1">
-                                                <h4 className="text-base font-bold text-slate-800">{program.programName}</h4>
-                                                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                                    <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {new Date(program.startDate).toLocaleDateString()}</span>
-                                                    <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {totalTasks} даалгавар</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-6 w-full lg:w-1/2">
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between items-center text-[10px] uppercase tracking-widest mb-2">
-                                                        <span className="font-bold text-slate-400">Нийт явц</span>
-                                                        <span className="font-black text-indigo-600">{Math.round(program.progress || 0)}%</span>
-                                                    </div>
-                                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                                                            style={{ width: `${program.progress}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                                                <Trash2 className="h-4.5 w-4.5" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="rounded-3xl border-none p-8">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle className="text-lg font-bold text-slate-800">Хөтөлбөрийг хасах уу?</AlertDialogTitle>
-                                                <AlertDialogDescription className="text-sm font-medium text-slate-500 leading-relaxed">
-                                                    Энэ үйлдлийг буцаах боломжгүй. "{program.programName}" хөтөлбөрийг ажилтнаас хасах болно.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter className="mt-4 gap-3">
-                                                <AlertDialogCancel onClick={e => e.stopPropagation()} className="h-11 rounded-2xl font-bold text-[10px] uppercase tracking-wider border-slate-200">Болих</AlertDialogCancel>
-                                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeleteProgram(program); }} className="bg-rose-500 hover:bg-rose-600 border-none h-11 px-6 rounded-2xl font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-rose-100">Устгах</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                                <AccordionContent className="px-6 pb-6 pt-0">
-                                    <div className="space-y-6 pt-6 border-t border-slate-50">
-                                        {displayStages.map((stage, sIndex) => (
-                                            <div key={stage.stageId || sIndex} className="space-y-4">
-                                                {displayStages.length > 1 && (
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 border-l-2 border-indigo-500">{stage.title}</label>
-                                                )}
-                                                <div className="grid gap-3">
-                                                    {stage.tasks.map((task, tIndex) => (
-                                                        <div key={task.templateTaskId + tIndex} className="flex flex-col lg:flex-row lg:items-center justify-between rounded-2xl border border-slate-50 bg-slate-50/20 p-4 hover:bg-white hover:border-indigo-100 hover:shadow-sm transition-all group/task">
-                                                            <div className="mb-4 lg:mb-0 flex-1 pr-6 flex items-start gap-3">
-                                                                <div className={cn(
-                                                                    "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
-                                                                    task.status === 'VERIFIED' ? "bg-emerald-50 text-emerald-500" :
-                                                                        task.status === 'DONE' ? "bg-blue-50 text-blue-500" : "bg-white border border-slate-100 text-slate-300"
-                                                                )}>
-                                                                    {task.status === 'VERIFIED' ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                                        <h5 className="text-sm font-bold text-slate-700">{task.title}</h5>
-                                                                        {task.requiresVerification && (
-                                                                            <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-tight h-5 px-1.5 border-amber-200 text-amber-600 bg-amber-50">
-                                                                                <ShieldCheck className="w-2.5 h-2.5 mr-1" />Шалгана
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                                        <span className="flex items-center gap-1.5"><User className="h-3 w-3" />{task.assigneeName || 'Тодорхойгүй'}</span>
-                                                                        <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{new Date(task.dueDate).toLocaleDateString()}</span>
-
-                                                                        {task.attachments && task.attachments.length > 0 && (
-                                                                            <a
-                                                                                href={task.attachments[0].url}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="flex items-center gap-1.5 text-indigo-500 hover:text-indigo-600 transition-colors"
-                                                                                onClick={e => e.stopPropagation()}
-                                                                            >
-                                                                                <Download className="h-3 w-3" />
-                                                                                {task.attachments[0].name}
-                                                                            </a>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="shrink-0">
-                                                                <TaskStatusDropdown
-                                                                    currentStatus={task.status}
-                                                                    onStatusChange={(newStatus) => handleStatusChange(program, sIndex, tIndex, newStatus)}
-                                                                    requiresVerification={task.requiresVerification}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        )
-                    })}
-                </Accordion>
-            ) : (
-                <div className="py-24 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
-                    <div className="h-20 w-20 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200 mb-6">
-                        <BookOpen className="h-10 w-10" />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">Хөтөлбөр хоосон байна</h4>
-                    <p className="text-xs font-semibold text-slate-300 mb-6 max-w-sm">Ажилтныг чиглүүлэх болон сургалтын төлөвлөгөөг энд үүсгэнэ үү.</p>
-                    <Button
-                        variant="outline"
-                        onClick={() => setIsAssignDialogOpen(true)}
-                        className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-wider border-slate-200 hover:bg-slate-50 transition-all"
-                    >
-                        Хөтөлбөр оноох
-                    </Button>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
@@ -1073,6 +768,12 @@ export default function EmployeeProfilePage() {
                                     </Link>
                                 </Button>
                             </div>
+                            <Button asChild variant="ghost" className="w-full h-12 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 mt-3">
+                                <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
+                                    <Activity className="mr-2 h-4 w-4" />
+                                    Life Cycle
+                                </Link>
+                            </Button>
                         </CardContent>
                     </Card>
 
@@ -1161,12 +862,7 @@ export default function EmployeeProfilePage() {
                                 >
                                     Ерөнхий
                                 </TabsTrigger>
-                                <TabsTrigger
-                                    value="onboarding"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-                                >
-                                    Дасан зохицох
-                                </TabsTrigger>
+
                                 <TabsTrigger
                                     value="history"
                                     className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
@@ -1204,9 +900,7 @@ export default function EmployeeProfilePage() {
                             <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
                                 <OverviewTabContent employeeId={employeeId || ''} employee={employee} />
                             </TabsContent>
-                            <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
-                                <OnboardingTabContent employee={employee} />
-                            </TabsContent>
+
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
                                 <HistoryTabContent employeeId={employeeId || ''} />
                             </TabsContent>
@@ -1237,6 +931,6 @@ export default function EmployeeProfilePage() {
                     </Tabs>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

@@ -23,7 +23,7 @@ export interface Position {
     isActive?: boolean;
     canApproveAttendance?: boolean;
     canApproveVacation?: boolean;
-    onboardingProgramIds?: string[];
+
     filled: number;
     isApproved?: boolean;
     description?: string;
@@ -51,6 +51,8 @@ export interface WorkSchedule {
     name: string;
 }
 
+export type LifecycleStage = 'attraction' | 'recruitment' | 'onboarding' | 'development' | 'retention' | 'offboarding' | 'alumni';
+
 export interface Employee {
     id: string;
     employeeCode: string;
@@ -70,86 +72,13 @@ export interface Employee {
     jobHistory?: { title: string; company: string; duration: string }[];
     deviceId?: string;
     questionnaireCompletion?: number;
+    lifecycleStage?: LifecycleStage;
     vacationConfig?: {
         baseDays: number;
     };
 }
 
-export interface OnboardingProgram {
-    id: string;
-    title: string;
-    description?: string;
-    type: 'ONBOARDING' | 'OFFBOARDING';
-    taskCount: number;
-    stageCount: number;
-    appliesTo?: {
-        departmentIds?: string[];
-        positionIds?: string[];
-    };
-    departmentIds?: string[];
-    positionIds?: string[];
-}
 
-export interface OnboardingTaskTemplate {
-    id: string;
-    title: string;
-    description?: string;
-    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY' | 'SPECIFIC_PERSON' | 'DIRECT_MANAGER';
-    dueDays: number;
-    attachmentUrl?: string;
-    attachmentName?: string;
-    requiresVerification?: boolean;
-    verificationRole?: 'MANAGER' | 'HR' | 'BUDDY' | 'DIRECT_MANAGER';
-    guideEmployeeIds?: string[];
-}
-
-export interface OnboardingStage {
-    id: string;
-    title: string;
-    order: number;
-    tasks?: OnboardingTaskTemplate[];
-}
-
-export interface AssignedProgram {
-    id: string;
-    programId: string;
-    employeeId: string;
-    status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-    progress: number;
-    startDate: string;
-    completedDate?: string;
-    stages: AssignedStage[];
-    title: string;
-    description?: string;
-}
-
-export interface AssignedStage {
-    stageId: string;
-    title: string;
-    order: number;
-    tasks: AssignedTask[];
-}
-
-export interface AssignedTask {
-    id: string;
-    templateTaskId: string;
-    title: string;
-    description?: string;
-    status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'VERIFIED';
-    assigneeType: string;
-    assignedToId?: string;
-    dueDays: number;
-    completedAt?: any;
-    verifiedAt?: any;
-    verifiedById?: string;
-    requiresVerification?: boolean;
-    verificationRole?: string;
-    attachmentUrl?: string;
-    attachmentName?: string;
-    resultAttachmentUrl?: string;
-    resultAttachmentName?: string;
-    comment?: string;
-}
 
 export interface AttendanceRecord {
     id: string;

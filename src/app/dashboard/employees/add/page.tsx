@@ -248,6 +248,7 @@ export function AddEmployeeDialog({
                 hireDate: values.hireDate.toISOString(),
                 jobTitle: position?.title || 'Тодорхойгүй',
                 photoURL: photoURL,
+                lifecycleStage: 'onboarding',
             };
 
             const batch = writeBatch(firestore);

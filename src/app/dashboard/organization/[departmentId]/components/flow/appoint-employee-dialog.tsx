@@ -50,6 +50,7 @@ export function AppointEmployeeDialog({
     const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
+    const [enableOnboarding, setEnableOnboarding] = React.useState(true);
 
     // 1. Fetch unassigned employees
     const employeesQuery = React.useMemo(() => {
@@ -107,6 +108,7 @@ export function AppointEmployeeDialog({
             setSelectedActionId(null);
             setSearch('');
             setCustomInputValues({});
+            setEnableOnboarding(true);
         }
     }, [open]);
 
@@ -180,13 +182,64 @@ export function AppointEmployeeDialog({
                 });
             }
 
-            // 4. Update Employee
+            // 4. Conditional Onboarding Initialization
+            if (enableOnboarding) {
+                try {
+                    // Get Global Config
+                    const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
+                    const config = configSnap.exists() ? configSnap.data() : { stages: [] };
+
+                    // Get Position Config (using the position object already available in props)
+                    let allowedTaskIds: string[] | null = null;
+                    if (position.onboardingProgramIds && position.onboardingProgramIds.length > 0) {
+                        allowedTaskIds = position.onboardingProgramIds;
+                    }
+
+                    const newStages: any[] = (config.stages || []).map((s: any) => {
+                        const stageTasks = (s.tasks || []).filter((t: any) =>
+                            allowedTaskIds ? allowedTaskIds.includes(t.id) : true
+                        );
+
+                        return {
+                            id: s.id,
+                            title: s.title,
+                            completed: false,
+                            progress: 0,
+                            tasks: stageTasks.map((t: any) => ({
+                                id: t.id,
+                                title: t.title,
+                                description: t.description,
+                                completed: false
+                            }))
+                        };
+                    }).filter((s: any) => s.tasks.length > 0);
+
+                    if (newStages.length > 0) {
+                        const processRef = doc(firestore, 'onboarding_processes', selectedEmployee.id);
+                        batch.set(processRef, {
+                            id: selectedEmployee.id,
+                            employeeId: selectedEmployee.id,
+                            stages: newStages,
+                            progress: 0,
+                            status: 'IN_PROGRESS',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                } catch (onboardingError) {
+                    console.error("Onboarding initialization failed:", onboardingError);
+                    // We don't block the whole appointment if onboarding fails to init
+                }
+            }
+
+            // 5. Update Employee
             const empRef = doc(firestore, 'employees', selectedEmployee.id);
             batch.update(empRef, {
                 positionId: position.id,
                 jobTitle: position.title,
                 departmentId: position.departmentId,
                 status: 'Томилогдож буй', // The requested status
+                lifecycleStage: 'onboarding',
                 updatedAt: Timestamp.now()
             });
 
@@ -373,6 +426,17 @@ export function AppointEmployeeDialog({
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Ашиглах загвар</div>
                                                 <div className="text-sm font-bold text-slate-700">{templateData.name}</div>
                                             </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center justify-between">
+                                            <div className="space-y-0.5">
+                                                <Label className="text-sm font-bold text-indigo-900">Чиглүүлэх (Onboarding)</Label>
+                                                <p className="text-[10px] text-indigo-600 font-medium leading-none">Хөтөлбөрийг автоматаар эхлүүлэх</p>
+                                            </div>
+                                            <Switch
+                                                checked={enableOnboarding}
+                                                onCheckedChange={setEnableOnboarding}
+                                            />
                                         </div>
 
                                         {templateData.customInputs && templateData.customInputs.length > 0 && (

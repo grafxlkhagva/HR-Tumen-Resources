@@ -29,7 +29,7 @@ export default function QuestionnaireSettingsPage() {
             <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/settings/onboarding">
+                        <Link href="/dashboard/settings">
                             <ArrowLeft className="h-4 w-4" />
                             <span className="sr-only">Буцах</span>
                         </Link>

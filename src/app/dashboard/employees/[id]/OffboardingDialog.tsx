@@ -84,7 +84,12 @@ export function OffboardingDialog({
                     const positionRef = doc(firestore, 'positions', employee.positionId);
                     batch.update(positionRef, { filled: increment(-1) });
                 }
-                batch.update(employeeRef, { status: leaveReason, positionId: null, jobTitle: 'Томилгоогүй' });
+                batch.update(employeeRef, {
+                    status: leaveReason,
+                    positionId: null,
+                    jobTitle: 'Томилгоогүй',
+                    lifecycleStage: 'offboarding'
+                });
                 historyNote = `${leaveReason} шалтгаанаар урт хугацааны чөлөө олгов.`;
                 toastMessage = 'Ажилтанд амжилттай чөлөө олголоо.';
             } else if (action === 'terminate') {
@@ -96,7 +101,13 @@ export function OffboardingDialog({
                     const positionRef = doc(firestore, 'positions', employee.positionId);
                     batch.update(positionRef, { filled: increment(-1) });
                 }
-                batch.update(employeeRef, { status: 'Ажлаас гарсан', positionId: null, jobTitle: 'Томилгоогүй', terminationDate: new Date().toISOString() });
+                batch.update(employeeRef, {
+                    status: 'Ажлаас гарсан',
+                    positionId: null,
+                    jobTitle: 'Томилгоогүй',
+                    terminationDate: new Date().toISOString(),
+                    lifecycleStage: 'alumni'
+                });
                 historyNote = `${terminationReason} шалтгаанаар ажлаас чөлөөлөв.`;
                 toastMessage = 'Ажилтан амжилттай ажлаас чөлөөлөгдлөө.';
             }

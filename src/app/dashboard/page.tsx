@@ -38,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake } from 'lucide-react';
+import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AddPositionDialog } from './organization/add-position-dialog';
 import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
@@ -59,7 +59,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
-import { calculateOnboardingProgress } from '@/lib/onboarding-utils';
+
 import {
     Department,
     Position as JobPosition,
@@ -101,8 +101,6 @@ interface JobPositionNodeData {
     onEditPosition: (position: JobPosition) => void;
     onDuplicatePosition: (position: JobPosition) => void;
     attendanceStatus?: AttendanceStatus;
-    onboardingProgress?: number; // 0-100
-    hasActiveOnboarding?: boolean;
 }
 
 interface EmployeeNodeData {
@@ -136,15 +134,8 @@ function isColorDark(hex: string): boolean {
 
 // --- Node Components ---
 
-const AvatarWithProgress = ({ employee, onboardingProgress }: { employee?: Employee; onboardingProgress?: number }) => {
+const AvatarWithProgress = ({ employee }: { employee?: Employee }) => {
     const size = 80;
-
-    // Onboarding Progress (Outer Ring)
-    const onbProgress = onboardingProgress || 0;
-    const outerRadius = 38;
-    const outerCircum = 2 * Math.PI * outerRadius;
-    const outerOffset = outerCircum - (onbProgress / 100) * outerCircum;
-    const outerColor = onbProgress >= 100 ? '#22c55e' : '#3b82f6';
 
     // Questionnaire Completion (Inner Ring)
     const quesProgress = employee?.questionnaireCompletion || 0;
@@ -171,31 +162,6 @@ const AvatarWithProgress = ({ employee, onboardingProgress }: { employee?: Emplo
                 height={size}
                 viewBox={`0 0 ${size} ${size}`}
             >
-                {/* Outer Ring Background (Onboarding Track) */}
-                <circle
-                    className="text-muted/10"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="transparent"
-                    r={outerRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                />
-                {/* Outer Ring (Onboarding Progress) */}
-                <circle
-                    stroke={outerColor}
-                    strokeWidth="3"
-                    strokeDasharray={outerCircum}
-                    strokeDashoffset={outerOffset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    r={outerRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                    style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
-                />
-
                 {/* Inner Ring Background (Questionnaire Track) */}
                 <circle
                     className="text-muted/10"
@@ -284,7 +250,6 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
             <CardContent className="p-4 text-center space-y-2">
                 <AvatarWithProgress
                     employee={employee}
-                    onboardingProgress={data.onboardingProgress}
                 />
 
                 <div className="space-y-1">
@@ -329,41 +294,7 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                     </div>
                 </div>
 
-                {/* Onboarding Progress Indicator */}
-                {data.onboardingProgress !== undefined && (
-                    <div className={cn("pt-2 mt-2 border-t", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
-                        <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-1.5">
-                                <Briefcase className={cn("h-3 w-3", data.onboardingProgress >= 100 ? 'text-green-500' : 'text-blue-500')} />
-                                <span className={cn("text-xs font-medium", mutedTextColor)}>
-                                    {data.onboardingProgress >= 100 ? 'Дасан зохицсон' : 'Дасан зохицох'}
-                                </span>
-                            </div>
-                            <span className={cn("text-xs font-semibold", data.onboardingProgress >= 100 ? 'text-green-600' : 'text-blue-600')}>
-                                {Math.round(data.onboardingProgress)}%
-                            </span>
-                        </div>
-                        <div className="relative h-1.5 bg-gray-200/50 rounded-full overflow-hidden">
-                            <div
-                                className={cn(
-                                    "absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out",
-                                    data.onboardingProgress >= 100
-                                        ? "bg-gradient-to-r from-green-400 to-green-600"
-                                        : "bg-gradient-to-r from-blue-400 to-blue-600"
-                                )}
-                                style={{ width: `${Math.min(data.onboardingProgress, 100)}%` }}
-                            >
-                                {/* Animated shimmer effect */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
-                                    style={{
-                                        backgroundSize: '200% 100%',
-                                        animation: 'shimmer 2s infinite'
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
+
 
             </CardContent>
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
@@ -556,9 +487,7 @@ const OrganizationChart = () => {
     const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
 
-    // Onboarding programs query
-    const onboardingProgramsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
-    const assignedProgramsQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'assignedPrograms') : null, [firestore]);
+
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
     const { data: positions, isLoading: isLoadingPos } = useCollection<JobPosition>(positionsQuery);
@@ -598,15 +527,14 @@ const OrganizationChart = () => {
     const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
     const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
-    const { data: onboardingPrograms } = useCollection<any>(onboardingProgramsQuery);
-    const { data: assignedPrograms, isLoading: isLoadingAssigned } = useCollection<any>(assignedProgramsQuery);
+
 
     const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
 
     // Critical loading states for the organization chart
     const isCriticalLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingProfile;
     // Secondary loading states for statistics
-    const isStatsLoading = isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts || isLoadingAssigned;
+    const isStatsLoading = isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts;
 
     // For visual skeleton of the chart
     const isLoading = isCriticalLoading;
@@ -636,38 +564,11 @@ const OrganizationChart = () => {
         return new Set(attendanceData.map(a => a.employeeId));
     }, [attendanceData]);
 
-    // Onboarding statistics
-    const onboardingStats = useMemo(() => {
-        if (!assignedPrograms) return { activePrograms: 0, pendingTasks: 0, avgProgress: 0 };
 
-        const activePrograms = assignedPrograms.filter((p: any) => p.status === 'IN_PROGRESS');
-        let totalTasks = 0;
-        let totalProgress = 0;
-        let completedTasksCount = 0;
-
-        activePrograms.forEach((program: any) => {
-            if (program.stages && Array.isArray(program.stages)) {
-                const progress = calculateOnboardingProgress(program.stages);
-                totalProgress += progress;
-
-                program.stages.forEach((stage: any) => {
-                    if (stage.tasks && Array.isArray(stage.tasks)) {
-                        totalTasks += stage.tasks.length;
-                        completedTasksCount += stage.tasks.filter((t: any) => t.status === 'DONE' || t.status === 'VERIFIED').length;
-                    }
-                });
-            }
-        });
-
-        const pendingTasks = totalTasks - completedTasksCount;
-        const avgProgress = activePrograms.length > 0 ? Math.round(totalProgress / activePrograms.length) : 0;
-
-        return { activePrograms: activePrograms.length, pendingTasks, avgProgress };
-    }, [assignedPrograms]);
 
     // New hires (last 30 days)
     const newHiresStats = useMemo(() => {
-        if (!employees) return { count: 0, avgOnboardingProgress: 0 };
+        if (!employees) return { count: 0 };
 
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -678,16 +579,8 @@ const OrganizationChart = () => {
             return hireDate >= thirtyDaysAgo && emp.status === 'Идэвхтэй';
         });
 
-        // Calculate average onboarding progress for new hires
-        const newHireIds = new Set(newHires.map(e => e.id));
-        const newHirePrograms = assignedPrograms?.filter((p: any) => newHireIds.has(p.employeeId)) || [];
-
-        const avgOnboardingProgress = newHirePrograms.length > 0
-            ? Math.round(newHirePrograms.reduce((sum: number, p: any) => sum + (p.progress || 0), 0) / newHirePrograms.length)
-            : 0;
-
-        return { count: newHires.length, avgOnboardingProgress };
-    }, [employees, assignedPrograms]);
+        return { count: newHires.length };
+    }, [employees]);
 
     // Offboarding stats
     const offboardingStats = React.useMemo(() => {
@@ -814,31 +707,7 @@ const OrganizationChart = () => {
             }
         });
 
-        // Map employee onboarding programs
-        const employeeOnboardingMap = new Map<string, { progress: number; hasActive: boolean }>();
-        assignedPrograms?.forEach((program: any) => {
-            // Robust way to get employeeId from document path or explicit field
-            // Path: employees/{empId}/assignedPrograms/{docId}
-            let employeeId = program.employeeId;
-            if (!employeeId && program.ref?.path) {
-                const path = program.ref.path.startsWith('/') ? program.ref.path.substring(1) : program.ref.path;
-                const parts = path.split('/');
-                if (parts.length >= 2 && parts[0] === 'employees') {
-                    employeeId = parts[1];
-                }
-            }
 
-            if (employeeId && (program.status === 'IN_PROGRESS' || program.status === 'COMPLETED')) {
-                const existing = employeeOnboardingMap.get(employeeId);
-                // Keep the highest progress or the active one
-                if (!existing || program.progress > existing.progress) {
-                    employeeOnboardingMap.set(employeeId, {
-                        progress: program.progress || 0,
-                        hasActive: program.status === 'IN_PROGRESS'
-                    });
-                }
-            }
-        });
 
 
         const newNodes: CustomNode[] = [];
@@ -852,8 +721,7 @@ const OrganizationChart = () => {
             const department = deptMap.get(pos.departmentId);
             const employee = assignedEmployees[0];
 
-            // Get onboarding data for the employee
-            const onboardingData = employee ? employeeOnboardingMap.get(employee.id) : undefined;
+
 
             const node: Node<JobPositionNodeData> = {
                 id: pos.id,
@@ -870,8 +738,7 @@ const OrganizationChart = () => {
                     onDuplicatePosition: (pos: JobPosition) => setDuplicatingPosition(pos),
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
-                    onboardingProgress: onboardingData?.progress,
-                    hasActiveOnboarding: onboardingData?.hasActive,
+
                 },
             };
             newNodes.push(node);
@@ -920,7 +787,7 @@ const OrganizationChart = () => {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees, assignedPrograms]);
+    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
 
     const onNodesChange: OnNodesChange = useCallback(
         (changes) => {
@@ -1057,33 +924,7 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
-                        {/* 4. Onboarding */}
-                        <Link href="/dashboard/settings/onboarding" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Дасан зохицох</div>
-                                        <Briefcase className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    <div className="flex items-end justify-between">
-                                        <div>
-                                            <div className="text-3xl font-semibold text-white">{onboardingStats.activePrograms}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium uppercase">Идэвхтэй</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-2xl font-semibold text-amber-400">{onboardingStats.pendingTasks}</div>
-                                            <div className="text-[9px] text-slate-400 uppercase font-medium">Хүлээгдэж буй</div>
-                                        </div>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-                                        <div
-                                            style={{ width: `${onboardingStats.avgProgress}%` }}
-                                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-1000"
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+
 
                         {/* 4b. Offboarding (New) */}
                         <Link href="/dashboard/employees/offboarding" className="flex-shrink-0">
@@ -1278,31 +1119,28 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
-                        {/* 8. System Settings */}
-                        <Link href="/dashboard/settings" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-700 border-slate-600 hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-600 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                        {/* 10. Onboarding (New) */}
+                        <Link href="/dashboard/onboarding" className="flex-shrink-0">
+                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
                                 <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl group-hover:from-indigo-500/20 group-hover:to-purple-500/20 transition-all" />
+                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-teal-500/10 to-emerald-500/10 rounded-full blur-3xl group-hover:from-teal-500/20 group-hover:to-emerald-500/20 transition-all" />
 
                                     <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Системийн тохиргоо</div>
-                                        <Settings className="h-5 w-5 text-indigo-400 group-hover:rotate-90 transition-transform duration-500" />
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Onboarding</div>
+                                        <Flag className="h-5 w-5 text-teal-500 group-hover:scale-110 transition-transform" />
                                     </div>
 
                                     <div className="relative z-10">
                                         <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-semibold text-white">3</div>
-                                            <div className="text-sm text-slate-400 font-medium">категори</div>
+                                            <div className="text-2xl font-semibold text-white">Чиглүүлэх</div>
                                         </div>
-                                        <div className="flex gap-1 mt-2">
-                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">Байгууллага</div>
-                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">ХН</div>
-                                            <div className="px-2 py-0.5 bg-slate-700/50 rounded text-[9px] text-slate-300 font-medium">Цаг</div>
-                                        </div>
+                                        <div className="text-xs text-slate-400 font-medium">Шинэ ажилтныг чиглүүлэх</div>
                                     </div>
                                 </CardContent>
                             </Card>
                         </Link>
+
+
 
                         {/* 6. New Hires */}
                         <div className="flex-shrink-0">
@@ -1317,10 +1155,7 @@ const OrganizationChart = () => {
                                             <div className="text-4xl font-semibold text-white">{newHiresStats.count}</div>
                                             <div className="text-[10px] text-slate-400 font-medium">Сүүлийн 30 хоногт</div>
                                         </div>
-                                        <div className="px-3 py-2 bg-slate-800 dark:bg-slate-700 rounded-xl border border-slate-600">
-                                            <div className="text-lg font-semibold text-white">{newHiresStats.avgOnboardingProgress}%</div>
-                                            <div className="text-[8px] uppercase font-semibold text-slate-400 tracking-wider">Дундаж</div>
-                                        </div>
+                                        <div className="text-[8px] uppercase font-semibold text-slate-400 tracking-wider">Нэмэгдсэн</div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1420,7 +1255,7 @@ const OrganizationChart = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     );
 };
 

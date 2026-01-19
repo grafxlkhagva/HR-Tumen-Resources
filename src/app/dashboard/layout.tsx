@@ -5,7 +5,7 @@ import { useUser, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { Loader2, Home, Building } from 'lucide-react';
+import { Loader2, Home, Building, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -78,6 +78,12 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-muted-foreground hover:text-foreground">
+              <Link href="/dashboard/settings/structure">
+                <Settings className="h-5 w-5" />
+                <span className="sr-only">Тохиргоо</span>
+              </Link>
+            </Button>
             <UserNav />
           </div>
         </div>

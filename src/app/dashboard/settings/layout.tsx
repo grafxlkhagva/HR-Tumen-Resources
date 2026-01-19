@@ -22,12 +22,7 @@ const settingsNavItems = [
         icon: Briefcase,
         description: "Бүтэц, ажилтны код"
     },
-    {
-        title: "Хүний нөөц",
-        href: "/dashboard/settings/onboarding",
-        icon: FileText,
-        description: "Дасан зохицох, дүрэм"
-    },
+
     {
         title: "Цаг ашиглалт",
         href: "/dashboard/settings/time-off",

@@ -49,15 +49,7 @@ type AttendanceRecord = {
     status: 'PRESENT' | 'LEFT';
 }
 
-type AssignedProgram = {
-    id: string;
-    programId: string;
-    programName: string;
-    status: 'IN_PROGRESS' | 'COMPLETED';
-    progress: number;
-    startDate: string;
-    employeeId: string;
-}
+
 
 // --- Components ---
 
@@ -520,52 +512,7 @@ function AttendanceStatusWidget() {
     )
 }
 
-function OnboardingWidget() {
-    const { employeeProfile } = useEmployeeProfile();
-    const { firestore } = useFirebase();
-    const router = useRouter();
 
-    const assignedProgramsQuery = useMemoFirebase(() => employeeProfile ? query(
-        collection(firestore, `employees/${employeeProfile.id}/assignedPrograms`),
-        where('status', '==', 'IN_PROGRESS'),
-        orderBy('startDate', 'desc')
-    ) : null, [firestore, employeeProfile?.id]);
-
-    const { data: programs, isLoading } = useCollection<AssignedProgram>(assignedProgramsQuery);
-
-    if (isLoading || !programs || programs.length === 0) return null;
-
-    const program = programs[0];
-
-    return (
-        <div className="px-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-3 px-1 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" /> Таны хөтөлбөр
-            </h2>
-            <Card className="border-0 shadow-md bg-white rounded-3xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer" onClick={() => router.push(`/mobile/onboarding/${program.id}`)}>
-                <div className="h-2 bg-gradient-to-r from-blue-500 to-cyan-400" />
-                <CardContent className="p-5">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="space-y-1">
-                            <h3 className="font-semibold text-base text-slate-800 line-clamp-1">{program.programName}</h3>
-                            <p className="text-xs text-slate-500 font-medium">Эхэлсэн: {format(new Date(program.startDate), 'MM/dd')}</p>
-                        </div>
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-semibold text-xs ring-4 ring-blue-50/50">
-                            {Math.round(program.progress)}%
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Progress value={program.progress} className="h-2 rounded-full bg-slate-100" />
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-medium">Дуусгах хугацаа: 7 хоногийн дараа</span>
-                            <span className="text-blue-600 font-semibold flex items-center">Үргэлжлүүлэх <ArrowRight className="w-3 h-3 ml-1" /></span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    )
-}
 
 function QuickActions() {
     const router = useRouter();
@@ -748,8 +695,7 @@ export default function MobileHomePage() {
                 {/* Quick Actions Grid */}
                 <QuickActions />
 
-                {/* Onboarding Widget (Conditional) */}
-                <OnboardingWidget />
+
 
                 {/* Team Section */}
                 <div className="space-y-3">

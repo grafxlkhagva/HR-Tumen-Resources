@@ -21,6 +21,9 @@ export function OrganizationActionSettings() {
         { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', description: 'Үндсэн ажилтны томилгооны баримтын загвар' },
         { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', description: 'Туршилтын хугацаатай томилгооны баримтын загвар' },
         { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', description: 'Ажилтныг эргүүлэн томилох баримтын загвар' },
+        { id: 'release_company', name: 'Компанийн санаачилгаар бүрэн чөлөөлөх', description: 'Ажил олгогчийн санаачилгаар хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
+        { id: 'release_employee', name: 'Ажилтны санаачилгаар бүрэн чөлөөлөх', description: 'Ажилтны хүсэлтээр хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
+        { id: 'release_temporary', name: 'Түр чөлөөлөх', description: 'Ажилтныг ажлаас түр чөлөөлөх (түдгэлзүүлэх) баримтын загвар' },
     ];
 
     // Fetch Actions from Firestore to get the configured templateId

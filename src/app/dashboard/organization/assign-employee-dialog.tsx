@@ -41,7 +41,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { add, format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-// import type { OnboardingProgram, OnboardingTaskTemplate } from '../settings/onboarding/page';
+
 // defining local interface to avoid import issues
 interface OnboardingProgram {
     id: string;
@@ -52,14 +52,7 @@ interface OnboardingProgram {
         positionIds?: string[];
     }
 }
-interface OnboardingTaskTemplate {
-    title: string;
-    dueDays: number;
-    assigneeType: 'NEW_HIRE' | 'MANAGER' | 'HR' | 'BUDDY';
-    // other fields as needed for the logic below
-}
-import { Checkbox } from '@/components/ui/checkbox';
-import type { AssignedProgram } from '../employees/[id]/AssignProgramDialog';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 
@@ -70,7 +63,6 @@ const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
     assignmentType: z.enum(['direct', 'trial']),
     trialEndDate: z.date().optional(),
-    assignOnboarding: z.boolean().default(true),
 }).refine(data => {
     if (data.assignmentType === 'trial') {
         return !!data.trialEndDate;
@@ -108,15 +100,13 @@ export function AssignEmployeeDialog({
         defaultValues: {
             assignmentDate: new Date(),
             assignmentType: 'direct',
-            assignOnboarding: true,
         }
     });
 
     const { isSubmitting } = form.formState;
     const assignmentType = form.watch('assignmentType');
 
-    const programsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'onboardingPrograms') : null, [firestore]);
-    const { data: programTemplates } = useCollection<OnboardingProgram>(programsQuery);
+
 
     React.useEffect(() => {
         if (open) {
@@ -134,7 +124,6 @@ export function AssignEmployeeDialog({
                 assignmentDate: new Date(),
                 assignmentType: 'direct',
                 trialEndDate: undefined,
-                assignOnboarding: true,
             });
         }
     }, [open, selectedEmployee, form]);
@@ -178,57 +167,7 @@ export function AssignEmployeeDialog({
                 createdAt: new Date().toISOString(),
             });
 
-            if (values.assignOnboarding) {
-                const programIdsToAssign = (position as any).onboardingProgramIds || [];
-                if (programIdsToAssign.length > 0) {
-                    const assignedProgramsCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/assignedPrograms`);
 
-                    for (const programId of programIdsToAssign) {
-                        const programTemplate = programTemplates?.find(p => p.id === programId);
-                        if (!programTemplate) continue;
-
-                        const stagesSnapshot = await getDocs(collection(firestore, `onboardingPrograms/${programId}/stages`));
-                        const allTasks: any[] = [];
-                        const hireDate = new Date(localSelectedEmployee.hireDate);
-
-                        for (const stageDoc of stagesSnapshot.docs) {
-                            const tasksSnapshot = await getDocs(collection(firestore, stageDoc.ref.path, 'tasks'));
-                            tasksSnapshot.forEach(taskDoc => {
-                                const taskTemplate = taskDoc.data() as OnboardingTaskTemplate;
-                                const dueDate = add(hireDate, { days: taskTemplate.dueDays });
-
-                                let assigneeId = localSelectedEmployee.id;
-                                let assigneeName = `${localSelectedEmployee.firstName} ${localSelectedEmployee.lastName}`;
-
-                                switch (taskTemplate.assigneeType) {
-                                    case 'NEW_HIRE': break;
-                                    // TODO: Add real logic for other assignee types
-                                    case 'MANAGER': assigneeName = "Шууд удирдлага"; break;
-                                    case 'HR': assigneeName = "Хүний нөөц"; break;
-                                    case 'BUDDY': assigneeName = "Дэмжигч ажилтан"; break;
-                                }
-
-                                allTasks.push({
-                                    templateTaskId: taskDoc.id,
-                                    title: taskTemplate.title,
-                                    status: 'TODO',
-                                    dueDate: dueDate.toISOString(),
-                                    assigneeId: assigneeId,
-                                    assigneeName: assigneeName
-                                });
-                            });
-                        }
-                        await addDoc(assignedProgramsCollectionRef, {
-                            programId: programTemplate.id,
-                            programName: programTemplate.title,
-                            status: 'IN_PROGRESS',
-                            startDate: new Date().toISOString(),
-                            progress: 0,
-                            tasks: allTasks,
-                        });
-                    }
-                }
-            }
 
             await batch.commit();
 
@@ -335,26 +274,7 @@ export function AssignEmployeeDialog({
                         )}
                     />
                 )}
-                <FormField
-                    control={form.control}
-                    name="assignOnboarding"
-                    render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                                <FormLabel>Дасан зохицох хөтөлбөр оноох</FormLabel>
-                                <FormDescription>
-                                    Энэ ажлын байранд тохируулсан хөтөлбөрүүдийг автоматаар онооно.
-                                </FormDescription>
-                            </div>
-                            <FormControl>
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                />
-                            </FormControl>
-                        </FormItem>
-                    )}
-                />
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(1)} disabled={isSubmitting}>
                         Болих
