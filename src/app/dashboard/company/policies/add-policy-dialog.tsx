@@ -43,7 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon, Video } from 'lucide-react';
 import { CompanyPolicy, Position } from './types';
 
 const policySchema = z.object({
@@ -52,6 +52,7 @@ const policySchema = z.object({
     effectiveDate: z.string().min(1, 'Батлагдсан огноо сонгоно уу.'),
     description: z.string().optional(),
     documentUrl: z.string().optional(),
+    videoUrl: z.string().optional(),
     appliesToAll: z.boolean().default(true),
     applicablePositionIds: z.array(z.string()).optional(),
 });
@@ -85,6 +86,8 @@ export function AddPolicyDialog({
     const isEditMode = !!editingPolicy;
     const [isUploading, setIsUploading] = React.useState(false);
     const [fileName, setFileName] = React.useState<string | null>(null);
+    const [isUploadingVideo, setIsUploadingVideo] = React.useState(false);
+    const [videoFileName, setVideoFileName] = React.useState<string | null>(null);
     const [posSearch, setPosSearch] = React.useState('');
 
     const policiesCollectionRef = React.useMemo(
@@ -94,6 +97,16 @@ export function AddPolicyDialog({
 
     const form = useForm<PolicyFormValues>({
         resolver: zodResolver(policySchema),
+        defaultValues: {
+            title: '',
+            type: '',
+            effectiveDate: '',
+            description: '',
+            documentUrl: '',
+            appliesToAll: true,
+            applicablePositionIds: [],
+            videoUrl: '',
+        }
     });
 
     React.useEffect(() => {
@@ -104,26 +117,42 @@ export function AddPolicyDialog({
                     type: editingPolicy.type || '',
                     effectiveDate: editingPolicy.effectiveDate || '',
                     description: editingPolicy.description || '',
-                    documentUrl: editingPolicy.documentUrl,
+                    documentUrl: editingPolicy.documentUrl || '',
+                    videoUrl: editingPolicy.videoUrl || '',
                     appliesToAll: editingPolicy.appliesToAll || false,
                     applicablePositionIds: editingPolicy.applicablePositionIds || [],
                 });
                 if (editingPolicy.documentUrl) {
-                    const urlParts = editingPolicy.documentUrl.split('?')[0].split('%2F');
-                    setFileName(decodeURIComponent(urlParts[urlParts.length - 1]));
+                    try {
+                        const urlParts = editingPolicy.documentUrl.split('?')[0].split('%2F');
+                        setFileName(decodeURIComponent(urlParts[urlParts.length - 1]));
+                    } catch (e) {
+                        setFileName(editingPolicy.documentUrl.split('/').pop() || 'File');
+                    }
                 }
-            } else {
-                form.reset({
-                    title: '',
-                    type: '',
-                    effectiveDate: '',
-                    description: '',
-                    documentUrl: '',
-                    appliesToAll: true,
-                    applicablePositionIds: [],
-                });
-                setFileName(null);
+
+                if (editingPolicy.videoUrl) {
+                    try {
+                        const videoUrlParts = editingPolicy.videoUrl.split('?')[0].split('%2F');
+                        setVideoFileName(decodeURIComponent(videoUrlParts[videoUrlParts.length - 1]));
+                    } catch (e) {
+                        setVideoFileName(editingPolicy.videoUrl.split('/').pop() || 'Video');
+                    }
+                }
             }
+        } else {
+            form.reset({
+                title: '',
+                type: '',
+                effectiveDate: '',
+                description: '',
+                documentUrl: '',
+                appliesToAll: true,
+                applicablePositionIds: [],
+                videoUrl: '',
+            });
+            setFileName(null);
+            setVideoFileName(null);
         }
     }, [open, editingPolicy, isEditMode, form]);
 
@@ -147,6 +176,27 @@ export function AddPolicyDialog({
             toast({ variant: 'destructive', title: 'Алдаа', description: 'Файл байршуулахад алдаа гарлаа.' });
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingVideo(true);
+        setVideoFileName(file.name);
+        const storage = getStorage();
+        const storageRef = ref(storage, `company-policies-videos/${Date.now()}-${file.name}`);
+
+        try {
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+            form.setValue('videoUrl', downloadURL, { shouldValidate: true });
+            toast({ title: 'Видео амжилттай байршлаа.' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Видео байршуулахад алдаа гарлаа.' });
+        } finally {
+            setIsUploadingVideo(false);
         }
     };
 
@@ -241,6 +291,19 @@ export function AddPolicyDialog({
                                     </div>
                                 )}
                             </FormItem>
+                            <FormItem>
+                                <FormLabel>Танилцуулга видео</FormLabel>
+                                <Button type="button" variant="outline" className="w-full" onClick={() => (document.getElementById('policy-video-upload') as HTMLInputElement)?.click()} disabled={isUploadingVideo}>
+                                    {isUploadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}
+                                    Видео оруулах
+                                </Button>
+                                <Input id="policy-video-upload" type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                                {videoFileName && (
+                                    <div className="text-sm text-muted-foreground flex items-center gap-2 mt-2">
+                                        <Video className="h-4 w-4" /> {videoFileName}
+                                    </div>
+                                )}
+                            </FormItem>
                             <FormField control={form.control} name="appliesToAll" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>Бүх ажилтанд хамааралтай эсэх</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
                             {!appliesToAll && (
                                 <FormField
@@ -278,7 +341,7 @@ export function AddPolicyDialog({
                                                             filteredPositions.map(pos => (
                                                                 <DropdownMenuCheckboxItem
                                                                     key={pos.id}
-                                                                    checked={field.value?.includes(pos.id)}
+                                                                    checked={!!field.value?.includes(pos.id)}
                                                                     onSelect={(e) => e.preventDefault()}
                                                                     onCheckedChange={(checked) => {
                                                                         const currentValues = field.value || [];
@@ -311,8 +374,8 @@ export function AddPolicyDialog({
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>
-                            <Button type="submit" disabled={isSubmitting || isUploading}>
-                                {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" disabled={isSubmitting || isUploading || isUploadingVideo}>
+                                {(isSubmitting || isUploading || isUploadingVideo) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Хадгалах
                             </Button>
                         </DialogFooter>

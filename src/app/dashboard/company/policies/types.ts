@@ -3,6 +3,7 @@ export interface CompanyPolicy {
     title: string;
     description?: string;
     documentUrl: string;
+    videoUrl?: string;
     type?: string;
     effectiveDate?: string;
     uploadDate: string;

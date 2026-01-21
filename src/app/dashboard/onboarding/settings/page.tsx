@@ -7,17 +7,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Pencil, Check, X, GripVertical, Info } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { Plus, Trash2, Pencil, Check, X, GripVertical, Info, FileText } from 'lucide-react';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from '@/components/ui/badge';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface OnboardingTask {
     id: string;
     title: string;
     description?: string;
+    policyId?: string;
 }
 
 interface OnboardingStage {
@@ -75,8 +84,20 @@ export default function OnboardingSettingsPage() {
     const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'settings', 'onboarding') : null), [firestore]);
     const { data: config, isLoading } = useDoc<any>(configRef as any);
 
+    // Fetch policies for selection
+    const policiesQuery = useMemoFirebase(() =>
+        (firestore ? query(collection(firestore, 'companyPolicies'), orderBy('title', 'asc')) : null),
+        [firestore]);
+    const { data: policies } = useCollection<any>(policiesQuery);
+
     const [stages, setStages] = useState<OnboardingStage[]>(DEFAULT_STAGES);
-    const [editingTask, setEditingTask] = useState<{ stageId: string; taskId: string | null; title: string; description: string } | null>(null);
+    const [editingTask, setEditingTask] = useState<{
+        stageId: string;
+        taskId: string | null;
+        title: string;
+        description: string;
+        policyId?: string;
+    } | null>(null);
 
     useEffect(() => {
         if (config && config.stages) {
@@ -102,11 +123,17 @@ export default function OnboardingSettingsPage() {
     };
 
     const addTask = (stageId: string) => {
-        setEditingTask({ stageId, taskId: null, title: '', description: '' });
+        setEditingTask({ stageId, taskId: null, title: '', description: '', policyId: undefined });
     };
 
     const editTask = (stageId: string, task: OnboardingTask) => {
-        setEditingTask({ stageId, taskId: task.id, title: task.title, description: task.description || '' });
+        setEditingTask({
+            stageId,
+            taskId: task.id,
+            title: task.title,
+            description: task.description || '',
+            policyId: task.policyId
+        });
     };
 
     const deleteTask = (stageId: string, taskId: string) => {
@@ -132,13 +159,19 @@ export default function OnboardingSettingsPage() {
                 let newTasks = [...s.tasks];
                 if (editingTask.taskId) {
                     // Edit
-                    newTasks = newTasks.map(t => t.id === editingTask.taskId ? { ...t, title: editingTask.title, description: editingTask.description } : t);
+                    newTasks = newTasks.map(t => t.id === editingTask.taskId ? {
+                        ...t,
+                        title: editingTask.title,
+                        description: editingTask.description,
+                        policyId: editingTask.policyId
+                    } : t);
                 } else {
                     // Add
                     newTasks.push({
                         id: Math.random().toString(36).substr(2, 9),
                         title: editingTask.title,
-                        description: editingTask.description
+                        description: editingTask.description,
+                        policyId: editingTask.policyId
                     });
                 }
                 return { ...s, tasks: newTasks };
@@ -223,6 +256,14 @@ export default function OnboardingSettingsPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm mb-1">{task.title}</h4>
                                                     {task.description && <p className="text-xs text-slate-500 line-clamp-2">{task.description}</p>}
+                                                    {task.policyId && (
+                                                        <div className="mt-1 flex items-center gap-1">
+                                                            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 h-5 font-medium text-emerald-600 border-emerald-200 bg-emerald-50">
+                                                                <FileText className="h-2.5 w-2.5" />
+                                                                {policies?.find(p => p.id === task.policyId)?.title || 'Холбоотой журам'}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => editTask(stage.id, task)}>
@@ -266,6 +307,26 @@ export default function OnboardingSettingsPage() {
                                     onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
                                     placeholder="Жишээ: Хөдөлмөрийн гэрээ болон нууцын гэрээ..."
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Холбоотой журам (Сонгох шаардлагагүй)</Label>
+                                <Select
+                                    value={editingTask.policyId || "none"}
+                                    onValueChange={(val) => setEditingTask({ ...editingTask, policyId: val === "none" ? undefined : val })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Журам сонгох..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none" className="text-slate-500 italic">Журам сонгохгүй</SelectItem>
+                                        {policies?.map((policy: any) => (
+                                            <SelectItem key={policy.id} value={policy.id}>
+                                                {policy.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="flex gap-3 pt-4">
                                 <Button variant="outline" className="flex-1" onClick={() => setEditingTask(null)}>Цуцлах</Button>

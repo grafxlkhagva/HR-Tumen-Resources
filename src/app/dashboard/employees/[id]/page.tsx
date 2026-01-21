@@ -70,6 +70,7 @@ import {
 import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
 
 import { VacationTabContent } from './vacation-tab-content';
+import { OnboardingTabContent } from './onboarding-tab-content';
 import { OffboardingDialog } from './OffboardingDialog';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -981,6 +982,12 @@ export default function EmployeeProfilePage() {
                                     Хөдөлмөрийн харилцаа
                                 </TabsTrigger>
                                 <TabsTrigger
+                                    value="onboarding"
+                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                >
+                                    Чиглүүлэх (Onboarding)
+                                </TabsTrigger>
+                                <TabsTrigger
                                     value="documents"
                                     className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
                                 >
@@ -1027,6 +1034,9 @@ export default function EmployeeProfilePage() {
                             </TabsContent>
                             <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
                                 <DocumentsTabContent employee={employee} />
+                            </TabsContent>
+                            <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
+                                <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
                             </TabsContent>
 
                         </div>

@@ -6,14 +6,24 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, Circle, Clock, Loader2, Save, Info, CheckCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Loader2, Save, Info, CheckCircle, FileText, Settings, UserCircle2, Video } from 'lucide-react';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Employee } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface TaskInstance {
     id: string;
@@ -23,6 +33,7 @@ interface TaskInstance {
     completedAt?: any;
     dueDate?: string;
     mentorId?: string;
+    policyId?: string;
 }
 
 interface StageInstance {
@@ -63,6 +74,12 @@ export default function EmployeeOnboardingPage() {
 
     const allEmployeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
     const { data: allEmployees } = useCollection<Employee>(allEmployeesQuery as any);
+
+    // Fetch policies for mapping
+    const policiesQuery = useMemoFirebase(() =>
+        (firestore ? query(collection(firestore, 'companyPolicies')) : null),
+        [firestore]);
+    const { data: policies } = useCollection<any>(policiesQuery);
 
     useEffect(() => {
         if (process && process.stages) {
@@ -107,7 +124,8 @@ export default function EmployeeOnboardingPage() {
                         id: t.id,
                         title: t.title,
                         description: t.description,
-                        completed: false
+                        completed: false,
+                        policyId: t.policyId
                     }))
                 };
             }).filter((s: StageInstance) => s.tasks.length > 0); // Only include stages with tasks
@@ -367,7 +385,7 @@ export default function EmployeeOnboardingPage() {
                                                                     {task.description}
                                                                 </p>
                                                             )}
-                                                            {(task.dueDate || task.mentorId) && (
+                                                            {(task.dueDate || task.mentorId || task.policyId) && (
                                                                 <div className="flex flex-wrap gap-2 mt-2">
                                                                     {task.dueDate && (
                                                                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 text-[10px] font-bold text-slate-500 border border-slate-100">
@@ -379,6 +397,28 @@ export default function EmployeeOnboardingPage() {
                                                                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 text-[10px] font-bold text-indigo-700 border border-indigo-100">
                                                                             <UserCircle2 className="h-3 w-3" />
                                                                             Чиглүүлэгч: {allEmployees?.find(e => e.id === task.mentorId)?.firstName}
+                                                                        </div>
+                                                                    )}
+                                                                    {task.policyId && (
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-bold text-emerald-700 border border-emerald-100" onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const policy = policies?.find(p => p.id === task.policyId);
+                                                                                if (policy?.documentUrl) window.open(policy.documentUrl, '_blank');
+                                                                            }}>
+                                                                                <FileText className="h-3 w-3" />
+                                                                                {policies?.find(p => p.id === task.policyId)?.title || 'Холбоотой журам'}
+                                                                            </div>
+                                                                            {policies?.find(p => p.id === task.policyId)?.videoUrl && (
+                                                                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-[10px] font-bold text-blue-700 border border-blue-100" onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const policy = policies?.find(p => p.id === task.policyId);
+                                                                                    if (policy?.videoUrl) window.open(policy.videoUrl, '_blank');
+                                                                                }}>
+                                                                                    <Video className="h-3 w-3" />
+                                                                                    Видео танилцуулга
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -419,17 +459,6 @@ export default function EmployeeOnboardingPage() {
     );
 }
 
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Settings, UserCircle2 } from 'lucide-react';
 
 function TaskMetadataModal({ open, onOpenChange, task, onSave, employees }: {
     open: boolean;

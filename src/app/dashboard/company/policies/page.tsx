@@ -42,7 +42,7 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Pencil, Trash2, FileText, ExternalLink, Search, ArrowUpDown, Filter } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Pencil, Trash2, FileText, ExternalLink, Search, ArrowUpDown, Filter, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
@@ -109,10 +109,14 @@ export default function CompanyPoliciesPage() {
         // Sorting
         result.sort((a, b) => {
             if (sortBy === 'newest') {
-                return new Date(b.effectiveDate || b.uploadDate).getTime() - new Date(a.effectiveDate || a.uploadDate).getTime();
+                const dateB = new Date(b.effectiveDate || b.uploadDate || 0).getTime();
+                const dateA = new Date(a.effectiveDate || a.uploadDate || 0).getTime();
+                return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
             }
             if (sortBy === 'oldest') {
-                return new Date(a.effectiveDate || a.uploadDate).getTime() - new Date(b.effectiveDate || b.uploadDate).getTime();
+                const dateB = new Date(b.effectiveDate || b.uploadDate || 0).getTime();
+                const dateA = new Date(a.effectiveDate || a.uploadDate || 0).getTime();
+                return (isNaN(dateA) ? 0 : dateA) - (isNaN(dateB) ? 0 : dateB);
             }
             if (sortBy === 'title_asc') {
                 return a.title.localeCompare(b.title);
@@ -199,7 +203,7 @@ export default function CompanyPoliciesPage() {
                                         <TableHead className="h-12">Төрөл</TableHead>
                                         <TableHead className="h-12">Хэнд хамааралтай</TableHead>
                                         <TableHead className="hidden md:table-cell text-center h-12">Батлагдсан огноо</TableHead>
-                                        <TableHead className="h-12 text-center">Файл хавсралт</TableHead>
+                                        <TableHead className="h-12 text-center">Хавсралтууд</TableHead>
                                         <TableHead className="text-right pr-6 h-12">Үйлдэл</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -228,7 +232,7 @@ export default function CompanyPoliciesPage() {
                                             <TableCell>
                                                 {policy.appliesToAll ? <Badge variant="secondary">Бүх ажилтан</Badge> : (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {(policy.applicablePositionIds || []).map(id => (
+                                                        {Array.from(new Set(policy.applicablePositionIds || [])).map(id => (
                                                             <Badge key={id} variant="outline" className="text-[10px]">{positionMap.get(id) || 'Тодорхойгүй'}</Badge>
                                                         ))}
                                                         {(policy.applicablePositionIds || []).length === 0 && <Badge variant="outline">Тохируулаагүй</Badge>}
@@ -236,16 +240,33 @@ export default function CompanyPoliciesPage() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell text-muted-foreground text-center">
-                                                {policy.effectiveDate ? format(new Date(policy.effectiveDate), 'yyyy.MM.dd') : '---'}
+                                                {(() => {
+                                                    if (!policy.effectiveDate) return '---';
+                                                    try {
+                                                        const date = new Date(policy.effectiveDate);
+                                                        if (isNaN(date.getTime())) return '---';
+                                                        return format(date, 'yyyy.MM.dd');
+                                                    } catch (e) {
+                                                        return '---';
+                                                    }
+                                                })()}
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                {policy.documentUrl ? (
-                                                    <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 font-normal">
-                                                        Хавсралттай
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-muted-foreground text-xs italic">Байхгүй</span>
-                                                )}
+                                                <div className="flex flex-col gap-1 items-center">
+                                                    {policy.documentUrl ? (
+                                                        <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 font-normal w-max">
+                                                            <FileText className="h-3 w-3 mr-1" /> Баримт
+                                                        </Badge>
+                                                    ) : null}
+                                                    {policy.videoUrl ? (
+                                                        <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200 font-normal w-max">
+                                                            <Video className="h-3 w-3 mr-1" /> Видео
+                                                        </Badge>
+                                                    ) : null}
+                                                    {!policy.documentUrl && !policy.videoUrl && (
+                                                        <span className="text-muted-foreground text-xs italic">Байхгүй</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
                                                 <div className="flex justify-end gap-1">
@@ -260,6 +281,13 @@ export default function CompanyPoliciesPage() {
                                                                 <DropdownMenuItem asChild>
                                                                     <a href={policy.documentUrl} target="_blank" rel="noopener noreferrer">
                                                                         <ExternalLink className="mr-2 h-4 w-4" /> Харах
+                                                                    </a>
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {policy.videoUrl && (
+                                                                <DropdownMenuItem asChild>
+                                                                    <a href={policy.videoUrl} target="_blank" rel="noopener noreferrer">
+                                                                        <Video className="mr-2 h-4 w-4" /> Видео үзэх
                                                                     </a>
                                                                 </DropdownMenuItem>
                                                             )}
