@@ -31,7 +31,7 @@ export default function DocumentListPage() {
         firestore ? query(collection(firestore, 'er_documents'), orderBy('createdAt', 'desc')) : null
         , [firestore]);
 
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
+    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
 
     const { data: documents, isLoading } = useCollection<ERDocument>(documentsQuery);
     const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);

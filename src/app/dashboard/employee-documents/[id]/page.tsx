@@ -355,7 +355,7 @@ export default function DocumentDetailPage() {
                 title: "Амжилттай устгагдлаа",
                 description: "Баримт бичиг амжилттай устлаа.",
             });
-            router.push('/dashboard/documents');
+            router.push('/dashboard/employee-documents');
         } catch (error: any) {
             toast({
                 variant: "destructive",
@@ -382,7 +382,7 @@ export default function DocumentDetailPage() {
             <div className="py-8 text-center">
                 <p>Баримт бичиг олдсонгүй.</p>
                 <Button asChild variant="link">
-                    <Link href="/dashboard/documents">Жагсаалт руу буцах</Link>
+                    <Link href="/dashboard/employee-documents">Жагсаалт руу буцах</Link>
                 </Button>
             </div>
         )
@@ -393,7 +393,7 @@ export default function DocumentDetailPage() {
             <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/documents">
+                        <Link href="/dashboard/employee-documents">
                             <ArrowLeft className="h-4 w-4" />
                             <span className="sr-only">Буцах</span>
                         </Link>

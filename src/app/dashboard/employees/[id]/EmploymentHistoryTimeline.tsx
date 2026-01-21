@@ -90,7 +90,7 @@ function TimelineItem({
               <div className="mt-4 pt-4 border-t border-slate-50 flex gap-3">
                 {event.documentId ? (
                   <Button asChild variant="ghost" className="h-8 px-3 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold text-[10px] uppercase tracking-wider">
-                    <Link href={`/dashboard/documents/${event.documentId}`}>
+                    <Link href={`/dashboard/employee-documents/${event.documentId}`}>
                       <FileText className="mr-2 h-3.5 w-3.5" />
                       Баримт бичиг
                     </Link>

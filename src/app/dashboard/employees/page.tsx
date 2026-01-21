@@ -172,7 +172,7 @@ export default function EmployeesPage() {
             icon={Briefcase}
             description="Нийт нэгжийн тоо"
           />
-          <Link href="/dashboard/documents" className="block">
+          <Link href="/dashboard/employee-documents" className="block">
             <StatCard
               title="Нийт бичиг баримт"
               value={stats.documents}

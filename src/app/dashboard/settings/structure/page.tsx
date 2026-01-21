@@ -95,43 +95,7 @@ export default function OrganizationSettingsHub() {
           </Card>
         </Link>
 
-        {/* Document Types Reference - Restored Feature */}
-        <Link href="/dashboard/settings/document-types" className="group block mt-6">
-          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15">
-            <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 rounded-xl bg-purple-500 text-white shadow-lg">
-                    <Files className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl font-semibold">Бичиг баримтын төрөл</CardTitle>
-                    <CardDescription className="mt-1.5 text-base">
-                      Албан бичиг, тушаал, гэрээний төрлүүдийг удирдах
-                    </CardDescription>
-                  </div>
-                </div>
-                <ArrowUpRight className="h-6 w-6 text-purple-500 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  <span>Тушаалын төрөл, ангилал</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  <span>Гэрээний загвар, төрлүүд</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  <span>Албан бичгийн стандарт</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+
       </div>
     </div>
   );

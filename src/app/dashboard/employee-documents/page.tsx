@@ -29,6 +29,7 @@ import {
   Download,
   Trash2,
   Eye,
+  Settings
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -57,7 +58,7 @@ function DocumentRow({ doc }: { doc: Document }) {
     <TableRow>
       <TableCell className="font-medium">
         <Link
-          href={`/dashboard/documents/${doc.id}`}
+          href={`/dashboard/employee-documents/${doc.id}`}
           className="flex items-center gap-2 hover:text-primary transition-colors hover:underline"
         >
           {Icon}
@@ -96,12 +97,20 @@ export default function DocumentsPage() {
               Хүний нөөцийн чухал баримт бичгүүдийг аюулгүй хадгалж, удирдах.
             </CardDescription>
           </div>
-          <Button size="sm" className="gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Бичиг баримт байршуулах
-            </span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/dashboard/employee-documents/settings">
+                <Settings className="h-4 w-4" />
+                <span className="sr-only">Тохиргоо</span>
+              </Link>
+            </Button>
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Бичиг баримт байршуулах
+              </span>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

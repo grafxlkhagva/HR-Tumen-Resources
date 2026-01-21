@@ -51,7 +51,7 @@ export default function CreateDocumentPage() {
                 }
             }
             if (qWorkflowId) {
-                const typeQuery = query(collection(firestore, 'er_document_types'), where('workflowId', '==', qWorkflowId));
+                const typeQuery = query(collection(firestore, 'er_process_document_types'), where('workflowId', '==', qWorkflowId));
                 const typeSnap = await getDocs(typeQuery);
                 if (!typeSnap.empty) setSelectedType(typeSnap.docs[0].id);
             }
@@ -59,7 +59,7 @@ export default function CreateDocumentPage() {
         prefill();
     }, [firestore, qEmployeeId, qWorkflowId]);
 
-    const docTypesQuery = useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
+    const docTypesQuery = useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
     const templatesQuery = useMemo(() =>
         firestore && selectedType ? query(collection(firestore, 'er_templates'), where('documentTypeId', '==', selectedType), where('isActive', '==', true)) : null
         , [firestore, selectedType]);

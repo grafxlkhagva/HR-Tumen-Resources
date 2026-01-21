@@ -67,7 +67,7 @@ export async function seedDemoData() {
         updatedAt: Timestamp.now()
     };
 
-    const typeQuery = query(collection(firestore, 'er_document_types'), where('code', '==', typeData.code));
+    const typeQuery = query(collection(firestore, 'er_process_document_types'), where('code', '==', typeData.code));
     const typeSnap = await getDocs(typeQuery);
 
     let typeId = '';
@@ -76,10 +76,10 @@ export async function seedDemoData() {
         typeId = typeSnap.docs[0].id;
         // Ensure workflow is linked
         if (typeSnap.docs[0].data().workflowId !== workflowId) {
-            await updateDocumentNonBlocking(doc(firestore, 'er_document_types', typeId), { workflowId });
+            await updateDocumentNonBlocking(doc(firestore, 'er_process_document_types', typeId), { workflowId });
         }
     } else {
-        const docRef = await addDoc(collection(firestore, 'er_document_types'), typeData);
+        const docRef = await addDoc(collection(firestore, 'er_process_document_types'), typeData);
         typeId = docRef.id;
         console.log("Document Type created", typeId);
     }

@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function CreateTemplatePage() {
     const { firestore } = useFirebase();
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
+    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
     const { data: docTypes, isLoading } = useCollection<ERDocumentType>(docTypesQuery);
 
     if (isLoading) {

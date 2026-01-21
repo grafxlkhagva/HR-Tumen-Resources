@@ -13,7 +13,7 @@ export default function EditTemplatePage() {
     const { firestore } = useFirebase();
 
     // Fetch document types
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_document_types') : null, [firestore]);
+    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
     const { data: docTypes, isLoading: isLoadingTypes } = useCollection<ERDocumentType>(docTypesQuery);
 
     // Fetch template data

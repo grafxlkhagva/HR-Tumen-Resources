@@ -101,7 +101,7 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild className="bg-white hover:bg-slate-50 shadow-sm w-10 p-0 text-slate-600">
-                        <Link href="/dashboard/employment-relations/settings/document-types">
+                        <Link href="/dashboard/employment-relations/settings">
                             <Settings className="h-4 w-4" />
                         </Link>
                     </Button>

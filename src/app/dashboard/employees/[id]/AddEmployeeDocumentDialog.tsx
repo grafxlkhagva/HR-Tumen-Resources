@@ -28,6 +28,8 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    SelectGroup,
+    SelectLabel,
 } from '@/components/ui/select';
 import {
     Popover,
@@ -69,6 +71,8 @@ export function AddEmployeeDocumentDialog({
 
     const docTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'er_document_types') : null), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<any>(docTypesQuery);
+
+    const isLoadingData = isLoadingDocTypes;
 
     const documentsCollectionRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'documents') : null),
@@ -236,11 +240,29 @@ export function AddEmployeeDocumentDialog({
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {documentTypes?.map((type: any, idx: number) => (
-                                                    <SelectItem key={`${type.id}-${idx}`} value={type.name}>
-                                                        {type.name}
-                                                    </SelectItem>
-                                                ))}
+                                                {documentTypes?.some((t: any) => t.isMandatory) && (
+                                                    <SelectGroup>
+                                                        <SelectLabel className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 px-2 py-2 text-center md:text-left">
+                                                            Заавал бүрдүүлэх (Шаардлагатай)
+                                                        </SelectLabel>
+                                                        {documentTypes.filter((t: any) => t.isMandatory).map((type: any, idx: number) => (
+                                                            <SelectItem key={`mandatory-${type.id}-${idx}`} value={type.name}>
+                                                                {type.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                )}
+
+                                                <SelectGroup>
+                                                    <SelectLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 py-2 mt-2 text-center md:text-left">
+                                                        Бусад төрлүүд
+                                                    </SelectLabel>
+                                                    {documentTypes?.filter((type: any) => !type.isMandatory).map((type: any, idx: number) => (
+                                                        <SelectItem key={`${type.id}-${idx}`} value={type.name}>
+                                                            {type.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
