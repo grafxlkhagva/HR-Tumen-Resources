@@ -7,12 +7,12 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, Calendar as CalendarIcon, Save, X, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar as CalendarIcon, Save, X, Loader2, Download, Trash2 } from 'lucide-react';
 import type { Document } from '../data';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,24 +20,35 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 type FieldDefinition = {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date';
+    key: string;
+    label: string;
+    type: 'text' | 'number' | 'date';
 };
 
 type DocumentType = {
-  id: string;
-  name: string;
-  fields?: FieldDefinition[];
+    id: string;
+    name: string;
+    fields?: FieldDefinition[];
 };
 
 const documentSchema = z.object({
-  documentType: z.string().min(1, 'Төрөл сонгоно уу.'),
-  metadata: z.any(),
+    documentType: z.string().min(1, 'Төрөл сонгоно уу.'),
+    metadata: z.any(),
 });
 
 type DocumentFormValues = z.infer<typeof documentSchema>;
@@ -56,7 +67,7 @@ function DocumentPageSkeleton() {
                             <Skeleton className="h-6 w-3/4" />
                         </CardHeader>
                         <CardContent>
-                           <Skeleton className="h-[70vh] w-full" />
+                            <Skeleton className="h-[70vh] w-full" />
                         </CardContent>
                     </Card>
                 </div>
@@ -87,7 +98,7 @@ function DocumentPageSkeleton() {
 function DocumentViewer({ document }: { document: Document }) {
     if (!document.url) {
         return (
-             <div className="h-[75vh] flex flex-col items-center justify-center rounded-md border bg-muted">
+            <div className="h-[75vh] flex flex-col items-center justify-center rounded-md border bg-muted">
                 <FileText className="h-16 w-16 text-muted-foreground" />
                 <p className="mt-4 text-muted-foreground">Баримт бичиг хавсаргаагүй байна.</p>
             </div>
@@ -109,10 +120,10 @@ function DocumentViewer({ document }: { document: Document }) {
             </div>
         );
     }
-    
+
     if (officeExtensions.includes(fileExtension || '')) {
-         const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(document.url)}&embedded=true`;
-         return <iframe src={viewerUrl} className="h-[75vh] w-full rounded-md border" title={document.title} />;
+        const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(document.url)}&embedded=true`;
+        return <iframe src={viewerUrl} className="h-[75vh] w-full rounded-md border" title={document.title} />;
     }
 
     return (
@@ -131,50 +142,50 @@ function DocumentViewer({ document }: { document: Document }) {
 
 const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition }) => {
     const fieldName = `metadata.${fieldDef.key}`;
-    
+
     if (fieldDef.type === 'date') {
         return (
-             <FormField
+            <FormField
                 control={form.control}
                 name={fieldName}
                 render={({ field }) => (
-                <FormItem className="flex flex-col">
-                    <FormLabel>{fieldDef.label}</FormLabel>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                                )}
-                            >
-                                {field.value ? (
-                                format(new Date(field.value), "yyyy-MM-dd")
-                                ) : (
-                                <span>Огноо сонгох</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                                mode="single"
-                                selected={field.value ? new Date(field.value) : undefined}
-                                onSelect={(date) => field.onChange(date?.toISOString())}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                </FormItem>
+                    <FormItem className="flex flex-col">
+                        <FormLabel>{fieldDef.label}</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.value ? (
+                                            format(new Date(field.value), "yyyy-MM-dd")
+                                        ) : (
+                                            <span>Огноо сонгох</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={field.value ? new Date(field.value) : undefined}
+                                    onSelect={(date) => field.onChange(date?.toISOString())}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
                 )}
             />
         );
     }
-    
+
     return (
         <FormField
             control={form.control}
@@ -183,9 +194,9 @@ const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition
                 <FormItem>
                     <FormLabel>{fieldDef.label}</FormLabel>
                     <FormControl>
-                        <Input 
+                        <Input
                             type={fieldDef.type}
-                            placeholder={fieldDef.label} 
+                            placeholder={fieldDef.label}
                             {...field}
                             value={field.value || ''}
                         />
@@ -200,8 +211,8 @@ const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition
 function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { toast } = useToast();
-    const documentRef = useMemoFirebase(({firestore}) => doc(firestore, 'documents', documentData.id), [documentData.id]);
-    const docTypesQuery = useMemoFirebase(({firestore}) => collection(firestore, 'documentTypes'), []);
+    const documentRef = useMemoFirebase(({ firestore }) => doc(firestore, 'documents', documentData.id), [documentData.id]);
+    const docTypesQuery = useMemoFirebase(({ firestore }) => collection(firestore, 'er_document_types'), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<DocumentType>(docTypesQuery);
 
     const form = useForm<DocumentFormValues>({
@@ -227,7 +238,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
         toast({ title: 'Амжилттай хадгаллаа' });
         setIsEditing(false);
     };
-    
+
     const selectedDocTypeName = form.watch('documentType');
     const selectedDocType = documentTypes?.find(type => type.name === selectedDocTypeName);
 
@@ -248,7 +259,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                 </div>
             </CardHeader>
             <CardContent className="space-y-6">
-                 <Form {...form}>
+                <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
                         <FormField
                             control={form.control}
@@ -278,7 +289,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                 </FormItem>
                             )}
                         />
-                        
+
                         {isEditing && selectedDocType?.fields && selectedDocType.fields.map(fieldDef => (
                             <DynamicField key={fieldDef.key} form={form} fieldDef={fieldDef} />
                         ))}
@@ -298,11 +309,11 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                 })}
                             </div>
                         )}
-                        
+
                         {!isEditing && !selectedDocType?.fields && (
                             <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт талбар тохируулаагүй байна.</p>
                         )}
-                        
+
                         {isEditing && (
                             <div className="flex gap-2">
                                 <Button type="submit" disabled={isSubmitting}>
@@ -324,14 +335,35 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
 
 export default function DocumentDetailPage() {
     const { id } = useParams();
+    const router = useRouter();
+    const { toast } = useToast();
     const documentId = Array.isArray(id) ? id[0] : id;
 
     const documentRef = useMemoFirebase(
-        ({firestore}) => (firestore && documentId ? doc(firestore, 'documents', documentId) : null),
+        ({ firestore }) => (firestore && documentId ? doc(firestore, 'documents', documentId) : null),
         [documentId]
     );
 
-    const { data: documentData, isLoading, error } = useDoc<Document>(documentRef);
+    const { data: documentData, isLoading, error } = useDoc<Document>(documentRef as any);
+
+    const handleDelete = async () => {
+        if (!documentRef) return;
+
+        try {
+            await deleteDocumentNonBlocking(documentRef as any);
+            toast({
+                title: "Амжилттай устгагдлаа",
+                description: "Баримт бичиг амжилттай устлаа.",
+            });
+            router.push('/dashboard/documents');
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Алдаа гарлаа",
+                description: "Баримт бичгийг устгахад алдаа гарлаа.",
+            });
+        }
+    };
 
     if (isLoading) {
         return <DocumentPageSkeleton />;
@@ -358,7 +390,7 @@ export default function DocumentDetailPage() {
 
     return (
         <div className="py-8">
-             <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button asChild variant="outline" size="icon">
                         <Link href="/dashboard/documents">
@@ -371,21 +403,44 @@ export default function DocumentDetailPage() {
                         <p className="text-muted-foreground">{documentData.description}</p>
                     </div>
                 </div>
+
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Баримт устгах
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Энэ үйлдлийг буцаах боломжгүй. Баримт бичиг системээс бүрмөсөн устлаа.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Устгах
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
-                     <Card>
+                    <Card>
                         <CardHeader>
                             <CardTitle>Баримт бичиг</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <DocumentViewer document={documentData} />
+                            <DocumentViewer document={documentData} />
                         </CardContent>
                     </Card>
                 </div>
                 <div>
-                   <DocumentDetailsCard documentData={documentData} />
+                    <DocumentDetailsCard documentData={documentData} />
                 </div>
             </div>
         </div>

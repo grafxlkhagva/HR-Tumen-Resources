@@ -91,7 +91,7 @@ export function AddHistoryEventDialog({
         : null,
     [firestore, employeeId]
   );
-  
+
   const documentsCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'documents') : null),
     [firestore]
@@ -155,27 +155,27 @@ export function AddHistoryEventDialog({
     let documentId: string | undefined = undefined;
 
     if (selectedFile) {
-        const uploadedFile = await uploadDocument();
-        if (!uploadedFile) return; // Stop if upload fails
-        
-        documentUrl = uploadedFile.url;
-        documentName = uploadedFile.name;
+      const uploadedFile = await uploadDocument();
+      if (!uploadedFile) return; // Stop if upload fails
 
-        // Create a corresponding entry in the main 'documents' collection
-        const docResponse = await addDocumentNonBlocking(documentsCollectionRef, {
-            title: documentName,
-            description: `Ажилтны түүх: ${values.eventType}`,
-            url: documentUrl,
-            uploadDate: new Date().toISOString(),
-            documentType: "Бусад", // Or derive from eventType
-            metadata: {
-                employeeId: employeeId,
-                historyEventType: values.eventType,
-            }
-        });
-        if(docResponse) {
-          documentId = docResponse.id;
+      documentUrl = uploadedFile.url;
+      documentName = uploadedFile.name;
+
+      // Create a corresponding entry in the main 'documents' collection
+      const docResponse = await addDocumentNonBlocking(documentsCollectionRef, {
+        title: documentName,
+        description: `Ажилтны түүх: ${values.eventType}`,
+        url: documentUrl,
+        uploadDate: new Date().toISOString(),
+        documentType: "Бусад", // Or derive from eventType
+        metadata: {
+          employeeId: employeeId,
+          historyEventType: values.eventType,
         }
+      });
+      if (docResponse) {
+        documentId = docResponse.id;
+      }
     }
 
     await addDocumentNonBlocking(historyCollectionRef, {
@@ -225,8 +225,8 @@ export function AddHistoryEventDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {eventTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
+                        {eventTypes.map((type, idx) => (
+                          <SelectItem key={`${type}-${idx}`} value={type}>
                             {type}
                           </SelectItem>
                         ))}
@@ -295,34 +295,34 @@ export function AddHistoryEventDialog({
                   </FormItem>
                 )}
               />
-               <FormItem>
-                  <FormLabel>Холбогдох баримт</FormLabel>
-                    <FormControl>
-                        <Input 
-                            type="file" 
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                        />
-                    </FormControl>
-                    {!selectedFile && (
-                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Файл сонгох
-                        </Button>
-                    )}
-                    {selectedFile && (
-                         <div className="flex items-center justify-between rounded-md border p-2">
-                             <div className="flex items-center gap-2">
-                                <File className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-sm">{selectedFile.name}</span>
-                             </div>
-                             <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="h-6 w-6">
-                                <X className="h-4 w-4" />
-                             </Button>
-                         </div>
-                    )}
-               </FormItem>
+              <FormItem>
+                <FormLabel>Холбогдох баримт</FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </FormControl>
+                {!selectedFile && (
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Файл сонгох
+                  </Button>
+                )}
+                {selectedFile && (
+                  <div className="flex items-center justify-between rounded-md border p-2">
+                    <div className="flex items-center gap-2">
+                      <File className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">{selectedFile.name}</span>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="h-6 w-6">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </FormItem>
             </div>
             <DialogFooter>
               <Button

@@ -20,7 +20,8 @@ import {
   Users,
   UserPlus,
   Briefcase,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -73,9 +74,11 @@ export default function EmployeesPage() {
 
   const employeesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'employees') : null), []);
   const departmentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'departments') : null), []);
+  const documentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documents') : null), []);
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
   const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
+  const { data: documents, isLoading: isLoadingDocuments } = useCollection<any>(documentsQuery);
 
   const departmentMap = React.useMemo(() => {
     if (!departments) return new Map<string, string>();
@@ -102,14 +105,15 @@ export default function EmployeesPage() {
   }, [employees, searchQuery, statusFilter, deptFilter]);
 
   const stats = React.useMemo(() => {
-    if (!employees) return { total: 0, active: 0, inactive: 0, departments: 0 };
+    if (!employees) return { total: 0, active: 0, inactive: 0, departments: 0, documents: 0 };
     return {
       total: employees.length,
       active: employees.filter(e => e.status === 'Идэвхтэй').length,
       inactive: employees.filter(e => e.status !== 'Идэвхтэй').length,
-      departments: departments ? departments.length : 0
+      departments: departments ? departments.length : 0,
+      documents: documents ? documents.length : 0
     };
-  }, [employees, departments]);
+  }, [employees, departments, documents]);
 
   const handleSelectDelete = (employee: Employee) => {
     setSelectedEmployee(employee);
@@ -168,6 +172,14 @@ export default function EmployeesPage() {
             icon={Briefcase}
             description="Нийт нэгжийн тоо"
           />
+          <Link href="/dashboard/documents" className="block">
+            <StatCard
+              title="Нийт бичиг баримт"
+              value={stats.documents}
+              icon={FileText}
+              description="Ажилчдын хувийн хэрэг"
+            />
+          </Link>
         </div>
 
         {/* Filter Bar */}

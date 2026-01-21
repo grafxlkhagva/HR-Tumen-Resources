@@ -52,14 +52,17 @@ const categoryIcons = {
 
 function DocumentRow({ doc }: { doc: Document }) {
   const Icon = categoryIcons[doc.documentType] || categoryIcons['Бусад'];
-  
+
   return (
     <TableRow>
       <TableCell className="font-medium">
-        <div className="flex items-center gap-2">
+        <Link
+          href={`/dashboard/documents/${doc.id}`}
+          className="flex items-center gap-2 hover:text-primary transition-colors hover:underline"
+        >
           {Icon}
           <span>{doc.title}</span>
-        </div>
+        </Link>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         <Badge variant="secondary">{doc.documentType}</Badge>
@@ -68,37 +71,13 @@ function DocumentRow({ doc }: { doc: Document }) {
         {format(new Date(doc.uploadDate), 'yyyy.MM.dd')}
       </TableCell>
       <TableCell className="text-right hidden md:table-cell">... KB</TableCell>
-      <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button aria-haspopup="true" size="icon" variant="ghost">
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Цэс</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Үйлдлүүд</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-                <Link href={`/dashboard/documents/${doc.id}`}>
-                    <Eye className="mr-2 h-4 w-4" /> Дэлгэрэнгүй
-                </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2">
-              <Download className="h-4 w-4" /> Татах
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive">
-              <Trash2 className="h-4 w-4" /> Устгах
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
+    </TableRow >
   );
 }
 
 export default function DocumentsPage() {
   const documentsQuery = useMemoFirebase(
-    ({firestore}) => (firestore ? collection(firestore, 'documents') : null),
+    ({ firestore }) => (firestore ? collection(firestore, 'documents') : null),
     []
   );
   const {
@@ -134,9 +113,6 @@ export default function DocumentsPage() {
                   Сүүлд зассан
                 </TableHead>
                 <TableHead className="text-right hidden md:table-cell">Хэмжээ</TableHead>
-                <TableHead>
-                  <span className="sr-only">Үйлдлүүд</span>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -158,15 +134,12 @@ export default function DocumentsPage() {
                     <TableCell className="text-right hidden md:table-cell">
                       <Skeleton className="ml-auto h-4 w-16" />
                     </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-8 w-8" />
-                    </TableCell>
                   </TableRow>
                 ))}
               {error && (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={4}
                     className="py-8 text-center text-destructive"
                   >
                     Алдаа гарлаа: {error.message}

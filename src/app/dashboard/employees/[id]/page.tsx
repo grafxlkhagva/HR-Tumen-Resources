@@ -34,11 +34,13 @@ import {
     ChevronRight,
     MapPin,
     GraduationCap,
+    File as FileIcon,
     Download,
     Paperclip,
     ShieldCheck,
     Activity,
-    CalendarCheck
+    CalendarCheck,
+    Hash
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -66,9 +68,9 @@ import {
 } from '@/components/ui/accordion';
 import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
 
-import { Progress } from '@/components/ui/progress';
 import { VacationTabContent } from './vacation-tab-content';
 import { OffboardingDialog } from './OffboardingDialog';
+import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -249,48 +251,32 @@ function ProfileSkeleton() {
 const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
 
-    const historyQuery = useMemoFirebase(
+    const documentsQuery = useMemoFirebase(
         () =>
             firestore
                 ? query(
-                    collection(firestore, `employees/${employee.id}/employmentHistory`),
-                    orderBy('eventDate', 'desc')
+                    collection(firestore, 'documents'),
+                    where('metadata.employeeId', '==', employee.id),
+                    orderBy('uploadDate', 'desc')
                 )
                 : null,
         [firestore, employee.id]
     );
 
-    const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
+    const { data: documents, isLoading, error } = useCollection<any>(documentsQuery as any);
+    const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
 
-    const { data: history, isLoading: isLoadingHistory } = useCollection<EmploymentHistoryEvent>(historyQuery as any);
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery as any);
-
-    const allDocuments = React.useMemo(() => {
-        const employeeDocs = (history || [])
-            .filter(event => event.documentId)
-            .map(event => ({
-                id: event.documentId!,
-                title: event.documentName || 'Нэргүй баримт',
-                source: 'Хувийн хэрэг',
-                date: event.eventDate,
-                type: 'official'
-            }));
-
-        const applicablePolicies = (policies || []).filter(policy => {
-            return policy.appliesToAll || (employee.positionId && policy.applicablePositionIds?.includes(employee.positionId));
-        }).map(policy => ({
-            id: policy.id,
-            title: policy.title,
-            source: 'Компанийн журам',
-            date: policy.uploadDate,
-            type: 'policy'
-        }));
-
-        return [...employeeDocs, ...applicablePolicies].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [history, policies, employee.positionId]);
+    if (error) {
+        return (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold">
+                Алдаа гарлаа: {error.message}
+            </div>
+        );
+    }
 
 
-    if (isLoadingHistory || isLoadingPolicies) return (
+
+    if (isLoading) return (
         <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
         </div>
@@ -298,166 +284,176 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
 
     return (
         <div className="space-y-10">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Баримт бичиг</label>
-                    <h3 className="text-lg font-bold text-slate-800">Холбогдох материалууд</h3>
-                </div>
+            <div className="flex items-center justify-end">
+                <Button onClick={() => setIsAddDialogOpen(true)} size="icon" className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl h-10 w-10 shadow-lg shadow-indigo-100 transition-all active:scale-95">
+                    <PlusCircle className="w-4 h-4" />
+                </Button>
             </div>
 
             <div className="grid gap-3">
-                {allDocuments.length > 0 ? (
-                    allDocuments.map((doc, idx) => (
+                {documents && documents.length > 0 ? (
+                    documents.map((doc, idx) => (
                         <div key={idx} className="group flex items-center gap-5 p-5 bg-white border border-slate-100 rounded-[1.25rem] transition-all hover:bg-slate-50 hover:border-indigo-100/50 hover:shadow-md hover:shadow-indigo-50/50">
-                            <div className={cn(
-                                "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110",
-                                doc.type === 'official' ? "bg-indigo-50 text-indigo-500" : "bg-emerald-50 text-emerald-500"
-                            )}>
-                                {doc.type === 'official' ? <ShieldCheck className="h-5.5 w-5.5" /> : <BookOpen className="h-5.5 w-5.5" />}
+                            <div className="h-11 w-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
+                                <FileIcon className="h-5.5 w-5.5" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-1">
                                     <h4 className="text-sm font-bold text-slate-700 truncate">{doc.title}</h4>
-                                    <Badge variant="outline" className={cn(
-                                        "text-[9px] font-bold uppercase tracking-tighter px-2 h-4.5 border-none",
-                                        doc.type === 'official' ? "bg-indigo-100 text-indigo-700" : "bg-emerald-100 text-emerald-700"
-                                    )}>
-                                        {doc.source}
+                                    <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-tighter px-2 h-4.5 border-none bg-indigo-100 text-indigo-700">
+                                        {doc.documentType}
                                     </Badge>
                                 </div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Calendar className="h-3 w-3" />
-                                    {new Date(doc.date).toLocaleDateString()}
+                                    {new Date(doc.uploadDate).toLocaleDateString()}
                                 </p>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white border-transparent hover:border-slate-100 transition-all opacity-0 group-hover:opacity-100" asChild>
-                                <Link href={doc.type === 'official' ? `/dashboard/documents/${doc.id}` : `/dashboard/company/policies?id=${doc.id}`}>
-                                    <ChevronRight className="h-5 w-5" />
-                                </Link>
-                            </Button>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-rose-600 hover:bg-rose-50 border-transparent transition-all">
+                                            <Trash2 className="h-5 w-5" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Энэ баримт бичгийг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => {
+                                                    if (!firestore) return;
+                                                    deleteDocumentNonBlocking(doc(firestore, 'documents', doc.id));
+                                                }}
+                                                className="bg-rose-600 hover:bg-rose-700"
+                                            >
+                                                Устгах
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+
+                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white border-transparent hover:border-slate-100 transition-all" asChild>
+                                    <Link href={`/dashboard/documents/${doc.id}`}>
+                                        <ChevronRight className="h-5 w-5" />
+                                    </Link>
+                                </Button>
+                            </div>
                         </div>
                     ))
                 ) : (
                     <div className="py-24 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
                         <div className="h-20 w-20 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200 mb-6">
-                            <FileText className="h-10 w-10" />
+                            <FileIcon className="h-10 w-10" />
                         </div>
                         <h4 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">Баримт байхгүй</h4>
-                        <p className="text-xs font-semibold text-slate-300">Ажилтантай холбоотой албан ёсны бичиг баримт одоогоор байхгүй байна.</p>
+                        <p className="text-xs font-semibold text-slate-300">Ажилтантай холбоотой бичиг баримт одоогоор байхгүй байна.</p>
+                        <Button onClick={() => setIsAddDialogOpen(true)} variant="outline" className="mt-8 font-bold text-[10px] uppercase tracking-widest rounded-2xl px-6">
+                            Анхны баримт байршуулах
+                        </Button>
                     </div>
                 )}
             </div>
+
+            <AddEmployeeDocumentDialog
+                employeeId={employee.id}
+                open={isAddDialogOpen}
+                onOpenChange={setIsAddDialogOpen}
+            />
         </div>
     );
 };
 
 
 const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId: string; erDocuments?: ERDocument[]; isLoading: boolean }) => {
-    const { firestore } = useFirebase();
+    const sortedDocs = React.useMemo(() => {
+        if (!erDocuments) return [];
+        return [...erDocuments].sort((a, b) => {
+            const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
+            const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
+            return (dateB || 0) - (dateA || 0);
+        });
+    }, [erDocuments]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full rounded-[2rem]" />
+                ))}
+            </div>
+        );
+    }
+
+    if (!sortedDocs || sortedDocs.length === 0) {
+        return (
+            <div className="py-24 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
+                <FileText className="h-10 w-10 text-slate-200 mb-4" />
+                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Баримт байхгүй</h4>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-10">
-            {/* Documents Section */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                            <FileText className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Бичиг баримт</label>
-                            <h3 className="text-lg font-bold text-slate-800">
-                                Хөдөлмөрийн харилцааны баримтууд
-                                {erDocuments && erDocuments.length > 0 && (
-                                    <Badge variant="secondary" className="ml-2 bg-indigo-50 text-indigo-600 border-none px-2">
-                                        {erDocuments.length}
-                                    </Badge>
-                                )}
-                            </h3>
-                        </div>
-                    </div>
-                </div>
+        <div className="relative pl-8 space-y-12 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+            {sortedDocs.map((doc, idx) => {
+                const date = doc.createdAt ? (
+                    doc.createdAt.seconds
+                        ? new Date(doc.createdAt.seconds * 1000).toLocaleDateString()
+                        : new Date(doc.createdAt).toLocaleDateString()
+                ) : '-';
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {isLoading ? (
-                        Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-40 rounded-3xl" />
-                        ))
-                    ) : erDocuments && erDocuments.length > 0 ? (
-                        erDocuments.map((doc) => (
-                            <Link key={doc.id} href={`/dashboard/employment-relations/${doc.id}`}>
-                                <Card className="group h-full border-none shadow-sm bg-white overflow-hidden transition-all hover:shadow-md hover:ring-1 hover:ring-indigo-100">
-                                    <div className="p-5 flex flex-col h-full">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 transition-transform group-hover:scale-110">
-                                                <FileText className="h-5 w-5" />
-                                            </div>
-                                            <Badge className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5", DOCUMENT_STATUSES[doc.status].color)}>
+                return (
+                    <div key={`${doc.id}-${idx}`} className="relative group">
+                        {/* Timeline Dot */}
+                        <div className="absolute -left-[27px] top-1.5 h-4 w-4 rounded-full border-2 border-white bg-indigo-500 ring-4 ring-indigo-50 z-10 transition-transform group-hover:scale-125" />
+
+                        <div className="space-y-4">
+                            {/* Date Title */}
+                            <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                                {date}
+                                <div className="h-px flex-1 bg-slate-50" />
+                            </h3>
+
+                            {/* Document Card */}
+                            <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm transition-all hover:shadow-md hover:border-indigo-100/50 group/card">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="text-base font-bold text-slate-700">{doc.metadata?.templateName || 'Нэргүй баримт'}</h4>
+                                            <Badge className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 h-5", DOCUMENT_STATUSES[doc.status].color)}>
                                                 {DOCUMENT_STATUSES[doc.status].label}
                                             </Badge>
                                         </div>
-
-                                        <div className="space-y-1 mb-4 flex-1">
-                                            <h4 className="text-sm font-bold text-slate-700 leading-tight">
-                                                {doc.metadata?.templateName || 'Нэргүй баримт'}
-                                            </h4>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                #{doc.id.slice(-6).toUpperCase()}
-                                            </p>
-                                        </div>
-
-                                        <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[10px] font-bold text-slate-400">
-                                            <span className="flex items-center gap-1">
-                                                <Calendar className="h-3 w-3" />
-                                                {doc.createdAt ? (
-                                                    doc.createdAt.seconds
-                                                        ? new Date(doc.createdAt.seconds * 1000).toLocaleDateString()
-                                                        : new Date(doc.createdAt).toLocaleDateString()
-                                                ) : '-'}
-                                            </span>
-                                            <span className="flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
-                                                Харах <ChevronRight className="h-3 w-3" />
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                ID: #{doc.id.slice(-6).toUpperCase()}
                                             </span>
                                         </div>
                                     </div>
-                                </Card>
-                            </Link>
-                        ))
-                    ) : (
-                        <div className="col-span-full py-12 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
-                            <FileText className="h-8 w-8 text-slate-200 mb-3" />
-                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
-                                Баримт байхгүй
-                            </p>
+
+                                    <div className="flex items-center gap-3">
+                                        <Button asChild variant="outline" size="sm" className="h-11 px-5 rounded-2xl border-slate-100 bg-slate-50 font-bold text-xs gap-2.5 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all active:scale-95 group/btn">
+                                            <Link href={`/dashboard/employment-relations/${doc.id}`}>
+                                                <Paperclip className="w-4 h-4 transition-transform group-hover/btn:rotate-12" />
+                                                Хавсралт
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </div>
-
-            <Separator className="bg-slate-100" />
-
-            {/* Timeline Section */}
-            <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                        <Clock className="h-5 w-5" />
                     </div>
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Түүх</label>
-                        <h3 className="text-lg font-bold text-slate-800">Шилжилт хөдөлгөөний түүх</h3>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-slate-50/50">
-                    <EmploymentHistoryTimeline employeeId={employeeId} />
-                </div>
-            </div>
+                );
+            })}
         </div>
-    )
-}
+    );
+};
 
 const OverviewTabContent = ({ employeeId, employee }: { employeeId: string; employee: Employee }) => {
     const questionnaireRef = useMemoFirebase(
@@ -792,11 +788,7 @@ export default function EmployeeProfilePage() {
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
     const isActive = employee.status === 'Идэвхтэй';
 
-    const unassignButton = employee.positionId ? (
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10 -mr-2" onClick={(e) => { e.stopPropagation(); setIsOffboardingOpen(true); }} title="Албан тушаалаас чөлөөлөх">
-            <UserMinus className="h-3.5 w-3.5" />
-        </Button>
-    ) : null;
+
 
     return (
         <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
@@ -847,7 +839,9 @@ export default function EmployeeProfilePage() {
                             </div>
                             <h1 className="text-2xl font-black tracking-tight mb-2 text-slate-800 leading-tight">{employee.lastName} {employee.firstName}</h1>
                             <div className="flex flex-col items-center gap-1 mb-8">
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">{employee.jobTitle}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">{employee.jobTitle}</p>
+                                </div>
                                 <div className="h-1 w-8 bg-indigo-500 rounded-full mt-2" />
                             </div>
 
@@ -858,6 +852,42 @@ export default function EmployeeProfilePage() {
                                 <Badge variant="outline" className={cn("font-bold text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-lg border-2", statusInfo.className)}>
                                     {statusInfo.label}
                                 </Badge>
+                            </div>
+
+                            <div className="space-y-4 pt-6 border-t border-slate-50 mb-8">
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Clock className="w-3 h-3" /> Хуваарь</span>
+                                    <span className="text-slate-600">{workScheduleName}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Орсон</span>
+                                    <span className="text-slate-600">{effectiveHireDate ? new Date(effectiveHireDate).toLocaleDateString() : '-'}</span>
+                                </div>
+                                {probationEndDate && (
+                                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                        <span className="text-slate-400 flex items-center gap-1.5"><CalendarCheck className="w-3 h-3" /> Туршилт</span>
+                                        <span className="text-slate-600">{new Date(probationEndDate).toLocaleDateString()}</span>
+                                    </div>
+                                )}
+                                {effectiveTerminationDate && (
+                                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                        <span className="text-slate-400 flex items-center gap-1.5"><UserMinus className="w-3 h-3" /> Чөлөөлөгдөх</span>
+                                        <span className="text-indigo-600">{new Date(effectiveTerminationDate).toLocaleDateString()}</span>
+                                    </div>
+                                )}
+                                <div className="h-px bg-slate-50 my-2" />
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider group/link">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Mail className="w-3 h-3" /> Email</span>
+                                    <a href={`mailto:${employee.email}`} className="text-slate-600 truncate max-w-[120px] hover:text-indigo-600 transition-colors">{employee.email}</a>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Phone className="w-3 h-3" /> Утас</span>
+                                    <span className="text-slate-600">{employee.phoneNumber || '-'}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="text-slate-400 flex items-center gap-1.5"><Hash className="w-3 h-3" /> ID Code</span>
+                                    <span className="text-slate-600 font-mono">#{employee.employeeCode}</span>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 w-full">
@@ -873,107 +903,23 @@ export default function EmployeeProfilePage() {
                                         Анкет харах
                                     </Link>
                                 </Button>
-                            </div>
-                            <Button asChild variant="ghost" className="w-full h-12 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 mt-3">
-                                <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
-                                    <Activity className="mr-2 h-4 w-4" />
-                                    Life Cycle
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem] p-4">
-                        <CardHeader className="pb-4 px-4 pt-4 border-b border-slate-50">
-                            <CardTitle className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Холбоо барих</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-2 p-2 pt-4">
-                            <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
-                                <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-                                    <Mail className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Email</p>
-                                    <a href={`mailto:${employee.email}`} className="text-xs font-bold text-slate-700 truncate block hover:text-indigo-600">{employee.email}</a>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
-                                <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                                    <Phone className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Phone</p>
-                                    <span className="text-xs font-bold text-slate-700">{employee.phoneNumber || '-'}</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
-                                <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-                                    <User className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">ID Code</p>
-                                    <span className="text-xs font-bold text-slate-700 font-mono">#{employee.employeeCode}</span>
-                                </div>
+                                <Button asChild variant="ghost" className="w-full h-12 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 mt-1">
+                                    <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
+                                        <Activity className="mr-2 h-4 w-4" />
+                                        Life Cycle
+                                    </Link>
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-none bg-indigo-900 shadow-xl shadow-indigo-100 overflow-hidden rounded-[2rem] group relative">
-                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-150 transition-transform duration-700 pointer-events-none">
-                            <UserMinus className="h-24 w-24 text-white" />
-                        </div>
-                        <CardHeader className="pb-2 relative z-10 px-8 pt-8">
-                            <CardTitle className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">Offboarding</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0 relative z-10 px-8 pb-8">
-                            <h4 className="text-lg font-bold text-white mb-3">Чөлөөлөх процесс</h4>
-                            <p className="text-xs text-indigo-200 leading-relaxed mb-8 font-medium">
-                                Ажилтан ажлаас гарах, урт хугацааны чөлөө авах эсвэл өөр албан тушаалд шилжих процессыг эхлүүлнэ.
-                            </p>
-                            <Button asChild variant="default" className="w-full h-12 bg-white hover:bg-indigo-50 text-indigo-900 border-none shadow-lg font-bold text-[10px] uppercase tracking-widest rounded-2xl active:scale-95 transition-all">
-                                <Link href={`/dashboard/employees/${employeeId}/offboarding`}>
-                                    Процесс эхлүүлэх
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Right Column: Key Details & Tabs */}
-                <div className="lg:col-span-8 xl:col-span-9 space-y-8">
-                    <Card className="border-none shadow-xl shadow-slate-200/50 bg-white overflow-hidden rounded-[2.5rem]">
-                        <CardHeader className="pb-6 px-10 pt-10 flex flex-row items-center justify-between border-b border-slate-50">
-                            <div>
-                                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 block">Work Profile</label>
-                                <CardTitle className="text-lg font-bold text-slate-800">Албан тушаалын мэдээлэл</CardTitle>
-                            </div>
-                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500">
-                                <Briefcase className="h-6 w-6" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <InfoItem icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} action={unassignButton} />
-                            <InfoItem icon={MapPin} label="Харьяалах нэгж" value={departmentName} />
-                            <InfoItem icon={Clock} label="Цагийн хуваарь" value={workScheduleName} />
-                            <InfoItem icon={Calendar} label="Ажилд орсон" value={effectiveHireDate ? new Date(effectiveHireDate).toLocaleDateString() : '-'} />
-                            {probationEndDate && (
-                                <InfoItem icon={CalendarCheck} label="Туршилт дуусах" value={new Date(probationEndDate).toLocaleDateString()} />
-                            )}
-                            {effectiveTerminationDate && (
-                                <InfoItem icon={UserMinus} label="Чөлөөлөгдөх" value={new Date(effectiveTerminationDate).toLocaleDateString()} />
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Tabs defaultValue="onboarding" className="w-full">
+                <div className="lg:col-span-8 xl:col-span-9 space-y-8 pt-2">
+                    <Tabs defaultValue="history" className="w-full">
                         <div className="bg-slate-50/50 rounded-3xl p-1.5 inline-flex mb-8 overflow-x-auto max-w-full scrollbar-hide">
                             <TabsList className="bg-transparent h-12 gap-1 px-1">
-                                <TabsTrigger
-                                    value="overview"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-                                >
-                                    Ерөнхий
-                                </TabsTrigger>
 
                                 <TabsTrigger
                                     value="history"
@@ -985,7 +931,7 @@ export default function EmployeeProfilePage() {
                                     value="documents"
                                     className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
                                 >
-                                    Бичиг баримт
+                                    Ажилтны баримт бичиг
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="time-off"
@@ -999,19 +945,12 @@ export default function EmployeeProfilePage() {
                                 >
                                     Ээлжийн амралт
                                 </TabsTrigger>
-                                <TabsTrigger
-                                    value="cv"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-                                >
-                                    CV
-                                </TabsTrigger>
+
                             </TabsList>
                         </div>
 
                         <div className="min-h-[400px]">
-                            <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
-                                <OverviewTabContent employeeId={employeeId || ''} employee={employee} />
-                            </TabsContent>
+
 
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
                                 <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
@@ -1036,9 +975,7 @@ export default function EmployeeProfilePage() {
                             <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
                                 <DocumentsTabContent employee={employee} />
                             </TabsContent>
-                            <TabsContent value="cv" className="mt-0 focus-visible:outline-none">
-                                <CVDisplay employeeId={employeeId || ''} />
-                            </TabsContent>
+
                         </div>
                     </Tabs>
                 </div>

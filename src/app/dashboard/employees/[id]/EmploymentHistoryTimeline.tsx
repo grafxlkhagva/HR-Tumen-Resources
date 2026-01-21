@@ -192,7 +192,7 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
           <ul className="space-y-0">
             {history.map((event, index) => (
               <TimelineItem
-                key={event.id}
+                key={`${event.id}-${index}`}
                 event={event}
                 isLast={index === history.length - 1}
               />
