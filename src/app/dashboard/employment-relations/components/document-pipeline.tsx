@@ -77,7 +77,7 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
 
                                                 <div className="space-y-1">
                                                     <h4 className="font-bold text-[13px] text-slate-800 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
-                                                        {docTypeMap[doc.documentTypeId] || 'Тодорхойгүй баримт'}
+                                                        {doc.metadata?.templateName || docTypeMap[doc.documentTypeId] || 'Тодорхойгүй баримт'}
                                                     </h4>
                                                 </div>
 

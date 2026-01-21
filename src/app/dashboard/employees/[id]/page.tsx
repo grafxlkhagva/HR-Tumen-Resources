@@ -37,7 +37,8 @@ import {
     Download,
     Paperclip,
     ShieldCheck,
-    Activity
+    Activity,
+    CalendarCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -354,21 +355,8 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
 };
 
 
-const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
+const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId: string; erDocuments?: ERDocument[]; isLoading: boolean }) => {
     const { firestore } = useFirebase();
-
-    const erDocumentsQuery = React.useMemo(() =>
-        firestore ? query(
-            collection(firestore, 'er_documents'),
-            where('employeeId', '==', employeeId)
-        ) : null
-        , [firestore, employeeId]);
-
-    const { data: erDocuments, isLoading, error } = useCollection<ERDocument>(erDocumentsQuery as any);
-
-    if (error) {
-        console.error("ER Documents query error:", error);
-    }
 
     return (
         <div className="space-y-10">
@@ -442,7 +430,7 @@ const HistoryTabContent = ({ employeeId }: { employeeId: string }) => {
                         <div className="col-span-full py-12 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
                             <FileText className="h-8 w-8 text-slate-200 mb-3" />
                             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
-                                {error ? `Алдаа гарлаа: ${error.message}` : 'Баримт байхгүй'}
+                                Баримт байхгүй
                             </p>
                         </div>
                     )}
@@ -627,10 +615,128 @@ export default function EmployeeProfilePage() {
 
     const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef as any);
 
+    const orgActionsRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'organization_actions') : null),
+        [firestore]
+    );
+    const { data: orgActions, isLoading: isLoadingOrgActions } = useCollection<any>(orgActionsRef);
+
+
+    const erDocumentsQuery = React.useMemo(() =>
+        firestore && employeeId ? query(
+            collection(firestore, 'er_documents'),
+            where('employeeId', '==', employeeId)
+        ) : null
+        , [firestore, employeeId]);
+
+    const { data: erDocuments, isLoading: isLoadingDocs } = useCollection<ERDocument>(erDocumentsQuery as any);
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
 
-    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule;
+    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule || isLoadingDocs || isLoadingOrgActions;
+
+    const { effectiveHireDate, probationEndDate, effectiveTerminationDate } = React.useMemo(() => {
+        let hireDate = employee?.hireDate;
+        let probationEnd = null;
+        let terminationDate = employee?.terminationDate;
+
+        if (!erDocuments || erDocuments.length === 0) return { effectiveHireDate: hireDate, probationEndDate: null, effectiveTerminationDate: terminationDate };
+
+        // Filter for appointment documents and sort by date (newest first)
+        const appointmentDocs = erDocuments
+            .filter(doc =>
+                (doc.metadata?.actionId?.startsWith('appointment') || doc.templateId?.includes('appointment')) &&
+                ['APPROVED', 'SIGNED'].includes(doc.status)
+            )
+            .sort((a, b) => {
+                const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
+                const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
+                return (dateB || 0) - (dateA || 0);
+            });
+
+        if (appointmentDocs.length > 0) {
+            const latestDoc = appointmentDocs[0];
+            const inputs = latestDoc.customInputs || {};
+            const actionId = latestDoc.metadata?.actionId;
+
+            // Get mapping for this action
+            const actionConfig = orgActions?.find((a: any) => a.id === actionId);
+            const mappings = actionConfig?.dateMappings || {};
+
+            let hireDateKey = null;
+            let probationEndKey = null;
+
+            if (actionId === 'appointment_probation') {
+                hireDateKey = mappings['probationStartDate'];
+                probationEndKey = mappings['probationEndDate'];
+            } else if (actionId === 'appointment_reappoint') {
+                hireDateKey = mappings['reappointmentDate'];
+            } else if (actionId === 'appointment_permanent') {
+                hireDateKey = mappings['appointmentDate'];
+            }
+
+            let hireDateVal = hireDateKey ? inputs[hireDateKey] : null;
+            probationEnd = probationEndKey ? inputs[probationEndKey] : null;
+
+            // Fallback to legacy hardcoded keys or generic ones if mapping is missing
+            if (!hireDateVal) {
+                if (actionId === 'appointment_probation') {
+                    hireDateVal = inputs['Туршилтын эхлэх огноо'] || inputs['probationStartDate'];
+                } else if (actionId === 'appointment_reappoint') {
+                    hireDateVal = inputs['Томилогдсон огноо'] || inputs['appointmentDate'];
+                } else if (actionId === 'appointment_permanent') {
+                    hireDateVal = inputs['Томилогдсон хугацаа'] || inputs['appointmentDate'];
+                }
+            }
+
+            // General fallbacks for hire date
+            if (!hireDateVal) {
+                hireDateVal = inputs['startDate'] || inputs['date'] || inputs['Огноо'];
+            }
+
+            // Last resort: find any string that looks like a date
+            if (!hireDateVal) {
+                hireDateVal = Object.values(inputs).find(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v));
+            }
+
+            if (hireDateVal) {
+                hireDate = hireDateVal;
+            }
+        }
+
+        // Filter for release documents
+        const releaseDocs = erDocuments
+            .filter(doc =>
+                (doc.metadata?.actionId?.startsWith('release') || doc.templateId?.includes('release')) &&
+                ['APPROVED', 'SIGNED'].includes(doc.status)
+            )
+            .sort((a, b) => {
+                const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
+                const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
+                return (dateB || 0) - (dateA || 0);
+            });
+
+        if (releaseDocs.length > 0) {
+            const latestDoc = releaseDocs[0];
+            const inputs = latestDoc.customInputs || {};
+            const actionId = latestDoc.metadata?.actionId;
+            const actionConfig = orgActions?.find((a: any) => a.id === actionId);
+            const mappings = actionConfig?.dateMappings || {};
+
+            const releaseDateKey = mappings['releaseDate'];
+            let releaseDateVal = releaseDateKey ? inputs[releaseDateKey] : null;
+
+            if (!releaseDateVal) {
+                releaseDateVal = inputs['Ажлаас чөлөөлөх огноо'] || inputs['releaseDate'] || inputs['terminationDate'];
+            }
+
+            if (releaseDateVal) {
+                terminationDate = releaseDateVal;
+            }
+        }
+
+        return { effectiveHireDate: hireDate, probationEndDate: probationEnd, effectiveTerminationDate: terminationDate };
+    }, [erDocuments, employee, orgActions]);
 
     const departmentMap = React.useMemo(() => {
         if (!departments) return new Map<string, string>();
@@ -849,7 +955,13 @@ export default function EmployeeProfilePage() {
                             <InfoItem icon={Briefcase} label="Албан тушаал" value={employee.jobTitle} action={unassignButton} />
                             <InfoItem icon={MapPin} label="Харьяалах нэгж" value={departmentName} />
                             <InfoItem icon={Clock} label="Цагийн хуваарь" value={workScheduleName} />
-                            <InfoItem icon={Calendar} label="Ажилд орсон" value={employee.hireDate ? new Date(employee.hireDate).toLocaleDateString() : '-'} />
+                            <InfoItem icon={Calendar} label="Ажилд орсон" value={effectiveHireDate ? new Date(effectiveHireDate).toLocaleDateString() : '-'} />
+                            {probationEndDate && (
+                                <InfoItem icon={CalendarCheck} label="Туршилт дуусах" value={new Date(probationEndDate).toLocaleDateString()} />
+                            )}
+                            {effectiveTerminationDate && (
+                                <InfoItem icon={UserMinus} label="Чөлөөлөгдөх" value={new Date(effectiveTerminationDate).toLocaleDateString()} />
+                            )}
                         </CardContent>
                     </Card>
 
@@ -902,7 +1014,7 @@ export default function EmployeeProfilePage() {
                             </TabsContent>
 
                             <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                                <HistoryTabContent employeeId={employeeId || ''} />
+                                <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
                             </TabsContent>
                             <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
                                 <VacationTabContent employee={employee} />

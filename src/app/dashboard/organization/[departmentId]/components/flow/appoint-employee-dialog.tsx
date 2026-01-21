@@ -168,7 +168,7 @@ export function AppointEmployeeDialog({
                         templateName: templateData.name,
                         departmentName: (deptData as any)?.name,
                         positionName: position.title,
-                        actionId: 'appointment'
+                        actionId: selectedActionId
                     },
                     history: [{
                         stepId: 'CREATE',
