@@ -4,89 +4,120 @@
 
 @layer base {
   :root {
-    /* Premium Light Mode - Crisp & Clean */
+    /* ========================================
+       DESIGN SYSTEM TOKENS - Neutral/Minimal
+       ======================================== */
+    
+    /* Neutral Gray Scale */
+    --gray-50: 210 20% 98%;
+    --gray-100: 220 14% 96%;
+    --gray-200: 220 13% 91%;
+    --gray-300: 216 12% 84%;
+    --gray-400: 218 11% 65%;
+    --gray-500: 220 9% 46%;
+    --gray-600: 215 14% 34%;
+    --gray-700: 217 19% 27%;
+    --gray-800: 215 28% 17%;
+    --gray-900: 221 39% 11%;
+    --gray-950: 224 71% 4%;
+    
+    /* Semantic Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    /* Core Theme Variables - Light Mode */
     --background: 0 0% 100%;
-    /* Pure White */
-    --foreground: 222 47% 11%;
-    /* Deep Slate for text (softer than pure black) */
+    --foreground: 221 39% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 221 39% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 221 39% 11%;
 
-    /* Elegant Primary Blue (Inter/Stripe style) */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Neutral with subtle blue tint */
+    --primary: 220 9% 20%;
+    --primary-foreground: 210 20% 98%;
 
-    /* Subtle cool grays for secondary actions */
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
+    /* Secondary - Light gray */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 221 39% 11%;
 
-    /* Muted backgrounds for distinct sections */
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Softer backgrounds */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    /* Vibrant Accent for highlights */
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 47% 11.2%;
+    /* Accent - Subtle highlight */
+    --accent: 220 14% 96%;
+    --accent-foreground: 221 39% 11%;
 
-    /* Sophisticated Destructive Red */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    /* Subtle Border */
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%;
+    /* Borders & Inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 9% 46%;
 
-    --radius: 0.75rem;
-    /* Slightly more rounded for modern feel */
+    --radius: 0.5rem;
 
-    /* Chart Colors (maintained or adjusted slightly) */
-    --chart-1: 221 83% 53%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    /* Chart Colors - Neutral palette */
+    --chart-1: 220 9% 20%;
+    --chart-2: 220 9% 35%;
+    --chart-3: 220 9% 50%;
+    --chart-4: 220 9% 65%;
+    --chart-5: 220 9% 80%;
   }
 
   .dark {
-    /* Deep "Obsidian" Dark Mode */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Core Theme Variables - Dark Mode */
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 221 39% 11%;
+    --card-foreground: 210 20% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 221 39% 11%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47.4% 11.2%;
+    /* Primary - Light in dark mode */
+    --primary: 210 20% 98%;
+    --primary-foreground: 221 39% 11%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary */
+    --secondary: 217 19% 27%;
+    --secondary-foreground: 210 20% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted */
+    --muted: 217 19% 27%;
+    --muted-foreground: 218 11% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent */
+    --accent: 217 19% 27%;
+    --accent-foreground: 210 20% 98%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive */
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 20% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Borders & Inputs */
+    --border: 217 19% 27%;
+    --input: 217 19% 27%;
+    --ring: 216 12% 84%;
 
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Chart Colors - Dark mode */
+    --chart-1: 220 14% 96%;
+    --chart-2: 216 12% 84%;
+    --chart-3: 218 11% 65%;
+    --chart-4: 220 9% 46%;
+    --chart-5: 215 14% 34%;
   }
 }
 

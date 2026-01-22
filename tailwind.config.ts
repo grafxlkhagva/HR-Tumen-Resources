@@ -16,11 +16,39 @@ export default {
       },
     },
     extend: {
+      /* ========================================
+         DESIGN SYSTEM - Typography
+         ======================================== */
       fontFamily: {
         body: ['Inter', 'sans-serif'],
         headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
+      fontSize: {
+        'display': ['2.25rem', { lineHeight: '2.5rem', fontWeight: '600' }],
+        'title': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],
+        'subtitle': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '500' }],
+        'body': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+        'body-medium': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '500' }],
+        'caption': ['0.75rem', { lineHeight: '1rem', fontWeight: '400' }],
+        'caption-medium': ['0.75rem', { lineHeight: '1rem', fontWeight: '500' }],
+        'micro': ['0.6875rem', { lineHeight: '0.875rem', fontWeight: '500' }],
+      },
+      /* ========================================
+         DESIGN SYSTEM - Spacing
+         ======================================== */
+      spacing: {
+        'page': '1.5rem',
+        'page-lg': '2rem',
+        'section': '2rem',
+        'card': '1.25rem',
+        'card-sm': '1rem',
+        'inline': '0.75rem',
+        'inline-sm': '0.5rem',
+      },
+      /* ========================================
+         DESIGN SYSTEM - Colors
+         ======================================== */
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -62,6 +90,37 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
+        /* Semantic Colors */
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        error: {
+          DEFAULT: 'hsl(var(--error))',
+          foreground: 'hsl(var(--error-foreground))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+        },
+        /* Gray Scale */
+        gray: {
+          50: 'hsl(var(--gray-50))',
+          100: 'hsl(var(--gray-100))',
+          200: 'hsl(var(--gray-200))',
+          300: 'hsl(var(--gray-300))',
+          400: 'hsl(var(--gray-400))',
+          500: 'hsl(var(--gray-500))',
+          600: 'hsl(var(--gray-600))',
+          700: 'hsl(var(--gray-700))',
+          800: 'hsl(var(--gray-800))',
+          900: 'hsl(var(--gray-900))',
+          950: 'hsl(var(--gray-950))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -69,9 +128,12 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        'premium': '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0, 0, 0, 0.05)',
-        'premium-hover': '0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.05)',
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+        'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        'DEFAULT': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        'card': '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
+        'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

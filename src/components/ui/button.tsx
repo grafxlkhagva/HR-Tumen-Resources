@@ -5,31 +5,35 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-95",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-body-medium font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 rounded-xl font-bold text-xs",
+        default:
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-premium hover:bg-destructive/90 rounded-xl font-bold text-xs",
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         success:
-          "bg-emerald-600 text-white shadow-premium shadow-emerald-200/50 hover:bg-emerald-700 rounded-xl font-bold text-xs",
+          "bg-success text-success-foreground shadow-sm hover:bg-success/90",
         warning:
-          "bg-amber-500 text-white shadow-premium shadow-amber-200/50 hover:bg-amber-600 rounded-xl font-bold text-xs",
-        soft:
-          "bg-primary/5 text-primary hover:bg-primary hover:text-white rounded-xl font-bold text-[11px] border border-primary/10",
+          "bg-warning text-warning-foreground shadow-sm hover:bg-warning/90",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground rounded-xl text-slate-600 font-bold text-xs",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 rounded-xl font-bold text-xs",
-        ghost: "hover:bg-accent hover:text-accent-foreground rounded-xl font-bold text-xs",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: 
+          "hover:bg-accent hover:text-accent-foreground",
+        link: 
+          "text-foreground underline-offset-4 hover:underline",
+        soft:
+          "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
       },
       size: {
-        default: "h-10 px-5 py-2",
-        sm: "h-9 rounded-xl px-4",
-        lg: "h-12 rounded-xl px-8",
-        icon: "h-10 w-10 rounded-xl",
+        default: "h-10 px-4 py-2 rounded-md",
+        sm: "h-8 px-3 text-caption-medium rounded-md",
+        lg: "h-11 px-6 rounded-md",
+        icon: "h-10 w-10 rounded-md",
+        "icon-sm": "h-8 w-8 rounded-md",
       },
     },
     defaultVariants: {
@@ -50,7 +54,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button"
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }), !asChild && "gap-2")}
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
       />

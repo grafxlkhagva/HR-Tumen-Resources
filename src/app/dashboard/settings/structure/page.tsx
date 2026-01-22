@@ -3,99 +3,80 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code, ArrowUpRight, FileText, Database, Files } from 'lucide-react';
+import { Code, ArrowRight, Database } from 'lucide-react';
+import { PageHeader } from '@/components/patterns';
 
 export default function OrganizationSettingsHub() {
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Байгууллагын тохиргоо</h1>
-        <p className="text-muted-foreground mt-2">Ажилтны кодчлолын тохиргоог удирдах.</p>
-      </div>
+    <div className="p-page space-y-section">
+      <PageHeader
+        title="Байгууллагын тохиргоо"
+        description="Ажилтны кодчлол болон системийн тохиргоог удирдах"
+        showBackButton
+        hideBreadcrumbs
+      />
 
-      <div className="max-w-3xl">
-        {/* Employee Code Configuration - Primary Feature */}
+      <div className="max-w-2xl space-y-card">
+        {/* Employee Code Configuration */}
         <Link href="/dashboard/settings/employee-code" className="group block">
-          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15">
-            <CardHeader className="pb-4">
+          <Card className="transition-shadow hover:shadow-card-hover">
+            <CardHeader>
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 rounded-xl bg-primary text-primary-foreground shadow-lg">
-                    <Code className="h-8 w-8" />
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-md bg-muted">
+                    <Code className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-semibold">Ажилтны кодчлол</CardTitle>
-                    <CardDescription className="mt-1.5 text-base">
-                      Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах
+                    <CardTitle className="text-subtitle">Ажилтны кодчлол</CardTitle>
+                    <CardDescription className="mt-1">
+                      Ажилтны кодыг хэрхэн үүсгэхийг тохируулах
                     </CardDescription>
                   </div>
                 </div>
-                <ArrowUpRight className="h-6 w-6 text-primary transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <span>Префикс тохируулах (жишээ: EMP, STAFF)</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <span>Оронгийн тоог тодорхойлох</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <span>Дараагийн дугаарыг удирдах</span>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/50">
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold">Жишээ форматууд:</span> EMP0001, STAFF-101, E-2024-001
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground">
+                  Префикс, оронгийн тоо, дараагийн дугаарыг удирдах
+                </p>
+                <p className="text-micro text-muted-foreground">
+                  Жишээ: EMP0001, STAFF-101
                 </p>
               </div>
             </CardContent>
           </Card>
         </Link>
 
-        {/* Questionnaire Reference - Restored Feature */}
-        <Link href="/dashboard/settings/questionnaire" className="group block mt-6">
-          <Card className="transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15">
-            <CardHeader className="pb-4">
+        {/* Questionnaire Reference */}
+        <Link href="/dashboard/settings/questionnaire" className="group block">
+          <Card className="transition-shadow hover:shadow-card-hover">
+            <CardHeader>
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 rounded-xl bg-blue-500 text-white shadow-lg">
-                    <Database className="h-8 w-8" />
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-md bg-muted">
+                    <Database className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-semibold">Анкетний лавлах сан</CardTitle>
-                    <CardDescription className="mt-1.5 text-base">
-                      Ажилд орох өргөдлийн асуулга, сонголтуудыг удирдах
+                    <CardTitle className="text-subtitle">Анкетний лавлах сан</CardTitle>
+                    <CardDescription className="mt-1">
+                      Асуулга, сонголтуудыг удирдах
                     </CardDescription>
                   </div>
                 </div>
-                <ArrowUpRight className="h-6 w-6 text-blue-500 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Боловсрол, мэргэшлийн сонголтууд</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Ур чадварын жагсаалт</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Гэр бүлийн байдал, бусад тохиргоо</span>
-                </div>
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground">
+                  Боловсрол, мэргэшил, ур чадварын жагсаалт
+                </p>
               </div>
             </CardContent>
           </Card>
         </Link>
-
-
       </div>
     </div>
   );

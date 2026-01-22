@@ -34,53 +34,49 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <div className="text-xs text-muted-foreground text-center">
-          Ачаалж байна...
-        </div>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-caption text-muted-foreground">Ачаалж байна...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-muted/5">
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* Global Header */}
-      <header className="flex-none sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center justify-between gap-4 px-6">
+      <header className="flex-none sticky top-0 z-40 w-full border-b bg-background">
+        <div className="flex h-14 items-center justify-between gap-4 px-page">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon-sm" asChild>
               <Link href="/dashboard">
-                <Home className="h-5 w-5" />
+                <Home className="h-4 w-4" />
                 <span className="sr-only">Нүүр хуудас</span>
               </Link>
             </Button>
-            <div className="h-5 w-px bg-border/60" />
-            <Link href="/dashboard/company" className="inline-block transition-opacity hover:opacity-80">
-              <div className="flex items-center gap-3">
-                {isLoadingProfile ? (
-                  <>
-                    <Skeleton className="size-8 rounded-lg" />
-                    <Skeleton className="h-5 w-24" />
-                  </>
-                ) : (
-                  <>
-                    <Avatar className="size-8 rounded-lg border">
-                      <AvatarImage src={companyProfile?.logoUrl} className="object-contain" />
-                      <AvatarFallback className="rounded-lg bg-muted">
-                        <Building className="size-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <h1 className="text-sm font-semibold tracking-tight text-foreground">{companyProfile?.name || 'Компани'}</h1>
-                  </>
-                )}
-              </div>
+            <div className="h-4 w-px bg-border" />
+            <Link href="/dashboard/company" className="inline-flex items-center gap-2 transition-opacity hover:opacity-80">
+              {isLoadingProfile ? (
+                <>
+                  <Skeleton className="h-7 w-7 rounded-md" />
+                  <Skeleton className="h-4 w-20" />
+                </>
+              ) : (
+                <>
+                  <Avatar className="h-7 w-7 rounded-md border">
+                    <AvatarImage src={companyProfile?.logoUrl} className="object-contain" />
+                    <AvatarFallback className="rounded-md bg-muted text-micro">
+                      <Building className="h-3.5 w-3.5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-body-medium">{companyProfile?.name || 'Компани'}</span>
+                </>
+              )}
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-muted-foreground hover:text-foreground">
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon-sm" asChild>
               <Link href="/dashboard/settings/structure">
-                <Settings className="h-5 w-5" />
+                <Settings className="h-4 w-4" />
                 <span className="sr-only">Тохиргоо</span>
               </Link>
             </Button>
