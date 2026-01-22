@@ -121,7 +121,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Цагийн ерөнхий тохиргоо</CardTitle>
                     </CardHeader>
@@ -220,7 +220,7 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Чөлөөний хүсэлтийн тохиргоо</CardTitle>
                         <CardDescription>Чөлөө авахтай холбоотой ерөнхий дүрмүүдийг энд тохируулна уу.</CardDescription>
@@ -263,13 +263,13 @@ export default function TimeAndAttendanceSettingsPage() {
     const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
 
     const timeConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
-    const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef);
+    const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef as any);
 
-    const timeOffConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company/timeOffRequestConfig') : null), []);
-    const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef);
+    const timeOffConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), []);
+    const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef as any);
 
     const vacationConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'vacationConfig') : null), []);
-    const { data: vacationConfigData, isLoading: loadingVacationConfig } = useDoc<VacationConfig>(vacationConfigRef);
+    const { data: vacationConfigData, isLoading: loadingVacationConfig } = useDoc<VacationConfig>(vacationConfigRef as any);
 
     const workScheduleColumns = [
         { key: 'name', header: 'Нэр' },
@@ -277,7 +277,7 @@ export default function TimeAndAttendanceSettingsPage() {
         {
             key: 'schedule',
             header: 'Цагийн хуваарь',
-            render: (item: WorkScheduleItem) => {
+            render: (_: any, item: WorkScheduleItem) => {
                 if (item.category === 'fixed' || item.category === 'shift') {
                     return `${item.startTime} - ${item.endTime}`;
                 }
@@ -287,7 +287,7 @@ export default function TimeAndAttendanceSettingsPage() {
         {
             key: 'workingDays',
             header: 'Ажлын өдөр',
-            render: (item: WorkScheduleItem) => (
+            render: (_: any, item: WorkScheduleItem) => (
                 <div className="flex flex-wrap gap-1">
                     {item.workingDays?.map(day => <Badge key={day} variant="secondary" className="font-normal">{day.substring(0, 2)}</Badge>)}
                 </div>
@@ -296,7 +296,7 @@ export default function TimeAndAttendanceSettingsPage() {
         {
             key: 'isActive',
             header: 'Төлөв',
-            render: (item: WorkScheduleItem) => (
+            render: (_: any, item: WorkScheduleItem) => (
                 <Badge variant={item.isActive ? 'default' : 'destructive'}>{item.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</Badge>
             )
         },
@@ -307,7 +307,7 @@ export default function TimeAndAttendanceSettingsPage() {
         {
             key: 'paid',
             header: 'Төлбөр',
-            render: (item: TimeOffRequestTypeItem) => (
+            render: (_: any, item: TimeOffRequestTypeItem) => (
                 <Badge variant={item.paid ? 'secondary' : 'outline'}>{item.paid ? 'Цалинтай' : 'Цалингүй'}</Badge>
             )
         },
@@ -316,23 +316,15 @@ export default function TimeAndAttendanceSettingsPage() {
     const isLoading = loadingTimeOffConfig || loadingTimeConfig || loadingVacationConfig;
 
     return (
-        <div className="py-8">
-            <div className="mb-8 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard">
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Буцах</span>
-                        </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-semibold tracking-tight">Цаг бүртгэлийн тохиргоо</h1>
-                        <p className="text-muted-foreground">Чөлөө, цаг бүртгэлтэй холбоотой тохиргоог удирдах.</p>
-                    </div>
-                </div>
+        <div className="space-y-8 max-w-5xl mx-auto">
+            <div className="space-y-1">
+                <h2 className="text-2xl font-bold tracking-tight text-slate-800">Цаг бүртгэлийн тохиргоо</h2>
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                    Чөлөө, цаг бүртгэл болон ээлжийн амралттай холбоотой ерөнхий дүрмүүдийг эндээс тохируулна.
+                </p>
             </div>
             <div className="space-y-8">
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Ажлын цагийн хуваарь</CardTitle>
                         <CardDescription>Байгууллагын нийтлэг ажлын цагийн төрлүүдийг үүсгэж удирдах.</CardDescription>
@@ -355,7 +347,7 @@ export default function TimeAndAttendanceSettingsPage() {
 
                 {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
 
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Бүх нийтийн амралтын өдрүүд</CardTitle>
                         <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэж, удирдах.</CardDescription>
@@ -370,7 +362,7 @@ export default function TimeAndAttendanceSettingsPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Ирцийн хүсэлтийн төрөл</CardTitle>
                         <CardDescription>Ээлжийн амралт, ар гэрийн гачигдал зэрэг хүсэлтийн төрлийг удирдах.</CardDescription>
@@ -423,7 +415,7 @@ function VacationConfigForm({ initialData }: { initialData: Partial<VacationConf
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <Card>
+                <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>
                         <CardTitle>Ээлжийн амралтын тохиргоо</CardTitle>
                         <CardDescription>Ээлжийн амралтыг хэд хувааж авах боломжтойг энд тохируулна уу.</CardDescription>

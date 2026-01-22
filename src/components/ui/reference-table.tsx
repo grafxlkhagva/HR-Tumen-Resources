@@ -65,7 +65,8 @@ export interface ReferenceItem {
 interface ColumnDefinition {
   key: string;
   header: string;
-  render?: (item: any) => React.ReactNode;
+  render?: (value: any, item: any) => React.ReactNode;
+  forceFormInput?: boolean;
 }
 
 interface ReferenceTableProps {
@@ -156,7 +157,7 @@ export function ReferenceTable({
               <TableRow key={item.id}>
                 {columns.map((col) => (
                   <TableCell key={col.key}>
-                    {col.render ? col.render(item[col.key]) : item[col.key]}
+                    {col.render ? col.render(item[col.key], item) : item[col.key]}
                   </TableCell>
                 ))}
                 <TableCell className="text-right">
@@ -240,8 +241,8 @@ function ReferenceItemDialog({
   const formSchema = React.useMemo(() => {
     const shape: { [key: string]: any } = {};
     columns.forEach(col => {
-      // Skip fields column and other render-only columns, but not isMandatory
-      if (col.key !== 'fields' && !col.render) {
+      // Skip fields column and other render-only columns, but not isMandatory or forced ones
+      if (col.key !== 'fields' && (!col.render || col.forceFormInput)) {
         shape[col.key] = z.string().min(1, `${col.header} хоосон байж болохгүй.`);
       }
     });
@@ -275,7 +276,7 @@ function ReferenceItemDialog({
       const defaultValues: { [key: string]: any } = {};
       if (isEditMode && item) {
         columns.forEach(col => {
-          if (!col.render) {
+          if (!col.render || col.forceFormInput) {
             defaultValues[col.key] = item[col.key] || (col.key === 'fields' ? [] : '');
           }
         });
@@ -287,7 +288,7 @@ function ReferenceItemDialog({
         }
       } else {
         columns.forEach(col => {
-          if (!col.render) {
+          if (!col.render || col.forceFormInput) {
             defaultValues[col.key] = col.key === 'fields' ? [] : '';
           }
         });
@@ -330,7 +331,7 @@ function ReferenceItemDialog({
             </DialogHeader>
             <ScrollArea className="h-auto max-h-[60vh] p-1">
               <div className="grid gap-4 py-4 pr-4">
-                {columns.filter(c => !c.render).map(col => (
+                {columns.filter(c => !c.render || c.forceFormInput).map(col => (
                   <FormField
                     key={col.key}
                     control={form.control}

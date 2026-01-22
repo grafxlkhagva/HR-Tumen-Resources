@@ -367,9 +367,21 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                                             </Button>
                                         </div>
                                     ) : (
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-white/50" onClick={handleInfoEdit}>
-                                            <Edit3 className="h-4 w-4 text-muted-foreground" />
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                                                onClick={handleDeptDeleteClick}
+                                                disabled={isDeptDeleting}
+                                                title="Нэгж устгах"
+                                            >
+                                                {isDeptDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-white/50" onClick={handleInfoEdit}>
+                                                <Edit3 className="h-4 w-4 text-muted-foreground" />
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </CardHeader>
@@ -501,29 +513,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                             </CardContent>
                         </Card>
 
-                        {/* Danger Zone */}
-                        <Card className="rounded-xl border-destructive/20 shadow-sm overflow-hidden bg-destructive/5">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-semibold text-destructive flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Удирдлага
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Нэгжийг устгах эсвэл татан буулгах үйлдэл хийх хэсэг. Энэ үйлдэл буцаагдахгүйг анхаарна уу.
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start text-destructive hover:bg-destructive hover:text-white border-destructive/30 h-9"
-                                    onClick={handleDeptDeleteClick}
-                                    disabled={isDeptDeleting}
-                                >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    {isDeptDeleting ? "Уншиж байна..." : "Устгах / Татан буулгах"}
-                                </Button>
-                            </CardContent>
-                        </Card>
+
                     </div>
 
                     {/* Right Column: Chart & Tabs */}
@@ -555,15 +545,17 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                                             <span>Түүх</span>
                                         </TabsTrigger>
                                     </TabsList>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="h-8 rounded-full text-xs font-bold gap-2 px-4 shadow-sm"
-                                        onClick={handleAddPosition}
-                                    >
-                                        <PlusCircle className="h-3.5 w-3.5" />
-                                        Ажлын байр нэмэх
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="default"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full shadow-sm"
+                                            onClick={handleAddPosition}
+                                            title="Ажлын байр нэмэх"
+                                        >
+                                            <PlusCircle className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="p-0">

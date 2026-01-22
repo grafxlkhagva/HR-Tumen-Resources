@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, Circle, Clock, Loader2, Save, Info, CheckCircle, FileText, Settings, UserCircle2, Video } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Loader2, Save, Info, CheckCircle, FileText, Settings, UserCircle2, Video, RefreshCw } from 'lucide-react';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
 import { doc, getDoc, setDoc, collection, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -155,6 +155,93 @@ export default function EmployeeOnboardingPage() {
         }
     };
 
+    const syncWithPosition = async () => {
+        if (!firestore || !employee || !process) return;
+        setIsSaving(true);
+        try {
+            const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
+            const config = configSnap.exists() ? configSnap.data() : { stages: [] };
+
+            let allowedTaskIds: string[] | null = null;
+            if (employee.positionId) {
+                const posSnap = await getDoc(doc(firestore, 'positions', employee.positionId));
+                if (posSnap.exists()) {
+                    const posData = posSnap.data();
+                    if (posData.onboardingProgramIds && posData.onboardingProgramIds.length > 0) {
+                        allowedTaskIds = posData.onboardingProgramIds;
+                    }
+                }
+            }
+
+            const updatedStages = (config.stages || []).map((globalStage: any) => {
+                const currentStage = localStages.find(s => s.id === globalStage.id);
+
+                const allowedGlobalTasks = (globalStage.tasks || []).filter((t: any) =>
+                    allowedTaskIds ? allowedTaskIds.includes(t.id) : true
+                );
+
+                if (!currentStage) {
+                    return {
+                        id: globalStage.id,
+                        title: globalStage.title,
+                        completed: false,
+                        progress: 0,
+                        tasks: allowedGlobalTasks.map((t: any) => ({
+                            id: t.id,
+                            title: t.title,
+                            description: t.description,
+                            completed: false,
+                            policyId: t.policyId
+                        }))
+                    };
+                }
+
+                const mergedTasks: TaskInstance[] = allowedGlobalTasks.map((globalTask: any) => {
+                    const existingTask = currentStage.tasks.find(t => t.id === globalTask.id);
+                    if (existingTask) {
+                        return {
+                            ...existingTask,
+                            title: globalTask.title,
+                            description: globalTask.description,
+                            policyId: globalTask.policyId
+                        };
+                    } else {
+                        return {
+                            id: globalTask.id,
+                            title: globalTask.title,
+                            description: globalTask.description,
+                            completed: false,
+                            policyId: globalTask.policyId
+                        };
+                    }
+                });
+
+                const completedTasks = mergedTasks.filter(t => t.completed).length;
+                const progress = mergedTasks.length > 0 ? Math.round((completedTasks / mergedTasks.length) * 100) : 100;
+
+                return {
+                    ...currentStage,
+                    title: globalStage.title,
+                    tasks: mergedTasks,
+                    progress,
+                    completed: progress === 100
+                };
+            }).filter((s: any) => s.tasks.length > 0);
+
+            const totalProgress = Math.round(updatedStages.reduce((sum: number, s: any) => sum + s.progress, 0) / (updatedStages.length || 1));
+
+            setLocalStages(updatedStages);
+            await saveProgress(updatedStages, totalProgress);
+            toast({ title: 'Хөтөлбөр шинэчлэгдлээ' });
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Шинэчлэхэд алдаа гарлаа', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
     const toggleTask = (stageId: string, taskId: string) => {
         const newStages = localStages.map(s => {
             if (s.id === stageId) {
@@ -247,8 +334,19 @@ export default function EmployeeOnboardingPage() {
                                 <span className="text-xs font-bold text-slate-600">{new Date(process.createdAt).toLocaleDateString()}</span>
                             </div>
                         )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                            onClick={syncWithPosition}
+                            disabled={isSaving}
+                        >
+                            <RefreshCw className={cn("h-3 w-3 mr-2", isSaving && "animate-spin")} />
+                            Хөтөлбөр шинэчлэх
+                        </Button>
                         <div className="flex items-center gap-2">
                             {isSaving && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+
                             <Badge variant={overallProgress === 100 ? "default" : "secondary"} className={cn(
                                 "px-3 py-1 font-bold",
                                 overallProgress === 100 ? "bg-emerald-500" : "bg-indigo-50 text-indigo-700"

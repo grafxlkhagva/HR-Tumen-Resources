@@ -223,7 +223,7 @@ export default function EmployeeCodeSettingsPage() {
     []
   );
 
-  const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef);
+  const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef as any);
 
   const initialData: EmployeeCodeFormValues = codeConfig || {
     prefix: '',
@@ -232,28 +232,18 @@ export default function EmployeeCodeSettingsPage() {
   };
 
   return (
-    <div className="py-8">
-      <div className="mb-4 flex items-center gap-4">
-        <Button asChild variant="outline" size="icon">
-          <Link href="/dashboard/settings/structure">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Буцах</span>
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Ажилтны кодчлолын тохиргоо
-          </h1>
-          <p className="text-muted-foreground">
-            Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах.
-          </p>
-        </div>
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-800">Кодчлол</h2>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Системийн хэмжээнд ашиглагдах дугаарлалт, кодчлолын тохиргоог эндээс удирдана.
+        </p>
       </div>
 
-      <Card>
+      <Card className="shadow-premium border-slate-200/60">
         <CardHeader>
-          <CardTitle>Кодчлол</CardTitle>
-          <CardDescription>Жишээ: EMP0001</CardDescription>
+          <CardTitle>Ажилтны кодчлол</CardTitle>
+          <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: EMP0001</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -263,6 +253,147 @@ export default function EmployeeCodeSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="shadow-premium border-slate-200/60">
+        <CardHeader>
+          <CardTitle>Ажлын байрны кодчлол</CardTitle>
+          <CardDescription>Ажлын байрны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: POS0001</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PositionCodeConfigSection />
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function PositionCodeConfigSection() {
+  const codeConfigRef = useMemoFirebase(
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    []
+  );
+
+  const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef as any);
+
+  const initialData: EmployeeCodeFormValues = codeConfig || {
+    prefix: '',
+    digitCount: 4,
+    nextNumber: 1,
+  };
+
+  if (isLoading) return <ConfigCardSkeleton />;
+
+  return <PositionCodeConfigForm initialData={initialData} />;
+}
+
+function PositionCodeConfigForm({
+  initialData,
+}: {
+  initialData: EmployeeCodeFormValues;
+}) {
+  const { toast } = useToast();
+
+  const codeConfigRef = useMemoFirebase(
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    []
+  );
+
+  const form = useForm<EmployeeCodeFormValues>({
+    resolver: zodResolver(employeeCodeSchema),
+    defaultValues: initialData,
+  });
+
+  const { isSubmitting } = form.formState;
+
+  React.useEffect(() => {
+    form.reset(initialData);
+  }, [initialData, form]);
+
+  const onSubmit = async (data: EmployeeCodeFormValues) => {
+    if (!codeConfigRef) return;
+
+    try {
+      await setDocumentNonBlocking(codeConfigRef, data, { merge: true });
+
+      toast({
+        title: 'Амжилттай хадгаллаа',
+        description: 'Ажлын байрны кодчлолын тохиргоо шинэчлэгдлээ.',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Алдаа гарлаа',
+        description:
+          'Тохиргоо хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="prefix"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Угтвар үсэг</FormLabel>
+                <FormControl>
+                  <Input placeholder="POS" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="digitCount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Тооны орон</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="4"
+                    min={1}
+                    max={10}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="nextNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Эхлэх дугаар</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="1" min={1} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />
+            ) : (
+              <Save className="mr-2 size-4 shrink-0" />
+            )}
+            Хадгалах
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

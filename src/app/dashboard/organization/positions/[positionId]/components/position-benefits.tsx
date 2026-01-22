@@ -15,7 +15,8 @@ import {
     Gift,
     Shield,
     Edit3,
-    Plus
+    Plus,
+    AlertCircle
 } from 'lucide-react';
 import { Position } from '../../../types';
 import { doc } from 'firebase/firestore';
@@ -96,6 +97,13 @@ export function PositionBenefits({
 
     return (
         <section className="space-y-12">
+            {position.isApproved && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 mb-6">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-medium">Батлагдсан ажлын байр тул хангамжийн мэдээллийг өөрчлөх боломжгүй.</p>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -107,10 +115,12 @@ export function PositionBenefits({
                     </div>
                 </div>
                 {!isEditing ? (
-                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Засах
-                    </Button>
+                    !position.isApproved && (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Засах
+                        </Button>
+                    )
                 ) : (
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
@@ -165,11 +175,14 @@ export function PositionBenefits({
                                                 <select
                                                     value={al.period}
                                                     onChange={(e) => updateAllowance(i, 'period', e.target.value)}
-                                                    className="w-24 rounded-lg border border-border bg-background text-[9px] font-bold uppercase px-2 shadow-sm focus:ring-1 focus:ring-primary outline-none"
+                                                    className="w-28 rounded-lg border border-border bg-background text-[9px] font-bold uppercase px-2 shadow-sm focus:ring-1 focus:ring-primary outline-none"
                                                 >
-                                                    <option value="monthly">Сар бүр</option>
-                                                    <option value="yearly">Жил бүр</option>
                                                     <option value="once">Нэг удаа</option>
+                                                    <option value="daily">Өдөр бүр</option>
+                                                    <option value="monthly">Сар бүр</option>
+                                                    <option value="quarterly">Улирал бүр</option>
+                                                    <option value="semi-annually">Хагас жил тутам</option>
+                                                    <option value="yearly">Жил бүр</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -198,7 +211,12 @@ export function PositionBenefits({
                                         <div>
                                             <h4 className="text-sm font-bold text-foreground">{al.type}</h4>
                                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                                {al.period === 'monthly' ? 'Сар бүр' : al.period === 'yearly' ? 'Жил бүр' : 'Нэг удаа'}
+                                                {al.period === 'once' ? 'Нэг удаа' :
+                                                    al.period === 'daily' ? 'Өдөр бүр' :
+                                                        al.period === 'monthly' ? 'Сар бүр' :
+                                                            al.period === 'quarterly' ? 'Улирал бүр' :
+                                                                al.period === 'semi-annually' ? 'Хагас жил тутам' :
+                                                                    al.period === 'yearly' ? 'Жил бүр' : al.period}
                                             </p>
                                         </div>
                                     </div>

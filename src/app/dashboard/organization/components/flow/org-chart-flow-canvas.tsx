@@ -21,7 +21,7 @@ import { Department } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCw, LayoutTemplate } from 'lucide-react';
 
-const nodeTypes = {
+const NODE_TYPES = {
     orgNode: OrgChartFlowNode,
 };
 
@@ -100,7 +100,7 @@ function FlowInner({ data, onDepartmentClick, initialNodes, initialEdges }: OrgC
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes as any}
+            nodeTypes={NODE_TYPES}
             connectionLineType={ConnectionLineType.SmoothStep}
             fitView
             className="bg-dot-pattern"
@@ -111,12 +111,12 @@ function FlowInner({ data, onDepartmentClick, initialNodes, initialEdges }: OrgC
             <Panel position="top-left" className="flex flex-col gap-2">
                 <Button
                     variant="outline"
-                    size="sm"
-                    className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-md hover:shadow-lg transition-all gap-2 h-9 px-3 rounded-xl border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                    size="icon"
+                    className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-md hover:shadow-lg transition-all h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
                     onClick={onLayout}
+                    title="Байршил цэгцлэх"
                 >
                     <LayoutTemplate className="h-4 w-4 text-indigo-500" />
-                    <span>Байршил цэгцлэх</span>
                 </Button>
             </Panel>
         </ReactFlow>

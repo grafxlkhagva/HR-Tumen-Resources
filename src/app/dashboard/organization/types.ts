@@ -33,6 +33,7 @@ export type Position = {
     departmentId: string;
     filled: number;
     reportsToId?: string; // Standardized
+    reportsTo?: string; // Compatibility
     levelId?: string;
     employmentTypeId?: string;
     jobCategoryId?: string;
@@ -40,6 +41,10 @@ export type Position = {
     isActive?: boolean;
     createdAt?: string;
     canApproveAttendance?: boolean;
+    canApproveVacation?: boolean;
+    hasPointBudget?: boolean;
+    yearlyPointBudget?: number;
+    remainingPointBudget?: number;
     onboardingProgramIds?: string[];
     isApproved?: boolean;
     approvedAt?: string;
@@ -50,10 +55,27 @@ export type Position = {
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
     purpose?: string;
-    responsibilities?: {
-        title: string;
-        description: string;
-    }[];
+    responsibilities?: string[];
+    compensation?: {
+        salaryRange?: {
+            min: number;
+            mid: number;
+            max: number;
+            currency: string;
+            period: 'monthly' | 'yearly';
+        };
+        variablePay?: {
+            bonusDescription?: string;
+            commissionDescription?: string;
+            equityDescription?: string;
+        };
+    };
+    benefits?: {
+        isRemoteAllowed?: boolean;
+        flexibleHours?: boolean;
+        vacationDays?: number;
+        otherBenefits?: string[];
+    };
     salaryRange?: {
         min: number;
         max: number;
@@ -66,6 +88,7 @@ export type Position = {
         amount: number;
         currency: string;
         unit: string;
+        frequency?: string;
     }[];
     allowances?: {
         type: string;

@@ -65,6 +65,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 // Dynamically import the Map component to avoid SSR issues with Leaflet
 const AttendanceMap = dynamic(() => import('./attendance-map'), {
@@ -329,17 +330,15 @@ export default function AttendanceSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight mb-1">
-            Цагийн бүртгэлийн байршил
-          </h2>
-          <p className="text-sm text-muted-foreground">
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Байршил</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl">
             Байгууллагын салбар, оффисуудын байршлын мэдээллийг удирдах.
           </p>
         </div>
-        <Button onClick={handleAdd} className="w-fit">
+        <Button onClick={handleAdd} className="shadow-sm">
           <Plus className="mr-2 h-4 w-4" />
           Байршил нэмэх
         </Button>
@@ -363,7 +362,7 @@ export default function AttendanceSettingsPage() {
             ))
           ) : (
             locations?.map(loc => (
-              <Card key={loc.id} className={!loc.isActive ? 'opacity-60 bg-muted/30' : ''}>
+              <Card key={loc.id} className={cn("shadow-premium border-slate-200/60", !loc.isActive && 'opacity-60 bg-muted/30')}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex flex-col gap-1">
                     <CardTitle className="text-base font-semibold">{loc.name}</CardTitle>
@@ -421,7 +420,7 @@ export default function AttendanceSettingsPage() {
           )}
         </div>
 
-        <Card>
+        <Card className="shadow-premium border-slate-200/60">
           <CardHeader>
             <CardTitle>Төхөөрөмжийн баталгаажуулалт</CardTitle>
           </CardHeader>

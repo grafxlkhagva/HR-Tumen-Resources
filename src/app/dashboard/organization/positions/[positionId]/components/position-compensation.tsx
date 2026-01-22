@@ -16,7 +16,8 @@ import {
     Zap,
     Edit3,
     LayoutGrid,
-    CheckCircle2
+    CheckCircle2,
+    AlertCircle
 } from 'lucide-react';
 import { Position, SalaryRangeVersion } from '../../../types';
 import { doc, collection, addDoc } from 'firebase/firestore';
@@ -147,7 +148,7 @@ export function PositionCompensation({
     const handleAddIncentive = () => {
         setFormData(prev => ({
             ...prev,
-            incentives: [...prev.incentives, { type: '', description: '', amount: 0, currency: 'MNT', unit: '%' }]
+            incentives: [...prev.incentives, { type: '', description: '', amount: 0, currency: 'MNT', unit: '%', frequency: 'Сар бүр' }]
         }));
     };
 
@@ -256,6 +257,13 @@ export function PositionCompensation({
 
     return (
         <section className="space-y-12">
+            {position.isApproved && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 mb-6">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-medium">Батлагдсан ажлын байр тул цалин, урамшууллын мэдээллийг өөрчлөх боломжгүй.</p>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -267,10 +275,12 @@ export function PositionCompensation({
                     </div>
                 </div>
                 {!isEditing ? (
-                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Засах
-                    </Button>
+                    !position.isApproved && (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Засах
+                        </Button>
+                    )
                 ) : (
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
@@ -438,40 +448,61 @@ export function PositionCompensation({
                                                 />
                                             </div>
 
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Дүн / Хэмжээ</label>
-                                                <div className="flex gap-2">
-                                                    <div className="flex-1">
-                                                        {inc.unit === '₮' ? (
-                                                            <CurrencyInput
-                                                                value={inc.amount}
-                                                                onValueChange={(val) => updateIncentive(i, 'amount', val)}
-                                                                className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all"
-                                                                placeholder="Дүн оруулна уу"
-                                                            />
-                                                        ) : (
-                                                            <div className="relative">
-                                                                <Input
-                                                                    type="number"
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Дүн / Хэмжээ</label>
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            {inc.unit === '₮' ? (
+                                                                <CurrencyInput
                                                                     value={inc.amount}
-                                                                    onChange={(e) => updateIncentive(i, 'amount', Number(e.target.value))}
-                                                                    className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all pr-8 font-bold"
-                                                                    placeholder="Хэмжээ"
+                                                                    onValueChange={(val) => updateIncentive(i, 'amount', val)}
+                                                                    className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all"
+                                                                    placeholder="Дүн оруулна уу"
                                                                 />
-                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/50">%</span>
-                                                            </div>
-                                                        )}
+                                                            ) : (
+                                                                <div className="relative">
+                                                                    <Input
+                                                                        type="number"
+                                                                        value={inc.amount}
+                                                                        onChange={(e) => updateIncentive(i, 'amount', Number(e.target.value))}
+                                                                        className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all pr-8 font-bold"
+                                                                        placeholder="Хэмжээ"
+                                                                    />
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/50">%</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <Select
+                                                            value={inc.unit}
+                                                            onValueChange={(val) => updateIncentive(i, 'unit', val)}
+                                                        >
+                                                            <SelectTrigger className="w-16 h-10 rounded-lg border-border bg-background shadow-sm font-bold">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-border">
+                                                                <SelectItem value="%" className="rounded-lg">%</SelectItem>
+                                                                <SelectItem value="₮" className="rounded-lg">₮</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Олгох давтамж</label>
                                                     <Select
-                                                        value={inc.unit}
-                                                        onValueChange={(val) => updateIncentive(i, 'unit', val)}
+                                                        value={inc.frequency || 'Сар бүр'}
+                                                        onValueChange={(val) => updateIncentive(i, 'frequency', val)}
                                                     >
-                                                        <SelectTrigger className="w-20 h-10 rounded-lg border-border bg-background shadow-sm font-bold">
+                                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm font-bold">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-border">
-                                                            <SelectItem value="%" className="rounded-lg">%</SelectItem>
-                                                            <SelectItem value="₮" className="rounded-lg">₮</SelectItem>
+                                                            <SelectItem value="Өдөр бүр" className="rounded-lg">Өдөр бүр</SelectItem>
+                                                            <SelectItem value="Сар бүр" className="rounded-lg">Сар бүр</SelectItem>
+                                                            <SelectItem value="Улирал бүр" className="rounded-lg">Улирал бүр</SelectItem>
+                                                            <SelectItem value="Хагас жил тутам" className="rounded-lg">Хагас жил тутам</SelectItem>
+                                                            <SelectItem value="Жил бүр" className="rounded-lg">Жил бүр</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -509,9 +540,14 @@ export function PositionCompensation({
                                                 <h4 className="text-sm font-bold text-foreground">{inc.type}</h4>
                                                 <p className="text-xs text-muted-foreground font-medium italic">{inc.description}</p>
                                             </div>
-                                            <Badge className="bg-primary/10 text-primary border-none font-bold text-sm px-3 py-1.5 rounded-lg shadow-sm">
-                                                {inc.unit === '₮' ? inc.amount.toLocaleString() : inc.amount}{inc.unit}
-                                            </Badge>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <Badge className="bg-primary/10 text-primary border-none font-bold text-sm px-3 py-1.5 rounded-lg shadow-sm">
+                                                    {inc.unit === '₮' ? inc.amount.toLocaleString() : inc.amount}{inc.unit}
+                                                </Badge>
+                                                {inc.frequency && (
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{inc.frequency}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))

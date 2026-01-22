@@ -26,7 +26,7 @@ export default function HolidaysPage() {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingHoliday, setEditingHoliday] = React.useState<PublicHoliday | null>(null);
 
-    const publicHolidaysQuery = useMemoFirebase(({firestore}) => firestore ? collection(firestore, 'publicHolidays') : null, []);
+    const publicHolidaysQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'publicHolidays') : null, []);
     const { data: publicHolidays, isLoading: loadingPublicHolidays } = useCollection<PublicHoliday>(publicHolidaysQuery);
 
     const handleAddNew = () => {
@@ -41,11 +41,11 @@ export default function HolidaysPage() {
 
     const holidayColumns = [
         { key: 'name', header: 'Баярын нэр' },
-        { 
-            key: 'date', 
+        {
+            key: 'date',
             header: 'Огноо',
-            render: (item: PublicHoliday) => {
-                if(item.isRecurring && item.month && item.day) {
+            render: (_: any, item: PublicHoliday) => {
+                if (item.isRecurring && item.month && item.day) {
                     return `Жил бүрийн ${item.month}-р сарын ${item.day}`;
                 }
                 if (item.date) {
@@ -61,7 +61,7 @@ export default function HolidaysPage() {
         {
             key: 'isRecurring',
             header: 'Төрөл',
-            render: (item: PublicHoliday) => item.isRecurring ? 'Давтагддаг' : 'Нэг удаагийн'
+            render: (value: any) => value ? 'Давтагддаг' : 'Нэг удаагийн'
         }
     ];
 
@@ -74,7 +74,7 @@ export default function HolidaysPage() {
                 const [year, month, day] = h.date!.split('-').map(Number);
                 return new Date(year, month - 1, day);
             });
-        
+
         const isRecurringHoliday = (date: Date) => {
             const month = date.getMonth() + 1;
             const day = date.getDate();
@@ -85,7 +85,7 @@ export default function HolidaysPage() {
             holiday: nonRecurringDays,
             recurring: isRecurringHoliday,
         };
-    }, [publicHolidays]);
+    }, [publicHolidays]) as any;
 
     const holidayModifierStyles = {
         holiday: {
@@ -93,14 +93,14 @@ export default function HolidaysPage() {
             borderRadius: 'var(--radius)',
         },
         recurring: {
-             border: '2px solid hsl(var(--primary))',
+            border: '2px solid hsl(var(--primary))',
             borderRadius: 'var(--radius)',
         }
     };
 
     return (
         <div className="py-8">
-            <AddHolidayDialog 
+            <AddHolidayDialog
                 open={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
                 editingItem={editingHoliday}
@@ -139,14 +139,14 @@ export default function HolidaysPage() {
                             <CardTitle>Бүртгэлтэй баярууд</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <ReferenceTable
+                            <ReferenceTable
                                 collectionName="publicHolidays"
                                 columns={holidayColumns}
                                 itemData={publicHolidays}
                                 isLoading={loadingPublicHolidays}
                                 dialogTitle="Баярын өдөр"
                                 hideAddButton={true}
-                                onEdit={handleEdit}
+                                onEdit={handleEdit as any}
                             />
                         </CardContent>
                     </Card>

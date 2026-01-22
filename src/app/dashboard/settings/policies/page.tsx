@@ -104,32 +104,27 @@ export default function CompanyPoliciesPage() {
   const isLoading = isLoadingPolicies || isLoadingPositions;
 
   return (
-    <div className="py-8">
+    <div className="space-y-8 max-w-5xl mx-auto">
       <AddPolicyDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         editingPolicy={editingPolicy}
         positions={positions || []}
       />
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon">
-            <Link href="/dashboard/settings/general">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Буцах</span>
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Компанийн дүрэм, журам</h1>
-            <p className="text-muted-foreground">Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.</p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Компанийн дүрэм, журам</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl">
+            Байгууллагын дотоод дүрэм, журмыг удирдах, хандалтыг тохируулах.
+          </p>
         </div>
-        <Button size="sm" onClick={handleAddNew}>
+        <Button onClick={handleAddNew} className="shadow-sm">
           <PlusCircle className="mr-2 h-4 w-4" />
           Шинэ журам нэмэх
         </Button>
       </div>
-      <Card>
+
+      <Card className="shadow-premium border-slate-200/60 overflow-hidden">
         <CardHeader>
           <CardTitle>Бүртгэлтэй журмууд</CardTitle>
           <CardDescription>

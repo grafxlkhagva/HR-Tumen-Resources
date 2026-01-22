@@ -7,7 +7,13 @@ import {
     Settings,
     Briefcase,
     FileText,
-    Clock
+    Clock,
+    GraduationCap,
+    History,
+    MapPin,
+    Files,
+    ScrollText,
+    Zap
 } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 
@@ -17,17 +23,52 @@ interface SettingsLayoutProps {
 
 const settingsNavItems = [
     {
-        title: "Байгууллага",
-        href: "/dashboard/settings/structure",
-        icon: Briefcase,
-        description: "Бүтэц, ажилтны код"
+        title: "Кодчлол",
+        href: "/dashboard/settings/employee-code",
+        icon: History,
+        description: "Дугаарлалт, формат"
     },
-
     {
         title: "Цаг ашиглалт",
         href: "/dashboard/settings/time-off",
         icon: Clock,
         description: "Ирц, чөлөө, амралт"
+    },
+    {
+        title: "Байршил",
+        href: "/dashboard/settings/attendance",
+        icon: MapPin,
+        description: "GPS байршил"
+    },
+    {
+        title: "Ур чадвар",
+        href: "/dashboard/settings/skills",
+        icon: GraduationCap,
+        description: "Ур чадварын сан"
+    },
+    {
+        title: "Анкет",
+        href: "/dashboard/settings/questionnaire",
+        icon: FileText,
+        description: "Лавлах сангууд"
+    },
+    {
+        title: "Баримт бичиг",
+        href: "/dashboard/settings/documents",
+        icon: Files,
+        description: "Төрөл, талбарууд"
+    },
+    {
+        title: "Журам",
+        href: "/dashboard/settings/policies",
+        icon: ScrollText,
+        description: "Дүрэм, журам"
+    },
+    {
+        title: "Дасан зохицох",
+        href: "/dashboard/settings/onboarding",
+        icon: Zap,
+        description: "Чиглүүлэх хөтөлбөр"
     }
 ];
 

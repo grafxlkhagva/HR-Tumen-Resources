@@ -49,11 +49,17 @@ import {
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
+  useDoc,
   deleteDocumentNonBlocking,
   useCollection,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { Loader2, Trash2, PlusCircle, Sparkles } from 'lucide-react';
+import {
+  collection, doc, increment, query, where, getDocs,
+  runTransaction,
+  updateDoc,
+  addDoc
+} from 'firebase/firestore';
+import { Loader2, Trash2, PlusCircle, Sparkles, Wand2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +67,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
+import { generateCode } from '@/lib/code-generator';
 
 
 const positionSchema = z.object({
@@ -138,6 +145,12 @@ export function AddPositionDialog({
       setMode(initialMode);
     }
   }, [open, initialMode]);
+
+  const posCodeConfigRef = useMemoFirebase(
+    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    []
+  );
+  const { data: posCodeConfig } = useDoc<any>(posCodeConfigRef as any);
 
   const form = useForm<PositionFormValues>({
     resolver: zodResolver(positionSchema),
@@ -235,6 +248,9 @@ export function AddPositionDialog({
 
   const { isSubmitting } = form.formState;
 
+  // Auto-fill removed to allow late-binding generation at save time
+  // This prevents duplicates if multiple dialogs are open or if counter lags.
+
   const positionsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'positions') : null),
     [firestore]
@@ -264,73 +280,71 @@ export function AddPositionDialog({
       return;
     }
 
-    const baseData: any = {
-      title: data.title,
-      code: data.code?.toUpperCase() || '',
-      departmentId: finalDepartmentId,
-      levelId: data.levelId || '',
-      employmentTypeId: data.employmentTypeId || '',
-      workScheduleId: data.workScheduleId || '',
-      jobCategoryId: data.jobCategoryId || '',
-      canApproveAttendance: data.canApproveAttendance,
-      canApproveVacation: data.canApproveVacation,
-      hasPointBudget: data.hasPointBudget,
-      yearlyPointBudget: data.yearlyPointBudget,
-      remainingPointBudget: isEditMode ? (editingPosition?.remainingPointBudget ?? data.yearlyPointBudget) : data.yearlyPointBudget,
-      purpose: data.purpose || '',
-      responsibilities: data.responsibilities ? data.responsibilities.split('\n').filter(r => r.trim() !== '') : [],
-      compensation: {
-        salaryRange: {
-          min: data.salaryMin || 0,
-          mid: data.salaryMid || 0,
-          max: data.salaryMax || 0,
-          currency: data.salaryCurrency,
-          period: data.salaryPeriod as any,
+    try {
+      const baseData: any = {
+        title: data.title,
+        code: data.code?.trim().toUpperCase() || '',
+        departmentId: finalDepartmentId,
+        levelId: data.levelId || '',
+        employmentTypeId: data.employmentTypeId || '',
+        workScheduleId: data.workScheduleId || '',
+        jobCategoryId: data.jobCategoryId || '',
+        canApproveAttendance: data.canApproveAttendance,
+        canApproveVacation: data.canApproveVacation,
+        hasPointBudget: data.hasPointBudget,
+        yearlyPointBudget: data.yearlyPointBudget,
+        remainingPointBudget: isEditMode ? (editingPosition?.remainingPointBudget ?? data.yearlyPointBudget) : data.yearlyPointBudget,
+        purpose: data.purpose || '',
+        responsibilities: data.responsibilities ? data.responsibilities.split('\n').filter(r => r.trim() !== '') : [],
+        compensation: {
+          salaryRange: {
+            min: data.salaryMin || 0,
+            mid: data.salaryMid || 0,
+            max: data.salaryMax || 0,
+            currency: data.salaryCurrency || 'MNT',
+            period: data.salaryPeriod || 'monthly',
+          },
+          variablePay: {
+            bonusDescription: data.bonusDescription || '',
+            commissionDescription: data.commissionDescription || '',
+            equityDescription: data.equityDescription || '',
+          }
         },
-        variablePay: {
-          bonusDescription: data.bonusDescription,
-          commissionDescription: data.commissionDescription,
-          equityDescription: data.equityDescription,
-        }
-      },
-      benefits: {
-        isRemoteAllowed: data.isRemoteAllowed,
-        flexibleHours: data.flexibleHours,
-        vacationDays: data.vacationDays,
-        otherBenefits: data.otherBenefits ? data.otherBenefits.split('\n').filter(r => r.trim() !== '') : [],
-      }
-    };
-
-    if (data.reportsTo && data.reportsTo !== '(none)') {
-      baseData.reportsTo = data.reportsTo;
-    } else {
-      baseData.reportsTo = null;
-    }
-
-    if (isEditMode && editingPosition) {
-      const docRef = doc(firestore, 'positions', editingPosition.id);
-      updateDocumentNonBlocking(docRef, baseData);
-      toast({ title: 'Амжилттай шинэчлэгдлээ' });
-    } else {
-      if (!positionsCollection) return;
-      const finalData = {
-        ...baseData,
-        filled: 0,
-        isApproved: false // New positions are not approved by default
+        benefits: {
+          isRemoteAllowed: data.isRemoteAllowed,
+          flexibleHours: data.flexibleHours,
+          vacationDays: data.vacationDays,
+          otherBenefits: data.otherBenefits ? data.otherBenefits.split('\n').filter(r => r.trim() !== '') : [],
+        },
+        updatedAt: new Date().toISOString()
       };
 
-      const newDocRef = await addDocumentNonBlocking(positionsCollection, finalData);
-
-      if (newDocRef && newDocRef.id) {
-        toast({ title: 'Амжилттай нэмэгдлээ.' });
-        // Close dialog but stays on the same page
-        onOpenChange(false);
-        // router.push removed as per request
+      if (data.reportsTo && data.reportsTo !== '(none)') {
+        baseData.reportsTo = data.reportsTo;
+      } else {
+        baseData.reportsTo = null;
       }
-    }
 
-    if (isEditMode) {
+      if (isEditMode && editingPosition) {
+        await updateDoc(doc(firestore, 'positions', editingPosition.id), baseData);
+      } else {
+        await addDoc(collection(firestore, 'positions'), {
+          ...baseData,
+          filled: 0,
+          isApproved: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      toast({ title: isEditMode ? 'Амжилттай шинэчлэгдлээ' : 'Амжилттай нэмэгдлээ' });
       onOpenChange(false);
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Алдаа гарлаа',
+        description: 'Мэдээллийг хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
+      });
     }
   };
 
@@ -393,7 +407,27 @@ export function AddPositionDialog({
                       name="code"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ажлын байрны код</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            <span>Ажлын байрны код</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] gap-1 text-primary"
+                              onClick={() => {
+                                if (posCodeConfig) {
+                                  field.onChange(generateCode({
+                                    prefix: posCodeConfig.prefix || '',
+                                    digitCount: posCodeConfig.digitCount || 4,
+                                    nextNumber: posCodeConfig.nextNumber || 1
+                                  }));
+                                }
+                              }}
+                            >
+                              <Wand2 className="w-3 h-3" />
+                              Автоматаар үүсгэх
+                            </Button>
+                          </FormLabel>
                           <FormControl>
                             <Input placeholder="Жишээ нь: ACC001" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                           </FormControl>
@@ -505,9 +539,51 @@ export function AddPositionDialog({
                               name="code"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Ажлын байрны код</FormLabel>
+                                  <FormLabel className="flex items-center justify-between">
+                                    <span>Ажлын байрны код</span>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                                      onClick={async () => {
+                                        if (!firestore || !posCodeConfigRef) return;
+                                        try {
+                                          const { runTransaction } = await import('firebase/firestore');
+                                          await runTransaction(firestore, async (transaction) => {
+                                            const configDoc = await transaction.get(posCodeConfigRef);
+                                            if (configDoc.exists()) {
+                                              const configData = configDoc.data();
+                                              const currentNum = configData.nextNumber || 1;
+                                              const generated = generateCode({
+                                                prefix: configData.prefix || '',
+                                                digitCount: configData.digitCount || 4,
+                                                nextNumber: currentNum
+                                              });
+                                              form.setValue('code', generated);
+                                              transaction.update(posCodeConfigRef, {
+                                                nextNumber: currentNum + 1
+                                              });
+                                            }
+                                          });
+                                        } catch (e) {
+                                          console.error("Manual generate error:", e);
+                                          toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
+                                        }
+                                      }}
+                                    >
+                                      <Wand2 className="w-3 h-3" />
+                                      Код үүсгэх
+                                    </Button>
+                                  </FormLabel>
                                   <FormControl>
-                                    <Input placeholder="Жишээ нь: DEV001" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                                    <Input
+                                      placeholder="Код үүсгэх товчийг дарна уу"
+                                      {...field}
+                                      value={field.value || ''}
+                                      readOnly
+                                      className="bg-slate-50 cursor-not-allowed uppercase"
+                                    />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -761,6 +837,7 @@ export function AddPositionDialog({
                                           {...field}
                                           value={field.value || 0}
                                           onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                          readOnly
                                         />
                                       </FormControl>
                                       <FormDescription>

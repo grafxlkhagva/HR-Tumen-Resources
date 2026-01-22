@@ -28,8 +28,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Position } from '../../../types';
-import { doc } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { format } from 'date-fns';
@@ -68,6 +68,34 @@ export function PositionCompetency({
         }
     });
 
+    const [skillSearch, setSkillSearch] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const suggestionRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const skillsInventoryQuery = useMemo(() =>
+        firestore ? query(collection(firestore, 'skills_inventory'), orderBy('name', 'asc')) : null
+        , [firestore]);
+
+    const { data: skillsInventory } = useCollection<any>(skillsInventoryQuery);
+
+    const filteredSuggestions = useMemo(() => {
+        if (!skillSearch) return [];
+        return skillsInventory?.filter(s =>
+            s.name.toLowerCase().includes(skillSearch.toLowerCase()) &&
+            !formData.skills.some(existing => existing.name.toLowerCase() === s.name.toLowerCase())
+        ).slice(0, 5) || [];
+    }, [skillSearch, skillsInventory, formData.skills]);
+
     const handleFieldUpdate = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -79,12 +107,30 @@ export function PositionCompetency({
         }));
     };
 
-    const handleAddSkill = (name: string, level: string) => {
+    const handleAddSkill = async (name: string, level: string) => {
         if (!name) return;
+
+        // 1. Add to local state
         setFormData(prev => ({
             ...prev,
             skills: [...prev.skills, { name, level: level as any }]
         }));
+
+        // 2. Add to global inventory if it doesn't exist
+        if (firestore && skillsInventory) {
+            const exists = skillsInventory.some(s => s.name.toLowerCase() === name.toLowerCase());
+            if (!exists) {
+                try {
+                    await addDoc(collection(firestore, 'skills_inventory'), {
+                        name,
+                        createdAt: new Date().toISOString(),
+                        category: 'Ажлын байрнаас нэмсэн'
+                    });
+                } catch (e) {
+                    console.error("Error adding to inventory:", e);
+                }
+            }
+        }
     };
 
     const removeSkill = (index: number) => {
@@ -295,8 +341,54 @@ export function PositionCompetency({
                                     </Badge>
                                 ))}
                             </div>
-                            <div className="flex gap-2">
-                                <Input id="skillName" placeholder="Ур чадварын нэр..." className="h-10 rounded-xl" />
+                            <div className="flex gap-2 relative">
+                                <div className="flex-1 relative" ref={suggestionRef}>
+                                    <Input
+                                        id="skillName"
+                                        placeholder="Ур чадварын нэр..."
+                                        className="h-10 rounded-xl"
+                                        value={skillSearch}
+                                        onChange={(e) => {
+                                            setSkillSearch(e.target.value);
+                                            setShowSuggestions(true);
+                                        }}
+                                        onFocus={() => setShowSuggestions(true)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !showSuggestions) {
+                                                const levelTrigger = document.getElementById('skillLevelTrigger') as HTMLElement;
+                                                const level = levelTrigger.dataset.value || 'intermediate';
+                                                handleAddSkill(skillSearch, level);
+                                                setSkillSearch('');
+                                            }
+                                        }}
+                                    />
+                                    {showSuggestions && filteredSuggestions.length > 0 && (
+                                        <div className="absolute z-50 bottom-full mb-2 left-0 right-0 bg-white border border-border rounded-xl shadow-2xl overflow-hidden py-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                            <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-slate-50/50 border-b border-border/50 mb-1">
+                                                Сангаас санал болгох
+                                            </div>
+                                            {filteredSuggestions.map((s, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary/5 flex items-center justify-between group/item transition-colors"
+                                                    onClick={() => {
+                                                        const levelTrigger = document.getElementById('skillLevelTrigger') as HTMLElement;
+                                                        const level = levelTrigger.dataset.value || 'intermediate';
+                                                        handleAddSkill(s.name, level);
+                                                        setSkillSearch('');
+                                                        setShowSuggestions(false);
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Award className="w-3.5 h-3.5 text-primary opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                                                        <span className="font-semibold text-foreground">{s.name}</span>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-tighter bg-slate-50 border-slate-200">{s.category || 'Ур чадвар'}</Badge>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <Select onValueChange={(val) => {
                                     const select = document.getElementById('skillLevelTrigger') as HTMLElement;
                                     if (select) select.dataset.value = val;
@@ -311,12 +403,11 @@ export function PositionCompetency({
                                 </Select>
                                 <Button
                                     onClick={() => {
-                                        const nameInput = document.getElementById('skillName') as HTMLInputElement;
                                         const levelTrigger = document.getElementById('skillLevelTrigger') as HTMLElement;
-                                        const name = nameInput.value;
                                         const level = levelTrigger.dataset.value || 'intermediate';
-                                        handleAddSkill(name, level);
-                                        nameInput.value = '';
+                                        handleAddSkill(skillSearch, level);
+                                        setSkillSearch('');
+                                        setShowSuggestions(false);
                                     }}
                                     className="px-4 bg-slate-800 hover:bg-slate-900 rounded-xl"
                                 >
