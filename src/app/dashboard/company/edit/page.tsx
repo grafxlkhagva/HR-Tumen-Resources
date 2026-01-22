@@ -201,16 +201,19 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                 body: formData,
             });
 
-            const result = await response.json();
+            let result: { success?: boolean; data?: Record<string, string>; error?: string } = {};
+            try {
+                result = await response.json();
+            } catch {
+                throw new Error('Серверийн хариуг уншихад алдаа гарлаа');
+            }
 
             if (!response.ok) {
                 throw new Error(result.error || 'Мэдээлэл задлахад алдаа гарлаа');
             }
 
-            // Update form with extracted data
-            const extractedData = result.data;
+            const extractedData = result.data && typeof result.data === 'object' ? result.data : {};
 
-            // Map extracted fields to form fields
             if (extractedData.name) form.setValue('name', extractedData.name);
             if (extractedData.legalName) form.setValue('legalName', extractedData.legalName);
             if (extractedData.registrationNumber) form.setValue('registrationNumber', extractedData.registrationNumber);
@@ -224,15 +227,15 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
             if (extractedData.website) form.setValue('website', extractedData.website);
             if (extractedData.employeeCount) form.setValue('employeeCount', extractedData.employeeCount);
 
-            // Show success message with extracted fields count
             const extractedFields = Object.keys(extractedData).length;
             toast({
                 title: '✅ Мэдээлэл амжилттай задлагдлаа',
-                description: `${extractedFields} талбарын мэдээлэл автоматаар бөглөгдлөө`
+                description: extractedFields > 0
+                    ? `${extractedFields} талбарын мэдээлэл автоматаар бөглөгдлөө`
+                    : 'Гэрчилгээг боловсруулсан ч олдсон талбар байхгүй байна.'
             });
 
         } catch (error) {
-            console.error("Certificate processing error:", error);
             toast({
                 variant: 'destructive',
                 title: 'Алдаа',
@@ -240,6 +243,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
             });
         } finally {
             setIsProcessingCertificate(false);
+            if (certificateInputRef.current) certificateInputRef.current.value = '';
         }
     };
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src.ai/dev.ts",
     "build": "NODE_ENV=production next build",
@@ -59,6 +59,7 @@
     "lucide-react": "0.400.0",
     "mocean-sdk": "^2.2.3",
     "next": "15.0.7",
+    "pdf-parse": "^1.1.1",
     "react": "^18.3.1",
     "react-day-picker": "8.10.1",
     "react-dom": "^18.3.1",

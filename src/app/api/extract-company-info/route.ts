@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractCompanyInfoFromImage, extractCompanyInfoFromText } from '@/ai/company-ocr';
-import { createWorker } from 'tesseract.js';
+import {
+  extractCompanyInfoFromImage,
+  extractCompanyInfoFromText,
+} from '@/ai/company-ocr';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +16,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { error: 'Файл хэт том байна (10MB-с бага байх ёстой)' },
@@ -22,109 +23,87 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let extractedInfo: any = {};
+    let extractedInfo: Record<string, string> = {};
 
-    // If it's an image, use OCR first, then AI processing
     if (file.type.startsWith('image/')) {
-      try {
-        // Convert file to base64 for AI processing
-        const arrayBuffer = await file.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const mimeType = file.type;
-        const dataUrl = `data:${mimeType};base64,${base64}`;
-
-        // Extract text using OCR first
-        const worker = await createWorker('mon', 1, {
-          logger: m => console.log(m)
-        });
-
-        await worker.setParameters({
-          tessedit_pageseg_mode: '6', // Uniform block of text
-          tessedit_ocr_engine_mode: '2' // Use LSTM OCR engine
-        });
-
-        const { data: { text } } = await worker.recognize(file);
-        await worker.terminate();
-
-        // Use AI to extract structured information from the OCR text
-        if (text.trim()) {
-          extractedInfo = await extractCompanyInfoFromText(text);
-        } else {
-          // If OCR didn't work well, try direct AI processing of the image
-          extractedInfo = await extractCompanyInfoFromImage(dataUrl, mimeType);
-        }
-
-      } catch (ocrError) {
-        console.error('OCR processing error:', ocrError);
-        // Fallback to direct AI processing
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-          const mimeType = file.type;
-          const dataUrl = `data:${mimeType};base64,${base64}`;
-
-          extractedInfo = await extractCompanyInfoFromImage(dataUrl, mimeType);
-        } catch (aiError) {
-          console.error('AI processing error:', aiError);
-          return NextResponse.json(
-            { error: 'Зургийг боловсруулахад алдаа гарлаа' },
-            { status: 500 }
-          );
-        }
-      }
-    } else if (file.type === 'application/pdf' || file.type.includes('text/')) {
-      // For PDF or text files, extract text directly
+      const arrayBuffer = await file.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const mimeType = file.type;
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+      extractedInfo = await extractCompanyInfoFromImage(
+        dataUrl,
+        mimeType
+      ) as Record<string, string>;
+    } else if (file.type === 'application/pdf') {
       try {
         const arrayBuffer = await file.arrayBuffer();
-        let text = '';
-
-        if (file.type === 'application/pdf') {
-          // For PDF files, we'd need a PDF parsing library
-          // For now, return an error as PDF processing requires additional setup
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Dynamic import pdf-parse (v1 simple API)
+        // Use /lib/pdf-parse to avoid test file loading issues in Next.js
+        const pdfParse = (await import('pdf-parse/lib/pdf-parse')).default;
+        const pdfData = await pdfParse(buffer);
+        const text = (pdfData?.text ?? '').trim();
+        
+        if (!text) {
           return NextResponse.json(
-            { error: 'PDF файлыг одоогоор дэмжихгүй байна. Зураг эсвэл текст файл оруулна уу.' },
+            {
+              error:
+                'PDF-ээс текст олдсонгүй. Зураг дээр суурилсан PDF (скан) байж магадгүй. Зураг хэлбэрээр оруулна уу.',
+            },
             { status: 400 }
           );
-        } else {
-          // For text files
-          text = new TextDecoder().decode(arrayBuffer);
         }
-
-        if (text.trim()) {
-          extractedInfo = await extractCompanyInfoFromText(text);
-        }
-      } catch (textError) {
-        console.error('Text processing error:', textError);
+        
+        extractedInfo = (await extractCompanyInfoFromText(text)) as Record<string, string>;
+      } catch (pdfErr) {
+        console.error('PDF processing error:', pdfErr);
+        const msg = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
         return NextResponse.json(
-          { error: 'Текст файлыг боловсруулахад алдаа гарлаа' },
+          {
+            error: `PDF боловсруулахад алдаа: ${msg}`,
+          },
           { status: 500 }
         );
       }
+    } else if (file.type.startsWith('text/')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const text = new TextDecoder().decode(arrayBuffer);
+      if (!text.trim()) {
+        return NextResponse.json(
+          { error: 'Текст файл хоосон байна' },
+          { status: 400 }
+        );
+      }
+      extractedInfo = await extractCompanyInfoFromText(
+        text
+      ) as Record<string, string>;
     } else {
       return NextResponse.json(
-        { error: 'Дэмжигдээгүй файл төрөл. Зураг эсвэл текст файл оруулна уу.' },
+        {
+          error:
+            'Дэмжигдээгүй файл төрөл. Зураг, PDF эсвэл текст файл оруулна уу.',
+        },
         { status: 400 }
       );
     }
 
-    // Clean up the extracted data
     const cleanData = Object.fromEntries(
-      Object.entries(extractedInfo).filter(([_, value]) =>
-        value !== null && value !== undefined && value !== ''
+      Object.entries(extractedInfo).filter(
+        ([_, value]) =>
+          value != null && value !== '' && typeof value === 'string'
       )
-    );
+    ) as Record<string, string>;
 
     return NextResponse.json({
       success: true,
       data: cleanData,
-      message: 'Компанийн мэдээлэл амжилттай задлагдлаа'
+      message: 'Компанийн мэдээлэл амжилттай задлагдлаа',
     });
-
-  } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Мэдээлэл задлахад алдаа гарлаа' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('extract-company-info API error:', err);
+    const message =
+      err instanceof Error ? err.message : 'Мэдээлэл задлахад алдаа гарлаа';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
