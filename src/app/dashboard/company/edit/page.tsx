@@ -26,12 +26,13 @@ import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, Upload, Building, ArrowLeft, Trash, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Save, X, Upload, Building, ArrowLeft, Trash, Image as ImageIcon, FileText, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
+import { Badge } from '@/components/ui/badge';
 
 
 const companyProfileSchema = z.object({
@@ -110,7 +111,10 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
 
     const [logoPreview, setLogoPreview] = React.useState<string | null>(initialData.logoUrl || null);
     const [isUploading, setIsUploading] = React.useState(false);
+    const [isProcessingCertificate, setIsProcessingCertificate] = React.useState(false);
+    const [certificatePreview, setCertificatePreview] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const certificateInputRef = React.useRef<HTMLInputElement>(null);
 
     const companyProfileRef = useMemoFirebase(
         () => (firestore ? doc(firestore, 'company', 'profile') : null),
@@ -150,6 +154,95 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         }
     };
 
+    const handleCertificateUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf', 'text/plain'];
+        if (!allowedTypes.includes(file.type)) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Зөвхөн зураг, PDF эсвэл текст файл оруулна уу.'
+            });
+            return;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Файл хэт том байна (10MB-с бага байх ёстой).'
+            });
+            return;
+        }
+
+        setIsProcessingCertificate(true);
+
+        try {
+            // Create preview for images
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setCertificatePreview(e.target?.result as string);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // Prepare form data for API
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Call AI extraction API
+            const response = await fetch('/api/extract-company-info', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Мэдээлэл задлахад алдаа гарлаа');
+            }
+
+            // Update form with extracted data
+            const extractedData = result.data;
+
+            // Map extracted fields to form fields
+            if (extractedData.name) form.setValue('name', extractedData.name);
+            if (extractedData.legalName) form.setValue('legalName', extractedData.legalName);
+            if (extractedData.registrationNumber) form.setValue('registrationNumber', extractedData.registrationNumber);
+            if (extractedData.taxId) form.setValue('taxId', extractedData.taxId);
+            if (extractedData.industry) form.setValue('industry', extractedData.industry);
+            if (extractedData.establishedDate) form.setValue('establishedDate', extractedData.establishedDate);
+            if (extractedData.ceo) form.setValue('ceo', extractedData.ceo);
+            if (extractedData.address) form.setValue('address', extractedData.address);
+            if (extractedData.phoneNumber) form.setValue('phoneNumber', extractedData.phoneNumber);
+            if (extractedData.contactEmail) form.setValue('contactEmail', extractedData.contactEmail);
+            if (extractedData.website) form.setValue('website', extractedData.website);
+            if (extractedData.employeeCount) form.setValue('employeeCount', extractedData.employeeCount);
+
+            // Show success message with extracted fields count
+            const extractedFields = Object.keys(extractedData).length;
+            toast({
+                title: '✅ Мэдээлэл амжилттай задлагдлаа',
+                description: `${extractedFields} талбарын мэдээлэл автоматаар бөглөгдлөө`
+            });
+
+        } catch (error) {
+            console.error("Certificate processing error:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: error instanceof Error ? error.message : 'Гэрчилгээг боловсруулахад алдаа гарлаа.'
+            });
+        } finally {
+            setIsProcessingCertificate(false);
+        }
+    };
+
     const handleSave = (values: CompanyProfileFormValues) => {
         if (!companyProfileRef) return;
 
@@ -181,15 +274,15 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                     hideBreadcrumbs
                     actions={
                         <div className="flex items-center gap-2">
-                            <Button type="submit" disabled={isSubmitting || isUploading} size="sm">
-                                {isSubmitting || isUploading ? (
+                            <Button type="submit" disabled={isSubmitting || isUploading || isProcessingCertificate} size="sm">
+                                {isSubmitting || isUploading || isProcessingCertificate ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     <Save className="mr-2 h-4 w-4" />
                                 )}
                                 Хадгалах
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || isUploading}>
+                            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || isUploading || isProcessingCertificate}>
                                 <X className="mr-2 h-4 w-4" />
                                 Цуцлах
                             </Button>
@@ -222,6 +315,75 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                                 {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                                 Лого солих
                             </Button>
+                        </div>
+
+                        <div className="md:col-span-2 space-y-4">
+                            <FormLabel>Компанийн гэрчилгээ (AI ашиглан автоматаар бөглөх)</FormLabel>
+                            <div className="flex flex-col items-start gap-4 p-6 border-2 border-dashed border-muted-foreground/25 rounded-lg bg-muted/30">
+                                {certificatePreview && (
+                                    <div className="relative w-full max-w-md">
+                                        <img
+                                            src={certificatePreview}
+                                            alt="Certificate preview"
+                                            className="w-full h-auto max-h-48 object-contain rounded-lg border"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute -top-2 -right-2 h-6 w-6"
+                                            onClick={() => setCertificatePreview(null)}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="file"
+                                        accept="image/*,.pdf,.txt"
+                                        ref={certificateInputRef}
+                                        onChange={handleCertificateUpload}
+                                        className="hidden"
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={() => certificateInputRef.current?.click()}
+                                        disabled={isProcessingCertificate}
+                                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                                    >
+                                        {isProcessingCertificate ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Sparkles className="mr-2 h-4 w-4" />
+                                        )}
+                                        {isProcessingCertificate ? 'AI боловсруулж байна...' : 'Гэрчилгээ оруулах'}
+                                    </Button>
+
+                                    <div className="flex flex-col gap-1">
+                                        <p className="text-sm text-muted-foreground">
+                                            Компанийн гэрчилгээ, бизнес лиценз эсвэл бүртгэлийн баримтыг оруулна уу
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="text-xs">
+                                                <FileText className="mr-1 h-3 w-3" />
+                                                Зураг/PDF/Текст
+                                            </Badge>
+                                            <Badge variant="outline" className="text-xs">
+                                                Макс 10MB
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {isProcessingCertificate && (
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>AI ашиглан мэдээлэл задлаж байна... Түр хүлээнэ үү</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="md:col-span-2 space-y-4">
