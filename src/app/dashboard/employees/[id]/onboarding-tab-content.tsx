@@ -231,29 +231,31 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-slate-50">
+                    <div className="grid grid-cols-1 lg:grid-cols-10 divide-y lg:divide-y-0 lg:divide-x divide-slate-50">
                         {/* Stages Sidebar */}
-                        <div className="lg:col-span-1 p-6 space-y-4 bg-slate-50/30">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2">Үе шатууд</h4>
+                        <div className="lg:col-span-3 p-6 space-y-4 bg-slate-50/30">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 text-center lg:text-left">Үе шатууд</h4>
                             <div className="space-y-1">
                                 {localStages.map((stage, idx) => (
                                     <div
                                         key={stage.id}
                                         className={cn(
-                                            "flex items-center gap-3 p-3 rounded-2xl transition-all",
+                                            "flex items-start gap-3 p-3 rounded-2xl transition-all",
                                             stage.completed ? "bg-emerald-50 text-emerald-700" : "text-slate-600"
                                         )}
                                     >
-                                        {stage.completed ? (
-                                            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                                        ) : stage.progress > 0 ? (
-                                            <div className="h-5 w-5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin shrink-0" />
-                                        ) : (
-                                            <Circle className="h-5 w-5 text-slate-300 shrink-0" />
-                                        )}
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-bold truncate">{idx + 1}. {stage.title}</p>
-                                            <p className="text-[10px] opacity-70">{stage.progress}% дууссан</p>
+                                        <div className="mt-0.5 shrink-0">
+                                            {stage.completed ? (
+                                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                            ) : stage.progress > 0 ? (
+                                                <div className="h-5 w-5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                                            ) : (
+                                                <Circle className="h-5 w-5 text-slate-300" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold leading-tight break-words">{idx + 1}. {stage.title}</p>
+                                            <p className="text-[10px] opacity-70 mt-1">{stage.progress}% дууссан</p>
                                         </div>
                                     </div>
                                 ))}
@@ -261,7 +263,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                         </div>
 
                         {/* Tasks Flow */}
-                        <div className="lg:col-span-3">
+                        <div className="lg:col-span-7">
                             <Tabs defaultValue={localStages[0]?.id} className="w-full">
                                 <div className="px-6 py-4 border-b border-slate-50 overflow-x-auto scrollbar-hide">
                                     <TabsList className="bg-transparent h-auto gap-2 p-0">
@@ -269,7 +271,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                                             <TabsTrigger
                                                 key={stage.id}
                                                 value={stage.id}
-                                                className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-slate-100"
+                                                className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-slate-100 whitespace-nowrap"
                                             >
                                                 {stage.title}
                                             </TabsTrigger>
