@@ -54,6 +54,14 @@ export default function OrganizationSettingsPage() {
                                     { key: 'name', label: 'Нэр', type: 'text', required: true, width: '40%' },
                                     { key: 'level', label: 'Түвшин (Level)', type: 'number', required: true, width: '20%', defaultValue: 0 }
                                 ]}
+                                aiGenerationType="departmentTypes"
+                                sortBy={{ key: 'level', direction: 'asc' }}
+                                referenceCheck={{
+                                    collection: 'departments',
+                                    field: 'typeId',
+                                    nameField: 'typeName',
+                                    label: 'нэгж'
+                                }}
                             />
                         </TabsContent>
 
@@ -66,6 +74,11 @@ export default function OrganizationSettingsPage() {
                                     { key: 'code', label: 'Код', type: 'text', required: true, width: '20%' },
                                     { key: 'name', label: 'Нэр', type: 'text', required: true, width: '40%' }
                                 ]}
+                                referenceCheck={{
+                                    collection: 'positions',
+                                    field: 'jobCategoryId',
+                                    label: 'ажлын байр'
+                                }}
                             />
                         </TabsContent>
 
@@ -76,8 +89,15 @@ export default function OrganizationSettingsPage() {
                                 description="Албан тушаалын зэрэглэлүүд."
                                 columns={[
                                     { key: 'name', label: 'Нэр', type: 'text', required: true, width: '60%' },
-                                    { key: 'level', label: 'Эрэмбэ (Optional)', type: 'number', width: '20%' }
+                                    { key: 'level', label: 'Эрэмбэ', type: 'number', width: '20%' }
                                 ]}
+                                aiGenerationType="positionLevels"
+                                sortBy={{ key: 'level', direction: 'asc' }}
+                                referenceCheck={{
+                                    collection: 'positions',
+                                    field: 'levelId',
+                                    label: 'ажлын байр'
+                                }}
                             />
                         </TabsContent>
 
@@ -89,6 +109,12 @@ export default function OrganizationSettingsPage() {
                                 columns={[
                                     { key: 'name', label: 'Нэр', type: 'text', required: true, width: '80%' }
                                 ]}
+                                aiGenerationType="employmentTypes"
+                                referenceCheck={{
+                                    collection: 'positions',
+                                    field: 'employmentTypeId',
+                                    label: 'ажлын байр'
+                                }}
                             />
                         </TabsContent>
                     </div>

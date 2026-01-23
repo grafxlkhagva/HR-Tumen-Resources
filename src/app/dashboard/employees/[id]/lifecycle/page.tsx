@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase, useDoc } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { Employee } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,7 +27,8 @@ import {
     Check,
     AlertCircle,
     ArrowRight,
-    Sparkles
+    Sparkles,
+    RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateDocumentNonBlocking } from '@/firebase';
@@ -105,7 +106,7 @@ const STAGES = [
         hex: '#F59E0B',
         bg: 'bg-amber-50',
         border: 'border-amber-200',
-        description: 'Ажлаас гарах үйл явц, мэдэгдэх хугацаа'
+        description: 'Ажлаас гарах үйл явц, хүлээлцэх, тооцоо'
     },
     {
         id: 'alumni',
@@ -168,6 +169,69 @@ export default function EmployeeLifecyclePage() {
         }
     };
 
+    const [isRehiring, setIsRehiring] = React.useState(false);
+
+    const handleRehire = async () => {
+        if (!firestore || !employeeId || !employee) return;
+        setIsRehiring(true);
+        try {
+            // Build employment history entry
+            const historyEntry = {
+                type: 'rehire',
+                date: new Date().toISOString(),
+                previousAlumniDate: offboarding?.updatedAt || offboarding?.lastWorkingDate || null,
+                previousPosition: employee.jobTitle || null,
+                previousDepartmentId: employee.departmentId || null,
+                offboardingReason: offboarding?.reason || null,
+                note: `${new Date().getFullYear()} онд дахин ажилд авсан`
+            };
+
+            // 1. Reset employee to fresh state + add history log
+            updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+                status: 'Идэвхтэй',
+                lifecycleStage: 'recruitment',
+                positionId: null,
+                jobTitle: null,
+                departmentId: null,
+                // Add to employment history array
+                employmentHistory: arrayUnion(historyEntry),
+                rehireCount: (employee as any).rehireCount ? (employee as any).rehireCount + 1 : 1,
+                lastRehireDate: new Date().toISOString()
+            });
+
+            // 2. Delete old offboarding process
+            try {
+                await deleteDoc(doc(firestore, 'offboarding_processes', employeeId));
+            } catch (e) {
+                console.warn("Failed to delete offboarding process:", e);
+            }
+
+            // 3. Delete old onboarding process (if any closed one exists)
+            try {
+                await deleteDoc(doc(firestore, 'onboarding_processes', employeeId));
+            } catch (e) {
+                console.warn("Failed to delete onboarding process:", e);
+            }
+
+            toast({
+                title: 'Дахин ажилд авах бэлэн',
+                description: 'Ажилтны түүхэнд бичигдсэн. Одоо ажлын байр руу томилно уу.',
+            });
+
+            // Move to recruitment stage visually
+            setActiveIndex(STAGES.findIndex(s => s.id === 'recruitment'));
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа гарлаа',
+                description: 'Дахин ажилд авахад алдаа гарлаа.'
+            });
+        } finally {
+            setIsRehiring(false);
+        }
+    };
+
     // Auto-suggest retention logic
     const shouldSuggestRetention = React.useMemo(() => {
         if (employee?.lifecycleStage === 'development' && employee?.hireDate) {
@@ -184,6 +248,12 @@ export default function EmployeeLifecyclePage() {
         firestore && employeeId ? doc(firestore, 'onboarding_processes', employeeId) : null,
         [firestore, employeeId]);
     const { data: onboarding, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingRef as any);
+
+    // Load Offboarding data
+    const offboardingRef = React.useMemo(() =>
+        firestore && employeeId ? doc(firestore, 'offboarding_processes', employeeId) : null,
+        [firestore, employeeId]);
+    const { data: offboarding } = useDoc<any>(offboardingRef as any);
 
     // --- Logic for Segmented Circle ---
     const totalStages = STAGES.length;
@@ -425,6 +495,142 @@ export default function EmployeeLifecyclePage() {
                                             <ChevronRight className="h-4 w-4 ml-2" />
                                         </Link>
                                     </Button>
+                                </div>
+                            ) : activeStage.id === 'offboarding' && offboarding ? (
+                                <div className="space-y-8 w-full max-w-2xl mx-auto">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100 text-left">
+                                            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Эхэлсэн огноо</p>
+                                            <p className="text-lg font-black text-slate-800">
+                                                {offboarding.createdAt ? new Date(offboarding.createdAt).toLocaleDateString() : 'Тодорхойгүй'}
+                                            </p>
+                                        </div>
+                                        <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100 text-left">
+                                            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Нийт явц</p>
+                                            <p className="text-lg font-black text-amber-600">{offboarding.progress || 0}%</p>
+                                        </div>
+                                    </div>
+
+                                    {offboarding.reason && (
+                                        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 text-left">
+                                            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Чөлөөлөлтийн шалтгаан</p>
+                                            <p className="text-base font-bold text-slate-800">
+                                                {offboarding.reason === 'release_company' && 'Компанийн санаачилгаар'}
+                                                {offboarding.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
+                                                {offboarding.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {offboarding.lastWorkingDate && (
+                                        <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 text-left">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Сүүлийн ажлын өдөр</p>
+                                            <p className="text-lg font-black text-slate-800">
+                                                {new Date(offboarding.lastWorkingDate).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-left ml-2">Үе шатуудын явц</h4>
+                                        <div className="space-y-2">
+                                            {offboarding.stages?.map((s: any, i: number) => (
+                                                <div key={s.id} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 shadow-sm group hover:border-amber-200 transition-all">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={cn(
+                                                            "h-10 w-10 rounded-xl flex items-center justify-center font-bold",
+                                                            s.completed ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400"
+                                                        )}>
+                                                            {i + 1}
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <p className="font-bold text-slate-800">{s.title}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{s.progress || 0}% гүйцэтгэлтэй</p>
+                                                        </div>
+                                                    </div>
+                                                    {s.completed && (
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-1">Дууссан</p>
+                                                            <Check className="h-5 w-5 text-amber-500 ml-auto" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <Button asChild variant="outline" className="w-full h-12 rounded-2xl border-2 border-amber-100 hover:bg-amber-50 text-amber-700 font-bold">
+                                        <Link href={`/dashboard/offboarding/${employeeId}`}>
+                                            Дэлгэрэнгүй хуудас руу очих
+                                            <ChevronRight className="h-4 w-4 ml-2" />
+                                        </Link>
+                                    </Button>
+                                </div>
+                            ) : activeStage.id === 'alumni' && employee?.lifecycleStage === 'alumni' ? (
+                                <div className="space-y-8 w-full max-w-2xl mx-auto">
+                                    {/* Alumni Info Card */}
+                                    <div className="p-8 rounded-3xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 text-center">
+                                        <div className="h-16 w-16 rounded-2xl bg-slate-200 text-slate-500 flex items-center justify-center mx-auto mb-4">
+                                            <Archive className="h-8 w-8" />
+                                        </div>
+                                        <h4 className="text-xl font-black text-slate-800 mb-2">Төгсөгч ажилтан</h4>
+                                        <p className="text-sm font-medium text-slate-500 leading-relaxed mb-2">
+                                            Энэ ажилтан байгууллагаас гарсан бөгөөд төгсөгчийн бүртгэлд орсон байна.
+                                        </p>
+                                        {offboarding?.reason && (
+                                            <Badge variant="outline" className="mt-2 border-slate-300 text-slate-600">
+                                                {offboarding.reason === 'release_company' && 'Компанийн санаачилгаар'}
+                                                {offboarding.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
+                                                {offboarding.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
+                                            </Badge>
+                                        )}
+                                    </div>
+
+                                    {/* Offboarding completion info */}
+                                    {offboarding && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-5 rounded-2xl bg-white border border-slate-100 text-left">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ажилаас гарсан огноо</p>
+                                                <p className="text-base font-black text-slate-800">
+                                                    {offboarding.lastWorkingDate ? new Date(offboarding.lastWorkingDate).toLocaleDateString() : 
+                                                     offboarding.updatedAt ? new Date(offboarding.updatedAt).toLocaleDateString() : 'Тодорхойгүй'}
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-2xl bg-white border border-slate-100 text-left">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Offboarding</p>
+                                                <p className="text-base font-black text-emerald-600">100% дууссан</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Rehire Section */}
+                                    <div className="p-8 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 border-dashed text-center">
+                                        <div className="h-14 w-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
+                                            <RotateCcw className="h-7 w-7" />
+                                        </div>
+                                        <h4 className="text-lg font-black text-blue-900 mb-2">Дахин ажилд авах</h4>
+                                        <p className="text-sm font-medium text-blue-700 leading-relaxed mb-6">
+                                            Энэ ажилтныг дахин ажилд авах боломжтой. Товч дарснаар ажилтны төлөв шинэчлэгдэж, <br />
+                                            томилгоо хийх боломжтой болно.
+                                        </p>
+                                        <Button
+                                            onClick={handleRehire}
+                                            disabled={isRehiring}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-10 py-6 h-auto font-bold text-base shadow-lg shadow-blue-200"
+                                        >
+                                            {isRehiring ? (
+                                                <>
+                                                    <span className="animate-spin mr-2">⏳</span>
+                                                    Боловсруулж байна...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <UserPlus className="h-5 w-5 mr-2" />
+                                                    Дахин ажилд авах
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-6">

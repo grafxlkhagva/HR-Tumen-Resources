@@ -34,12 +34,14 @@ interface AppointEmployeeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     position: Position | null;
+    initialEmployee?: Employee | null; // Урьдчилан сонгосон ажилтан (нүүр хуудаснаас чирэх үед)
 }
 
 export function AppointEmployeeDialog({
     open,
     onOpenChange,
     position,
+    initialEmployee,
 }: AppointEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
     const { toast } = useToast();
@@ -51,6 +53,7 @@ export function AppointEmployeeDialog({
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
     const [enableOnboarding, setEnableOnboarding] = React.useState(true);
+    const [offboardingStatus, setOffboardingStatus] = React.useState<'checking' | 'active' | 'none'>('none');
 
     // 1. Fetch unassigned employees
     const employeesQuery = React.useMemo(() => {
@@ -101,6 +104,48 @@ export function AppointEmployeeDialog({
         }
     }, [templateData]);
 
+    // Handle initial employee from dashboard drag & drop
+    React.useEffect(() => {
+        if (open && initialEmployee) {
+            setSelectedEmployee(initialEmployee);
+            setStep(2); // Skip employee selection, go directly to action type selection
+        }
+    }, [open, initialEmployee]);
+
+    // Check for active offboarding when employee is selected (for drag & drop from dashboard)
+    React.useEffect(() => {
+        const checkOffboarding = async () => {
+            // Only check when initialEmployee is provided (drag & drop scenario)
+            if (!firestore || !initialEmployee?.id || !open) {
+                return;
+            }
+
+            setOffboardingStatus('checking');
+            try {
+                const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', initialEmployee.id));
+                if (offboardingSnap.exists()) {
+                    const data = offboardingSnap.data();
+                    // Check if offboarding is still in progress (not completed)
+                    if (data.status === 'IN_PROGRESS') {
+                        setOffboardingStatus('active');
+                        toast({
+                            title: 'Анхааруулга: Offboarding идэвхтэй',
+                            description: `${initialEmployee.firstName} ${initialEmployee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна. Offboarding дуусмагц томилох боломжтой.`,
+                            variant: 'destructive',
+                        });
+                        return;
+                    }
+                }
+                setOffboardingStatus('none');
+            } catch (error) {
+                console.error("Offboarding check error:", error);
+                setOffboardingStatus('none');
+            }
+        };
+
+        checkOffboarding();
+    }, [firestore, initialEmployee?.id, open, toast]);
+
     React.useEffect(() => {
         if (!open) {
             setStep(1);
@@ -109,77 +154,151 @@ export function AppointEmployeeDialog({
             setSearch('');
             setCustomInputValues({});
             setEnableOnboarding(true);
+            setOffboardingStatus('none');
         }
     }, [open]);
 
-    const handleEmployeeSelect = (employee: Employee) => {
+    const handleEmployeeSelect = async (employee: Employee) => {
+        if (!firestore) return;
+        
+        // Check offboarding status before allowing selection
+        try {
+            const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', employee.id));
+            if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+                toast({
+                    title: 'Анхааруулга: Offboarding идэвхтэй',
+                    description: `${employee.firstName} ${employee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна. Offboarding дуусмагц томилох боломжтой.`,
+                    variant: 'destructive',
+                });
+                setOffboardingStatus('active');
+            } else {
+                setOffboardingStatus('none');
+            }
+        } catch (error) {
+            console.error("Offboarding check error:", error);
+            setOffboardingStatus('none');
+        }
+        
         setSelectedEmployee(employee);
         setStep(2);
     };
 
     const handleStartProcess = async () => {
-        if (!firestore || !position || !selectedEmployee || !firebaseUser) return;
+        if (!firestore || !position || !selectedEmployee || !firebaseUser) {
+            console.warn("Missing required data:", { firestore: !!firestore, position: !!position, selectedEmployee: !!selectedEmployee, firebaseUser: !!firebaseUser });
+            return;
+        }
+
+        // Validate critical IDs
+        if (!selectedEmployee?.id || !position?.id) {
+            toast({
+                title: 'Алдаа',
+                description: 'Ажилтан эсвэл ажлын байрны мэдээлэл дутуу байна.',
+                variant: 'destructive'
+            });
+            return;
+        }
 
         setIsSubmitting(true);
         try {
+            // Double-check offboarding status before proceeding
+            try {
+                const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', selectedEmployee.id));
+                if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+                    toast({
+                        title: 'Томилох боломжгүй',
+                        description: 'Тухайн ажилтанд offboarding хөтөлбөр идэвхтэй байгаа тул томилох боломжгүй.',
+                        variant: 'destructive'
+                    });
+                    setIsSubmitting(false);
+                    return;
+                }
+            } catch (offboardingCheckError) {
+                console.warn("Offboarding check failed:", offboardingCheckError);
+                // Continue anyway, don't block the process
+            }
+
             const batch = writeBatch(firestore);
 
             // 1. Fetch required data for document replacement
-            const companySnap = await getDocs(collection(firestore, 'company_profile'));
-            const companyProfile = !companySnap.empty ? companySnap.docs[0].data() : null;
+            let companyProfile = null;
+            try {
+                const companySnap = await getDocs(collection(firestore, 'company_profile'));
+                companyProfile = !companySnap.empty ? companySnap.docs[0].data() : null;
+            } catch (e) {
+                console.warn("Failed to fetch company profile:", e);
+            }
 
-            const deptSnap = await getDoc(doc(firestore, 'departments', position.departmentId));
-            const deptData = deptSnap.exists() ? { id: deptSnap.id, ...deptSnap.data() } : null;
+            let deptData = null;
+            if (position.departmentId) {
+                try {
+                    const deptSnap = await getDoc(doc(firestore, 'departments', position.departmentId));
+                    deptData = deptSnap.exists() ? { id: deptSnap.id, ...deptSnap.data() } : null;
+                } catch (e) {
+                    console.warn("Failed to fetch department:", e);
+                }
+            }
 
             // 2. Generate Content if template exists
             let content = '';
             if (templateData) {
-                content = generateDocumentContent(templateData.content || '', {
-                    employee: selectedEmployee,
-                    department: deptData,
-                    position: position,
-                    company: companyProfile,
-                    system: {
-                        date: format(new Date(), 'yyyy-MM-dd'),
-                        year: format(new Date(), 'yyyy'),
-                        month: format(new Date(), 'MM'),
-                        day: format(new Date(), 'dd'),
-                        user: firebaseUser.displayName || 'Системийн хэрэглэгч'
-                    },
-                    customInputs: customInputValues
-                });
+                try {
+                    content = generateDocumentContent(templateData.content || '', {
+                        employee: selectedEmployee,
+                        department: deptData,
+                        position: position,
+                        company: companyProfile,
+                        system: {
+                            date: format(new Date(), 'yyyy-MM-dd'),
+                            year: format(new Date(), 'yyyy'),
+                            month: format(new Date(), 'MM'),
+                            day: format(new Date(), 'dd'),
+                            user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
+                        },
+                        customInputs: customInputValues || {}
+                    });
+                } catch (contentError) {
+                    console.error("Document content generation failed:", contentError);
+                    // Continue with empty content
+                    content = '';
+                }
 
                 // 3. Create er_document
-                const docRef = doc(collection(firestore, 'er_documents'));
-                batch.set(docRef, {
-                    documentTypeId: templateData.documentTypeId,
-                    templateId: templateData.id,
-                    employeeId: selectedEmployee.id,
-                    departmentId: position.departmentId,
-                    positionId: position.id,
-                    creatorId: firebaseUser.uid,
-                    status: 'DRAFT',
-                    content: content,
-                    version: 1,
-                    printSettings: templateData.printSettings || null,
-                    customInputs: customInputValues,
-                    metadata: {
-                        employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-                        templateName: templateData.name,
-                        departmentName: (deptData as any)?.name,
-                        positionName: position.title,
-                        actionId: selectedActionId
-                    },
-                    history: [{
-                        stepId: 'CREATE',
-                        action: 'CREATE',
-                        actorId: firebaseUser.uid,
-                        timestamp: Timestamp.now(),
-                        comment: 'Томилгооны процесс эхлүүлэв (Бүтэц зураглалаас)'
-                    }],
-                    createdAt: Timestamp.now(),
-                    updatedAt: Timestamp.now()
-                });
+                try {
+                    const docRef = doc(collection(firestore, 'er_documents'));
+                    batch.set(docRef, {
+                        documentTypeId: templateData?.documentTypeId || null,
+                        templateId: templateData?.id || null,
+                        employeeId: selectedEmployee.id,
+                        departmentId: position?.departmentId || null,
+                        positionId: position.id,
+                        creatorId: firebaseUser?.uid || null,
+                        status: 'DRAFT',
+                        content: content,
+                        version: 1,
+                        printSettings: templateData?.printSettings || null,
+                        customInputs: customInputValues || {},
+                        metadata: {
+                            employeeName: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''}`,
+                            templateName: templateData?.name || '',
+                            departmentName: (deptData as any)?.name || '',
+                            positionName: position?.title || '',
+                            actionId: selectedActionId || ''
+                        },
+                        history: [{
+                            stepId: 'CREATE',
+                            action: 'CREATE',
+                            actorId: firebaseUser?.uid || null,
+                            timestamp: Timestamp.now(),
+                            comment: 'Томилгооны процесс эхлүүлэв (Бүтэц зураглалаас)'
+                        }],
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    });
+                } catch (docError) {
+                    console.error("ER document creation failed:", docError);
+                    // Don't fail the whole process if document creation fails
+                }
             }
 
             // 4. Conditional Onboarding Initialization
@@ -216,12 +335,16 @@ export function AppointEmployeeDialog({
 
                     if (newStages.length > 0) {
                         const processRef = doc(firestore, 'onboarding_processes', selectedEmployee.id);
+                        // Use set with merge to handle re-employment scenarios (existing closed onboarding)
                         batch.set(processRef, {
                             id: selectedEmployee.id,
                             employeeId: selectedEmployee.id,
                             stages: newStages,
                             progress: 0,
                             status: 'IN_PROGRESS',
+                            // Clear any closed status from previous cycle
+                            closedAt: null,
+                            closedReason: null,
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString()
                         });
@@ -233,29 +356,44 @@ export function AppointEmployeeDialog({
             }
 
             // 5. Update Employee
-            const empRef = doc(firestore, 'employees', selectedEmployee.id);
-            batch.update(empRef, {
-                positionId: position.id,
-                jobTitle: position.title,
-                departmentId: position.departmentId,
-                status: 'Томилогдож буй', // The requested status
-                lifecycleStage: 'onboarding',
-                updatedAt: Timestamp.now()
-            });
+            try {
+                const empRef = doc(firestore, 'employees', selectedEmployee.id);
+                batch.update(empRef, {
+                    positionId: position?.id || null,
+                    jobTitle: position?.title || null,
+                    departmentId: position?.departmentId || null,
+                    status: 'Томилогдож буй',
+                    lifecycleStage: 'onboarding',
+                    updatedAt: Timestamp.now()
+                });
+            } catch (empUpdateError) {
+                console.error("Employee update failed:", empUpdateError);
+                throw new Error('Ажилтны мэдээллийг шинэчлэхэд алдаа гарлаа.');
+            }
 
-            // 5. Update Position filled count
-            const posRef = doc(firestore, 'positions', position.id);
-            batch.update(posRef, {
-                filled: increment(1),
-                updatedAt: Timestamp.now()
-            });
+            // 6. Update Position filled count
+            try {
+                const posRef = doc(firestore, 'positions', position.id);
+                batch.update(posRef, {
+                    filled: increment(1),
+                    updatedAt: Timestamp.now()
+                });
+            } catch (posUpdateError) {
+                console.error("Position update failed:", posUpdateError);
+                throw new Error('Ажлын байрны мэдээллийг шинэчлэхэд алдаа гарлаа.');
+            }
 
-            // 6. Commit Batch
-            await batch.commit();
+            // 7. Commit Batch
+            try {
+                await batch.commit();
+            } catch (commitError) {
+                console.error("Batch commit failed:", commitError);
+                throw new Error('Мэдээллийг хадгалахад алдаа гарлаа.');
+            }
 
             toast({
                 title: 'Томилгоо эхэллээ',
-                description: `${selectedEmployee.firstName} ажилтныг "${position.title}" албан тушаалд томилох процесс эхэлж, баримт төлөвлөгдлөө.`,
+                description: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''} ажилтныг "${position?.title || ''}" албан тушаалд томилох процесс эхэлж, баримт төлөвлөгдлөө.`,
             });
 
             onOpenChange(false);
@@ -263,7 +401,7 @@ export function AppointEmployeeDialog({
             console.error("Appointment error:", error);
             toast({
                 title: 'Алдаа гарлаа',
-                description: error.message,
+                description: error?.message || 'Томилгооны процесс хийхэд алдаа гарлаа.',
                 variant: 'destructive'
             });
         } finally {
@@ -365,6 +503,28 @@ export function AppointEmployeeDialog({
                     ) : step === 2 ? (
                         <ScrollArea className="flex-1">
                             <div className="p-8 space-y-6">
+                                {/* Offboarding warning */}
+                                {offboardingStatus === 'checking' && (
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3">
+                                        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                                        <span className="text-sm text-slate-600">Ажилтны төлөвийг шалгаж байна...</span>
+                                    </div>
+                                )}
+                                {offboardingStatus === 'active' && (
+                                    <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
+                                        <div className="p-2 rounded-lg bg-red-100">
+                                            <X className="h-5 w-5 text-red-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-red-800">Offboarding хөтөлбөр идэвхтэй байна</div>
+                                            <p className="text-sm text-red-600 mt-1">
+                                                Энэ ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байгаа тул томилох боломжгүй. 
+                                                Offboarding хөтөлбөр бүрэн дуусмагц томилох боломжтой болно.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="text-center space-y-2 mb-8">
                                     <h3 className="text-lg font-bold text-slate-900">Томилгооны төрөл сонгох</h3>
                                     <p className="text-sm text-muted-foreground">Тухайн ажилтанд тохирох томилгооны төрлийг сонгоно уу.</p>
@@ -382,7 +542,13 @@ export function AppointEmployeeDialog({
                                                 setSelectedActionId(type.id);
                                                 setStep(3);
                                             }}
-                                            className="flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 bg-white hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-50 transition-all text-left group"
+                                            disabled={offboardingStatus === 'active' || offboardingStatus === 'checking'}
+                                            className={cn(
+                                                "flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 bg-white transition-all text-left group",
+                                                offboardingStatus === 'active' || offboardingStatus === 'checking'
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-50"
+                                            )}
                                         >
                                             <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", type.color)}>
                                                 <type.icon className="h-6 w-6" />

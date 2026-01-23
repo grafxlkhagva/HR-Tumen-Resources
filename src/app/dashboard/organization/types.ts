@@ -38,6 +38,8 @@ export type Position = {
     employmentTypeId?: string;
     jobCategoryId?: string;
     workScheduleId?: string;
+    companyType?: 'main' | 'subsidiary'; // main company or subsidiary
+    subsidiaryName?: string; // Name of subsidiary if companyType is 'subsidiary'
     isActive?: boolean;
     createdAt?: string;
     canApproveAttendance?: boolean;
@@ -46,6 +48,7 @@ export type Position = {
     yearlyPointBudget?: number;
     remainingPointBudget?: number;
     onboardingProgramIds?: string[];
+    offboardingProgramIds?: string[];
     isApproved?: boolean;
     approvedAt?: string;
     approvedBy?: string;
@@ -55,7 +58,7 @@ export type Position = {
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
     purpose?: string;
-    responsibilities?: string[];
+    responsibilities?: { title: string; description: string }[];
     compensation?: {
         salaryRange?: {
             min: number;

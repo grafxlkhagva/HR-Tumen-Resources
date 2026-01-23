@@ -38,24 +38,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, PlusCircle, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Pencil, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, Copy, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag } from 'lucide-react';
+import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { AddPositionDialog } from './organization/add-position-dialog';
-import { AssignEmployeeDialog } from './organization/assign-employee-dialog';
+import { AppointEmployeeDialog } from './organization/[departmentId]/components/flow/appoint-employee-dialog';
 import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
 import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay, endOfDay, parseISO } from 'date-fns';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
@@ -90,6 +78,7 @@ interface CompanyProfile {
 
 
 interface JobPositionNodeData {
+    id: string;
     label: string;
     title: string;
     department: string;
@@ -97,9 +86,6 @@ interface JobPositionNodeData {
     filled: number;
     employees: Employee[];
     workScheduleName?: string;
-    onAssignEmployee: (position: JobPosition) => void;
-    onEditPosition: (position: JobPosition) => void;
-    onDuplicatePosition: (position: JobPosition) => void;
     attendanceStatus?: AttendanceStatus;
 }
 
@@ -135,58 +121,71 @@ function isColorDark(hex: string): boolean {
 // --- Node Components ---
 
 const AvatarWithProgress = ({ employee }: { employee?: Employee }) => {
-    const size = 80;
+    const size = 72;
+    const avatarSize = 56;
 
-    // Questionnaire Completion (Inner Ring)
+    // Questionnaire Completion (Ring)
     const quesProgress = employee?.questionnaireCompletion || 0;
-    const innerRadius = 33;
-    const innerCircum = 2 * Math.PI * innerRadius;
-    const innerOffset = innerCircum - (quesProgress / 100) * innerCircum;
-    const innerColor = quesProgress < 50 ? '#ef4444' : quesProgress < 90 ? '#f59e0b' : '#22c55e';
+    const radius = (size - 4) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (quesProgress / 100) * circumference;
+    const progressColor = quesProgress < 50 ? '#f43f5e' : quesProgress < 90 ? '#f59e0b' : '#10b981';
 
     const avatarContent = (
-        <div className="relative mx-auto transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg" style={{ width: size, height: size }}>
-            {/* Avatar - Centered and slightly smaller to fit inside rings */}
+        <div 
+            className="relative mx-auto transition-transform duration-300 ease-out hover:scale-105" 
+            style={{ width: size, height: size }}
+        >
+            {/* Avatar */}
             <div className="absolute inset-0 flex items-center justify-center">
-                <Avatar className="h-[60px] w-[60px]">
-                    <AvatarImage src={employee?.photoURL} alt={employee?.firstName} />
-                    <AvatarFallback className="text-xl bg-muted">
-                        {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-6 w-6 text-muted-foreground" />}
+                <Avatar 
+                    className="border-2 border-white/50"
+                    style={{ width: avatarSize, height: avatarSize }}
+                >
+                    <AvatarImage src={employee?.photoURL} alt={employee?.firstName} className="object-cover" />
+                    <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600">
+                        {employee 
+                            ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` 
+                            : <User className="h-6 w-6 text-slate-400" />
+                        }
                     </AvatarFallback>
                 </Avatar>
             </div>
 
-            <svg
-                className="absolute top-0 left-0 pointer-events-none"
-                width={size}
-                height={size}
-                viewBox={`0 0 ${size} ${size}`}
-            >
-                {/* Inner Ring Background (Questionnaire Track) */}
-                <circle
-                    className="text-muted/10"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="transparent"
-                    r={innerRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                />
-                {/* Inner Ring (Questionnaire Progress) */}
-                <circle
-                    stroke={innerColor}
-                    strokeWidth="3"
-                    strokeDasharray={innerCircum}
-                    strokeDashoffset={innerOffset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    r={innerRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                    style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
-                />
-            </svg>
+            {/* Progress Ring */}
+            {employee && (
+                <svg
+                    className="absolute inset-0 pointer-events-none -rotate-90"
+                    width={size}
+                    height={size}
+                    viewBox={`0 0 ${size} ${size}`}
+                >
+                    {/* Track */}
+                    <circle
+                        stroke="rgba(255,255,255,0.15)"
+                        strokeWidth="3"
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                    />
+                    {/* Progress */}
+                    <circle
+                        stroke={progressColor}
+                        strokeWidth="3"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        r={radius}
+                        cx={size / 2}
+                        cy={size / 2}
+                        style={{ 
+                            transition: 'stroke-dashoffset 0.6s ease-out'
+                        }}
+                    />
+                </svg>
+            )}
         </div>
     );
 
@@ -201,10 +200,34 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     if (!status) return null;
 
     const config = {
-        'checked-in': { icon: LogIn, text: 'Ирсэн', color: 'text-green-500', time: status.checkInTime ? format(new Date(status.checkInTime), 'HH:mm') : '' },
-        'checked-out': { icon: LogOut, text: 'Явсан', color: 'text-red-500', time: status.checkOutTime ? format(new Date(status.checkOutTime), 'HH:mm') : '' },
-        'on-leave': { icon: CalendarCheck2, text: 'Чөлөөтэй', color: 'text-blue-500', time: '' },
-        'absent': { icon: MinusCircle, text: 'Ирээгүй', color: 'text-muted-foreground', time: '' },
+        'checked-in': { 
+            icon: LogIn, 
+            text: 'Ирсэн', 
+            bgColor: 'bg-emerald-500/20', 
+            textColor: 'text-emerald-400',
+            time: status.checkInTime ? format(new Date(status.checkInTime), 'HH:mm') : '' 
+        },
+        'checked-out': { 
+            icon: LogOut, 
+            text: 'Явсан', 
+            bgColor: 'bg-rose-500/20', 
+            textColor: 'text-rose-400',
+            time: status.checkOutTime ? format(new Date(status.checkOutTime), 'HH:mm') : '' 
+        },
+        'on-leave': { 
+            icon: CalendarCheck2, 
+            text: 'Чөлөөтэй', 
+            bgColor: 'bg-sky-500/20', 
+            textColor: 'text-sky-400',
+            time: '' 
+        },
+        'absent': { 
+            icon: MinusCircle, 
+            text: 'Ирээгүй', 
+            bgColor: 'bg-slate-500/20', 
+            textColor: 'text-slate-400',
+            time: '' 
+        },
     }[status.status];
 
     if (!config) return null;
@@ -212,9 +235,14 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     const Icon = config.icon;
 
     return (
-        <div className={cn("flex items-center justify-center gap-1.5 text-xs font-medium", config.color)}>
-            <Icon className="h-3.5 w-3.5" />
-            <span>{config.text} {config.time}</span>
+        <div className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold",
+            config.bgColor,
+            config.textColor
+        )}>
+            <Icon className="h-3 w-3" />
+            <span>{config.text}</span>
+            {config.time && <span className="opacity-70">• {config.time}</span>}
         </div>
     )
 }
@@ -222,83 +250,172 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
     const employee = data.employees[0];
     const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
-    const textColor = isDarkBg ? 'text-white' : 'text-foreground';
-    const mutedTextColor = isDarkBg ? 'text-gray-300' : 'text-muted-foreground';
-
+    const hasEmployee = !!employee;
 
     return (
-        <Card
-            className={cn("w-64 rounded-xl shadow-lg relative group", textColor)}
-            style={{ backgroundColor: data.departmentColor }}
-        >
+        <div className="relative group">
             <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
-            <div className="absolute top-2 right-2 z-10">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className={cn("h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity", textColor)}>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => data.onEditPosition(data as any)}><Pencil className="mr-2 h-4 w-4" /> Ажлын байр засах</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => data.onDuplicatePosition(data as any)}><Copy className="mr-2 h-4 w-4" /> Хувилах</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => data.onAssignEmployee(data as any)}><PlusCircle className="mr-2 h-4 w-4" /> Ажилтан томилох</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+            
+            {/* Main Card */}
+            <div
+                className={cn(
+                    "w-72 rounded-2xl shadow-xl relative overflow-hidden transition-all duration-300",
+                    "hover:shadow-2xl hover:-translate-y-1",
+                    isDarkBg ? "text-white" : "text-slate-800"
+                )}
+                style={{ backgroundColor: data.departmentColor || '#1e293b' }}
+            >
+                {/* Glassmorphism overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                
+                {/* Top accent line */}
+                <div className={cn(
+                    "h-1 w-full",
+                    hasEmployee ? "bg-emerald-400" : "bg-amber-400"
+                )} />
 
-            <CardContent className="p-4 text-center space-y-2">
-                <AvatarWithProgress
-                    employee={employee}
-                />
+                {/* Detail link button */}
+                <Link 
+                    href={`/dashboard/organization/positions/${data.id}`}
+                    className="absolute top-3 right-3 z-10"
+                >
+                    <div className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                        "opacity-0 group-hover:opacity-100",
+                        isDarkBg 
+                            ? "bg-white/20 hover:bg-white/30 text-white" 
+                            : "bg-black/10 hover:bg-black/20 text-slate-700"
+                    )}>
+                        <ExternalLink className="h-4 w-4" />
+                    </div>
+                </Link>
 
-                <div className="space-y-1">
-                    {employee ? (
-                        <>
-                            <Link href={`/dashboard/employees/${employee.id}`}>
-                                <p className="font-semibold text-base hover:underline">{employee.firstName} {employee.lastName}</p>
-                                <p className={cn("text-sm font-mono", mutedTextColor)}>{employee.employeeCode}</p>
-                            </Link>
-                            {employee.questionnaireCompletion !== undefined && (
-                                <p className={cn("text-xs font-semibold", mutedTextColor)}>
-                                    Анкет: {Math.round(employee.questionnaireCompletion)}%
+                <div className="p-5 space-y-4">
+                    {/* Avatar Section */}
+                    <div className="flex justify-center">
+                        <div className="relative">
+                            <AvatarWithProgress employee={employee} />
+                            {/* Status dot */}
+                            <div className={cn(
+                                "absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 flex items-center justify-center",
+                                isDarkBg ? "border-slate-800" : "border-white",
+                                hasEmployee ? "bg-emerald-500" : "bg-amber-500"
+                            )}>
+                                {hasEmployee ? (
+                                    <UserCheck className="h-3 w-3 text-white" />
+                                ) : (
+                                    <User className="h-3 w-3 text-white" />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Info Section */}
+                    <div className="text-center space-y-1">
+                        {employee ? (
+                            <Link href={`/dashboard/employees/${employee.id}`} className="block group/name">
+                                <h3 className="font-bold text-lg leading-tight group-hover/name:underline">
+                                    {employee.firstName} {employee.lastName}
+                                </h3>
+                                <p className={cn(
+                                    "text-xs font-mono tracking-wider",
+                                    isDarkBg ? "text-white/60" : "text-slate-500"
+                                )}>
+                                    {employee.employeeCode}
                                 </p>
-                            )}
-                        </>
-                    ) : (
-                        <p className={cn("font-semibold text-base", mutedTextColor)}>Сул орон тоо</p>
+                            </Link>
+                        ) : (
+                            <div className="py-1">
+                                <h3 className={cn(
+                                    "font-semibold text-base",
+                                    isDarkBg ? "text-white/70" : "text-slate-500"
+                                )}>
+                                    Сул орон тоо
+                                </h3>
+                            </div>
+                        )}
+                        
+                        {/* Position Title */}
+                        <Link 
+                            href={`/dashboard/organization/positions/${data.id}`} 
+                            className="block"
+                        >
+                            <p className={cn(
+                                "text-sm font-medium hover:underline",
+                                isDarkBg ? "text-white/80" : "text-slate-600"
+                            )}>
+                                {data.title}
+                            </p>
+                        </Link>
+                    </div>
+
+                    {/* Attendance Status */}
+                    {data.attendanceStatus && (
+                        <div className="flex justify-center">
+                            <AttendanceStatusIndicator status={data.attendanceStatus} />
+                        </div>
                     )}
-                    <p className={cn("text-sm", mutedTextColor)}>{data.title}</p>
-                </div>
 
-                <AttendanceStatusIndicator status={data.attendanceStatus} />
+                    {/* Progress bar (if employee has questionnaire) */}
+                    {employee?.questionnaireCompletion !== undefined && (
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[10px]">
+                                <span className={isDarkBg ? "text-white/60" : "text-slate-500"}>Анкет</span>
+                                <span className={cn(
+                                    "font-semibold",
+                                    employee.questionnaireCompletion >= 90 ? "text-emerald-400" :
+                                    employee.questionnaireCompletion >= 50 ? "text-amber-400" : "text-rose-400"
+                                )}>
+                                    {Math.round(employee.questionnaireCompletion)}%
+                                </span>
+                            </div>
+                            <div className={cn(
+                                "h-1.5 rounded-full overflow-hidden",
+                                isDarkBg ? "bg-white/10" : "bg-slate-200"
+                            )}>
+                                <div 
+                                    className={cn(
+                                        "h-full rounded-full transition-all duration-500",
+                                        employee.questionnaireCompletion >= 90 ? "bg-emerald-400" :
+                                        employee.questionnaireCompletion >= 50 ? "bg-amber-400" : "bg-rose-400"
+                                    )}
+                                    style={{ width: `${employee.questionnaireCompletion}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                <div className={cn("pt-3 mt-3 border-t space-y-1 text-xs text-left", isDarkBg ? 'border-gray-500/50' : 'border-border')}>
-                    <div className="flex justify-between">
-                        <span className={mutedTextColor}>Хэлтэс:</span>
-                        <span className="font-medium">{data.department}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className={mutedTextColor}>Төлөв:</span>
-                        <span className="font-medium text-[11px]">
-                            {(data.filled || 0) > 0 ? (
-                                <Badge variant="secondary" className="text-[10px] bg-blue-50/20 text-blue-100 border-blue-200/20 py-0 h-5 font-semibold">
-                                    Томилогдсон
-                                </Badge>
-                            ) : (
-                                <Badge variant="outline" className="text-[10px] bg-slate-50/20 text-slate-100 border-slate-200/20 py-0 h-5 font-semibold">
-                                    Сул
-                                </Badge>
+                    {/* Footer */}
+                    <div className={cn(
+                        "pt-3 border-t flex items-center justify-between text-xs",
+                        isDarkBg ? "border-white/10" : "border-slate-200"
+                    )}>
+                        <div className="flex items-center gap-1.5">
+                            <Building className={cn("h-3.5 w-3.5", isDarkBg ? "text-white/50" : "text-slate-400")} />
+                            <span className={cn(
+                                "font-medium truncate max-w-[120px]",
+                                isDarkBg ? "text-white/80" : "text-slate-600"
+                            )}>
+                                {data.department}
+                            </span>
+                        </div>
+                        <Badge 
+                            variant="secondary" 
+                            className={cn(
+                                "text-[10px] px-2 py-0.5 font-semibold border-0",
+                                hasEmployee 
+                                    ? "bg-emerald-500/20 text-emerald-300" 
+                                    : "bg-amber-500/20 text-amber-300"
                             )}
-                        </span>
+                        >
+                            {hasEmployee ? "Томилсон" : "Сул"}
+                        </Badge>
                     </div>
                 </div>
-
-
-
-            </CardContent>
+            </div>
+            
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
-        </Card>
+        </div>
     );
 };
 
@@ -306,41 +423,94 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
 const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: boolean, onClick?: () => void } }) => {
     if (data.isMore) {
         return (
-            <Card
-                className="w-80 bg-slate-900 border-slate-700 shadow-xl p-4 cursor-pointer hover:bg-slate-800 transition-all border-dashed"
+            <div
+                className="w-72 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-xl p-5 cursor-pointer hover:from-slate-700 hover:to-slate-800 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 group"
                 onClick={data.onClick}
             >
                 <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border-2 border-slate-700">
-                        <MoreHorizontal className="h-8 w-8 text-slate-400" />
+                    <div className="w-14 h-14 rounded-xl bg-slate-700/50 flex items-center justify-center border border-dashed border-slate-600 group-hover:border-slate-500 transition-colors">
+                        <MoreHorizontal className="h-6 w-6 text-slate-400 group-hover:text-slate-300" />
                     </div>
                     <div>
-                        <p className="font-semibold text-lg text-white">{data.name}</p>
-                        <p className="text-sm text-slate-400">{data.jobTitle}</p>
+                        <p className="font-bold text-base text-white">{data.name}</p>
+                        <p className="text-xs text-slate-400 font-medium">{data.jobTitle}</p>
                     </div>
                 </div>
-            </Card>
+            </div>
         );
     }
 
+    const employee = data.employee;
+    const lifecycleColors: Record<string, { bg: string, text: string, label: string }> = {
+        'recruitment': { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Бүрдүүлэлт' },
+        'onboarding': { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Чиглүүлэх' },
+        'development': { bg: 'bg-violet-500/20', text: 'text-violet-400', label: 'Хөгжүүлэлт' },
+        'retention': { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Тогтворжилт' },
+        'offboarding': { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Чөлөөлөх' },
+    };
+    const lifecycle = employee?.lifecycleStage ? lifecycleColors[employee.lifecycleStage] : null;
+
     return (
-        <Card className="w-80 bg-amber-50 border-amber-200 shadow-md p-4">
-            <Handle type="source" position={Position.Right} className="!bg-amber-500" />
-            <div className="flex items-center gap-4">
-                <div className="w-20 h-20 flex-shrink-0">
-                    <AvatarWithProgress employee={data.employee} />
-                </div>
-                {data.employee && (
-                    <Link href={`/dashboard/employees/${data.employee.id}`}>
-                        <div className="space-y-0.5">
-                            <p className="font-semibold text-lg hover:underline">{data.name}</p>
-                            <p className="font-mono text-sm text-muted-foreground">{data.employee.employeeCode}</p>
-                            <p className="text-sm text-muted-foreground">{data.jobTitle || 'Албан тушаалгүй'}</p>
+        <div className="relative group">
+            {/* Drag Handle - visible connection point */}
+            <Handle 
+                type="source" 
+                position={Position.Right} 
+                className="!w-4 !h-4 !bg-amber-500 !border-2 !border-amber-300 !rounded-full !right-[-8px] hover:!bg-amber-600 hover:!scale-125 transition-all cursor-crosshair" 
+            />
+            
+            {/* Main Card */}
+            <div className="w-72 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80 shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-amber-300">
+                {/* Top accent */}
+                <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-orange-400" />
+                
+                <div className="p-5 space-y-4">
+                    {/* Avatar & Info */}
+                    <div className="flex items-center gap-4">
+                        <div className="relative flex-shrink-0">
+                            <div className="w-16 h-16">
+                                <AvatarWithProgress employee={employee} />
+                            </div>
+                            {/* Status indicator */}
+                            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center shadow-sm">
+                                <UserMinus className="h-3 w-3 text-white" />
+                            </div>
                         </div>
-                    </Link>
-                )}
+                        
+                        {employee && (
+                            <Link href={`/dashboard/employees/${employee.id}`} className="flex-1 min-w-0">
+                                <div className="space-y-1">
+                                    <p className="font-bold text-slate-800 truncate hover:text-amber-700 transition-colors">{data.name}</p>
+                                    <p className="font-mono text-[11px] text-slate-500 bg-white/60 px-2 py-0.5 rounded-md inline-block">{employee.employeeCode}</p>
+                                </div>
+                            </Link>
+                        )}
+                    </div>
+
+                    {/* Lifecycle Badge */}
+                    {lifecycle && (
+                        <div className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            lifecycle.bg, lifecycle.text
+                        )}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            {lifecycle.label}
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="pt-3 border-t border-amber-200/50 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                            Томилогдоогүй
+                        </span>
+                        <div className="flex items-center gap-1 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-[10px] font-semibold">Чирэх</span>
+                            <ArrowLeft className="h-3 w-3 rotate-180" />
+                        </div>
+                    </div>
+                </div>
             </div>
-        </Card>
+        </div>
     );
 }
 
@@ -460,13 +630,10 @@ function useLayout(positions: JobPosition[] | null) {
 const OrganizationChart = () => {
     const [nodes, setNodes] = useState<CustomNode[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
-    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+    const [isAppointDialogOpen, setIsAppointDialogOpen] = useState(false);
     const [selectedPosition, setSelectedPosition] = useState<JobPosition | null>(null);
     const [isUnassignedDialogOpen, setIsUnassignedDialogOpen] = React.useState(false);
-    const [selectedEmployeeForAssignment, setSelectedEmployeeForAssignment] = React.useState<Employee | null>(null);
-    const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
-    const [editingPosition, setEditingPosition] = useState<JobPosition | null>(null);
-    const [duplicatingPosition, setDuplicatingPosition] = React.useState<JobPosition | null>(null);
+    const [selectedEmployeeForAppointment, setSelectedEmployeeForAppointment] = React.useState<Employee | null>(null);
 
     const { toast } = useToast();
     const { firestore } = useFirebase();
@@ -485,8 +652,6 @@ const OrganizationChart = () => {
     const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
     const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
     const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
-    const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
-
 
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
@@ -497,18 +662,24 @@ const OrganizationChart = () => {
     const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
     const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
     const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection<any>(policiesQuery);
-
     // Vacation Statistics for Dashboard
     const vacationRequestsQuery = useMemoFirebase(() =>
         firestore ? query(collectionGroup(firestore, 'vacationRequests'), where('status', '==', 'APPROVED')) : null
         , [firestore]);
     const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
 
-    const offboardingProcessesQuery = useMemoFirebase(() =>
-        firestore ? query(collectionGroup(firestore, 'offboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
+    // Onboarding processes query
+    const onboardingQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
         , [firestore]);
-    const { data: offboardingProcesses, isLoading: isLoadingOffboarding } = useCollection<any>(offboardingProcessesQuery);
+    const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
+
+    // Offboarding processes query
+    const offboardingQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'offboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
+        , [firestore]);
+    const { data: offboardingProcesses } = useCollection<any>(offboardingQuery as any);
+
 
     const onLeaveCount = useMemo(() => {
         if (!vacationRequests) return 0;
@@ -583,12 +754,12 @@ const OrganizationChart = () => {
     }, [employees]);
 
     // Offboarding stats
-    const offboardingStats = React.useMemo(() => {
+    const offboardingStats = useMemo(() => {
         if (!offboardingProcesses || !employees) return { count: 0, ongoing: [] };
 
         const empMap = new Map((employees as Employee[]).map(e => [e.id, e]));
         const ongoing = offboardingProcesses.map((process: any) => {
-            const emp = empMap.get(process.employeeId);
+            const emp = empMap.get(process.employeeId || process.id);
             return {
                 ...process,
                 employee: emp
@@ -600,6 +771,7 @@ const OrganizationChart = () => {
             ongoing
         };
     }, [offboardingProcesses, employees]);
+
 
     // Recent activities (last 10)
     const recentActivities = useMemo(() => {
@@ -627,49 +799,7 @@ const OrganizationChart = () => {
         return activities.slice(0, 10);
     }, [attendanceData, employees]);
 
-    const handleAssignEmployeeClick = (position: JobPosition) => {
-        setSelectedPosition(position);
-        setIsAssignDialogOpen(true);
-    };
 
-    const handleEditPositionClick = (position: JobPosition) => {
-        setEditingPosition(position);
-        setIsPositionDialogOpen(true);
-    };
-
-    const handleOpenAddDialog = () => {
-        setEditingPosition(null);
-        setIsPositionDialogOpen(true);
-    };
-
-    const handleDuplicatePosition = (pos: JobPosition) => {
-        if (!firestore) return;
-
-        // Create a new object with only the fields we want to save to Firestore
-        const newPositionData = {
-            title: `${pos.title} (Хуулбар)`,
-            departmentId: pos.departmentId,
-            reportsTo: pos.reportsTo || null,
-            levelId: pos.levelId || null,
-            employmentTypeId: pos.employmentTypeId || null,
-            workScheduleId: pos.workScheduleId || null,
-            isActive: true, // Always create as active
-            jobCategoryId: pos.jobCategoryId || null,
-            createdAt: new Date().toISOString(),
-            canApproveAttendance: pos.canApproveAttendance || false,
-            filled: 0,
-            isApproved: false,
-        };
-
-        const positionsCollection = collection(firestore, 'positions');
-        addDocumentNonBlocking(positionsCollection, newPositionData);
-
-        toast({
-            title: "Амжилттай хувиллаа",
-            description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
-        });
-        setDuplicatingPosition(null);
-    };
 
 
     // Create nodes and edges based on data
@@ -728,17 +858,15 @@ const OrganizationChart = () => {
                 type: 'position',
                 position: nodePositions[pos.id] || { x: 0, y: 0 },
                 data: {
-                    ...pos, label: pos.title, title: pos.title,
+                    id: pos.id,
+                    label: pos.title,
+                    title: pos.title,
                     department: department?.name || 'Unknown',
                     departmentColor: department?.color,
                     filled: posToEmployeeMap.get(pos.id)?.length || 0,
                     employees: assignedEmployees,
-                    onAssignEmployee: handleAssignEmployeeClick,
-                    onEditPosition: handleEditPositionClick,
-                    onDuplicatePosition: (pos: JobPosition) => setDuplicatingPosition(pos),
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
-
                 },
             };
             newNodes.push(node);
@@ -823,8 +951,8 @@ const OrganizationChart = () => {
             }
 
             setSelectedPosition(positionNode.data as any);
-            setSelectedEmployeeForAssignment((employeeNode.data as any).employee);
-            setIsAssignDialogOpen(true);
+            setSelectedEmployeeForAppointment((employeeNode.data as any).employee);
+            setIsAppointDialogOpen(true);
         },
         [nodes, toast]
     );
@@ -837,29 +965,76 @@ const OrganizationChart = () => {
             <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950">
                 <div className="h-full overflow-x-auto overflow-y-hidden px-6 py-4">
                     <div className="flex gap-6 h-full">
-                        {/* 1. Total Employees */}
+                        {/* 1. Ажилчид - Statistics */}
                         <Link href="/dashboard/employees" className="flex-shrink-0">
-                            <Card className="h-full w-[220px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Нийт ажилчид</div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ажилчид</div>
                                         <Users className="h-5 w-5 text-slate-500" />
                                     </div>
                                     {isLoadingEmp ? (
-                                        <Skeleton className="h-10 w-20 bg-slate-700" />
+                                        <Skeleton className="h-20 w-full bg-slate-700" />
                                     ) : (
-                                        <div>
-                                            <div className="text-4xl font-semibold text-white mb-1">{activeEmployeesCount}</div>
-                                            <div className="text-xs text-slate-400 font-medium">идэвхтэй ажилтан</div>
+                                        <div className="space-y-3">
+                                            {/* Total Active */}
+                                            <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                                                <div>
+                                                    <div className="text-3xl font-semibold text-white">{activeEmployeesCount}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нийт идэвхтэй</div>
+                                                </div>
+                                                <div className="h-10 w-px bg-slate-700" />
+                                            </div>
+                                            
+                                            {/* Onboarding & Offboarding */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <div className="text-2xl font-semibold text-emerald-400">{onboardingProcesses?.length || 0}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Onboarding</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-2xl font-semibold text-amber-400">{offboardingProcesses?.length || 0}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Offboarding</div>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
                         </Link>
 
-                        {/* 2. Attendance */}
+                        {/* 2. Бүтэц - Organization Structure */}
+                        <Link href="/dashboard/organization" className="flex-shrink-0">
+                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Бүтэц</div>
+                                        <Network className="h-5 w-5 text-slate-500" />
+                                    </div>
+                                    {isLoadingDepts || isLoadingPos ? (
+                                        <Skeleton className="h-20 w-full bg-slate-700" />
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {/* Departments & Positions */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <div className="text-2xl font-semibold text-indigo-400">{departments?.length || 0}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нэгж</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-2xl font-semibold text-purple-400">{positions?.length || 0}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Ажлын байр</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        {/* 3. Attendance */}
                         <Link href="/dashboard/attendance" className="flex-shrink-0">
-                            <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Өнөөдрийн ирц</div>
@@ -886,7 +1061,7 @@ const OrganizationChart = () => {
 
                         {/* 3. Vacation (New) */}
                         <Link href="/dashboard/vacation" className="flex-shrink-0">
-                            <Card className="h-full w-[200px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ээлжийн амралт</div>
@@ -906,7 +1081,7 @@ const OrganizationChart = () => {
 
                         {/* 3. Posts */}
                         <Link href="/dashboard/posts" className="flex-shrink-0">
-                            <Card className="h-full w-[180px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                                 <CardContent className="p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Мэдээлэл</div>
@@ -924,70 +1099,9 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
-
-
-                        {/* 4b. Offboarding (New) */}
-                        <Link href="/dashboard/employees/offboarding" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative">
-                                    <div className="absolute right-0 top-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl group-hover:bg-rose-500/10 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ажлаас чөлөөлөх</div>
-                                        <LogOut className="h-5 w-5 text-rose-500 group-hover:scale-110 transition-transform" />
-                                    </div>
-
-                                    <div className="flex items-end justify-between relative z-10 my-1">
-                                        <div>
-                                            <div className="text-4xl font-bold text-white leading-none">{offboardingStats.count}</div>
-                                            <div className="text-[10px] text-rose-400 font-bold uppercase tracking-tight mt-1">Процесс явж байна</div>
-                                        </div>
-                                        <div className="flex -space-x-2">
-                                            {offboardingStats.ongoing.slice(0, 3).map((p: any) => (
-                                                <Avatar key={p.id} className="h-8 w-8 border-2 border-slate-900 ring-2 ring-transparent group-hover:ring-rose-500/30 transition-all">
-                                                    <AvatarImage src={p.employee.photoURL} />
-                                                    <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">
-                                                        {p.employee.firstName.charAt(0)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            ))}
-                                            {offboardingStats.count > 3 && (
-                                                <div className="h-8 w-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-400 z-10">
-                                                    +{offboardingStats.count - 3}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 relative z-10">
-                                        <div className="max-h-[80px] overflow-y-auto pr-1 custom-scrollbar">
-                                            {offboardingStats.ongoing.length === 0 ? (
-                                                <div className="text-[10px] text-slate-500 italic py-2">Одоогоор идэвхтэй процесс алга.</div>
-                                            ) : (
-                                                offboardingStats.ongoing.slice(0, 2).map((p: any) => (
-                                                    <div
-                                                        key={p.id}
-                                                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors group/item"
-                                                    >
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                                                            <span className="text-[11px] font-medium text-slate-200 truncate">{p.employee.lastName} {p.employee.firstName}</span>
-                                                        </div>
-                                                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-slate-600 text-slate-400 group-hover/item:border-rose-500/50 group-hover/item:text-rose-400 transition-colors">
-                                                            Шат: {p.currentStep}/9
-                                                        </Badge>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
                         {/* 4c. Recruitment & Selection (New) */}
                         <Link href="/dashboard/recruitment" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
+                            <Card className="h-full w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
                                 <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
 
@@ -1024,54 +1138,6 @@ const OrganizationChart = () => {
                                             <Rocket className="w-5 h-5 text-orange-400" />
                                         </div>
                                         <div className="text-xs text-slate-400 font-medium">Recognition System</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 6. Organization Structure */}
-                        <Link href="/dashboard/organization" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Байгууллагын бүтэц</div>
-                                        <Network className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    <div className="flex items-end gap-6">
-                                        <div>
-                                            <div className="text-3xl font-semibold text-white">{departments?.length || 0}</div>
-                                            <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wide">Хэлтэс</div>
-                                        </div>
-                                        <div className="h-12 w-px bg-slate-700" />
-                                        <div>
-                                            <div className="text-3xl font-semibold text-white">{positions?.length || 0}</div>
-                                            <div className="text-[10px] text-purple-400 font-semibold uppercase tracking-wide">Албан тушаал</div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 7. Policies & Regulations */}
-                        <Link href="/dashboard/company/policies" className="flex-shrink-0">
-                            <Card className="h-full w-[220px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Дүрэм, журам</div>
-                                        <ScrollText className="h-5 w-5 text-blue-400 group-hover:rotate-12 transition-transform" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="text-4xl font-semibold text-white mb-1">
-                                            {isLoadingPolicies ? (
-                                                <Skeleton className="h-9 w-12 bg-slate-700" />
-                                            ) : (
-                                                policies?.length || 0
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-medium">нийт бичиг баримт</div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1119,65 +1185,6 @@ const OrganizationChart = () => {
                             </Card>
                         </Link>
 
-                        {/* 10. Onboarding (New) */}
-                        <Link href="/dashboard/onboarding" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-teal-500/10 to-emerald-500/10 rounded-full blur-3xl group-hover:from-teal-500/20 group-hover:to-emerald-500/20 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Onboarding</div>
-                                        <Flag className="h-5 w-5 text-teal-500 group-hover:scale-110 transition-transform" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-semibold text-white">Чиглүүлэх</div>
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-medium">Шинэ ажилтныг чиглүүлэх</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-
-
-                        {/* 6. New Hires */}
-                        <div className="flex-shrink-0">
-                            <Card className="h-full w-[260px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Шинэ ажилтнууд</div>
-                                        <UserPlus className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    <div className="flex items-end justify-between">
-                                        <div>
-                                            <div className="text-4xl font-semibold text-white">{newHiresStats.count}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium">Сүүлийн 30 хоногт</div>
-                                        </div>
-                                        <div className="text-[8px] uppercase font-semibold text-slate-400 tracking-wider">Нэмэгдсэн</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* 6. Unassigned Employees */}
-                        <div className="flex-shrink-0 cursor-pointer" onClick={() => setIsUnassignedDialogOpen(true)}>
-                            <Card className="h-full w-[220px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Томилогдоогүй</div>
-                                        <UserMinus className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <div>
-                                        <div className="text-4xl font-semibold text-rose-500 mb-1">
-                                            {unassignedEmployees?.length || 0}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">ажил томилох шаардлагатай</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1215,46 +1222,20 @@ const OrganizationChart = () => {
                 onOpenChange={setIsUnassignedDialogOpen}
                 employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
                 onAssign={(emp) => {
-                    setSelectedEmployeeForAssignment(emp);
-                    setIsAssignDialogOpen(true);
+                    setSelectedEmployeeForAppointment(emp);
+                    setIsAppointDialogOpen(true);
                     setIsUnassignedDialogOpen(false);
                 }}
             />
-            <AssignEmployeeDialog
-                open={isAssignDialogOpen}
-                onOpenChange={setIsAssignDialogOpen}
+            <AppointEmployeeDialog
+                open={isAppointDialogOpen}
+                onOpenChange={(open) => {
+                    setIsAppointDialogOpen(open);
+                    if (!open) setSelectedEmployeeForAppointment(null);
+                }}
                 position={selectedPosition}
-                selectedEmployee={selectedEmployeeForAssignment}
-                onAssignmentComplete={() => setSelectedEmployeeForAssignment(null)}
-                employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
+                initialEmployee={selectedEmployeeForAppointment}
             />
-            <AddPositionDialog
-                open={isPositionDialogOpen}
-                onOpenChange={setIsPositionDialogOpen}
-                editingPosition={editingPosition}
-                allPositions={positions}
-                departments={departments || []}
-                positionLevels={positionLevels || []}
-                employmentTypes={employmentTypes || []}
-                jobCategories={jobCategories || []}
-                workSchedules={workSchedules || []}
-            />
-            <AlertDialog open={!!duplicatingPosition} onOpenChange={(open) => !open && setDuplicatingPosition(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Та "{duplicatingPosition?.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => duplicatingPosition && handleDuplicatePosition(duplicatingPosition)}>
-                            Тийм, хувилах
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div >
     );
 };

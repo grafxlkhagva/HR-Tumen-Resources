@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Building2, Code2, Users, FileText, Check, X, Target, Edit3, Calendar as CalendarIcon, Hash, Activity, Palette, GitBranch, Briefcase, Save, Loader2, Trash2, AlertTriangle, CheckCircle2, Circle } from 'lucide-react';
+import { X, Edit3, Save, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -40,11 +40,12 @@ function InfoItem({ label, value }: { label: string, value: React.ReactNode }) {
 
 
 export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTabProps) => {
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     // Queries for dropdowns
     const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
@@ -134,6 +135,59 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
         setIsEditing(false);
     };
 
+    const handleAIGenerate = async () => {
+        if (!formData.name) {
+            toast({
+                title: 'Анхааруулга',
+                description: 'Нэгжийн нэр оруулсны дараа AI үүсгэх боломжтой',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            const typeName = departmentTypes?.find(t => t.id === formData.typeId)?.name;
+            const parentName = allDepartments?.find(d => d.id === formData.parentId)?.name;
+
+            const response = await fetch('/api/generate-department-details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    departmentName: formData.name,
+                    departmentType: typeName,
+                    parentDepartment: parentName
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'AI үүсгэхэд алдаа гарлаа');
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                vision: result.data.vision || prev.vision,
+                description: result.data.description || prev.description
+            }));
+
+            setIsEditing(true);
+            toast({
+                title: 'AI үүсгэлт амжилттай',
+                description: 'Зорилго болон чиг үүргийг шалгаад хадгалаарай'
+            });
+        } catch (error) {
+            console.error('AI generation error:', error);
+            toast({
+                title: 'Алдаа',
+                description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const typeName = departmentTypes?.find(t => t.id === formData.typeId)?.name || 'Нэгж';
     const parentName = allDepartments?.find(d => d.id === formData.parentId)?.name || 'Үндсэн нэгж';
@@ -268,69 +322,91 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2 pt-8 border-t">
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-widest">Зорилго</h4>
-                                <AnimatePresence mode="wait">
-                                    {isEditing ? (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.98 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.98 }}
-                                            key="edit-vision"
-                                        >
-                                            <Textarea
-                                                placeholder="Нэгжийн хэтийн зорилго..."
-                                                className="min-h-[100px] resize-none bg-muted/30 border border-border/50 rounded-xl text-sm"
-                                                value={formData.vision || ''}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, vision: e.target.value }))}
-                                            />
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            key="view-vision"
-                                            className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]"
-                                        >
-                                            <p className="text-sm leading-relaxed text-muted-foreground italic font-medium">
-                                                {formData.vision || 'Зорилго бүртгэгдээгүй байна...'}
-                                            </p>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                        <div className="mt-2 pt-8 border-t space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-widest">Зорилго & Чиг үүрэг</h4>
+                                {!isEditing && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleAIGenerate}
+                                        disabled={isGenerating || !formData.name}
+                                        className="h-8 gap-2 bg-gradient-to-r from-violet-50 to-indigo-50 border-violet-200 hover:from-violet-100 hover:to-indigo-100 text-violet-700"
+                                    >
+                                        {isGenerating ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                        )}
+                                        AI-р үүсгэх
+                                    </Button>
+                                )}
                             </div>
 
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-widest">Чиг үүрэг</h4>
-                                <AnimatePresence mode="wait">
-                                    {isEditing ? (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.98 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.98 }}
-                                            key="edit-desc"
-                                        >
-                                            <Textarea
-                                                placeholder="Нэгжийн үндсэн чиг үүрэг..."
-                                                className="min-h-[100px] resize-none bg-muted/30 border border-border/50 rounded-xl text-sm"
-                                                value={formData.description || ''}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                            />
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            key="view-desc"
-                                            className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[100px]"
-                                        >
-                                            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-medium">
-                                                {formData.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
-                                            </p>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">Зорилго</Label>
+                                    <AnimatePresence mode="wait">
+                                        {isEditing ? (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.98 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                key="edit-vision"
+                                            >
+                                                <Textarea
+                                                    placeholder="Нэгжийн хэтийн зорилго..."
+                                                    className="min-h-[120px] resize-none bg-muted/30 border border-border/50 rounded-xl text-sm"
+                                                    value={formData.vision || ''}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, vision: e.target.value }))}
+                                                />
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                key="view-vision"
+                                                className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[120px]"
+                                            >
+                                                <p className="text-sm leading-relaxed text-muted-foreground italic font-medium">
+                                                    {formData.vision || 'Зорилго бүртгэгдээгүй байна...'}
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">Чиг үүрэг</Label>
+                                    <AnimatePresence mode="wait">
+                                        {isEditing ? (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.98 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                key="edit-desc"
+                                            >
+                                                <Textarea
+                                                    placeholder="Нэгжийн үндсэн чиг үүрэг..."
+                                                    className="min-h-[120px] resize-none bg-muted/30 border border-border/50 rounded-xl text-sm"
+                                                    value={formData.description || ''}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                                />
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                key="view-desc"
+                                                className="p-4 rounded-xl bg-muted/30 border border-border/50 min-h-[120px]"
+                                            >
+                                                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-medium">
+                                                    {formData.description || 'Чиг үүрэг бүртгэгдээгүй байна...'}
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             </div>
                         </div>
                     </div>

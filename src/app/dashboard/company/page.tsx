@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { Pencil, Building, Hash, Info, Users, User, Globe, Briefcase, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, ArrowLeft, Handshake, Zap, Users2, Network, ScrollText, Settings, Quote } from 'lucide-react';
+import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +28,7 @@ import { PageHeader } from '@/components/page-header';
 import { CoreValue } from '@/types/points';
 import { query, orderBy } from 'firebase/firestore';
 import { hexToHsl } from '@/lib/color-utils';
+import { Badge } from '@/components/ui/badge';
 
 interface BrandColor {
     id: string;
@@ -70,6 +71,13 @@ const companyProfileSchema = z.object({
     address: z.string().optional(),
     introduction: z.string().optional(),
     coverUrls: z.array(z.string()).optional(),
+    subsidiaries: z.array(z.union([
+        z.string(),
+        z.object({
+            name: z.string(),
+            registrationNumber: z.string().optional(),
+        })
+    ])).optional(),
 });
 
 type CompanyProfileValues = z.infer<typeof companyProfileSchema>;
@@ -223,239 +231,414 @@ export default function CompanyPage() {
     }
 
     return (
-        <div className="flex flex-col h-full overflow-hidden" style={brandStyles}>
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 space-y-12 pb-32 scroll-smooth">
+        <div className="flex flex-col h-full" style={brandStyles}>
+            {/* Header */}
+            <div className="bg-white border-b sticky top-0 z-20">
+                <div className="px-6 md:px-8">
+                    <div className="flex items-center justify-between py-4">
+                        <div className="flex items-center gap-4">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                <Link href="/dashboard">
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 rounded-lg border">
+                                    <AvatarImage src={companyProfile.logoUrl} className="object-contain" />
+                                    <AvatarFallback className="rounded-lg bg-primary/10">
+                                        <Building className="h-5 w-5 text-primary" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h1 className="text-lg font-semibold">{companyProfile.name}</h1>
+                                    <p className="text-xs text-muted-foreground">{companyProfile.industry || 'Компанийн танилцуулга'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/dashboard/company/edit">
+                                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                                    Засах
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <PageHeader
-                    showBackButton
-                    hideBreadcrumbs
-                    backHref="/dashboard"
-                    title="Компанийн танилцуулга"
-                />
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-6 md:p-8 space-y-8 pb-32">
 
-                {/* Hero / Cover Section */}
-                <div className="relative -mx-6 md:-mx-8 group">
-                    <div className="overflow-hidden rounded-none md:rounded-b-[2rem]">
+                    {/* Hero Card with Cover */}
+                    <div className="bg-white rounded-xl border overflow-hidden">
+                        {/* Cover Image */}
                         {companyProfile.coverUrls && companyProfile.coverUrls.length > 0 ? (
                             <Carousel setApi={setApi} className="w-full" opts={{ loop: true }}>
                                 <CarouselContent className="-ml-0">
                                     {companyProfile.coverUrls.map((url, index) => (
                                         <CarouselItem key={index} className="pl-0">
-                                            <div className="relative h-[350px] md:h-[450px] w-full bg-slate-100 overflow-hidden">
-                                                <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                                            <div className="relative h-[200px] md:h-[280px] w-full bg-slate-100">
+                                                <img src={url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                                             </div>
                                         </CarouselItem>
                                     ))}
                                 </CarouselContent>
                             </Carousel>
                         ) : (
-                            <div className="h-[250px] bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 w-full" />
+                            <div className="h-[160px] bg-gradient-to-br from-primary/10 via-primary/5 to-transparent" />
                         )}
-                    </div>
 
-                    {/* Logo - 50% Overlap - Now outside overflow-hidden */}
-                    <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-30">
-                        <div className="relative group/logo">
-                            <div className="absolute inset-0 bg-primary/20 rounded-[3rem] blur-2xl opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500" />
-                            <Avatar className="h-44 w-44 rounded-[3rem] border-[10px] border-background shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-slate-200 p-5 bg-white dark:bg-slate-900 relative z-10 transition-transform duration-500 group-hover/logo:scale-[1.02]">
-                                <AvatarImage src={companyProfile.logoUrl} className="object-contain rounded-[1.8rem]" />
-                                <AvatarFallback className="rounded-[1.8rem] bg-slate-50 dark:bg-slate-800">
-                                    <Building className="h-16 w-16 text-slate-300" />
-                                </AvatarFallback>
-                            </Avatar>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="pt-24 pb-12 px-6 flex flex-col items-center animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
-                    <div className="text-center space-y-6 max-w-4xl mx-auto">
-                        <div className="space-y-2">
-
-                            <h1 className="text-5xl md:text-7xl font-semibold tracking-tight text-slate-900 dark:text-white uppercase leading-none">
-                                {companyProfile.name}
-                            </h1>
-                        </div>
-
-                        {/* Minimalist Action Bar */}
-                        <div className="flex flex-wrap justify-center gap-3 pt-6 animate-in fade-in slide-in-from-bottom-2 delay-500 duration-700">
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
-                                <Link href="/dashboard/company/edit">
-                                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                                    Мэдээлэл засах
-                                </Link>
-                            </Button>
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
-                                <Link href="/dashboard/company/mission">
-                                    <Rocket className="mr-2 h-3.5 w-3.5" />
-                                    Соёл
-                                </Link>
-                            </Button>
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-all">
-                                <Link href="/dashboard/company/videos">
-                                    <Video className="mr-2 h-3.5 w-3.5" />
-                                    Видео
-                                </Link>
-                            </Button>
-                            <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-2 self-center hidden sm:block" />
-                            <Button asChild variant="ghost" className="rounded-full px-6 h-10 font-semibold hover:bg-purple-50 text-purple-600 dark:text-purple-400 transition-all">
-                                <Link href="/dashboard/company/branding">
-                                    <Settings className="mr-2 h-3.5 w-3.5" />
-                                    Брэндинг
-                                </Link>
-                            </Button>
-                        </div>
-
-                        {/* Refined Metadata Bar */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pt-12 animate-in fade-in slide-in-from-bottom-2 delay-700 duration-700">
-                            {companyProfile.ceo && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Захирал</p>
-                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.ceo}</p>
+                        {/* Company Info */}
+                        <div className="p-6 -mt-16 relative">
+                            <div className="flex flex-col md:flex-row md:items-end gap-6">
+                                <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-lg bg-white">
+                                    <AvatarImage src={companyProfile.logoUrl} className="object-contain p-2" />
+                                    <AvatarFallback className="rounded-2xl bg-slate-50">
+                                        <Building className="h-12 w-12 text-slate-300" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-2">
+                                    <h2 className="text-2xl font-bold text-foreground">{companyProfile.name}</h2>
+                                    {companyProfile.legalName && (
+                                        <p className="text-sm text-muted-foreground">{companyProfile.legalName}</p>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        {companyProfile.industry && (
+                                            <Badge variant="secondary">{companyProfile.industry}</Badge>
+                                        )}
+                                        {companyProfile.employeeCount && (
+                                            <Badge variant="outline" className="gap-1">
+                                                <Users className="h-3 w-3" />
+                                                {companyProfile.employeeCount} ажилтан
+                                            </Badge>
+                                        )}
+                                        {companyProfile.establishedDate && (
+                                            <Badge variant="outline" className="gap-1">
+                                                <Calendar className="h-3 w-3" />
+                                                {companyProfile.establishedDate}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                            {companyProfile.registrationNumber && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Регистрийн дугаар</p>
-                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.registrationNumber}</p>
-                                </div>
-                            )}
-                            {companyProfile.taxId && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Хувийн хэргийн дугаар</p>
-                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.taxId}</p>
-                                </div>
-                            )}
-                            {companyProfile.establishedDate && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Байгуулагдсан</p>
-                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.establishedDate}</p>
-                                </div>
-                            )}
-                            {companyProfile.contactEmail && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">И-мэйл</p>
-                                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">{companyProfile.contactEmail}</p>
-                                </div>
-                            )}
-                            {companyProfile.website && (
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Вэбсайт</p>
-                                    <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-base font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors block mx-auto">
-                                        {companyProfile.website.replace(/^https?:\/\//, '')}
-                                    </a>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Introduction - Ultra Clean */}
-                {companyProfile.introduction && (
-                    <div className="max-w-3xl mx-auto px-6 py-20 animate-in fade-in delay-1000 duration-1000">
-                        <div className="space-y-6 text-center">
-                            <Quote className="h-8 w-8 text-primary/20 mx-auto opacity-50" />
-                            <p className="text-2xl md:text-3xl font-medium text-slate-700 dark:text-slate-300 leading-snug tracking-tight italic">
-                                "{companyProfile.introduction}"
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Mission & Vision - Open & Airy */}
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-20 my-20 px-6">
-                    <div className="space-y-6 group">
-                        <div className="p-5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] w-fit group-hover:bg-primary/5 group-hover:border-primary/20 transition-all duration-500">
-                            <Rocket className="h-8 w-8 text-primary" />
-                        </div>
-                        <div className="space-y-4">
-                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Эрхэм зорилго</h2>
-                            <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-lg font-medium">
-                                {companyProfile.mission || 'Эрхэм зорилго оруулаагүй байна.'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="space-y-6 group">
-                        <div className="p-5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] w-fit group-hover:bg-primary/5 group-hover:border-primary/20 transition-all duration-500">
-                            <Eye className="h-8 w-8 text-primary" />
-                        </div>
-                        <div className="space-y-4">
-                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Алсын хараа</h2>
-                            <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-lg font-medium">
-                                {companyProfile.vision || 'Алсын хараа оруулаагүй байна.'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Values - Infinite Smooth Design */}
-                {coreValues && coreValues.length > 0 && (
-                    <div className="bg-slate-50/50 dark:bg-slate-900/30 py-24 -mx-6 md:-mx-8 px-6 md:px-8 border-y border-slate-100 dark:border-slate-800/50">
-                        <div className="max-w-7xl mx-auto">
-                            <div className="flex flex-col items-center text-center space-y-4 mb-16">
-                                <h2 className="text-[10px] font-semibold tracking-[0.4em] uppercase text-primary">Core Values</h2>
-                                <h3 className="text-4xl md:text-5xl font-semibold text-slate-900 dark:text-white">Бидний үнэт зүйлс</h3>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {coreValues.filter(v => v.isActive).map((value, index) => (
-                                    <div key={value.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group overflow-hidden relative">
-                                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500">
-                                            <div className="text-9xl rotate-12">{value.emoji || '⭐'}</div>
+
+                            {/* Introduction */}
+                            {companyProfile.introduction && (
+                                <div className="mt-6 pt-6 border-t">
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {companyProfile.introduction}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Link href="/dashboard/company/mission" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+                                    <Rocket className="h-5 w-5 text-orange-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Соёл</p>
+                                    <p className="text-xs text-muted-foreground">Эрхэм зорилго</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/company/videos" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                    <Video className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Видео</p>
+                                    <p className="text-xs text-muted-foreground">{companyProfile.videos?.length || 0} видео</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/company/branding" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+                                    <Palette className="h-5 w-5 text-violet-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Брэндинг</p>
+                                    <p className="text-xs text-muted-foreground">Өнгө, лого</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/company/policies" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                                    <ScrollText className="h-5 w-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Журам</p>
+                                    <p className="text-xs text-muted-foreground">{policies?.length || 0} журам</p>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left Column - Details */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Mission & Vision */}
+                            <div className="bg-white rounded-xl border">
+                                <div className="p-4 border-b">
+                                    <h3 className="font-medium">Эрхэм зорилго & Алсын хараа</h3>
+                                </div>
+                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                                                <Rocket className="h-4 w-4 text-orange-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-muted-foreground">Эрхэм зорилго</span>
                                         </div>
-                                        <div
-                                            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-8 shadow-inner"
-                                            style={{ backgroundColor: `${value.color}10`, color: value.color }}
-                                        >
-                                            {value.emoji || '⭐'}
-                                        </div>
-                                        <h4 className="text-2xl font-semibold mb-4 text-slate-900 dark:text-white">{value.title}</h4>
-                                        <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                                            {value.description}
+                                        <p className="text-sm leading-relaxed">
+                                            {companyProfile.mission || 'Оруулаагүй байна'}
                                         </p>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Videos - Cinematic Grid */}
-                {companyProfile.videos && companyProfile.videos.length > 0 && (
-                    <div className="max-w-7xl mx-auto py-24 px-6">
-                        <div className="flex items-center justify-between mb-16">
-                            <h2 className="text-4xl font-semibold text-slate-900 dark:text-white uppercase">Видео танилцуулга</h2>
-                            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800 mx-10 hidden sm:block" />
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-                            {companyProfile.videos.map((video, index) => (
-                                <div key={index} className="space-y-8 group">
-                                    <div className="aspect-video rounded-[2.5rem] overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl group-hover:shadow-2xl group-hover:shadow-primary/10 transition-all duration-700 relative">
-                                        <video src={video.url} controls className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="px-4 space-y-2">
-                                        <h4 className="font-semibold text-2xl text-slate-900 dark:text-white">{video.title}</h4>
-                                        <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">{video.description}</p>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                                <Eye className="h-4 w-4 text-blue-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-muted-foreground">Алсын хараа</span>
+                                        </div>
+                                        <p className="text-sm leading-relaxed">
+                                            {companyProfile.vision || 'Оруулаагүй байна'}
+                                        </p>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                            </div>
 
-                {/* Location - Clean Footer style */}
-                {companyProfile.address && (
-                    <div className="max-w-4xl mx-auto py-24 px-6 border-t border-slate-100 dark:border-slate-800/50">
-                        <div className="flex flex-col items-center text-center space-y-6">
-                            <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center border border-slate-100 dark:border-slate-800">
-                                <MapPin className="h-5 w-5 text-primary" />
+                            {/* Core Values */}
+                            {coreValues && coreValues.filter(v => v.isActive).length > 0 && (
+                                <div className="bg-white rounded-xl border">
+                                    <div className="p-4 border-b">
+                                        <h3 className="font-medium">Үнэт зүйлс</h3>
+                                    </div>
+                                    <div className="p-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {coreValues.filter(v => v.isActive).map((value) => (
+                                                <div key={value.id} className="flex items-start gap-3 p-4 rounded-lg bg-slate-50">
+                                                    <div
+                                                        className="h-10 w-10 rounded-lg flex items-center justify-center text-xl shrink-0"
+                                                        style={{ backgroundColor: `${value.color}15` }}
+                                                    >
+                                                        {value.emoji || '⭐'}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium text-sm">{value.title}</p>
+                                                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{value.description}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Videos */}
+                            {companyProfile.videos && companyProfile.videos.length > 0 && (
+                                <div className="bg-white rounded-xl border">
+                                    <div className="p-4 border-b flex items-center justify-between">
+                                        <h3 className="font-medium">Видео танилцуулга</h3>
+                                        <Button variant="ghost" size="sm" asChild>
+                                            <Link href="/dashboard/company/videos">
+                                                Бүгдийг харах
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                    <div className="p-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {companyProfile.videos.slice(0, 2).map((video, index) => (
+                                                <div key={index} className="space-y-3">
+                                                    <div className="aspect-video rounded-lg overflow-hidden bg-slate-100">
+                                                        <video src={video.url} controls className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-sm">{video.title}</p>
+                                                        {video.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-1">{video.description}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right Column - Info */}
+                        <div className="space-y-6">
+                            {/* Company Info Card */}
+                            <div className="bg-white rounded-xl border">
+                                <div className="p-4 border-b">
+                                    <h3 className="font-medium">Үндсэн мэдээлэл</h3>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    {companyProfile.ceo && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                <User className="h-4 w-4 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Захирал</p>
+                                                <p className="text-sm font-medium">{companyProfile.ceo}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {companyProfile.registrationNumber && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                <Hash className="h-4 w-4 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Регистр</p>
+                                                <p className="text-sm font-medium">{companyProfile.registrationNumber}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {companyProfile.taxId && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                <FileText className="h-4 w-4 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Татварын дугаар</p>
+                                                <p className="text-sm font-medium">{companyProfile.taxId}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <h3 className="text-[10px] font-semibold tracking-widest uppercase text-slate-400">Бидний хаяг</h3>
-                                <p className="text-xl font-semibold text-slate-800 dark:text-slate-200">{companyProfile.address}</p>
+
+                            {/* Contact Card */}
+                            <div className="bg-white rounded-xl border">
+                                <div className="p-4 border-b">
+                                    <h3 className="font-medium">Холбоо барих</h3>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    {companyProfile.phoneNumber && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                                <Phone className="h-4 w-4 text-emerald-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Утас</p>
+                                                <p className="text-sm font-medium">{companyProfile.phoneNumber}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {companyProfile.contactEmail && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                                                <Mail className="h-4 w-4 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">И-мэйл</p>
+                                                <p className="text-sm font-medium">{companyProfile.contactEmail}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {companyProfile.website && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-violet-50 flex items-center justify-center">
+                                                <Globe className="h-4 w-4 text-violet-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Вэбсайт</p>
+                                                <a href={companyProfile.website} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline flex items-center gap-1">
+                                                    {companyProfile.website.replace(/^https?:\/\//, '')}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {companyProfile.address && (
+                                        <div className="flex items-start gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+                                                <MapPin className="h-4 w-4 text-orange-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground">Хаяг</p>
+                                                <p className="text-sm font-medium">{companyProfile.address}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
+                            {/* Stats Card */}
+                            <div className="bg-white rounded-xl border">
+                                <div className="p-4 border-b">
+                                    <h3 className="font-medium">Статистик</h3>
+                                </div>
+                                <div className="p-4 grid grid-cols-2 gap-4">
+                                    <div className="text-center p-3 rounded-lg bg-slate-50">
+                                        <p className="text-2xl font-bold text-primary">{departments?.length || 0}</p>
+                                        <p className="text-xs text-muted-foreground">Нэгж</p>
+                                    </div>
+                                    <div className="text-center p-3 rounded-lg bg-slate-50">
+                                        <p className="text-2xl font-bold text-primary">{positions?.length || 0}</p>
+                                        <p className="text-xs text-muted-foreground">Ажлын байр</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Subsidiaries Card */}
+                            <Link href="/dashboard/company/subsidiaries" className="block bg-white rounded-xl border hover:border-primary/50 hover:shadow-sm transition-all">
+                                <div className="p-4 border-b flex items-center justify-between">
+                                    <h3 className="font-medium">Охин компаниуд</h3>
+                                    <ChevronLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                                </div>
+                                <div className="p-4">
+                                    {companyProfile.subsidiaries && companyProfile.subsidiaries.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {companyProfile.subsidiaries.slice(0, 3).map((item, index) => {
+                                                const name = typeof item === 'string' ? item : item.name;
+                                                const regNum = typeof item === 'string' ? null : item.registrationNumber;
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-2 p-2 rounded-lg bg-slate-50"
+                                                    >
+                                                        <Building2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium truncate">{name}</p>
+                                                            {regNum && (
+                                                                <p className="text-[10px] text-muted-foreground">РД: {regNum}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {companyProfile.subsidiaries.length > 3 && (
+                                                <p className="text-xs text-muted-foreground text-center pt-1">
+                                                    +{companyProfile.subsidiaries.length - 3} бусад
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4">
+                                            <Building2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                                            <p className="text-xs text-muted-foreground">
+                                                Охин компани нэмэх
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </Link>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );

@@ -35,10 +35,10 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-    const nodeWidth = 260; // w-60 approx 240 + padding
-    const nodeHeight = 140;
+    const nodeWidth = 280; // Updated for larger cards
+    const nodeHeight = 180; // Updated for larger cards
 
-    dagreGraph.setGraph({ rankdir: direction, nodesep: 70, ranksep: 100 });
+    dagreGraph.setGraph({ rankdir: direction, nodesep: 80, ranksep: 120 });
 
     nodes.forEach((node) => {
         dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });

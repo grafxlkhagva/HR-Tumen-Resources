@@ -5,37 +5,25 @@ import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
-import { doc, collection, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, PlusCircle, Trash2, ArrowLeft, Upload, Image as ImageIcon, Smile, Palette, CheckCircle2, Rocket, Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/page-header';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
+import { Loader2, Save, PlusCircle, Trash2, Rocket, Eye, ChevronLeft, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { PointsService } from '@/lib/points/points-service';
 import { CoreValue } from '@/types/points';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
 import dynamic from 'next/dynamic';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -60,26 +48,28 @@ type MissionVisionFormValues = z.infer<typeof missionVisionSchema>;
 
 function FormSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-full" />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-20 w-full" />
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border p-6 space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-20 w-full" />
+      </div>
+      <div className="bg-white rounded-xl border p-6 space-y-4">
+        <Skeleton className="h-6 w-32" />
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -190,55 +180,63 @@ function EditMissionVisionForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSave)} className="space-y-12 pb-32">
-        <PageHeader
-          title="Байгууллагын Соёл"
-          showBackButton
-          backHref="/dashboard/company"
-          hideBreadcrumbs
-          actions={
-            <div className="flex items-center gap-2">
-              <Button type="submit" disabled={isSubmitting} size="sm">
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Түр хүлээнэ үү...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Хадгалах
-                  </>
-                )}
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                disabled={isSubmitting}
-              >
-                <Link href="/dashboard/company">
-                  <X className="mr-2 h-4 w-4" />
-                  Цуцлах
-                </Link>
-              </Button>
-            </div>
-          }
-        />
-        {/* Mission & Vision Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="border-none shadow-xl bg-gradient-to-br from-white to-slate-50 overflow-hidden group">
-            <div className="h-2 w-full bg-primary/20 group-hover:bg-primary/40 transition-colors" />
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                  <Rocket className="h-5 w-5" />
+      <form onSubmit={form.handleSubmit(handleSave)}>
+        {/* Header */}
+        <div className="bg-white border-b sticky top-0 z-20 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6">
+          <div className="px-6 md:px-8">
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" type="button" asChild>
+                  <Link href="/dashboard/company">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center">
+                    <Heart className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-semibold">Байгууллагын соёл</h1>
+                    <p className="text-xs text-muted-foreground">Эрхэм зорилго, алсын хараа, үнэт зүйлс</p>
+                  </div>
                 </div>
-                <CardTitle className="text-xl">Эрхэм зорилго</CardTitle>
               </div>
-              <CardDescription>Байгууллагын оршин тогтнох утга учир</CardDescription>
-            </CardHeader>
-            <CardContent>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" type="button" asChild>
+                  <Link href="/dashboard/company">
+                    Цуцлах
+                  </Link>
+                </Button>
+                <Button size="sm" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Хадгалах
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+        {/* Mission & Vision Section */}
+        <div className="bg-white rounded-xl border">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h3 className="font-medium">Эрхэм зорилго & Алсын хараа</h3>
+          </div>
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                  <Rocket className="h-4 w-4 text-orange-600" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Эрхэм зорилго</span>
+                  <p className="text-xs text-muted-foreground">Байгууллагын оршин тогтнох утга учир</p>
+                </div>
+              </div>
               <FormField
                 control={form.control}
                 name="mission"
@@ -246,7 +244,7 @@ function EditMissionVisionForm({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        className="min-h-[160px] resize-none border-none bg-white/50 focus-visible:ring-1 focus-visible:ring-primary/30 text-lg leading-relaxed shadow-inner p-4"
+                        className="min-h-[120px] resize-none"
                         placeholder="Бидний эрхэм зорилго бол..."
                         {...field}
                         value={field.value ?? ''}
@@ -256,21 +254,18 @@ function EditMissionVisionForm({
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border-none shadow-xl bg-gradient-to-br from-white to-slate-50 overflow-hidden group">
-            <div className="h-2 w-full bg-indigo-500/20 group-hover:bg-indigo-500/40 transition-colors" />
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-600">
-                  <Eye className="h-5 w-5" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Eye className="h-4 w-4 text-blue-600" />
                 </div>
-                <CardTitle className="text-xl">Алсын хараа</CardTitle>
+                <div>
+                  <span className="text-sm font-medium">Алсын хараа</span>
+                  <p className="text-xs text-muted-foreground">Бидний хүрэх ирээдүйн дүр зураг</p>
+                </div>
               </div>
-              <CardDescription>Бидний хүрэх ирээдүйн дүр зураг</CardDescription>
-            </CardHeader>
-            <CardContent>
               <FormField
                 control={form.control}
                 name="vision"
@@ -278,7 +273,7 @@ function EditMissionVisionForm({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        className="min-h-[160px] resize-none border-none bg-white/50 focus-visible:ring-1 focus-visible:ring-indigo-500/30 text-lg leading-relaxed shadow-inner p-4"
+                        className="min-h-[120px] resize-none"
                         placeholder="Бид ирээдүйд..."
                         {...field}
                         value={field.value ?? ''}
@@ -288,46 +283,58 @@ function EditMissionVisionForm({
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Core Values Section */}
-        <div className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2">
+        <div className="bg-white rounded-xl border">
+          <div className="p-4 border-b flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="h-8 w-1 bg-primary rounded-full"></div>
-                <h2 className="text-2xl font-semibold tracking-tight">Үнэт зүйлс</h2>
-              </div>
-              <p className="text-amber-600 font-medium text-xs">Үнэт зүйлс нь байгууллагын соёлыг төлөвшүүлэх, пойнт системтэй шууд холбоотой тул заавал тодорхойлсон байх шаардлагатайг анхаарна уу.</p>
+              <h3 className="font-medium">Үнэт зүйлс</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Пойнт системтэй холбоотой</p>
             </div>
             <Button
               type="button"
-              size="icon"
-              className="h-11 w-11 rounded-xl shadow-lg shadow-primary/20 transition-all group"
+              variant="outline"
+              size="sm"
               onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
-              title="Үнэт зүйл нэмэх"
             >
-              <PlusCircle className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Нэмэх
             </Button>
           </div>
-
-          <div className="grid grid-cols-1 gap-6">
-            {fields.map((field, index) => (
-              <Card key={field.id} className="border-none shadow-lg hover:shadow-xl transition-all duration-300 group/item overflow-hidden">
-                <div className="flex flex-col md:flex-row items-stretch">
-                  {/* Color Sidebar */}
-                  <div
-                    className="w-2 hidden md:block"
-                    style={{ backgroundColor: form.watch(`values.${index}.color`) || '#3b82f6' }}
-                  />
-
-                  <div className="flex-1 p-5 flex flex-col md:flex-row gap-6">
-                    {/* Visual Selector */}
-                    <div className="flex md:flex-col items-center justify-start gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Дүрс</label>
+          
+          <div className="p-4">
+            {fields.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                  <Heart className="h-6 w-6 text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-600">Үнэт зүйлс хоосон байна</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Байгууллагын соёлыг тодорхойлох үнэт зүйлийг нэмнэ үү</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Үнэт зүйл нэмэх
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div 
+                    key={field.id} 
+                    className="border rounded-lg p-4 hover:border-slate-300 transition-colors"
+                    style={{ borderLeftWidth: '4px', borderLeftColor: form.watch(`values.${index}.color`) || '#3b82f6' }}
+                  >
+                    <div className="flex gap-4">
+                      {/* Emoji & Color */}
+                      <div className="flex flex-col gap-2">
                         <FormField
                           control={form.control}
                           name={`values.${index}.emoji`}
@@ -336,22 +343,20 @@ function EditMissionVisionForm({
                               <FormControl>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <div className="h-14 w-14 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-3xl hover:border-primary hover:shadow-md transition-all relative cursor-pointer shadow-sm">
+                                    <button
+                                      type="button"
+                                      className="h-12 w-12 flex items-center justify-center rounded-lg bg-slate-50 border text-2xl hover:bg-slate-100 transition-colors"
+                                    >
                                       {emojiField.value || '⭐'}
-                                      <div className="absolute -bottom-1 -right-1 p-1 bg-primary rounded-full text-white shadow-lg pointer-events-none">
-                                        <Smile className="h-3 w-3" />
-                                      </div>
-                                    </div>
+                                    </button>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-full p-0 border-none shadow-2xl overflow-hidden" align="start">
+                                  <PopoverContent className="w-full p-0 border-none shadow-xl" align="start">
                                     <EmojiPicker
-                                      onEmojiClick={(emojiData) => {
-                                        emojiField.onChange(emojiData.emoji);
-                                      }}
+                                      onEmojiClick={(emojiData) => emojiField.onChange(emojiData.emoji)}
                                       autoFocusSearch={false}
                                       theme={"light" as any}
-                                      width={350}
-                                      height={400}
+                                      width={320}
+                                      height={350}
                                     />
                                   </PopoverContent>
                                 </Popover>
@@ -359,137 +364,104 @@ function EditMissionVisionForm({
                             </FormItem>
                           )}
                         />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Өнгө</label>
                         <FormField
                           control={form.control}
                           name={`values.${index}.color`}
                           render={({ field: colorField }) => (
                             <FormItem>
                               <FormControl>
-                                <div
-                                  className="w-14 h-10 rounded-xl border border-slate-200 p-1 bg-white cursor-pointer hover:border-primary/50 transition-all flex items-center justify-center"
-                                >
+                                <div className="relative h-8 w-12 rounded border overflow-hidden">
                                   <div
-                                    className="w-full h-full rounded-lg shadow-inner relative overflow-hidden"
+                                    className="absolute inset-0"
                                     style={{ backgroundColor: colorField.value }}
-                                  >
-                                    <Input
-                                      type="color"
-                                      className="absolute inset-0 w-full h-full p-0 border-0 cursor-pointer scale-[3] origin-center"
-                                      {...colorField}
-                                    />
-                                  </div>
+                                  />
+                                  <Input
+                                    type="color"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    {...colorField}
+                                  />
                                 </div>
                               </FormControl>
                             </FormItem>
                           )}
                         />
                       </div>
-                    </div>
 
-                    {/* Content Inputs */}
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                        <div className="flex-1 space-y-4">
-                          <FormField
-                            control={form.control}
-                            name={`values.${index}.title`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Үнэт зүйлийн нэр</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    className="text-lg font-semibold bg-white border-slate-200 focus-visible:ring-primary/20 h-11 px-4 rounded-xl"
-                                    placeholder="Жишээ: Хариуцлага..."
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`values.${index}.description`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter">Тайлбар</FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    className="resize-none min-h-[100px] bg-white border-slate-200 focus-visible:ring-primary/20 text-sm leading-relaxed p-4 rounded-xl"
-                                    placeholder="Энэ үнэт зүйлийн ач холбогдлыг тайлбарлана уу..."
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                      {/* Content */}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <FormField
+                              control={form.control}
+                              name={`values.${index}.title`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      className="font-medium"
+                                      placeholder="Үнэт зүйлийн нэр"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <FormField
+                              control={form.control}
+                              name={`values.${index}.isActive`}
+                              render={({ field }) => (
+                                <FormItem className="flex items-center gap-2">
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <span className="text-xs text-muted-foreground">
+                                    {field.value ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                  </span>
+                                </FormItem>
+                              )}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => remove(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-
-                        <div className="flex flex-row md:flex-col items-center gap-3 md:pt-6">
-                          <FormField
-                            control={form.control}
-                            name={`values.${index}.isActive`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Button
-                                    type="button"
-                                    variant={field.value ? "default" : "outline"}
-                                    size="sm"
-                                    className={cn(
-                                      "h-9 px-4 text-[11px] font-semibold rounded-xl transition-all",
-                                      field.value ? "bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 border-none" : "text-muted-foreground hover:bg-slate-100"
-                                    )}
-                                    onClick={() => field.onChange(!field.value)}
-                                  >
-                                    {field.value ? "Идэвхтэй" : "Идэвхгүй"}
-                                  </Button>
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
-                            onClick={() => remove(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name={`values.${index}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Textarea
+                                  className="resize-none min-h-[80px] text-sm"
+                                  placeholder="Тайлбар..."
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
-
-            {fields.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
-                <div className="p-4 bg-white rounded-full shadow-md mb-4">
-                  <PlusCircle className="h-10 w-10 text-slate-300" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900">Үнэт зүйлс хоосон байна</h3>
-                <p className="text-slate-500 text-sm mb-6 text-center max-w-xs">Байгууллагын соёлыг тодорхойлох анхны үнэт зүйлийг нэмнэ үү</p>
-                <Button
-                  type="button"
-                  onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
-                >
-                  Утга нэмэх
-                </Button>
+                ))}
               </div>
             )}
           </div>
         </div>
-
+        </div>
       </form>
     </Form>
   );
@@ -517,21 +489,21 @@ export default function EditMissionPage() {
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<any>(companyProfileRef);
   const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
 
-  if (isLoadingProfile || isLoadingValues) {
-    return (
-      <div className="py-8">
-        <FormSkeleton />
-      </div>
-    )
-  }
-
+  const isLoading = isLoadingProfile || isLoadingValues;
   const initialData = companyProfile || defaultFormValues;
   const values = coreValues || [];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 scroll-smooth">
-        <EditMissionVisionForm initialData={initialData} coreValues={values} />
+    <div className="flex flex-col h-full">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 md:p-8 pb-32">
+          {isLoading ? (
+            <FormSkeleton />
+          ) : (
+            <EditMissionVisionForm initialData={initialData} coreValues={values} />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -5,78 +5,39 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { PageHeader } from '@/components/page-header';
-import { collection, doc, query, orderBy, where, writeBatch, increment } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where } from 'firebase/firestore';
 import { type Employee } from '../data';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     ArrowLeft,
-    Briefcase,
     Calendar,
     Edit,
     Mail,
     Phone,
     FileText,
-    MoreHorizontal,
     User,
-    Shield,
-    Clock,
     PlusCircle,
-    CheckCircle,
     AlertTriangle,
-    UserMinus,
-    Loader2,
-    BookOpen,
     Trash2,
     ChevronRight,
-    MapPin,
-    GraduationCap,
     File as FileIcon,
-    Download,
-    Paperclip,
-    ShieldCheck,
     Activity,
-    CalendarCheck,
-    Hash,
-    ClipboardCheck
+    ClipboardCheck,
+    LogOut
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CVDisplay } from './cv-display';
-import { EmploymentHistoryTimeline } from './EmploymentHistoryTimeline';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '@/components/ui/accordion';
 import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
 
 import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
-import { OffboardingDialog } from './OffboardingDialog';
+import { OffboardingTabContent } from './offboarding-tab-content';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
 
 
 type Department = {
@@ -123,81 +84,95 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
     "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: 'Түдгэлзсэн' },
 };
 
-
-function InfoItem({ icon: Icon, label, value, action }: { icon: any, label: string, value: React.ReactNode, action?: React.ReactNode }) {
-    return (
-        <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/30 group hover:bg-slate-50 transition-all">
-            <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                <Icon className="h-4 w-4 text-indigo-500" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-0.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-                <div className="text-sm font-semibold text-slate-700 truncate flex items-center gap-2">
-                    {value || '-'}
-                    {action}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-const AvatarWithProgress = ({ employee, size = 120 }: { employee?: Employee; size?: number; }) => {
-    const progress = employee?.questionnaireCompletion || 0;
-    const strokeWidth = 4;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (progress / 100) * circumference;
-
-    const progressColor = progress < 50 ? 'text-red-500' : progress < 90 ? 'text-amber-500' : 'text-emerald-500';
+const AvatarWithProgress = ({ 
+    employee, 
+    size = 120, 
+    onboardingProgress = 0 
+}: { 
+    employee?: Employee; 
+    size?: number; 
+    onboardingProgress?: number;
+}) => {
+    // Questionnaire progress (inner ring)
+    const questionnaireProgress = employee?.questionnaireCompletion || 0;
+    
+    const strokeWidth = 3;
+    const gap = 4; // Gap between rings
+    
+    // Outer ring (Onboarding) - larger radius
+    const outerRadius = (size / 2) + 2;
+    const outerCircumference = 2 * Math.PI * outerRadius;
+    const outerOffset = outerCircumference - (onboardingProgress / 100) * outerCircumference;
+    const onboardingColor = onboardingProgress < 50 ? '#6366f1' : onboardingProgress < 90 ? '#6366f1' : '#10b981'; // indigo -> emerald
+    
+    // Inner ring (Questionnaire) - smaller radius
+    const innerRadius = (size / 2) - gap - strokeWidth;
+    const innerCircumference = 2 * Math.PI * innerRadius;
+    const innerOffset = innerCircumference - (questionnaireProgress / 100) * innerCircumference;
+    const questionnaireColor = questionnaireProgress < 50 ? '#ef4444' : questionnaireProgress < 90 ? '#f59e0b' : '#10b981'; // red -> amber -> emerald
 
     const avatarContent = (
         <div className="relative" style={{ width: size, height: size }}>
-            <Avatar className="h-full w-full border-4 border-background shadow-xl">
+            <Avatar className="h-full w-full border-2 border-background shadow-xl">
                 <AvatarImage src={employee?.photoURL} alt={employee?.firstName} className="object-cover" />
-                <AvatarFallback className="text-4xl bg-muted text-muted-foreground">
-                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-10 w-10" />}
+                <AvatarFallback className="text-2xl bg-muted text-muted-foreground">
+                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8" />}
                 </AvatarFallback>
             </Avatar>
             {employee && (
                 <svg
-                    className="absolute -top-[4px] -left-[4px] pointer-events-none"
-                    width={size + 8}
-                    height={size + 8}
-                    viewBox={`0 0 ${size} ${size}`}
-                    style={{ overflow: 'visible' }}
+                    className="absolute pointer-events-none"
+                    style={{ top: -strokeWidth - 2, left: -strokeWidth - 2 }}
+                    width={size + (strokeWidth + 2) * 2}
+                    height={size + (strokeWidth + 2) * 2}
                 >
-                    {/* Background Circle */}
+                    {/* Outer Ring Background (Onboarding) */}
                     <circle
-                        className="text-muted/20"
-                        stroke="currentColor"
+                        stroke="#e2e8f0"
                         strokeWidth={strokeWidth}
                         fill="transparent"
-                        r={radius + 4} // Slightly larger
-                        cx={size / 2}
-                        cy={size / 2}
+                        r={outerRadius}
+                        cx={size / 2 + strokeWidth + 2}
+                        cy={size / 2 + strokeWidth + 2}
                     />
-                    {/* Progress Circle */}
+                    {/* Outer Ring Progress (Onboarding) */}
                     <circle
-                        className={cn("transition-all duration-1000 ease-out", progressColor)}
-                        stroke="currentColor"
+                        stroke={onboardingColor}
                         strokeWidth={strokeWidth}
-                        strokeDasharray={circumference + 25} // Adjust for size diff
-                        strokeDashoffset={offset > 0 ? offset + (25 * (1 - progress / 100)) : 0} // Approx adjust
+                        strokeDasharray={outerCircumference}
+                        strokeDashoffset={outerOffset}
                         strokeLinecap="round"
                         fill="transparent"
-                        r={radius + 4}
-                        cx={size / 2}
-                        cy={size / 2}
-                        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                        r={outerRadius}
+                        cx={size / 2 + strokeWidth + 2}
+                        cy={size / 2 + strokeWidth + 2}
+                        transform={`rotate(-90 ${size / 2 + strokeWidth + 2} ${size / 2 + strokeWidth + 2})`}
+                        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
                     />
-                    {/* Percentage Pill */}
-                    <foreignObject x={0} y={size - 20} width={size} height={30}>
-                        <div className="flex justify-center">
-                            <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full bg-background border shadow-sm", progressColor)}>
-                                {Math.round(progress)}%
-                            </span>
-                        </div>
-                    </foreignObject>
+                    
+                    {/* Inner Ring Background (Questionnaire) */}
+                    <circle
+                        stroke="#e2e8f0"
+                        strokeWidth={strokeWidth}
+                        fill="transparent"
+                        r={innerRadius}
+                        cx={size / 2 + strokeWidth + 2}
+                        cy={size / 2 + strokeWidth + 2}
+                    />
+                    {/* Inner Ring Progress (Questionnaire) */}
+                    <circle
+                        stroke={questionnaireColor}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={innerCircumference}
+                        strokeDashoffset={innerOffset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        r={innerRadius}
+                        cx={size / 2 + strokeWidth + 2}
+                        cy={size / 2 + strokeWidth + 2}
+                        transform={`rotate(-90 ${size / 2 + strokeWidth + 2} ${size / 2 + strokeWidth + 2})`}
+                        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+                    />
                 </svg>
             )}
         </div>
@@ -208,7 +183,7 @@ const AvatarWithProgress = ({ employee, size = 120 }: { employee?: Employee; siz
             <div className="group relative">
                 <Link href={`/dashboard/employees/${employee.id}/questionnaire`}>
                     {avatarContent}
-                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium text-xs backdrop-blur-[1px]">
+                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium text-[10px] backdrop-blur-[1px] text-center leading-tight px-2">
                         Анкет харах
                     </div>
                 </Link>
@@ -294,106 +269,92 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
 
     if (error) {
         return (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold">
-                Алдаа гарлаа: {error.message}
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
+                Алдаа: {error.message}
             </div>
         );
     }
 
-
-
     if (isLoading) return (
         <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
     );
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-4">
+            {/* Compliance Stats */}
             {complianceStats && (
-                <Card className="border-none shadow-xl shadow-indigo-100/20 bg-white rounded-[2.5rem] overflow-hidden">
-                    <div className="p-8 bg-gradient-to-br from-indigo-50/50 to-white">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div className="flex-1 space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                                        <ClipboardCheck className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Бичиг баримтын бүрдүүлэлт</h3>
-                                        <p className="text-xs font-medium text-slate-400">Нийт {complianceStats.total} шаардлагатай баримтаас {complianceStats.completed} нь бүрдсэн байна.</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                        <span>Гүйцэтгэл</span>
-                                        <span>{complianceStats.percentage}%</span>
-                                    </div>
-                                    <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                        <div
-                                            className="h-full bg-indigo-600 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                                            style={{ width: `${complianceStats.percentage}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {complianceStats.missingDocs.length > 0 && (
-                                <div className="flex flex-wrap gap-2 md:max-w-xs">
-                                    {complianceStats.missingDocs.map((m: any, i: number) => (
-                                        <Badge key={i} variant="outline" className="bg-rose-50 text-rose-600 border-rose-100 text-[9px] font-bold uppercase tracking-tighter px-3 h-6">
-                                            Дутуу: {m.name}
-                                        </Badge>
-                                    ))}
-                                </div>
-                            )}
+                <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <ClipboardCheck className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Баримтын бүрдүүлэлт</span>
                         </div>
+                        <span className="text-sm font-medium">{complianceStats.percentage}%</span>
                     </div>
-                </Card>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                        <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${complianceStats.percentage}%` }}
+                        />
+                    </div>
+                    {complianceStats.missingDocs.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                            {complianceStats.missingDocs.map((m: any, i: number) => (
+                                <Badge key={i} variant="outline" className="text-[10px] bg-rose-50 text-rose-600 border-rose-200">
+                                    Дутуу: {m.name}
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
+            {/* Header */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Бүх баримт бичиг</h3>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="icon" className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl h-10 w-10 shadow-lg shadow-indigo-100 transition-all active:scale-95">
-                    <PlusCircle className="w-4 h-4" />
+                <h3 className="text-sm font-medium text-slate-600">Бичиг баримт</h3>
+                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="h-8">
+                    <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Нэмэх
                 </Button>
             </div>
 
-            <div className="grid gap-3">
+            {/* Documents List */}
+            <div className="space-y-2">
                 {documents && documents.length > 0 ? (
                     documents.map((docItem: any, idx: number) => (
-                        <div key={idx} className="group flex items-center gap-5 p-5 bg-white border border-slate-100 rounded-[1.25rem] transition-all hover:bg-slate-50 hover:border-indigo-100/50 hover:shadow-md hover:shadow-indigo-50/50">
-                            <div className="h-11 w-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
-                                <FileIcon className="h-5.5 w-5.5" />
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-xl border hover:border-primary/20 transition-all group">
+                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                <FileIcon className="h-4 w-4 text-slate-500" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3 mb-1">
-                                    <h4 className="text-sm font-bold text-slate-700 truncate">{docItem.title}</h4>
-                                    <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-tighter px-2 h-4.5 border-none bg-indigo-100 text-indigo-700">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-medium truncate">{docItem.title}</h4>
+                                    <Badge variant="secondary" className="text-[10px] shrink-0">
                                         {docItem.documentType}
                                     </Badge>
                                 </div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                    <Calendar className="h-3 w-3" />
+                                <p className="text-xs text-slate-500">
                                     {new Date(docItem.uploadDate).toLocaleDateString()}
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-rose-600 hover:bg-rose-50 border-transparent transition-all">
-                                            <Trash2 className="h-5 w-5" />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600">
+                                            <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                            <AlertDialogTitle>Баримт устгах</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                Энэ баримт бичгийг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.
+                                                Энэ баримтыг устгахдаа итгэлтэй байна уу?
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                            <AlertDialogCancel>Болих</AlertDialogCancel>
                                             <AlertDialogAction
                                                 onClick={() => {
                                                     if (!firestore) return;
@@ -406,24 +367,20 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-
-                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white border-transparent hover:border-slate-100 transition-all" asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" asChild>
                                     <Link href={`/dashboard/employee-documents/${docItem.id}`}>
-                                        <ChevronRight className="h-5 w-5" />
+                                        <ChevronRight className="h-4 w-4" />
                                     </Link>
                                 </Button>
                             </div>
                         </div>
                     ))
                 ) : (
-                    <div className="py-24 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
-                        <div className="h-20 w-20 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200 mb-6">
-                            <FileIcon className="h-10 w-10" />
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">Баримт байхгүй</h4>
-                        <p className="text-xs font-semibold text-slate-300">Ажилтантай холбоотой бичиг баримт одоогоор байхгүй байна.</p>
-                        <Button onClick={() => setIsAddDialogOpen(true)} variant="outline" className="mt-8 font-bold text-[10px] uppercase tracking-widest rounded-2xl px-6">
-                            Анхны баримт байршуулах
+                    <div className="bg-white rounded-xl border p-12 text-center">
+                        <FileIcon className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                        <p className="text-sm text-slate-500 mb-4">Баримт бичиг байхгүй</p>
+                        <Button onClick={() => setIsAddDialogOpen(true)} variant="outline" size="sm">
+                            Баримт нэмэх
                         </Button>
                     </div>
                 )}
@@ -451,9 +408,9 @@ const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId:
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-32 w-full rounded-[2rem]" />
+                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
                 ))}
             </div>
         );
@@ -461,15 +418,15 @@ const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId:
 
     if (!sortedDocs || sortedDocs.length === 0) {
         return (
-            <div className="py-24 text-center rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center bg-white/50">
-                <FileText className="h-10 w-10 text-slate-200 mb-4" />
-                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Баримт байхгүй</h4>
+            <div className="bg-white rounded-xl border p-12 text-center">
+                <FileText className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Хөдөлмөрийн харилцааны баримт байхгүй</p>
             </div>
         );
     }
 
     return (
-        <div className="relative pl-8 space-y-12 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+        <div className="space-y-3">
             {sortedDocs.map((doc, idx) => {
                 const date = doc.createdAt ? (
                     doc.createdAt.seconds
@@ -478,172 +435,32 @@ const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId:
                 ) : '-';
 
                 return (
-                    <div key={`${doc.id}-${idx}`} className="relative group">
-                        {/* Timeline Dot */}
-                        <div className="absolute -left-[27px] top-1.5 h-4 w-4 rounded-full border-2 border-white bg-indigo-500 ring-4 ring-indigo-50 z-10 transition-transform group-hover:scale-125" />
-
-                        <div className="space-y-4">
-                            {/* Date Title */}
-                            <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                                {date}
-                                <div className="h-px flex-1 bg-slate-50" />
-                            </h3>
-
-                            {/* Document Card */}
-                            <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm transition-all hover:shadow-md hover:border-indigo-100/50 group/card">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3">
-                                            <h4 className="text-base font-bold text-slate-700">{doc.metadata?.templateName || 'Нэргүй баримт'}</h4>
-                                            <Badge className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 h-5", DOCUMENT_STATUSES[doc.status].color)}>
-                                                {DOCUMENT_STATUSES[doc.status].label}
-                                            </Badge>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                ID: #{doc.id.slice(-6).toUpperCase()}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <Button asChild variant="outline" size="sm" className="h-11 px-5 rounded-2xl border-slate-100 bg-slate-50 font-bold text-xs gap-2.5 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all active:scale-95 group/btn">
-                                            <Link href={`/dashboard/employment-relations/${doc.id}`}>
-                                                <Paperclip className="w-4 h-4 transition-transform group-hover/btn:rotate-12" />
-                                                Хавсралт
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
+                    <Link 
+                        key={`${doc.id}-${idx}`} 
+                        href={`/dashboard/employment-relations/${doc.id}`}
+                        className="flex items-center gap-4 p-4 bg-white rounded-xl border hover:border-primary/20 hover:shadow-sm transition-all group"
+                    >
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <FileText className="h-5 w-5 text-primary" />
                         </div>
-                    </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <h4 className="text-sm font-medium truncate">{doc.metadata?.templateName || 'Баримт'}</h4>
+                                <Badge className={cn("text-[10px] shrink-0", DOCUMENT_STATUSES[doc.status].color)}>
+                                    {DOCUMENT_STATUSES[doc.status].label}
+                                </Badge>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                {date} • #{doc.id.slice(-6).toUpperCase()}
+                            </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" />
+                    </Link>
                 );
             })}
         </div>
     );
 };
-
-const OverviewTabContent = ({ employeeId, employee }: { employeeId: string; employee: Employee }) => {
-    const questionnaireRef = useMemoFirebase(
-        ({ firestore }) =>
-            firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null,
-        [employeeId]
-    );
-
-    const { data: questionnaire, isLoading } = useDoc(questionnaireRef as any);
-
-    const { completionPercentage, filledCount, totalCount } = React.useMemo(() => {
-        if (!questionnaire) return { completionPercentage: 0, filledCount: 0, totalCount: 0 };
-
-        const fields = [
-            'lastName', 'firstName', 'registrationNumber', 'birthDate', 'gender', 'idCardNumber',
-            'personalPhone', 'personalEmail', 'homeAddress',
-        ];
-
-        const arrayFields = [
-            { name: 'emergencyContacts', notApplicableKey: null },
-            { name: 'education', notApplicableKey: 'educationNotApplicable' },
-            { name: 'languages', notApplicableKey: 'languagesNotApplicable' },
-            { name: 'trainings', notApplicableKey: 'trainingsNotApplicable' },
-            { name: 'familyMembers', notApplicableKey: 'familyMembersNotApplicable' },
-            { name: 'experiences', notApplicableKey: 'experienceNotApplicable' },
-        ];
-
-        let filled = 0;
-        const total = fields.length + arrayFields.length;
-
-        fields.forEach(field => {
-            if (questionnaire[field]) filled++;
-        });
-
-        arrayFields.forEach(fieldInfo => {
-            if (fieldInfo.notApplicableKey && questionnaire[fieldInfo.notApplicableKey] === true) {
-                filled++;
-            } else if (Array.isArray(questionnaire[fieldInfo.name]) && questionnaire[fieldInfo.name].length > 0) {
-                filled++;
-            }
-        });
-
-        return {
-            completionPercentage: total > 0 ? (filled / total) * 100 : 0,
-            filledCount: filled,
-            totalCount: total,
-        }
-    }, [questionnaire]);
-
-    if (isLoading) return <Skeleton className="h-64 w-full rounded-3xl" />;
-
-    return (
-        <div className="space-y-10">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <User className="h-5 w-5" />
-                </div>
-                <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Overview</label>
-                    <h3 className="text-lg font-bold text-slate-800">Ерөнхий мэдээлэл</h3>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-50 transition-all hover:shadow-md hover:border-indigo-100/50">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Анкетын бүрдүүлэлт</p>
-                            <h4 className="text-sm font-bold text-slate-700">Хувийн мэдээллийн бүрэн байдал</h4>
-                        </div>
-                        <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 font-black text-xs">
-                            {Math.round(completionPercentage)}%
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-end mb-2">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{filledCount} / {totalCount} ТАЛБАР</span>
-                        </div>
-                        <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-1000 ease-out"
-                                style={{ width: `${completionPercentage}%` }}
-                            />
-                        </div>
-                        <div className="mt-6 flex items-start gap-3 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                            <p className="text-[11px] font-semibold text-slate-500 leading-relaxed">
-                                Анкетын мэдээлэл дутуу байх нь цалин бодолт болон тайлангуудад нөлөөлөх эрсдэлтэй.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="group bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-50 transition-all hover:shadow-md hover:border-emerald-100/50">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Ур чадвар</p>
-                            <h4 className="text-sm font-bold text-slate-700">Мэргэжлийн болон хувь хүний</h4>
-                        </div>
-                        <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-                            <ShieldCheck className="h-6 w-6" />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2.5 min-h-[120px] content-start">
-                        {['Teamwork', 'Leadership', 'Strategic Planning', 'Communication'].map(skill => (
-                            <Badge key={skill} variant="secondary" className="px-4 py-2 font-bold text-[10px] uppercase tracking-wider bg-slate-50 text-slate-500 border-none rounded-xl hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
-                                {skill}
-                            </Badge>
-                        ))}
-                        <div className="w-full mt-auto pt-4 text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">
-                            * Системээс автоматаар үүсгэсэн
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
 
 export default function EmployeeProfilePage() {
     const { id } = useParams();
@@ -651,7 +468,6 @@ export default function EmployeeProfilePage() {
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isOffboardingOpen, setIsOffboardingOpen] = React.useState(false);
 
 
     const employeeDocRef = useMemoFirebase(
@@ -696,9 +512,53 @@ export default function EmployeeProfilePage() {
 
     const { data: erDocuments, isLoading: isLoadingDocs } = useCollection<ERDocument>(erDocumentsQuery as any);
 
+    // Fetch onboarding process for this employee
+    const onboardingProcessRef = useMemoFirebase(
+        () => (firestore && employeeId ? doc(firestore, 'onboarding_processes', employeeId) : null),
+        [firestore, employeeId]
+    );
+    const { data: onboardingProcess, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingProcessRef as any);
+
+    // Fetch offboarding process for this employee
+    const offboardingProcessRef = useMemoFirebase(
+        () => (firestore && employeeId ? doc(firestore, 'offboarding_processes', employeeId) : null),
+        [firestore, employeeId]
+    );
+    const { data: offboardingProcess, isLoading: isLoadingOffboarding } = useDoc<any>(offboardingProcessRef as any);
+
+    // Calculate onboarding progress
+    const onboardingProgress = React.useMemo(() => {
+        if (!onboardingProcess?.stages) return 0;
+        const stages = onboardingProcess.stages;
+        let totalTasks = 0;
+        let completedTasks = 0;
+        stages.forEach((stage: any) => {
+            if (stage.tasks) {
+                totalTasks += stage.tasks.length;
+                completedTasks += stage.tasks.filter((t: any) => t.completed).length;
+            }
+        });
+        return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    }, [onboardingProcess]);
+
+    // Calculate offboarding progress
+    const offboardingProgress = React.useMemo(() => {
+        if (!offboardingProcess?.stages) return 0;
+        const stages = offboardingProcess.stages;
+        let totalTasks = 0;
+        let completedTasks = 0;
+        stages.forEach((stage: any) => {
+            if (stage.tasks) {
+                totalTasks += stage.tasks.length;
+                completedTasks += stage.tasks.filter((t: any) => t.completed).length;
+            }
+        });
+        return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    }, [offboardingProcess]);
+
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
 
-    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule || isLoadingDocs || isLoadingOrgActions;
+    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule || isLoadingDocs || isLoadingOrgActions || isLoadingOnboarding || isLoadingOffboarding;
 
     const { effectiveHireDate, probationEndDate, effectiveTerminationDate } = React.useMemo(() => {
         let hireDate = employee?.hireDate;
@@ -811,17 +671,6 @@ export default function EmployeeProfilePage() {
         }, new Map<string, string>());
     }, [departments]);
 
-    const handleReactivate = async () => {
-        if (!employee || !firestore) return;
-
-        await updateDocumentNonBlocking(employeeDocRef!, { status: 'Идэвхтэй' });
-
-        toast({
-            title: 'Ажилтан идэвхжлээ',
-            description: `${employee.firstName}-н нэвтрэх эрхийг сэргээлээ.`,
-        });
-
-    }
 
 
     if (isLoading) {
@@ -860,189 +709,318 @@ export default function EmployeeProfilePage() {
 
 
     return (
-        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
-            <OffboardingDialog
-                open={isOffboardingOpen}
-                onOpenChange={setIsOffboardingOpen}
-                employee={employee}
-            />
+        <div className="flex flex-col h-full bg-slate-50/50">
 
-            {/* Page Header */}
-            <PageHeader
-                title={employee.firstName}
-                description={employee.lastName ? `${employee.lastName}-ийн мэдээлэл` : undefined}
-                breadcrumbs={[
-                    { label: 'Ажилтан', href: '/dashboard/employees' },
-                    { label: employee.firstName }
-                ]}
-                showBackButton
-                backHref="/dashboard/employees"
-            />
-
-            {!isActive && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-4 text-amber-900 shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
-                    <div className="flex-1">
-                        <p className="font-semibold text-sm">Анхааруулга</p>
-                        <p className="text-sm opacity-90">Энэ ажилтан одоогоор <strong>{statusInfo.label?.toLowerCase() || employee.status}</strong> төлөвтэй байна. Системд нэвтрэх эрх хязгаарлагдмал.</p>
-                    </div>
-                    <Button onClick={handleReactivate} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white border-none shadow-none">
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Идэвхжүүлэх
-                    </Button>
-                </div>
-            )}
-
-            {/* Main Profile Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: Avatar & Actions */}
-                <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                    <Card className="overflow-hidden border-none shadow-xl shadow-indigo-100/20 bg-white rounded-[2.5rem]">
-                        <div className="h-32 bg-gradient-to-br from-indigo-600 to-violet-700 relative overflow-hidden">
-                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.8),transparent)]" />
-                            <div className="absolute -right-4 -top-4 h-24 w-24 bg-white/10 rounded-full blur-2xl" />
-                        </div>
-                        <CardContent className="pt-0 relative px-8 pb-10 text-center">
-                            <div className="flex justify-center -mt-16 mb-6">
-                                <AvatarWithProgress employee={employee} size={128} />
-                            </div>
-                            <div className="space-y-1 mb-6">
-                                <h1 className="text-xl font-black tracking-tight text-slate-800 leading-tight uppercase">{employee.lastName || '-'}</h1>
-                                <h2 className="text-2xl font-black tracking-tight text-indigo-600 leading-tight">{employee.firstName}</h2>
-                            </div>
-
-                            <div className="space-y-4 mb-8">
-                                <div className="flex flex-col items-center gap-1">
-                                    <Badge variant="secondary" className="font-bold text-[10px] uppercase tracking-[0.15em] bg-slate-50 text-slate-500 border border-slate-100 px-4 py-2 rounded-xl">
-                                        {departmentName}
-                                    </Badge>
-                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">{employee.jobTitle || 'Албан тушаал тодорхойгүй'}</p>
-                                </div>
-                                <div className="h-px w-12 bg-slate-100 mx-auto" />
-                            </div>
-
-                            <div className="space-y-4 pt-2 mb-8 text-center">
-                                <div className="flex flex-col items-center">
-                                    <span className="text-[11px] font-mono text-slate-400">#{employee.employeeCode}</span>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-1">
-                                    <div className="flex items-center gap-2 text-slate-600 font-bold tracking-tight">
-                                        <Phone className="w-3.5 h-3.5 text-indigo-500" />
-                                        <span>{employee.phoneNumber || '-'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-600 font-bold tracking-tight">
-                                        <Mail className="w-3.5 h-3.5 text-indigo-500" />
-                                        <a href={`mailto:${employee.email}`} className="hover:text-indigo-600 transition-colors">{employee.email}</a>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex justify-center">
-                                    <Badge variant="outline" className={cn("font-bold text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-lg border-2", statusInfo.className)}>
+            {/* Sticky Header */}
+            <div className="bg-white border-b sticky top-0 z-30">
+                <div className="px-6 md:px-8">
+                    <div className="flex items-center justify-between py-4 gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+                                <Link href="/dashboard/employees">
+                                    <ArrowLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <Avatar className="h-10 w-10 border-2 border-white shadow shrink-0">
+                                <AvatarImage src={employee.photoURL} alt={employee.firstName} />
+                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                                    {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-lg font-semibold truncate">
+                                        {fullName}
+                                    </h1>
+                                    <Badge variant="outline" className={cn("shrink-0 text-[10px]", statusInfo.className)}>
                                         {statusInfo.label}
                                     </Badge>
                                 </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                    {employee.jobTitle || 'Албан тушаал'} • {departmentName} • #{employee.employeeCode}
+                                </p>
                             </div>
+                        </div>
+                        
+                        {/* Header Actions */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Button variant="outline" size="sm" className="h-8" asChild>
+                                <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
+                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                    Анкет
+                                </Link>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8" asChild>
+                                <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
+                                    <Activity className="h-3.5 w-3.5 mr-1.5" />
+                                    Life Cycle
+                                </Link>
+                            </Button>
+                            <Button size="sm" className="h-8" asChild>
+                                <Link href={`/dashboard/employees/${employeeId}/edit`}>
+                                    <Edit className="h-3.5 w-3.5 mr-1.5" />
+                                    Засах
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            <div className="grid grid-cols-1 gap-3 w-full">
-                                <Button asChild variant="default" className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100 font-bold text-[10px] uppercase tracking-widest transition-all active:scale-95">
-                                    <Link href={`/dashboard/employees/${employeeId}/edit`}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Мэдээлэл засах
-                                    </Link>
-                                </Button>
-                                <Button asChild variant="ghost" className="w-full h-12 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50">
-                                    <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Анкет харах
-                                    </Link>
-                                </Button>
-                                <Button asChild variant="ghost" className="w-full h-12 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 mt-1">
-                                    <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
-                                        <Activity className="mr-2 h-4 w-4" />
-                                        Life Cycle
-                                    </Link>
-                                </Button>
+            {/* Main Content */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-6 md:p-8 space-y-6 pb-32">
+                    {/* Inactive Warning */}
+                    {!isActive && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                            <p className="text-sm font-medium text-amber-900">
+                                Энэ ажилтан <strong>{statusInfo.label?.toLowerCase()}</strong> төлөвтэй байна. Томилох үйлдэл баталгаажсан үед идэвхтэй болно.
+                            </p>
+                        </div>
+                    )}
+
+            {/* Main Layout */}
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                {/* Left Sidebar - Profile Card */}
+                <div className="xl:col-span-1 space-y-4">
+                    {/* Profile Card */}
+                    <div className="bg-white rounded-xl border overflow-hidden">
+                        <div className="h-20 bg-gradient-to-br from-primary to-indigo-600 relative">
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.2),transparent)]" />
+                        </div>
+                        <div className="px-4 pb-4 -mt-10 text-center">
+                            <div className="flex justify-center mb-3">
+                                <AvatarWithProgress employee={employee} size={80} onboardingProgress={onboardingProgress} />
                             </div>
-                        </CardContent>
-                    </Card>
+                            <h2 className="text-base font-semibold text-slate-800">{fullName}</h2>
+                            <p className="text-xs text-slate-500 mb-3">{employee.jobTitle || 'Албан тушаал'}</p>
+                            
+                            <div className="space-y-2 text-xs">
+                                <div className="flex items-center justify-center gap-2 text-slate-600">
+                                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{employee.phoneNumber || '-'}</span>
+                                </div>
+                                <div className="flex items-center justify-center gap-2 text-slate-600">
+                                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="truncate">{employee.email}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
+                    {/* Quick Info */}
+                    <div className="bg-white rounded-xl border p-4 space-y-3">
+                        <h3 className="text-xs font-semibold text-slate-500 uppercase">Ерөнхий</h3>
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-500">Код</span>
+                                <span className="font-medium font-mono">#{employee.employeeCode}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-500">Хэлтэс</span>
+                                <span className="font-medium truncate ml-2">{departmentName}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-500">Цагийн хуваарь</span>
+                                <span className="font-medium">{workScheduleName}</span>
+                            </div>
+                            {effectiveHireDate && (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-500">Ажилд орсон</span>
+                                    <span className="font-medium">{effectiveHireDate}</span>
+                                </div>
+                            )}
+                            {probationEndDate && (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-500">Туршилт дуусах</span>
+                                    <span className="font-medium">{probationEndDate}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Progress Legend */}
+                    <div className="bg-white rounded-xl border p-3">
+                        <h3 className="text-[10px] font-semibold text-slate-400 uppercase mb-2">Аватар тайлбар</h3>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs">
+                                <div className="w-3 h-3 rounded-full bg-indigo-500" />
+                                <span className="text-slate-600">Гадна цагираг - Onboarding</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                                <span className="text-slate-600">Дотор цагираг - Анкет</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Questionnaire Progress */}
+                    <div className="bg-white rounded-xl border p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-semibold text-slate-500 uppercase">Анкет</h3>
+                            <span className={cn(
+                                "text-xs font-medium",
+                                (employee.questionnaireCompletion || 0) >= 90 ? "text-emerald-600" :
+                                (employee.questionnaireCompletion || 0) >= 50 ? "text-amber-600" : "text-rose-600"
+                            )}>
+                                {Math.round(employee.questionnaireCompletion || 0)}%
+                            </span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                                className={cn(
+                                    "h-full rounded-full transition-all",
+                                    (employee.questionnaireCompletion || 0) >= 90 ? "bg-emerald-500" :
+                                    (employee.questionnaireCompletion || 0) >= 50 ? "bg-amber-500" : "bg-rose-500"
+                                )}
+                                style={{ width: `${employee.questionnaireCompletion || 0}%` }}
+                            />
+                        </div>
+                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
+                            <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
+                                Анкет харах
+                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                            </Link>
+                        </Button>
+                    </div>
+
+                    {/* Onboarding Progress */}
+                    <div className="bg-white rounded-xl border p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-semibold text-slate-500 uppercase">Onboarding</h3>
+                            <span className={cn(
+                                "text-xs font-medium",
+                                onboardingProgress >= 100 ? "text-emerald-600" :
+                                onboardingProgress > 0 ? "text-indigo-600" : "text-slate-400"
+                            )}>
+                                {onboardingProgress}%
+                            </span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                                className={cn(
+                                    "h-full rounded-full transition-all",
+                                    onboardingProgress >= 100 ? "bg-emerald-500" : "bg-indigo-500"
+                                )}
+                                style={{ width: `${onboardingProgress}%` }}
+                            />
+                        </div>
+                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
+                            <Link href={`/dashboard/onboarding/${employeeId}`}>
+                                Onboarding харах
+                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                            </Link>
+                        </Button>
+                    </div>
+
+                    {/* Offboarding Progress - Only show if process exists */}
+                    {offboardingProcess && (
+                        <div className="bg-white rounded-xl border p-4 ring-2 ring-amber-100">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xs font-semibold text-amber-600 uppercase">Offboarding</h3>
+                                <span className={cn(
+                                    "text-xs font-medium",
+                                    offboardingProgress >= 100 ? "text-emerald-600" : "text-amber-600"
+                                )}>
+                                    {offboardingProgress}%
+                                </span>
+                            </div>
+                            <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                                <div 
+                                    className={cn(
+                                        "h-full rounded-full transition-all",
+                                        offboardingProgress >= 100 ? "bg-emerald-500" : "bg-amber-500"
+                                    )}
+                                    style={{ width: `${offboardingProgress}%` }}
+                                />
+                            </div>
+                            <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50" asChild>
+                                <Link href={`/dashboard/offboarding/${employeeId}`}>
+                                    Offboarding харах
+                                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
-                {/* Right Column: Key Details & Tabs */}
-                <div className="lg:col-span-8 xl:col-span-9 space-y-8 pt-2">
+                {/* Right Content - Tabs */}
+                <div className="xl:col-span-3">
                     <Tabs defaultValue="history" className="w-full">
-                        <div className="bg-slate-50/50 rounded-3xl p-1.5 inline-flex mb-8 overflow-x-auto max-w-full scrollbar-hide">
-                            <TabsList className="bg-transparent h-12 gap-1 px-1">
-
+                        {/* Tab Navigation */}
+                        <div className="bg-white rounded-xl border mb-4 p-1 overflow-x-auto no-scrollbar">
+                            <TabsList className="bg-transparent h-10 w-full justify-start gap-1">
                                 <TabsTrigger
                                     value="history"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
                                     Хөдөлмөрийн харилцаа
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="onboarding"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
-                                    Чиглүүлэх (Onboarding)
+                                    Onboarding
                                 </TabsTrigger>
+                                {offboardingProcess && (
+                                    <TabsTrigger
+                                        value="offboarding"
+                                        className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700"
+                                    >
+                                        Offboarding
+                                    </TabsTrigger>
+                                )}
                                 <TabsTrigger
                                     value="documents"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
-                                    Ажилтны баримт бичиг
+                                    Баримт бичиг
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="time-off"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
                                     Чөлөө
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="vacation"
-                                    className="h-9 px-6 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
-                                    Ээлжийн амралт
+                                    Амралт
                                 </TabsTrigger>
-
                             </TabsList>
                         </div>
 
-                        <div className="min-h-[400px]">
-
-
-                            <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                                <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
+                        {/* Tab Contents */}
+                        <TabsContent value="history" className="mt-0 focus-visible:outline-none">
+                            <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
+                        </TabsContent>
+                        <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
+                            <VacationTabContent employee={employee} />
+                        </TabsContent>
+                        <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
+                            <div className="bg-white rounded-xl border p-8 text-center">
+                                <Calendar className="mx-auto h-10 w-10 text-slate-200 mb-3" />
+                                <p className="text-sm text-slate-500">Одоогоор чөлөөний бүртгэл байхгүй байна</p>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
+                            <DocumentsTabContent employee={employee} />
+                        </TabsContent>
+                        <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
+                            <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
+                        </TabsContent>
+                        {offboardingProcess && (
+                            <TabsContent value="offboarding" className="mt-0 focus-visible:outline-none">
+                                <OffboardingTabContent employeeId={employeeId || ''} employee={employee} />
                             </TabsContent>
-                            <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
-                                <VacationTabContent employee={employee} />
-                            </TabsContent>
-                            <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
-                                <Card className="shadow-sm">
-                                    <CardHeader>
-                                        <CardTitle>Чөлөөний түүх</CardTitle>
-                                        <CardDescription>Баталгаажсан болон хүлээгдэж буй чөлөөний хүсэлтүүд</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="py-12 text-center text-muted-foreground border-dashed border-2 rounded-xl">
-                                            <Calendar className="mx-auto h-10 w-10 opacity-20 mb-3" />
-                                            <p>Одоогоор чөлөөний бүртгэл байхгүй байна.</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                            <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
-                                <DocumentsTabContent employee={employee} />
-                            </TabsContent>
-                            <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
-                                <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
-                            </TabsContent>
-
-                        </div>
+                        )}
                     </Tabs>
                 </div>
             </div>
-        </div >
+                </div>
+            </div>
+        </div>
     )
 }

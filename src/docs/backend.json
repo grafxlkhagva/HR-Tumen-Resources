@@ -880,13 +880,13 @@
     },
     "OnboardingProgram": {
       "title": "Дасан зохицох хөтөлбөр (Загвар)",
-      "description": "Дасан зохицох эсвэл ажлаас чөлөөлөх хөтөлбөрийн загварыг тодорхойлно.",
+      "description": "Дасан зохицох хөтөлбөрийн загварыг тодорхойлно.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string", "description": "Хөтөлбөрийн нэр." },
         "description": { "type": "string", "description": "Хөтөлбөрийн дэлгэрэнгүй тайлбар." },
-        "type": { "type": "string", "enum": ["ONBOARDING", "OFFBOARDING"], "description": "Хөтөлбөрийн төрөл." },
+        "type": { "type": "string", "enum": ["ONBOARDING"], "description": "Хөтөлбөрийн төрөл." },
         "appliesTo": {
           "type": "object",
           "description": "Энэ хөтөлбөр ямар нөхцөлд автоматаар оноогдохыг заана.",

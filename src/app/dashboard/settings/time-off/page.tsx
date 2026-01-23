@@ -316,7 +316,7 @@ export default function TimeAndAttendanceSettingsPage() {
     const isLoading = loadingTimeOffConfig || loadingTimeConfig || loadingVacationConfig;
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="space-y-8 ">
             <div className="space-y-1">
                 <h2 className="text-2xl font-bold tracking-tight text-slate-800">Цаг бүртгэлийн тохиргоо</h2>
                 <p className="text-sm text-muted-foreground max-w-2xl">

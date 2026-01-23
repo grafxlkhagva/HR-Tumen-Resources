@@ -232,7 +232,7 @@ export default function EmployeeCodeSettingsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8">
       <div className="space-y-1">
         <h2 className="text-2xl font-bold tracking-tight text-slate-800">Кодчлол</h2>
         <p className="text-sm text-muted-foreground max-w-2xl">

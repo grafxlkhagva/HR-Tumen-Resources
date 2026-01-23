@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -20,11 +19,9 @@ import {
     Calendar as CalendarIcon,
     Camera,
     Save,
-    X,
     Loader2,
     Phone,
     Mail,
-    AlertCircle,
     PlusCircle,
     Trash2,
     Facebook,
@@ -36,21 +33,20 @@ import {
     Users,
     Briefcase,
     CheckCircle2,
-    Circle,
-    LayoutDashboard
+    FileText,
+    ChevronRight,
+    Info
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
-
+import { Badge } from '@/components/ui/badge';
 
 import {
     FullQuestionnaireValues,
@@ -61,7 +57,6 @@ import {
     professionalTrainingSchema,
     familyInfoSchema,
     workExperienceHistorySchema,
-    fullQuestionnaireSchema
 } from '@/types/questionnaire';
 import { Employee, ReferenceItem } from '@/types';
 
@@ -107,8 +102,6 @@ const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>): 
     return totalFields > 0 ? (filledFields / totalFields) * 100 : 0;
 };
 
-
-// Helper for date transformation
 const transformDates = (data: any) => {
     if (!data) return data;
     const transformedData = { ...data };
@@ -138,10 +131,16 @@ const transformDates = (data: any) => {
     return transformedData;
 }
 
-
-function FormSkeleton() {
-    return <Skeleton className="h-[500px] w-full" />;
-}
+// Tab configuration
+const TABS = [
+    { id: 'general', label: 'Ерөнхий', icon: User },
+    { id: 'contact', label: 'Холбоо барих', icon: Phone },
+    { id: 'education', label: 'Боловсрол', icon: GraduationCap },
+    { id: 'language', label: 'Хэл', icon: Languages },
+    { id: 'training', label: 'Мэргэшил', icon: Award },
+    { id: 'family', label: 'Гэр бүл', icon: Users },
+    { id: 'experience', label: 'Туршлага', icon: Briefcase },
+];
 
 interface FormSectionProps<T extends z.ZodType<any, any>> {
     docRef: any;
@@ -168,28 +167,44 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
 
     const onSubmit = (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
-
-        // Merge the submitted section data with the existing full set of default values
         const currentData = { ...defaultValues, ...data };
         setDocumentNonBlocking(docRef, currentData, { merge: true });
-
-        // Recalculate and update completion on the employee doc
         const newCompletion = calculateCompletionPercentage(currentData);
         updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
-
         toast({ title: 'Амжилттай хадгаллаа' });
     };
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {children(form, isSubmitting)}
             </form>
         </Form>
     );
 }
 
-// Child Form Components
+// Reusable form field wrapper
+const FieldGroup = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div className={cn("bg-white rounded-xl border p-5", className)}>{children}</div>
+);
+
+const SectionTitle = ({ children, icon: Icon }: { children: React.ReactNode; icon?: any }) => (
+    <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+        {Icon && <Icon className="w-4 h-4 text-primary" />}
+        <h3 className="text-sm font-semibold text-slate-800">{children}</h3>
+    </div>
+);
+
+const SaveButton = ({ isSubmitting }: { isSubmitting: boolean }) => (
+    <div className="flex justify-end pt-4">
+        <Button type="submit" disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Хадгалах
+        </Button>
+    </div>
+);
+
+// Form Components
 function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: boolean }) {
     const hasDisability = form.watch("hasDisability");
     const hasDriversLicense = form.watch("hasDriversLicense");
@@ -197,115 +212,149 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
 
     return (
         <>
-            <Card>
-                <CardHeader className="items-center">
-                    <div className="relative">
-                        <Avatar className="h-24 w-24">
-                            <AvatarImage src="" alt="Profile picture" />
-                            <AvatarFallback className="bg-muted">
-                                <Camera className="h-8 w-8 text-muted-foreground" />
-                            </AvatarFallback>
-                        </Avatar>
-                        <Button size="icon" variant="outline" className="absolute bottom-0 right-0 h-8 w-8 rounded-full">
-                            <Camera className="h-4 w-4" />
-                            <span className="sr-only">Зураг солих</span>
-                        </Button>
+            <FieldGroup>
+                <SectionTitle icon={User}>Хувийн мэдээлэл</SectionTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <FormField control={form.control} name="lastName" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Овог</FormLabel>
+                            <FormControl><Input placeholder="Овог" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="firstName" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Нэр</FormLabel>
+                            <FormControl><Input placeholder="Нэр" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="registrationNumber" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Регистрийн дугаар</FormLabel>
+                            <FormControl><Input placeholder="АА00112233" {...field} value={field.value || ''} className="h-10 font-mono" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="birthDate" render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                            <FormLabel className="text-xs text-slate-500">Төрсөн огноо</FormLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                        <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1960} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="gender" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Хүйс</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="male">Эрэгтэй</SelectItem>
+                                    <SelectItem value="female">Эмэгтэй</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="idCardNumber" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Иргэний үнэмлэхний дугаар</FormLabel>
+                            <FormControl><Input placeholder="ТТД" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+            </FieldGroup>
+
+            {/* Disability */}
+            <FieldGroup>
+                <FormField control={form.control} name="hasDisability" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="font-medium">Хөгжлийн бэрхшээлтэй эсэх</FormLabel>
+                    </FormItem>
+                )} />
+                {hasDisability && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pl-6 animate-in slide-in-from-top-2">
+                        <FormField control={form.control} name="disabilityPercentage" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs text-slate-500">Хөдөлмөрийн чадвар алдалтын хувь (%)</FormLabel>
+                                <FormControl><Input type="number" placeholder="%" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="disabilityDate" render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel className="text-xs text-slate-500">Огноо</FormLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                     </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Ажилтны овог" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="firstName" render={({ field }) => (<FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Ажилтны бүтэн нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="registrationNumber" render={({ field }) => (<FormItem><FormLabel>Регистрийн дугаар</FormLabel><FormControl><Input placeholder="АА00112233" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Төрсөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(new Date(field.value), "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1960} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="gender" render={({ field }) => (<FormItem><FormLabel>Хүйс</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хүйс сонгох" /></SelectTrigger></FormControl><SelectContent><SelectItem value="male">Эрэгтэй</SelectItem><SelectItem value="female">Эмэгтэй</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="idCardNumber" render={({ field }) => (<FormItem><FormLabel>ТТД</FormLabel><FormControl><Input placeholder="ТТД дугаар" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                    </div>
+                )}
+            </FieldGroup>
 
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-medium text-muted-foreground mb-4">Нэмэлт мэдээлэл</h3>
-
-                        {/* Disability Section */}
-                        <div className="rounded-lg border p-4 space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="hasDisability"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                        <FormLabel className="font-medium text-base">Хөгжлийн бэрхшээлтэй эсэх</FormLabel>
-                                    </FormItem>
-                                )}
-                            />
-
-                            {hasDisability && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-2 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <FormField control={form.control} name="disabilityPercentage" render={({ field }) => (<FormItem><FormLabel>Хөдөлмөрийн чадвар алдалтын хувь (%)</FormLabel><FormControl><Input type="number" placeholder="Хувь..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="disabilityDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Хөдөлмөрийн чадвар алдсан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? (format(new Date(field.value), "yyyy-MM-dd")) : (<span>Огноо сонгох</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                </div>
-                            )}
+            {/* Driver's License */}
+            <FieldGroup>
+                <FormField control={form.control} name="hasDriversLicense" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="font-medium">Жолооны үнэмлэхтэй эсэх</FormLabel>
+                    </FormItem>
+                )} />
+                {hasDriversLicense && (
+                    <div className="mt-4 pl-6 animate-in slide-in-from-top-2">
+                        <FormLabel className="text-xs text-slate-500 mb-3 block">Ангилал</FormLabel>
+                        <div className="flex flex-wrap gap-2">
+                            {driverLicenseCategoryItems.map((item) => (
+                                <FormField key={item} control={form.control} name="driverLicenseCategories" render={({ field }) => (
+                                    <label className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all",
+                                        field.value?.includes(item) ? "bg-primary/10 border-primary text-primary" : "hover:bg-slate-50"
+                                    )}>
+                                        <Checkbox
+                                            checked={field.value?.includes(item)}
+                                            onCheckedChange={(checked) => {
+                                                checked
+                                                    ? form.setValue("driverLicenseCategories", [...(field.value || []), item])
+                                                    : form.setValue("driverLicenseCategories", field.value?.filter((v: string) => v !== item))
+                                            }}
+                                            className="hidden"
+                                        />
+                                        <span className="text-sm font-medium">{item}</span>
+                                    </label>
+                                )} />
+                            ))}
                         </div>
-
-                        {/* Driver's License Section */}
-                        <div className="rounded-lg border p-4 space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="hasDriversLicense"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                        <FormLabel className="font-medium text-base">Жолооны үнэмлэхтэй эсэх</FormLabel>
-                                    </FormItem>
-                                )}
-                            />
-
-                            {hasDriversLicense && (
-                                <div className="pl-2 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <FormLabel className="mb-3 block">Жолооны ангилал</FormLabel>
-                                    <FormField
-                                        control={form.control}
-                                        name="driverLicenseCategories"
-                                        render={() => (
-                                            <FormItem className="grid grid-cols-3 sm:grid-cols-6 gap-4">
-                                                {driverLicenseCategoryItems.map((item) => (
-                                                    <FormField
-                                                        key={item}
-                                                        control={form.control}
-                                                        name="driverLicenseCategories"
-                                                        render={({ field }) => {
-                                                            return (
-                                                                <FormItem key={item} className="flex flex-row items-center space-x-3 space-y-0 border rounded-md p-3 hover:bg-muted/50 cursor-pointer">
-                                                                    <FormControl>
-                                                                        <Checkbox
-                                                                            checked={field.value?.includes(item)}
-                                                                            onCheckedChange={(checked) => {
-                                                                                return checked
-                                                                                    ? form.setValue("driverLicenseCategories", [...(field.value || []), item])
-                                                                                    : form.setValue("driverLicenseCategories", field.value?.filter((value: string) => value !== item))
-                                                                            }}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormLabel className="font-normal cursor-pointer w-full">{item}</FormLabel>
-                                                                </FormItem>
-                                                            )
-                                                        }}
-                                                    />
-                                                ))}
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            )}
-                        </div>
                     </div>
+                )}
+            </FieldGroup>
 
-                </CardContent>
-            </Card>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -315,37 +364,147 @@ function ContactInfoForm({ form, isSubmitting, references }: { form: any, isSubm
 
     return (
         <>
-            <Card>
-                <CardHeader><CardTitle>Үндсэн мэдээлэл</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="workPhone" render={({ field }) => (<FormItem><FormLabel>Гар утас (Албан)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="8811****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="personalPhone" render={({ field }) => (<FormItem><FormLabel>Гар утас (Хувийн)</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="workEmail" render={({ field }) => (<FormItem><FormLabel>Албан ёсны и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="name@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="personalEmail" render={({ field }) => (<FormItem><FormLabel>Хувийн и-мэйл</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="email" placeholder="personal@example.com" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="homeAddress" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Үндсэн)</FormLabel><FormControl><Textarea placeholder="Сүхбаатар дүүрэг, 8-р хороо..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="temporaryAddress" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Гэрийн хаяг (Түр)</FormLabel><FormControl><Textarea placeholder="Түр оршин суугаа хаяг..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader><CardTitle>Сошиал медиа</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="facebook" render={({ field }) => (<FormItem><FormLabel>Facebook</FormLabel><FormControl><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://facebook.com/username" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="instagram" render={({ field }) => (<FormItem><FormLabel>Instagram</FormLabel><FormControl><div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://instagram.com/username" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} />
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader><CardTitle>Яаралтай үед холбоо барих</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    {fields.map((field, index) => (<Card key={field.id} className="p-4 relative"><Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button><CardContent className="space-y-4 pt-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={form.control} name={`emergencyContacts.${index}.fullName`} render={({ field }) => (<FormItem><FormLabel>Овог, нэр</FormLabel><FormControl><Input placeholder="Яаралтай үед холбоо барих хүний нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`emergencyContacts.${index}.relationship`} render={({ field }) => (<FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{references.emergencyRelationships?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} /></div><FormField control={form.control} name={`emergencyContacts.${index}.phone`} render={({ field }) => (<FormItem><FormLabel>Утас</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="9911****" {...field} value={field.value || ''} className="pl-10" /></div></FormControl><FormMessage /></FormItem>)} /></CardContent></Card>))}
-                    <Button type="button" variant="outline" onClick={() => append({ fullName: '', relationship: '', phone: '' })}><PlusCircle className="mr-2 h-4 w-4" />Яаралтай үед холбоо барих хүн нэмэх</Button>
-                </CardContent>
-            </Card>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+            <FieldGroup>
+                <SectionTitle icon={Phone}>Холбоо барих мэдээлэл</SectionTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="workPhone" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Албан утас</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input placeholder="8811****" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="personalPhone" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Хувийн утас</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input placeholder="9911****" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="workEmail" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Албан и-мэйл</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input type="email" placeholder="name@company.com" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="personalEmail" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Хувийн и-мэйл</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input type="email" placeholder="personal@email.com" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="homeAddress" render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel className="text-xs text-slate-500">Гэрийн хаяг</FormLabel>
+                            <FormControl><Textarea placeholder="Хаяг..." {...field} value={field.value || ''} className="resize-none" rows={2} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="temporaryAddress" render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel className="text-xs text-slate-500">Түр хаяг</FormLabel>
+                            <FormControl><Textarea placeholder="Түр оршин суугаа хаяг..." {...field} value={field.value || ''} className="resize-none" rows={2} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+            </FieldGroup>
+
+            <FieldGroup>
+                <SectionTitle>Сошиал медиа</SectionTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="facebook" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Facebook</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input placeholder="facebook.com/username" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="instagram" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Instagram</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input placeholder="instagram.com/username" {...field} value={field.value || ''} className="h-10 pl-10" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+            </FieldGroup>
+
+            <FieldGroup>
+                <SectionTitle icon={Users}>Яаралтай үед холбоо барих</SectionTitle>
+                <div className="space-y-3">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 relative group">
+                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <FormField control={form.control} name={`emergencyContacts.${index}.fullName`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs text-slate-500">Нэр</FormLabel>
+                                        <FormControl><Input placeholder="Овог нэр" {...field} value={field.value || ''} className="h-9" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name={`emergencyContacts.${index}.relationship`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs text-slate-500">Хэн болох</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                            <SelectContent>{references.emergencyRelationships?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name={`emergencyContacts.${index}.phone`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs text-slate-500">Утас</FormLabel>
+                                        <FormControl><Input placeholder="9911****" {...field} value={field.value || ''} className="h-9" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ fullName: '', relationship: '', phone: '' })} className="gap-2">
+                        <PlusCircle className="h-4 w-4" /> Нэмэх
+                    </Button>
+                </div>
+            </FieldGroup>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -365,14 +524,9 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
 
     const handleAddSchool = async () => {
         if (!schoolsCollection || !newSchoolName.trim() || currentFieldIndex === null) return;
-
         try {
-            const newDoc = await addDocumentNonBlocking(schoolsCollection, { name: newSchoolName.trim() });
-            if (newDoc) {
-                form.setValue(`education.${currentFieldIndex}.school`, newSchoolName.trim());
-            }
-        } catch (e) {
-            console.error("Error adding new school: ", e);
+            await addDocumentNonBlocking(schoolsCollection, { name: newSchoolName.trim() });
+            form.setValue(`education.${currentFieldIndex}.school`, newSchoolName.trim());
         } finally {
             setNewSchoolName('');
             setIsAddSchoolOpen(false);
@@ -382,14 +536,9 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
 
     const handleAddDegree = async () => {
         if (!degreesCollection || !newDegreeName.trim() || currentFieldIndex === null) return;
-
         try {
-            const newDoc = await addDocumentNonBlocking(degreesCollection, { name: newDegreeName.trim() });
-            if (newDoc) {
-                form.setValue(`education.${currentFieldIndex}.degree`, newDegreeName.trim());
-            }
-        } catch (e) {
-            console.error("Error adding new degree: ", e);
+            await addDocumentNonBlocking(degreesCollection, { name: newDegreeName.trim() });
+            form.setValue(`education.${currentFieldIndex}.degree`, newDegreeName.trim());
         } finally {
             setNewDegreeName('');
             setIsAddDegreeOpen(false);
@@ -397,24 +546,15 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
         }
     };
 
-
     return (
         <>
             <Dialog open={isAddSchoolOpen} onOpenChange={setIsAddSchoolOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Шинэ сургууль нэмэх</DialogTitle>
-                        <DialogDescription>
-                            Жагсаалтад байхгүй сургуулийн нэрийг энд нэмнэ үү.
-                        </DialogDescription>
+                        <DialogTitle>Шинэ сургууль</DialogTitle>
+                        <DialogDescription>Жагсаалтад байхгүй сургуулийн нэрийг нэмнэ үү.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <Input
-                            placeholder="Сургуулийн нэр"
-                            value={newSchoolName}
-                            onChange={(e) => setNewSchoolName(e.target.value)}
-                        />
-                    </div>
+                    <Input placeholder="Сургуулийн нэр" value={newSchoolName} onChange={(e) => setNewSchoolName(e.target.value)} />
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAddSchoolOpen(false)}>Цуцлах</Button>
                         <Button onClick={handleAddSchool}>Хадгалах</Button>
@@ -423,20 +563,12 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
             </Dialog>
 
             <Dialog open={isAddDegreeOpen} onOpenChange={setIsAddDegreeOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Шинэ мэргэжил нэмэх</DialogTitle>
-                        <DialogDescription>
-                            Жагсаалтад байхгүй мэргэжлийн нэрийг энд нэмнэ үү.
-                        </DialogDescription>
+                        <DialogTitle>Шинэ мэргэжил</DialogTitle>
+                        <DialogDescription>Жагсаалтад байхгүй мэргэжлийн нэрийг нэмнэ үү.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <Input
-                            placeholder="Мэргэжлийн нэр"
-                            value={newDegreeName}
-                            onChange={(e) => setNewDegreeName(e.target.value)}
-                        />
-                    </div>
+                    <Input placeholder="Мэргэжлийн нэр" value={newDegreeName} onChange={(e) => setNewDegreeName(e.target.value)} />
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAddDegreeOpen(false)}>Цуцлах</Button>
                         <Button onClick={handleAddDegree}>Хадгалах</Button>
@@ -444,34 +576,129 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                 </DialogContent>
             </Dialog>
 
-            <FormField control={form.control} name="educationNotApplicable" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Боловсролын мэдээлэл байхгүй</FormLabel></FormItem>)} />
-            <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Ерөнхий боловсролын сургуулиас эхлэн төгссөн дарааллын дагуу бичнэ үү.</AlertDescription></Alert>
-            <fieldset disabled={notApplicable} className="space-y-6">
+            <FieldGroup>
+                <FormField control={form.control} name="educationNotApplicable" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 rounded-lg bg-slate-50 border">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="text-sm">Боловсролын мэдээлэл байхгүй</FormLabel>
+                    </FormItem>
+                )} />
+            </FieldGroup>
+
+            <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
-                    <Card key={field.id} className="p-4">
-                        <CardContent className="space-y-4 pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`education.${index}.country`} render={({ field }) => (<FormItem><FormLabel>Хаана</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Улс сонгох" /></SelectTrigger></FormControl><SelectContent>{references.countries?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => (<FormItem><FormLabel>Төгссөн сургууль</FormLabel><Select onValueChange={(value) => { if (value === '__add_new__') { setCurrentFieldIndex(index); setIsAddSchoolOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сургууль сонгох" /></SelectTrigger></FormControl><SelectContent>{references.schools?.map((item: ReferenceItem, index: number) => <SelectItem key={`${item.id}-${index}`} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-semibold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Элссэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Төгссөн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={form.watch(`education.${index}.isCurrent`)} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={form.control} name={`education.${index}.isCurrent`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-sm font-normal">Одоо сурч байгаа</FormLabel></FormItem>)} />
-                            <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => (<FormItem><FormLabel>Эзэмшсэн мэргэжил</FormLabel><Select onValueChange={(value) => { if (value === '__add_new__') { setCurrentFieldIndex(index); setIsAddDegreeOpen(true); } else { field.onChange(value) } }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Мэргэжил сонгох" /></SelectTrigger></FormControl><SelectContent>{references.degrees?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}<SelectItem value="__add_new__" className="font-semibold text-primary">Шинээр нэмэх...</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => (<FormItem><FormLabel>Диплом, үнэмлэхний дугаар</FormLabel><FormControl><Input placeholder="Дипломын дугаарыг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name={`education.${index}.academicRank`} render={({ field }) => (<FormItem><FormLabel>Зэрэг, цол</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Зэрэг, цол сонгох" /></SelectTrigger></FormControl><SelectContent>{references.academicRanks?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                            {fields.length > 1 && (<Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button>)}
-                        </CardContent>
-                    </Card>
+                    <FieldGroup key={field.id} className="relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <div className="text-xs font-medium text-slate-400 mb-4">Боловсрол #{index + 1}</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name={`education.${index}.country`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Улс</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>{references.countries?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.school`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Сургууль</FormLabel>
+                                    <Select onValueChange={(value) => { if (value === '__add_new__') { setCurrentFieldIndex(index); setIsAddSchoolOpen(true); } else { field.onChange(value) } }} value={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {references.schools?.map((item: ReferenceItem, i: number) => <SelectItem key={`${item.id}-${i}`} value={item.name}>{item.name}</SelectItem>)}
+                                            <SelectItem value="__add_new__" className="text-primary font-medium">+ Шинээр нэмэх</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.entryDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Элссэн</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.gradDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Төгссөн</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" disabled={form.watch(`education.${index}.isCurrent`)} className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.degree`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Мэргэжил</FormLabel>
+                                    <Select onValueChange={(value) => { if (value === '__add_new__') { setCurrentFieldIndex(index); setIsAddDegreeOpen(true); } else { field.onChange(value) } }} value={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {references.degrees?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}
+                                            <SelectItem value="__add_new__" className="text-primary font-medium">+ Шинээр нэмэх</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.academicRank`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Зэрэг</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>{references.academicRanks?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`education.${index}.diplomaNumber`} render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel className="text-xs text-slate-500">Дипломын дугаар</FormLabel>
+                                    <FormControl><Input placeholder="Дугаар" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name={`education.${index}.isCurrent`} render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-2 space-y-0 mt-3">
+                                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                <FormLabel className="text-sm text-slate-600">Одоо сурч байгаа</FormLabel>
+                            </FormItem>
+                        )} />
+                    </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })}><PlusCircle className="mr-2 h-4 w-4" />Боловсрол нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ country: '', school: '', degree: '', diplomaNumber: '', academicRank: '', entryDate: null, gradDate: null, isCurrent: false })} className="gap-2">
+                    <PlusCircle className="h-4 w-4" /> Боловсрол нэмэх
+                </Button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -483,30 +710,60 @@ function LanguageForm({ form, isSubmitting, references }: { form: any, isSubmitt
 
     return (
         <>
-            <FormField control={form.control} name="languagesNotApplicable" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Гадаад хэлний мэдлэг байхгүй</FormLabel></FormItem>)} />
-            <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Түвшин оруулах</AlertTitle><AlertDescription>*Олон улсад хүлээн зөвшөөрөгдөх түвшин тогтоох шалгалтын оноог оруулна уу.</AlertDescription></Alert>
-            <fieldset disabled={notApplicable} className="space-y-6">
+            <FieldGroup>
+                <FormField control={form.control} name="languagesNotApplicable" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 rounded-lg bg-slate-50 border">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="text-sm">Гадаад хэлний мэдлэг байхгүй</FormLabel>
+                    </FormItem>
+                )} />
+            </FieldGroup>
+
+            <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
-                    <Card key={field.id} className="p-4">
-                        <CardContent className="space-y-4 pt-4">
-                            <FormField control={form.control} name={`languages.${index}.language`} render={({ field }) => (<FormItem><FormLabel>Гадаад хэл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Хэл сонгох" /></SelectTrigger></FormControl><SelectContent>{references.languages?.map((lang: ReferenceItem) => (<SelectItem key={lang.id} value={lang.name}>{lang.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                            <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`languages.${index}.listening`} render={({ field }) => (<FormItem><FormLabel>Сонсох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`languages.${index}.reading`} render={({ field }) => (<FormItem><FormLabel>Унших</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`languages.${index}.speaking`} render={({ field }) => (<FormItem><FormLabel>Ярих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`languages.${index}.writing`} render={({ field }) => (<FormItem><FormLabel>Бичих</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl><SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={form.control} name={`languages.${index}.testScore`} render={({ field }) => (<FormItem><FormLabel>Шалгалтын оноо</FormLabel><FormControl><Input placeholder="TOEFL-ийн оноо..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            {fields.length > 1 && (<Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button>)}
-                        </CardContent>
-                    </Card>
+                    <FieldGroup key={field.id} className="relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <FormField control={form.control} name={`languages.${index}.language`} render={({ field }) => (
+                            <FormItem className="mb-4">
+                                <FormLabel className="text-xs text-slate-500">Хэл</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                    <SelectContent>{references.languages?.map((lang: ReferenceItem) => <SelectItem key={lang.id} value={lang.name}>{lang.name}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {['listening', 'reading', 'speaking', 'writing'].map((skill) => (
+                                <FormField key={skill} control={form.control} name={`languages.${index}.${skill}`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs text-slate-500">{skill === 'listening' ? 'Сонсох' : skill === 'reading' ? 'Унших' : skill === 'speaking' ? 'Ярих' : 'Бичих'}</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Түвшин" /></SelectTrigger></FormControl>
+                                            <SelectContent>{proficiencyLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            ))}
+                        </div>
+                        <FormField control={form.control} name={`languages.${index}.testScore`} render={({ field }) => (
+                            <FormItem className="mt-3">
+                                <FormLabel className="text-xs text-slate-500">Шалгалтын оноо (TOEFL, IELTS гэх мэт)</FormLabel>
+                                <FormControl><Input placeholder="Оноо" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })}><PlusCircle className="mr-2 h-4 w-4" />Хэл нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ language: '', listening: '', reading: '', speaking: '', writing: '', testScore: '' })} className="gap-2">
+                    <PlusCircle className="h-4 w-4" /> Хэл нэмэх
+                </Button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -517,29 +774,90 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
 
     return (
         <>
-            <FormField control={form.control} name="trainingsNotApplicable" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Мэргэшлийн бэлтгэлийн мэдээлэл байхгүй</FormLabel></FormItem>)} />
-            <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Анхаар</AlertTitle><AlertDescription>Мэргэжлээрээ болон бусад төрлөөр 1 сараас дээш хугацаагаар хамрагдаж байсан сургалт.</AlertDescription></Alert>
-            <fieldset disabled={notApplicable} className="space-y-6">
+            <FieldGroup>
+                <FormField control={form.control} name="trainingsNotApplicable" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 rounded-lg bg-slate-50 border">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="text-sm">Мэргэшлийн сургалтын мэдээлэл байхгүй</FormLabel>
+                    </FormItem>
+                )} />
+            </FieldGroup>
+
+            <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
-                    <Card key={field.id} className="p-4">
-                        <CardContent className="space-y-4 pt-4">
-                            <FormField control={form.control} name={`trainings.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Сургалтын нэр</FormLabel><FormControl><Input placeholder="Сургалтын нэрийг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name={`trainings.${index}.organization`} render={({ field }) => (<FormItem><FormLabel>Сургалт явуулсан байгууллага</FormLabel><FormControl><Input placeholder="Байгууллагын нэрийг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`trainings.${index}.startDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`trainings.${index}.endDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={form.control} name={`trainings.${index}.certificateNumber`} render={({ field }) => (<FormItem><FormLabel>Үнэмлэх, сертификатын дугаар</FormLabel><FormControl><Input placeholder="Дугаарыг оруулна уу" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            {fields.length > 1 && (<Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}><Trash2 className="mr-2 h-4 w-4" />Устгах</Button>)}
-                        </CardContent>
-                    </Card>
+                    <FieldGroup key={field.id} className="relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name={`trainings.${index}.name`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Сургалтын нэр</FormLabel>
+                                    <FormControl><Input placeholder="Нэр" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`trainings.${index}.organization`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Байгууллага</FormLabel>
+                                    <FormControl><Input placeholder="Байгууллага" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`trainings.${index}.startDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Эхэлсэн</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`trainings.${index}.endDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Дууссан</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`trainings.${index}.certificateNumber`} render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel className="text-xs text-slate-500">Сертификатын дугаар</FormLabel>
+                                    <FormControl><Input placeholder="Дугаар" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })}><PlusCircle className="mr-2 h-4 w-4" />Мэргэшлийн бэлтгэл нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ name: '', organization: '', startDate: null, endDate: null, certificateNumber: '' })} className="gap-2">
+                    <PlusCircle className="h-4 w-4" /> Сургалт нэмэх
+                </Button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -550,27 +868,62 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
 
     return (
         <>
-            <FormField control={form.control} name="familyMembersNotApplicable" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Гэр бүлийн мэдээлэл байхгүй</FormLabel></FormItem>)} />
-            <fieldset disabled={notApplicable} className="space-y-6">
+            <FieldGroup>
+                <FormField control={form.control} name="familyMembersNotApplicable" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 rounded-lg bg-slate-50 border">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="text-sm">Гэр бүлийн мэдээлэл байхгүй</FormLabel>
+                    </FormItem>
+                )} />
+            </FieldGroup>
+
+            <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
-                    <Card key={field.id} className="relative p-4">
-                        <CardContent className="space-y-4 pt-6">
-                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`familyMembers.${index}.relationship`} render={({ field }) => (<FormItem><FormLabel>Таны хэн болох</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl><SelectContent>{references.familyRelationships?.map((opt: ReferenceItem) => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`familyMembers.${index}.lastName`} render={({ field }) => (<FormItem><FormLabel>Овог</FormLabel><FormControl><Input placeholder="Овог" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`familyMembers.${index}.firstName`} render={({ field }) => (<FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Нэр" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => (<FormItem><FormLabel>Холбоо барих утас</FormLabel><FormControl><Input placeholder="Утасны дугаар" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <FieldGroup key={field.id} className="relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name={`familyMembers.${index}.relationship`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Хэн болох</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>{references.familyRelationships?.map((opt: ReferenceItem) => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.lastName`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Овог</FormLabel>
+                                    <FormControl><Input placeholder="Овог" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.firstName`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Нэр</FormLabel>
+                                    <FormControl><Input placeholder="Нэр" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Утас</FormLabel>
+                                    <FormControl><Input placeholder="Утас" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })}><PlusCircle className="mr-2 h-4 w-4" />Гэр бүлийн гишүүн нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })} className="gap-2">
+                    <PlusCircle className="h-4 w-4" /> Гишүүн нэмэх
+                </Button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -581,29 +934,100 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
 
     return (
         <>
-            <FormField control={form.control} name="experienceNotApplicable" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 rounded-md border bg-muted/50 p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="font-normal">Ажлын туршлагын мэдээлэл байхгүй</FormLabel></FormItem>)} />
-            <fieldset disabled={notApplicable} className="space-y-6">
+            <FieldGroup>
+                <FormField control={form.control} name="experienceNotApplicable" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 rounded-lg bg-slate-50 border">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="text-sm">Ажлын туршлагын мэдээлэл байхгүй</FormLabel>
+                    </FormItem>
+                )} />
+            </FieldGroup>
+
+            <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
-                    <Card key={field.id} className="relative p-4">
-                        <CardContent className="space-y-4 pt-6">
-                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Устгах</span></Button>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField control={form.control} name={`experiences.${index}.company`} render={({ field }) => (<FormItem><FormLabel>Компани</FormLabel><FormControl><Input placeholder="Ажиллаж байсан компани" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => (<FormItem><FormLabel>Ажлын байр</FormLabel><FormControl><Input placeholder="Албан тушаал" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Эхэлсэн огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Дууссан огноо</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => (<FormItem><FormLabel>Хөдөлмөрийн нөхцөл</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Нөхцөл сонгох" /></SelectTrigger></FormControl><SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Ажлын тодорхойлолт</FormLabel><FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг, хариуцлагын талаар товч бичнэ үү..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                        </CardContent>
-                    </Card>
+                    <FieldGroup key={field.id} className="relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name={`experiences.${index}.company`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Компани</FormLabel>
+                                    <FormControl><Input placeholder="Компани" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`experiences.${index}.position`} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-slate-500">Албан тушаал</FormLabel>
+                                    <FormControl><Input placeholder="Албан тушаал" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`experiences.${index}.startDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Эхэлсэн</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Дууссан</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel className="text-xs text-slate-500">Хөдөлмөрийн нөхцөл</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
+                                        <SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel className="text-xs text-slate-500">Тодорхойлолт</FormLabel>
+                                    <FormControl><Textarea placeholder="Гүйцэтгэсэн үүрэг..." {...field} value={field.value || ''} className="resize-none" rows={3} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })}><PlusCircle className="mr-2 h-4 w-4" />Ажлын туршлага нэмэх</Button>
+                <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })} className="gap-2">
+                    <PlusCircle className="h-4 w-4" /> Туршлага нэмэх
+                </Button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => form.reset()}><X className="mr-2 h-4 w-4" />Цуцлах</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Хадгалах</Button>
-            </div>
+
+            <SaveButton isSubmitting={isSubmitting} />
         </>
     );
 }
@@ -612,136 +1036,176 @@ export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
+    const [activeTab, setActiveTab] = React.useState('general');
 
-    const employeeDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
-        [firestore, employeeId]
-    );
-
-    const questionnaireDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null),
-        [firestore, employeeId]
-    );
+    const employeeDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null), [firestore, employeeId]);
+    const questionnaireDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null), [firestore, employeeId]);
 
     const { data: employeeData, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);
 
-    // Questionnaire references
-    const { data: countries, isLoading: isLoadingCountries } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
-    const { data: schools, isLoading: isLoadingSchools } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
-    const { data: degrees, isLoading: isLoadingDegrees } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
-    const { data: academicRanks, isLoading: isLoadingRanks } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
-    const { data: languages, isLoading: isLoadingLanguages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
-    const { data: familyRelationships, isLoading: isLoadingFamilyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
-    const { data: emergencyRelationships, isLoading: isLoadingEmergencyR } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
-    const { data: questionnaireEmploymentTypes, isLoading: isLoadingEmpTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
-    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'jobCategories') : null, [firestore]));
-
+    // References
+    const { data: countries } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
+    const { data: schools } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
+    const { data: degrees } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
+    const { data: academicRanks } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
+    const { data: languages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
+    const { data: familyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
+    const { data: emergencyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+    const { data: questionnaireEmploymentTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
     const defaultValues = React.useMemo(() => {
-        // Start with all possible fields from the full schema, initialized to prevent 'undefined'
         const baseValues: Partial<FullQuestionnaireValues> = {
             lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '',
             hasDisability: false, disabilityPercentage: '', disabilityDate: null, hasDriversLicense: false, driverLicenseCategories: [],
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
-            emergencyContacts: [],
-            education: [], educationNotApplicable: false,
-            languages: [], languagesNotApplicable: false,
-            trainings: [], trainingsNotApplicable: false,
-            familyMembers: [], familyMembersNotApplicable: false,
-            experiences: [], experienceNotApplicable: false
+            emergencyContacts: [], education: [], educationNotApplicable: false,
+            languages: [], languagesNotApplicable: false, trainings: [], trainingsNotApplicable: false,
+            familyMembers: [], familyMembersNotApplicable: false, experiences: [], experienceNotApplicable: false
         };
-
-        const employeeInfo = {
-            ...employeeData,
-            workEmail: employeeData?.email,
-            personalPhone: employeeData?.phoneNumber,
-        };
-
-        const initialData = {
-            ...baseValues,
-            ...employeeInfo,
-            ...questionnaireData,
-        };
-
-        return transformDates(initialData);
+        const employeeInfo = { ...employeeData, workEmail: employeeData?.email, personalPhone: employeeData?.phoneNumber };
+        return transformDates({ ...baseValues, ...employeeInfo, ...questionnaireData });
     }, [employeeData, questionnaireData]);
 
-    const references = {
-        countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships,
-        employmentTypes: questionnaireEmploymentTypes,
-    };
-
-    const isLoading = isLoadingEmployee || isLoadingQuestionnaire || isLoadingCountries || isLoadingSchools || isLoadingDegrees || isLoadingRanks || isLoadingLanguages || isLoadingFamilyR || isLoadingEmergencyR || isLoadingEmpTypes;
-
+    const references = { countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships, employmentTypes: questionnaireEmploymentTypes };
+    const isLoading = isLoadingEmployee || isLoadingQuestionnaire;
+    const completionPercent = Math.round(employeeData?.questionnaireCompletion || 0);
+    const fullName = employeeData ? `${employeeData.lastName || ''} ${employeeData.firstName || ''}`.trim() : '';
 
     if (isLoading) {
         return (
-            <div className="py-8">
-                <FormSkeleton />
+            <div className="flex flex-col h-full bg-slate-50/50">
+                <div className="bg-white border-b p-6">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-5 w-40" />
+                            <Skeleton className="h-4 w-24" />
+                        </div>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <Skeleton className="h-[400px] w-full rounded-xl" />
+                </div>
             </div>
-        )
+        );
     }
 
     return (
-        <div className="py-8">
-            <div className="mb-6 flex items-center justify-between">
-                <h1 className="text-2xl font-semibold tracking-tight">Ажилтны анкет</h1>
-                <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/employees/${employeeId}`}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Буцах
-                    </Link>
-                </Button>
+        <div className="flex flex-col h-full bg-slate-50/50">
+            {/* Header */}
+            <div className="bg-white border-b sticky top-0 z-30">
+                <div className="px-6 md:px-8">
+                    <div className="flex items-center justify-between py-4 gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+                                <Link href={`/dashboard/employees/${employeeId}`}>
+                                    <ArrowLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <Avatar className="h-10 w-10 border-2 border-white shadow shrink-0">
+                                <AvatarImage src={employeeData?.photoURL} alt={fullName} />
+                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                                    {employeeData?.firstName?.charAt(0)}{employeeData?.lastName?.charAt(0)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-lg font-semibold truncate">{fullName || 'Ажилтан'}</h1>
+                                    <Badge variant="outline" className="shrink-0 text-[10px]">Анкет</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{employeeData?.jobTitle || 'Албан тушаал'}</p>
+                            </div>
+                        </div>
+                        
+                        {/* Progress */}
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right hidden sm:block">
+                                <p className="text-xs text-muted-foreground">Гүйцэтгэл</p>
+                                <p className={cn(
+                                    "text-sm font-semibold",
+                                    completionPercent >= 90 ? "text-emerald-600" :
+                                    completionPercent >= 50 ? "text-amber-600" : "text-rose-600"
+                                )}>{completionPercent}%</p>
+                            </div>
+                            <div className="h-10 w-10 relative">
+                                <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                                    <circle
+                                        cx="18" cy="18" r="15" fill="none"
+                                        stroke={completionPercent >= 90 ? "#10b981" : completionPercent >= 50 ? "#f59e0b" : "#ef4444"}
+                                        strokeWidth="3"
+                                        strokeDasharray={`${completionPercent * 0.94} 100`}
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <FileText className="h-4 w-4 text-slate-400" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <Tabs defaultValue="general" className="w-full">
-                <TabsList className="h-auto flex flex-wrap justify-start gap-2 mb-6">
-                    <TabsTrigger value="general">Ерөнхий мэдээлэл</TabsTrigger>
-                    <TabsTrigger value="contact">Холбоо барих</TabsTrigger>
-                    <TabsTrigger value="education">Боловсрол</TabsTrigger>
-                    <TabsTrigger value="language">Гадаад хэл</TabsTrigger>
-                    <TabsTrigger value="training">Мэргэшлийн бэлтгэл</TabsTrigger>
-                    <TabsTrigger value="family">Гэр бүлийн мэдээлэл</TabsTrigger>
-                    <TabsTrigger value="experience">Ажлын туршлага</TabsTrigger>
-                </TabsList>
+            {/* Content */}
+            <div className="flex-1 overflow-auto">
+                <div className="max-w-5xl mx-auto p-6">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        {/* Tab Navigation */}
+                        <div className="bg-white rounded-xl border mb-6 p-1.5 overflow-x-auto no-scrollbar">
+                            <TabsList className="bg-transparent h-auto w-full justify-start gap-1 flex-wrap">
+                                {TABS.map((tab) => (
+                                    <TabsTrigger
+                                        key={tab.id}
+                                        value={tab.id}
+                                        className="px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm font-medium gap-2"
+                                    >
+                                        <tab.icon className="h-4 w-4" />
+                                        <span className="hidden sm:inline">{tab.label}</span>
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </div>
 
-                <TabsContent value="general">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
-                        {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="contact">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={contactInfoSchema}>
-                        {(form, isSubmitting) => <ContactInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="education">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={educationHistorySchema}>
-                        {(form, isSubmitting) => <EducationForm form={form} isSubmitting={isSubmitting} references={references} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="language">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
-                        {(form, isSubmitting) => <LanguageForm form={form} isSubmitting={isSubmitting} references={references} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="training">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
-                        {(form, isSubmitting) => <TrainingForm form={form} isSubmitting={isSubmitting} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="family">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
-                        {(form, isSubmitting) => <FamilyInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
-                    </FormSection>
-                </TabsContent>
-                <TabsContent value="experience">
-                    <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
-                        {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
-                    </FormSection>
-                </TabsContent>
-            </Tabs>
+                        <TabsContent value="general" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
+                                {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="contact" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={contactInfoSchema}>
+                                {(form, isSubmitting) => <ContactInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="education" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={educationHistorySchema}>
+                                {(form, isSubmitting) => <EducationForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="language" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
+                                {(form, isSubmitting) => <LanguageForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="training" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
+                                {(form, isSubmitting) => <TrainingForm form={form} isSubmitting={isSubmitting} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="family" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
+                                {(form, isSubmitting) => <FamilyInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            </FormSection>
+                        </TabsContent>
+                        <TabsContent value="experience" className="mt-0">
+                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
+                                {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            </FormSection>
+                        </TabsContent>
+                    </Tabs>
+                </div>
+            </div>
         </div>
     );
 }

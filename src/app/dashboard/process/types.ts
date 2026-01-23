@@ -1,4 +1,4 @@
-export type RelationType = 'onboarding' | 'offboarding' | 'contract-renewal' | 'probation' | 'transfer' | 'promotion' | 'custom';
+export type RelationType = 'onboarding' | 'contract-renewal' | 'probation' | 'transfer' | 'promotion' | 'custom';
 
 export interface ChecklistItem {
     id: string;

@@ -1,0 +1,184 @@
+'use client';
+
+import * as React from 'react';
+import { format, addDays, isWeekend } from 'date-fns';
+import { useFirebase, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import { useToast } from '@/hooks/use-toast';
+import { getDeviceId, getCurrentPosition, checkLocationWithinRange } from '@/lib/attendance';
+import type { AttendanceRecord, AttendanceLocation, TimeOffRequestConfig } from '@/types/attendance';
+
+export type SubmittingStep = 'idle' | 'location' | 'validating' | 'saving';
+
+export function useAttendance() {
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [submittingStep, setSubmittingStep] = React.useState<SubmittingStep>('idle');
+    const [error, setError] = React.useState<string | null>(null);
+    const [matchedLocationName, setMatchedLocationName] = React.useState<string>('');
+
+    const { employeeProfile, isProfileLoading } = useEmployeeProfile();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    const todayString = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+
+    // Queries
+    const attendanceQuery = useMemoFirebase(() => (
+        employeeProfile ? query(
+            collection(firestore, 'attendance'),
+            where('employeeId', '==', employeeProfile.id),
+            where('date', '==', todayString)
+        ) : null
+    ), [firestore, employeeProfile, todayString]);
+
+    const locationsQuery = useMemoFirebase(() => (
+        query(collection(firestore, 'attendanceLocations'), where('isActive', '==', true))
+    ), [firestore]);
+
+    const timeOffConfigQuery = useMemoFirebase(() => (
+        firestore ? doc(firestore, 'company/timeOffRequestConfig') : null
+    ), [firestore]);
+
+    const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: locations, isLoading: isLocationsLoading } = useCollection<AttendanceLocation>(locationsQuery);
+    const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
+
+    const todaysRecord = attendanceRecords?.[0];
+    const isCheckedIn = !!todaysRecord;
+    const isCheckedOut = !!todaysRecord?.checkOutTime;
+
+    // Calculate disabled dates for request calendar
+    const disabledDates = React.useMemo(() => {
+        if (!timeOffConfig) return [];
+        const dates: (Date | { before: Date })[] = [];
+        const deadlineDays = timeOffConfig.requestDeadlineDays ?? 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        dates.push({ before: today });
+
+        let i = 0;
+        let daysToAdd = 0;
+        while (i < deadlineDays) {
+            const nextDay = addDays(today, daysToAdd);
+            if (!isWeekend(nextDay)) {
+                dates.push(nextDay);
+                i++;
+            }
+            daysToAdd++;
+        }
+        return dates;
+    }, [timeOffConfig]);
+
+    const handleAttendance = React.useCallback(async (type: 'check-in' | 'check-out') => {
+        setIsSubmitting(true);
+        setSubmittingStep('location');
+        setError(null);
+
+        if (!locations || !employeeProfile || !firestore) {
+            setError("Системийн тохиргоог уншиж чадсангүй.");
+            setIsSubmitting(false);
+            setSubmittingStep('idle');
+            return;
+        }
+
+        // Device verification
+        const currentDeviceId = getDeviceId();
+        if (!employeeProfile.deviceId) {
+            // First time - register device
+            const employeeDocRef = doc(firestore, 'employees', employeeProfile.id);
+            await updateDocumentNonBlocking(employeeDocRef, { deviceId: currentDeviceId });
+        } else if (employeeProfile.deviceId !== currentDeviceId) {
+            setError("Төхөөрөмж таарахгүй байна. Админд хандана уу.");
+            setIsSubmitting(false);
+            setSubmittingStep('idle');
+            return;
+        }
+
+        try {
+            // Get location
+            const position = await getCurrentPosition();
+            const { latitude, longitude } = position.coords;
+
+            setSubmittingStep('validating');
+
+            // Check if within any location
+            const { isWithin, matchedLocationName: locName, closestDistance } = checkLocationWithinRange(
+                latitude,
+                longitude,
+                locations
+            );
+
+            if (!isWithin) {
+                setError(`Оффисоос хол байна (Ойрх: ${Math.round(closestDistance)}м). Байршлаа шалгана уу.`);
+                setIsSubmitting(false);
+                setSubmittingStep('idle');
+                return;
+            }
+
+            setMatchedLocationName(locName);
+            setSubmittingStep('saving');
+
+            if (type === 'check-in') {
+                const attendanceCollection = collection(firestore, 'attendance');
+                await addDocumentNonBlocking(attendanceCollection, {
+                    employeeId: employeeProfile.id,
+                    date: todayString,
+                    checkInTime: new Date().toISOString(),
+                    checkInLocationName: locName,
+                    status: 'PRESENT',
+                    lat: latitude,
+                    lng: longitude
+                });
+                toast({ title: `${locName} байршилд ирц бүртгэгдлээ` });
+            } else if (type === 'check-out' && todaysRecord) {
+                const recordDocRef = doc(firestore, 'attendance', todaysRecord.id);
+                await updateDocumentNonBlocking(recordDocRef, {
+                    checkOutTime: new Date().toISOString(),
+                    checkOutLocationName: locName,
+                    status: 'LEFT'
+                });
+                toast({ title: 'Явсан цаг амжилттай бүртгэгдлээ' });
+            }
+        } catch (geoError: any) {
+            if (geoError.code === 1) {
+                setError("Байршлын эрх олгогдоогүй байна. Тохиргоог шалгана уу.");
+            } else if (geoError.code === 2) {
+                setError("Байршил тодорхойлох боломжгүй байна.");
+            } else if (geoError.code === 3) {
+                setError("Байршил тодорхойлох хугацаа дууслаа. Дахин оролдоно уу.");
+            } else {
+                setError("Байршил тодорхойлоход алдаа гарлаа.");
+            }
+        } finally {
+            setIsSubmitting(false);
+            setSubmittingStep('idle');
+        }
+    }, [locations, employeeProfile, firestore, todayString, todaysRecord, toast]);
+
+    return {
+        // State
+        isSubmitting,
+        submittingStep,
+        error,
+        matchedLocationName,
+        
+        // Data
+        employeeProfile,
+        todaysRecord,
+        locations,
+        disabledDates,
+        todayString,
+        
+        // Computed
+        isCheckedIn,
+        isCheckedOut,
+        isLoading: isProfileLoading || isAttendanceLoading || isLocationsLoading || isTimeOffConfigLoading,
+        
+        // Actions
+        handleCheckIn: () => handleAttendance('check-in'),
+        handleCheckOut: () => handleAttendance('check-out'),
+        clearError: () => setError(null),
+    };
+}

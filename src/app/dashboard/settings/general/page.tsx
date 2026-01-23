@@ -56,7 +56,7 @@ export default function GeneralSettingsPage() {
             icon: Network,
             title: "Бүтцийн тохиргоо",
             description: "Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг тохируулах.",
-            href: "/dashboard/settings/structure"
+            href: "/dashboard/settings/employee-code"
         },
         {
             icon: FileText,

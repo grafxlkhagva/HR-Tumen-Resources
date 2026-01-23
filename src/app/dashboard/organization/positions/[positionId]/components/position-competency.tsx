@@ -18,7 +18,9 @@ import {
     Trash2,
     Edit3,
     Save,
-    Target as TargetIcon
+    Target as TargetIcon,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
 import {
     Select,
@@ -36,6 +38,8 @@ import { format } from 'date-fns';
 
 interface PositionCompetencyProps {
     position: Position;
+    departmentName?: string;
+    levelName?: string;
 }
 
 interface Skill {
@@ -49,12 +53,15 @@ interface Responsibility {
 }
 
 export function PositionCompetency({
-    position
+    position,
+    departmentName,
+    levelName
 }: PositionCompetencyProps) {
     const { firestore, storage } = useFirebase();
     const { toast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const [formData, setFormData] = useState({
         purpose: position.purpose || '',
@@ -98,6 +105,65 @@ export function PositionCompetency({
 
     const handleFieldUpdate = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // AI Generation
+    const handleAIGenerate = async () => {
+        if (!position.title) {
+            toast({
+                title: 'Анхааруулга',
+                description: 'Ажлын байрны нэр оруулсны дараа AI үүсгэх боломжтой',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            const response = await fetch('/api/generate-position-details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    positionTitle: position.title,
+                    departmentName,
+                    levelName
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'AI үүсгэхэд алдаа гарлаа');
+            }
+
+            // Update form data with AI-generated content
+            setFormData({
+                purpose: result.data.purpose || '',
+                responsibilities: result.data.responsibilities || [],
+                skills: result.data.skills || [],
+                experience: {
+                    totalYears: result.data.experience?.totalYears || 0,
+                    leadershipYears: result.data.experience?.leadershipYears || 0,
+                    educationLevel: result.data.experience?.educationLevel || '',
+                    professions: result.data.experience?.professions || [],
+                }
+            });
+
+            setIsEditing(true);
+            toast({
+                title: 'AI үүсгэлт амжилттай',
+                description: 'Мэдээллийг шалгаад хадгалаарай'
+            });
+        } catch (error) {
+            console.error('AI generation error:', error);
+            toast({
+                title: 'Алдаа',
+                description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleExperienceUpdate = (field: string, value: any) => {
@@ -224,24 +290,39 @@ export function PositionCompetency({
     };
 
     return (
-        <section className="space-y-10">
-            <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ур чадвар & Туршлага</label>
+        <section className="space-y-8">
+            <div className="flex items-center justify-end gap-2">
+                {!isEditing && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAIGenerate}
+                        disabled={isGenerating || !position.title}
+                        className="h-8 gap-2 bg-gradient-to-r from-violet-50 to-indigo-50 border-violet-200 hover:from-violet-100 hover:to-indigo-100 text-violet-700"
+                    >
+                        {isGenerating ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                        )}
+                        AI-р үүсгэх
+                    </Button>
+                )}
                 {!isEditing ? (
-                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-8 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-lg">
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="h-8 gap-2">
                         <Edit3 className="w-3.5 h-3.5" />
                         Засах
                     </Button>
                 ) : (
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8 px-3 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-lg">
+                    <>
+                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8">
                             Болих
                         </Button>
-                        <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2 bg-primary hover:bg-primary/90 shadow-sm font-bold text-[10px] uppercase tracking-widest rounded-lg">
+                        <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2">
                             <Save className="w-3.5 h-3.5" />
                             Хадгалах
                         </Button>
-                    </div>
+                    </>
                 )}
             </div>
 

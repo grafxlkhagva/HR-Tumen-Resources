@@ -1,14 +1,31 @@
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { useState } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, PlusCircle, Trash2, Pencil, Save, X, Check } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, PlusCircle, Trash2, Pencil, Save, X, Check, Sparkles, AlertCircle, Link2, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ColumnConfig {
     key: string;
@@ -19,14 +36,30 @@ interface ColumnConfig {
     defaultValue?: any;
 }
 
+type AIGenerationType = 'departmentTypes' | 'positionLevels' | 'employmentTypes';
+
+// Configuration for checking references in other collections
+interface ReferenceConfig {
+    collection: string;      // Collection to check (e.g., 'departments', 'positions')
+    field: string;           // Field in that collection that references this item (e.g., 'typeId', 'levelId')
+    nameField?: string;      // Field to update with the name when editing (e.g., 'typeName')
+    label: string;           // Human-readable label (e.g., 'Нэгж', 'Ажлын байр')
+}
+
 interface LookupManagementProps {
     collectionName: string;
     title: string;
     description?: string;
     columns: ColumnConfig[];
+    aiGenerationType?: AIGenerationType;
+    sortBy?: {
+        key: string;
+        direction?: 'asc' | 'desc';
+    };
+    referenceCheck?: ReferenceConfig;  // Configuration for preventing deletion if referenced
 }
 
-export function LookupManagement({ collectionName, title, description, columns }: LookupManagementProps) {
+export function LookupManagement({ collectionName, title, description, columns, aiGenerationType, sortBy, referenceCheck }: LookupManagementProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isAdding, setIsAdding] = useState(false);
@@ -34,6 +67,11 @@ export function LookupManagement({ collectionName, title, description, columns }
     const [newItemData, setNewItemData] = useState<Record<string, any>>({});
     const [editItemData, setEditItemData] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [showAIConfirmDialog, setShowAIConfirmDialog] = useState(false);
+    const [generatedItems, setGeneratedItems] = useState<any[]>([]);
+    const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
+    const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
     const collectionRef = useMemoFirebase(
         () => (firestore ? collection(firestore, collectionName) : null),
@@ -41,6 +79,127 @@ export function LookupManagement({ collectionName, title, description, columns }
     );
 
     const { data: items, isLoading } = useCollection<any>(collectionRef);
+
+    // Create a stable key for items to use in dependencies
+    const itemsKey = useMemo(() => items?.map(i => i.id).join(',') || '', [items]);
+
+    // Fetch usage counts for all items when referenceCheck is configured
+    const fetchUsageCounts = useCallback(async () => {
+        if (!firestore || !referenceCheck || !items || items.length === 0) {
+            setUsageCounts({});
+            return;
+        }
+        
+        setIsLoadingUsage(true);
+        try {
+            const counts: Record<string, number> = {};
+            
+            for (const item of items) {
+                const q = query(
+                    collection(firestore, referenceCheck.collection),
+                    where(referenceCheck.field, '==', item.id)
+                );
+                const snapshot = await getDocs(q);
+                counts[item.id] = snapshot.size;
+            }
+            
+            setUsageCounts(counts);
+        } catch (error) {
+            console.error('Error fetching usage counts:', error);
+        } finally {
+            setIsLoadingUsage(false);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, referenceCheck?.collection, referenceCheck?.field, itemsKey]);
+
+    // Fetch usage counts when items change
+    useEffect(() => {
+        fetchUsageCounts();
+    }, [fetchUsageCounts]);
+
+    // Sort items if sortBy is provided
+    const sortedItems = items ? [...items].sort((a, b) => {
+        if (!sortBy) return 0;
+        const aVal = a[sortBy.key];
+        const bVal = b[sortBy.key];
+        
+        // Handle undefined/null values
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        
+        // Compare values
+        const comparison = typeof aVal === 'number' && typeof bVal === 'number'
+            ? aVal - bVal
+            : String(aVal).localeCompare(String(bVal));
+        
+        return sortBy.direction === 'desc' ? -comparison : comparison;
+    }) : null;
+
+    // Check if item is in use
+    const isItemInUse = (itemId: string) => {
+        return (usageCounts[itemId] || 0) > 0;
+    };
+
+    // AI Generation
+    const handleAIGenerate = async () => {
+        if (!aiGenerationType || !firestore) return;
+        
+        setIsGenerating(true);
+        try {
+            const response = await fetch('/api/generate-org-defaults', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: aiGenerationType }),
+            });
+
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'AI үүсгэхэд алдаа гарлаа');
+            }
+
+            setGeneratedItems(result.data);
+            setShowAIConfirmDialog(true);
+        } catch (error) {
+            console.error('AI generation error:', error);
+            toast({
+                title: 'Алдаа',
+                description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleConfirmAIItems = async () => {
+        if (!firestore || generatedItems.length === 0) return;
+
+        setIsSubmitting(true);
+        try {
+            // Add all generated items to Firebase
+            for (const item of generatedItems) {
+                await addDocumentNonBlocking(collection(firestore, collectionName), item);
+            }
+            
+            toast({
+                title: 'Амжилттай',
+                description: `${generatedItems.length} бичлэг нэмэгдлээ`,
+            });
+            setGeneratedItems([]);
+            setShowAIConfirmDialog(false);
+        } catch (error) {
+            console.error('Error adding AI items:', error);
+            toast({
+                title: 'Алдаа',
+                description: 'Бичлэг нэмэхэд алдаа гарлаа',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleAddItem = async () => {
         if (!firestore) return;
@@ -69,23 +228,102 @@ export function LookupManagement({ collectionName, title, description, columns }
         if (!firestore) return;
         setIsSubmitting(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, collectionName, id), editItemData);
+            const batch = writeBatch(firestore);
+            
+            // Update the lookup item itself
+            batch.update(doc(firestore, collectionName, id), editItemData);
+            
+            // If there's a referenceCheck config and the name field changed, update all referencing documents
+            if (referenceCheck && editItemData.name) {
+                const q = query(
+                    collection(firestore, referenceCheck.collection),
+                    where(referenceCheck.field, '==', id)
+                );
+                const snapshot = await getDocs(q);
+                
+                snapshot.docs.forEach((docSnap) => {
+                    const updateData: Record<string, any> = {};
+                    
+                    // Update the name field if configured
+                    if (referenceCheck.nameField) {
+                        updateData[referenceCheck.nameField] = editItemData.name;
+                    }
+                    
+                    // For departmentTypes, also update typeLevel if level changed
+                    if (collectionName === 'departmentTypes' && editItemData.level !== undefined) {
+                        updateData.typeLevel = editItemData.level;
+                    }
+                    
+                    if (Object.keys(updateData).length > 0) {
+                        batch.update(doc(firestore, referenceCheck.collection, docSnap.id), updateData);
+                    }
+                });
+                
+                if (snapshot.size > 0) {
+                    toast({ 
+                        title: 'Амжилттай шинэчлэгдлээ',
+                        description: `${snapshot.size} ${referenceCheck.label} дахь мэдээлэл мөн шинэчлэгдлээ.`
+                    });
+                }
+            }
+            
+            await batch.commit();
+            
             setEditingId(null);
             setEditItemData({});
-            toast({ title: 'Амжилттай шинэчлэгдлээ' });
+            if (!referenceCheck || usageCounts[id] === 0) {
+                toast({ title: 'Амжилттай шинэчлэгдлээ' });
+            }
+            
+            // Refresh usage counts
+            fetchUsageCounts();
         } catch (e) {
+            console.error('Update error:', e);
             toast({ title: 'Алдаа', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDeleteItem = async (id: string) => {
+    const handleDeleteItem = async (id: string, itemName?: string) => {
         if (!firestore) return;
+        
+        // Real-time check if item is in use (don't rely on cached state)
+        if (referenceCheck) {
+            try {
+                const q = query(
+                    collection(firestore, referenceCheck.collection),
+                    where(referenceCheck.field, '==', id)
+                );
+                const snapshot = await getDocs(q);
+                const currentUsageCount = snapshot.size;
+                
+                if (currentUsageCount > 0) {
+                    toast({ 
+                        title: 'Устгах боломжгүй',
+                        description: `"${itemName || 'Энэ бичлэг'}" ${currentUsageCount} ${referenceCheck.label}-д ашиглагдаж байна. Эхлээд холбоосыг арилгана уу.`,
+                        variant: 'destructive'
+                    });
+                    // Refresh usage counts
+                    fetchUsageCounts();
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking usage:', error);
+                toast({ 
+                    title: 'Алдаа',
+                    description: 'Ашиглалтыг шалгахад алдаа гарлаа',
+                    variant: 'destructive'
+                });
+                return;
+            }
+        }
+        
         if (!confirm('Та итгэлтэй байна уу?')) return;
         try {
             await deleteDocumentNonBlocking(doc(firestore, collectionName, id));
             toast({ title: 'Устгагдлаа' });
+            fetchUsageCounts();
         } catch (e) {
             toast({ title: 'Алдаа', variant: 'destructive' });
         }
@@ -99,6 +337,7 @@ export function LookupManagement({ collectionName, title, description, columns }
     };
 
     return (
+        <>
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pt-0">
                 <div className="flex items-center justify-between">
@@ -106,6 +345,22 @@ export function LookupManagement({ collectionName, title, description, columns }
                         <CardTitle className="text-lg font-semibold">{title}</CardTitle>
                         {description && <CardDescription>{description}</CardDescription>}
                     </div>
+                    {aiGenerationType && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAIGenerate}
+                            disabled={isGenerating}
+                            className="gap-2 bg-gradient-to-r from-violet-50 to-indigo-50 border-violet-200 hover:from-violet-100 hover:to-indigo-100 text-violet-700"
+                        >
+                            {isGenerating ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
+                            AI-р үүсгэх
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="px-0">
@@ -172,7 +427,11 @@ export function LookupManagement({ collectionName, title, description, columns }
                                 </TableRow>
                             )}
 
-                            {items?.map(item => (
+                            {sortedItems?.map(item => {
+                                const inUse = isItemInUse(item.id);
+                                const usageCount = usageCounts[item.id] || 0;
+                                
+                                return (
                                 <TableRow key={item.id} className="group transition-colors">
                                     {editingId === item.id ? (
                                         <>
@@ -189,7 +448,7 @@ export function LookupManagement({ collectionName, title, description, columns }
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
                                                     <Button size="sm" onClick={() => handleUpdateItem(item.id)} disabled={isSubmitting} className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700">
-                                                        <Check className="h-4 w-4" />
+                                                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                                     </Button>
                                                     <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 w-8 p-0">
                                                         <X className="h-4 w-4" />
@@ -199,9 +458,27 @@ export function LookupManagement({ collectionName, title, description, columns }
                                         </>
                                     ) : (
                                         <>
-                                            {columns.map(col => (
+                                            {columns.map((col, colIdx) => (
                                                 <TableCell key={col.key} className="font-medium">
-                                                    {item[col.key]}
+                                                    <div className="flex items-center gap-2">
+                                                        {item[col.key]}
+                                                        {/* Show usage badge on first column */}
+                                                        {colIdx === 0 && referenceCheck && inUse && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-600 border-blue-200 gap-1">
+                                                                            <Link2 className="h-3 w-3" />
+                                                                            {usageCount}
+                                                                        </Badge>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>{usageCount} {referenceCheck.label}-д ашиглагдаж байна</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             ))}
                                             <TableCell className="text-right">
@@ -209,19 +486,110 @@ export function LookupManagement({ collectionName, title, description, columns }
                                                     <Button size="sm" variant="ghost" onClick={() => startEdit(item)} className="h-8 w-8 p-0 text-muted-foreground hover:text-primary">
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteItem(item.id)} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    {referenceCheck && inUse ? (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span>
+                                                                        <Button 
+                                                                            size="sm" 
+                                                                            variant="ghost" 
+                                                                            disabled 
+                                                                            className="h-8 w-8 p-0 text-muted-foreground/30 cursor-not-allowed"
+                                                                        >
+                                                                            <Shield className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="left" className="max-w-[200px]">
+                                                                    <p className="text-xs">
+                                                                        {usageCount} {referenceCheck.label}-д ашиглагдаж байгаа тул устгах боломжгүй. 
+                                                                        Засах боломжтой.
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    ) : (
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            onClick={() => handleDeleteItem(item.id, item.name)} 
+                                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </>
                                     )}
                                 </TableRow>
-                            ))}
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </div>
             </CardContent>
         </Card>
+
+        {/* AI Generation Confirmation Dialog */}
+        <AlertDialog open={showAIConfirmDialog} onOpenChange={setShowAIConfirmDialog}>
+            <AlertDialogContent className="max-w-2xl">
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-violet-600" />
+                        AI-р үүсгэсэн өгөгдөл
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Дараах {generatedItems.length} бичлэг нэмэгдэх болно. Шалгаад баталгаажуулна уу.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                
+                <div className="max-h-[300px] overflow-y-auto border rounded-lg">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/50">
+                                {columns.map(col => (
+                                    <TableHead key={col.key}>{col.label}</TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {generatedItems.map((item, idx) => (
+                                <TableRow key={idx}>
+                                    {columns.map(col => (
+                                        <TableCell key={col.key}>{item[col.key]}</TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                {items && items.length > 0 && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span>Анхааруулга: Одоо байгаа {items.length} бичлэг хэвээр үлдэнэ. Шинээр нэмэгдэх болно.</span>
+                    </div>
+                )}
+
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isSubmitting}>Болих</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleConfirmAIItems}
+                        disabled={isSubmitting}
+                        className="bg-violet-600 hover:bg-violet-700"
+                    >
+                        {isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                            <Check className="h-4 w-4 mr-2" />
+                        )}
+                        Нэмэх ({generatedItems.length})
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        </>
     );
 }

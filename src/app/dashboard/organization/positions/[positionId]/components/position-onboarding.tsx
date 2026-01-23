@@ -2,12 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-    CheckCircle2,
-    Circle,
     Save,
     Loader2,
     Info,
-    LayoutGrid,
     CheckSquare,
     Square
 } from 'lucide-react';
@@ -104,36 +101,42 @@ export function PositionOnboarding({ position }: PositionOnboardingProps) {
         return <div className="py-12 text-center animate-pulse text-slate-400">Тохиргоо ачаалж байна...</div>;
     }
 
+    // Show message if no stages configured
+    if (stages.length === 0) {
+        return (
+            <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                <Info className="h-10 w-10 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">Onboarding хөтөлбөр тохируулаагүй</h3>
+                <p className="text-xs text-slate-400 mb-4 max-w-sm mx-auto">
+                    Эхлээд тохиргоо хэсэгт onboarding хөтөлбөрийн үе шат болон таскуудыг үүсгэнэ үү.
+                </p>
+                <Button asChild variant="outline" size="sm">
+                    <a href="/dashboard/settings/onboarding">Тохиргоо руу очих</a>
+                </Button>
+            </div>
+        );
+    }
+
     const totalTasks = stages.reduce((acc, stage) => acc + stage.tasks.length, 0);
     const selectedCount = selectedTaskIds.length;
     const progress = totalTasks > 0 ? Math.round((selectedCount / totalTasks) * 100) : 0;
 
     return (
         <section className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <LayoutGrid className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Чиглүүлэх хөтөлбөр</label>
-                        <h2 className="text-lg font-bold text-foreground">Таск сонгох</h2>
-                    </div>
+            <div className="flex items-center justify-end gap-4">
+                <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Сонгосон</p>
+                    <p className="text-sm font-bold text-primary">{selectedCount} / {totalTasks}</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Сонгосон</p>
-                        <p className="text-sm font-black text-indigo-600">{selectedCount} / {totalTasks}</p>
-                    </div>
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="h-10 gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all"
-                    >
-                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                        Хадгалах
-                    </Button>
-                </div>
+                <Button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    size="sm"
+                    className="h-8 gap-2"
+                >
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Хадгалах
+                </Button>
             </div>
 
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100/50 space-y-4">

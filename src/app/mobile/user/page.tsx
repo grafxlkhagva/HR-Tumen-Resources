@@ -81,7 +81,7 @@ function PageSkeleton() {
 }
 
 export default function MobileUserPage() {
-  const { employeeProfile, isProfileLoading } = useEmployeeProfile();
+  const { employeeProfile, isProfileLoading, user, isUserLoading, error } = useEmployeeProfile();
   const auth = useAuth();
   const router = useRouter();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = React.useState(false);
@@ -92,8 +92,37 @@ export default function MobileUserPage() {
     router.push('/login');
   };
 
-  if (isProfileLoading || !employeeProfile) {
+  // If not logged in, redirect to login
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [isUserLoading, user, router]);
+
+  if (isUserLoading || isProfileLoading) {
     return <PageSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4 bg-slate-50 min-h-screen flex flex-col items-center justify-center">
+        <p className="text-red-500">Алдаа гарлаа: {error.message}</p>
+        <button onClick={() => router.push('/login')} className="text-blue-500 underline">
+          Дахин нэвтрэх
+        </button>
+      </div>
+    );
+  }
+
+  if (!employeeProfile) {
+    return (
+      <div className="p-6 space-y-4 bg-slate-50 min-h-screen flex flex-col items-center justify-center">
+        <p className="text-muted-foreground">Хэрэглэгчийн мэдээлэл олдсонгүй</p>
+        <button onClick={() => router.push('/login')} className="text-blue-500 underline">
+          Дахин нэвтрэх
+        </button>
+      </div>
+    );
   }
 
   const { firstName, lastName, jobTitle, photoURL } = employeeProfile;

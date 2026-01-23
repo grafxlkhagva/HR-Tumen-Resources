@@ -11,33 +11,32 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
     Edit3,
     Save,
-    X,
-    Briefcase,
-    Hash,
-    MapPin,
-    User,
-    Layers,
-    Clock,
-    Shield,
-    DollarSign,
-    Target,
-    Zap,
-    Users,
-    ChevronRight,
-    Search,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Building2
 } from 'lucide-react';
 import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule } from '../../../types';
-import { doc, collection, query, where, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking, useMemoFirebase, useDoc } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { ValidationIndicator } from './validation-indicator';
 import { generateCode } from '@/lib/code-generator';
 import { Wand2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface Subsidiary {
+    name: string;
+    registrationNumber?: string;
+}
+
+interface CompanyProfile {
+    name?: string;
+    subsidiaries?: Subsidiary[];
+}
 
 interface PositionOverviewProps {
     position: Position;
@@ -53,6 +52,21 @@ interface PositionOverviewProps {
         hasAttributes: boolean;
         hasSettings: boolean;
     };
+}
+
+// Simple display row component
+function InfoRow({ label, value, isEmpty = false }: { label: string; value: React.ReactNode; isEmpty?: boolean }) {
+    return (
+        <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className={cn(
+                "text-sm font-medium text-right",
+                isEmpty ? "text-muted-foreground/50 italic" : "text-foreground"
+            )}>
+                {value}
+            </span>
+        </div>
+    );
 }
 
 export function PositionOverview({
@@ -76,6 +90,23 @@ export function PositionOverview({
     );
     const { data: posCodeConfig } = useDoc<any>(posCodeConfigRef as any);
 
+    const companyProfileRef = useMemoFirebase(
+        ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
+        []
+    );
+    const { data: companyProfile } = useDoc<CompanyProfile>(companyProfileRef as any);
+
+    // Parse subsidiaries (handle both old string format and new object format)
+    const subsidiaries: Subsidiary[] = useMemo(() => {
+        if (!companyProfile?.subsidiaries) return [];
+        return companyProfile.subsidiaries.map(item => {
+            if (typeof item === 'string') {
+                return { name: item, registrationNumber: '' };
+            }
+            return item as Subsidiary;
+        });
+    }, [companyProfile?.subsidiaries]);
+
     const [formData, setFormData] = useState({
         title: position.title || '',
         code: position.code || '',
@@ -85,6 +116,8 @@ export function PositionOverview({
         jobCategoryId: position.jobCategoryId || '',
         employmentTypeId: position.employmentTypeId || '',
         workScheduleId: position.workScheduleId || '',
+        companyType: position.companyType || 'main',
+        subsidiaryName: position.subsidiaryName || '',
         permissions: {
             canApproveVacation: position.permissions?.canApproveVacation || false,
             canApproveLeave: position.permissions?.canApproveLeave || false,
@@ -112,6 +145,8 @@ export function PositionOverview({
                 jobCategoryId: formData.jobCategoryId,
                 employmentTypeId: formData.employmentTypeId,
                 workScheduleId: formData.workScheduleId,
+                companyType: formData.companyType,
+                subsidiaryName: formData.companyType === 'subsidiary' ? formData.subsidiaryName : '',
                 permissions: formData.permissions,
                 budget: formData.budget,
                 updatedAt: new Date().toISOString(),
@@ -143,6 +178,8 @@ export function PositionOverview({
             jobCategoryId: position.jobCategoryId || '',
             employmentTypeId: position.employmentTypeId || '',
             workScheduleId: position.workScheduleId || '',
+            companyType: position.companyType || 'main',
+            subsidiaryName: position.subsidiaryName || '',
             permissions: {
                 canApproveVacation: position.permissions?.canApproveVacation || false,
                 canApproveLeave: position.permissions?.canApproveLeave || false,
@@ -155,6 +192,7 @@ export function PositionOverview({
         setIsEditing(false);
     };
 
+    // Lookup values
     const department = useMemo(() => departments.find(d => d.id === position.departmentId), [departments, position.departmentId]);
     const supervisor = useMemo(() => allPositions.find(p => p.id === position.reportsToId), [allPositions, position.reportsToId]);
     const level = useMemo(() => levels.find(l => l.id === position.levelId), [levels, position.levelId]);
@@ -174,337 +212,401 @@ export function PositionOverview({
         setIsEditing(true);
     };
 
-    return (
-        <section className="space-y-12">
-            {position.isApproved && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 mb-6">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-sm font-medium">Батлагдсан ажлын байр тул зарим үндсэн мэдээллийг өөрчлөх боломжгүй.</p>
-                </div>
-            )}
-
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Briefcase className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ерөнхий мэдээлэл</label>
-                        <h2 className="text-lg font-bold text-foreground">Албан тушаалын тодорхойлолт</h2>
-                    </div>
-                </div>
-                {!isEditing ? (
-                    <Button variant="ghost" size="sm" onClick={handleStartEditing} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl">
+    // VIEW MODE
+    if (!isEditing) {
+        return (
+            <div className="space-y-8">
+                {/* Edit button */}
+                <div className="flex justify-end">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleStartEditing}
+                        className="h-8 gap-2"
+                    >
                         <Edit3 className="w-3.5 h-3.5" />
                         Засах
                     </Button>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl">
-                            Болих
-                        </Button>
-                        <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving} className="h-9 gap-2 bg-primary hover:bg-primary/90 shadow-sm font-bold text-[10px] uppercase tracking-widest rounded-xl">
-                            <Save className="w-3.5 h-3.5" />
-                            Хадгалах
-                        </Button>
+                </div>
+
+                {/* Validation checklist */}
+                {validationChecklist && (
+                    <ValidationIndicator
+                        title="Мэдээллийн бүрдэл"
+                        items={[
+                            { label: 'Үндсэн мэдээлэл', isDone: validationChecklist.hasBasicInfo },
+                            { label: 'Удирдлагын бүтэц', isDone: validationChecklist.hasReporting },
+                            { label: 'Ажлын нөхцөл', isDone: validationChecklist.hasAttributes },
+                            { label: 'Тохиргоо & Төсөв', isDone: validationChecklist.hasSettings },
+                        ]}
+                    />
+                )}
+
+                {/* Approved warning */}
+                {position.isApproved && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        Батлагдсан ажлын байр тул зарим мэдээллийг өөрчлөх боломжгүй.
                     </div>
                 )}
+
+                {/* Clean grid layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    {/* Section 1: Basic Info */}
+                    <div className="bg-muted/30 rounded-lg px-4">
+                        <InfoRow label="Ажлын байрны нэр" value={position.title} />
+                        <InfoRow 
+                            label="Код" 
+                            value={position.code ? (
+                                <code className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-mono">
+                                    {position.code}
+                                </code>
+                            ) : 'Кодгүй'} 
+                            isEmpty={!position.code}
+                        />
+                        <InfoRow 
+                            label="Компани" 
+                            value={
+                                position.companyType === 'subsidiary' && position.subsidiaryName ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                                        <span>{position.subsidiaryName}</span>
+                                    </div>
+                                ) : (
+                                    <span>{companyProfile?.name || 'Үндсэн компани'}</span>
+                                )
+                            } 
+                        />
+                        <InfoRow 
+                            label="Нэгж / Хэлтэс" 
+                            value={department?.name || 'Оноогоогүй'} 
+                            isEmpty={!department}
+                        />
+                        <InfoRow 
+                            label="Шууд удирдлага" 
+                            value={supervisor?.title || 'Дээд шат'} 
+                            isEmpty={!supervisor}
+                        />
+                    </div>
+
+                    {/* Section 2: Classification */}
+                    <div className="bg-muted/30 rounded-lg px-4">
+                        <InfoRow 
+                            label="Түвшин / Зэрэглэл" 
+                            value={level?.name ? (
+                                <Badge variant="secondary" className="font-medium">
+                                    {level.name}
+                                </Badge>
+                            ) : 'Тохируулаагүй'} 
+                            isEmpty={!level}
+                        />
+                        <InfoRow 
+                            label="Мэргэжлийн ангилал" 
+                            value={category?.name || 'Оноогоогүй'} 
+                            isEmpty={!category}
+                        />
+                        <InfoRow 
+                            label="Ажлын байрны төрөл" 
+                            value={employmentType?.name || 'Бүртгэгдээгүй'} 
+                            isEmpty={!employmentType}
+                        />
+                        <InfoRow 
+                            label="Цагийн хуваарь" 
+                            value={schedule?.name || 'Тохируулаагүй'} 
+                            isEmpty={!schedule}
+                        />
+                    </div>
+
+                    {/* Section 3: Permissions & Budget */}
+                    <div className="bg-muted/30 rounded-lg px-4">
+                        <InfoRow 
+                            label="Амралт батлах эрх" 
+                            value={formData.permissions.canApproveVacation ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                                <span className="text-muted-foreground/50">Үгүй</span>
+                            )} 
+                        />
+                        <InfoRow 
+                            label="Чөлөө батлах эрх" 
+                            value={formData.permissions.canApproveLeave ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                                <span className="text-muted-foreground/50">Үгүй</span>
+                            )} 
+                        />
+                        <InfoRow 
+                            label="Жилийн төсөв" 
+                            value={formData.budget.yearlyBudget > 0 ? (
+                                <span className="font-semibold">
+                                    {formData.budget.yearlyBudget.toLocaleString()} {formData.budget.currency === 'MNT' ? '₮' : '$'}
+                                </span>
+                            ) : 'Тодорхойгүй'} 
+                            isEmpty={formData.budget.yearlyBudget === 0}
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // EDIT MODE
+    return (
+        <div className="space-y-8">
+            {/* Save/Cancel buttons */}
+            <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8">
+                    Болих
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2">
+                    <Save className="w-3.5 h-3.5" />
+                    Хадгалах
+                </Button>
             </div>
 
-            {/* Validation Overview */}
-            {validationChecklist && !isEditing && (
-                <ValidationIndicator
-                    title="Мэдээллийн бүрдэл"
-                    items={[
-                        { label: 'Үндсэн мэдээлэл', isDone: validationChecklist.hasBasicInfo },
-                        { label: 'Удирдлагын бүтэц', isDone: validationChecklist.hasReporting },
-                        { label: 'Ажлын нөхцөл', isDone: validationChecklist.hasAttributes },
-                        { label: 'Тохиргоо & Төсөв', isDone: validationChecklist.hasSettings },
-                    ]}
-                />
+            {/* Approved warning */}
+            {position.isApproved && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    Батлагдсан ажлын байр тул зарим мэдээллийг өөрчлөх боломжгүй.
+                </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                {/* 1. Identification Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажлын байрны нэр</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <Input
-                                        value={formData.title}
-                                        onChange={(e) => handleFieldUpdate('title', e.target.value)}
-                                        placeholder="Жишээ: Ахлах борлуулалтын менежер"
-                                        className="h-10 rounded-lg border-border bg-background"
-                                        disabled={position.isApproved}
-                                    />
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <p className="text-sm font-bold text-foreground">{position.title}</p>
-                            )}
+            {/* Edit form - 2 columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Basic Info */}
+                <div className="space-y-3">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Ажлын байрны нэр</label>
+                        <Input
+                            value={formData.title}
+                            onChange={(e) => handleFieldUpdate('title', e.target.value)}
+                            placeholder="Жишээ: Ахлах менежер"
+                            disabled={position.isApproved}
+                        />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Код</label>
+                        <div className="flex gap-2">
+                            <Input
+                                value={formData.code || ''}
+                                readOnly
+                                placeholder="Код үүсгэх"
+                                className="font-mono uppercase bg-muted/50"
+                                disabled={position.isApproved}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={position.isApproved || !posCodeConfigRef}
+                                onClick={async () => {
+                                    if (!firestore || !posCodeConfigRef) return;
+                                    try {
+                                        const { runTransaction } = await import('firebase/firestore');
+                                        await runTransaction(firestore, async (transaction) => {
+                                            const configDoc = await transaction.get(posCodeConfigRef);
+                                            if (configDoc.exists()) {
+                                                const configData = configDoc.data();
+                                                const currentNum = configData.nextNumber || 1;
+                                                const generated = generateCode({
+                                                    prefix: configData.prefix || '',
+                                                    digitCount: configData.digitCount || 4,
+                                                    nextNumber: currentNum
+                                                });
+                                                handleFieldUpdate('code', generated);
+                                                transaction.update(posCodeConfigRef, {
+                                                    nextNumber: currentNum + 1
+                                                });
+                                            }
+                                        });
+                                    } catch (e) {
+                                        toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
+                                    }
+                                }}
+                                title="Код үүсгэх"
+                            >
+                                <Wand2 className="w-4 h-4" />
+                            </Button>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground">Ажлын байрны код</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={formData.code || ''}
-                                            readOnly
-                                            placeholder="Код үүсгэх товчийг дарна уу"
-                                            className="h-10 rounded-lg border-border bg-slate-50 text-xs font-mono flex-1 cursor-not-allowed uppercase"
-                                            disabled={position.isApproved}
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-10 w-10 shrink-0 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                                            disabled={position.isApproved || !posCodeConfigRef}
-                                            onClick={async () => {
-                                                if (!firestore || !posCodeConfigRef) return;
-                                                try {
-                                                    const { runTransaction } = await import('firebase/firestore');
-                                                    await runTransaction(firestore, async (transaction) => {
-                                                        const configDoc = await transaction.get(posCodeConfigRef);
-                                                        if (configDoc.exists()) {
-                                                            const configData = configDoc.data();
-                                                            const currentNum = configData.nextNumber || 1;
-                                                            const generated = generateCode({
-                                                                prefix: configData.prefix || '',
-                                                                digitCount: configData.digitCount || 4,
-                                                                nextNumber: currentNum
-                                                            });
-                                                            handleFieldUpdate('code', generated);
-                                                            transaction.update(posCodeConfigRef, {
-                                                                nextNumber: currentNum + 1
-                                                            });
-                                                        }
-                                                    });
-                                                } catch (e) {
-                                                    console.error("Manual generate error:", e);
-                                                    toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
-                                                }
-                                            }}
-                                            title="Код үүсгэх"
-                                        >
-                                            <Wand2 className="w-4 h-4" />
-                                        </Button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Компани</label>
+                        <Select
+                            value={formData.companyType === 'subsidiary' && formData.subsidiaryName ? formData.subsidiaryName : 'main'}
+                            onValueChange={(val) => {
+                                if (val === 'main') {
+                                    handleFieldUpdate('companyType', 'main');
+                                    handleFieldUpdate('subsidiaryName', '');
+                                } else {
+                                    handleFieldUpdate('companyType', 'subsidiary');
+                                    handleFieldUpdate('subsidiaryName', val);
+                                }
+                            }}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Сонгох" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="main">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="w-4 h-4 text-primary" />
+                                        {companyProfile?.name || 'Үндсэн компани'}
                                     </div>
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <p className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded w-fit">{position.code || 'Кодгүй'}</p>
-                            )}
-                        </div>
+                                </SelectItem>
+                                {subsidiaries.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
+                                            Охин компаниуд
+                                        </div>
+                                        {subsidiaries.map((sub, idx) => (
+                                            <SelectItem key={idx} value={sub.name}>
+                                                <div className="flex items-center gap-2">
+                                                    <Building2 className="w-4 h-4 text-indigo-500" />
+                                                    {sub.name}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Нэгж / Хэлтэс</label>
+                        <Select
+                            value={formData.departmentId}
+                            onValueChange={(val) => handleFieldUpdate('departmentId', val)}
+                            disabled={position.isApproved}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Шууд удирдлага</label>
+                        <Select
+                            value={formData.reportsToId || 'none'}
+                            onValueChange={(val) => handleFieldUpdate('reportsToId', val === 'none' ? '' : val)}
+                            disabled={position.isApproved}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Удирдлагагүй (Дээд шат)</SelectItem>
+                                {allPositions.filter(p => p.id !== position.id).map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
-                {/* 2. Organization Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Нэгж / Салбар</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <Select
-                                        value={formData.departmentId}
-                                        onValueChange={(val) => handleFieldUpdate('departmentId', val)}
-                                        disabled={position.isApproved}
-                                    >
-                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full bg-primary" />
-                                    <p className="text-sm font-bold text-foreground">{department?.name || 'Нэгж оноогоогүй'}</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Шууд удирдлага</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <Select
-                                        value={formData.reportsToId}
-                                        onValueChange={(val) => handleFieldUpdate('reportsToId', val)}
-                                        disabled={position.isApproved}
-                                    >
-                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            <SelectItem value="none">Удирдлагагүй (Дээд шат)</SelectItem>
-                                            {allPositions.filter(p => p.id !== position.id).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm font-bold text-foreground">{supervisor?.title || 'Тодорхойгүй'}</p>
-                                </div>
-                            )}
-                        </div>
+                {/* Classification & Employment */}
+                <div className="space-y-3">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Түвшин / Зэрэглэл</label>
+                        <Select
+                            value={formData.levelId}
+                            onValueChange={(val) => handleFieldUpdate('levelId', val)}
+                            disabled={position.isApproved}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                {levels.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Мэргэжлийн ангилал (ЯАМАТ)</label>
+                        <Select
+                            value={formData.jobCategoryId}
+                            onValueChange={(val) => handleFieldUpdate('jobCategoryId', val)}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Ажлын байрны төрөл</label>
+                        <Select
+                            value={formData.employmentTypeId}
+                            onValueChange={(val) => handleFieldUpdate('employmentTypeId', val)}
+                            disabled={position.isApproved}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                {employmentTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Цагийн хуваарь</label>
+                        <Select
+                            value={formData.workScheduleId}
+                            onValueChange={(val) => handleFieldUpdate('workScheduleId', val)}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
-                {/* 3. Classification Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Түвшин / Зэрэглэл</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <Select
-                                        value={formData.levelId}
-                                        onValueChange={(val) => handleFieldUpdate('levelId', val)}
-                                        disabled={position.isApproved}
-                                    >
-                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {levels.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <Badge variant="outline" className="bg-background border-border text-foreground font-bold px-3 py-1 rounded-lg">
-                                    {level?.name || 'Тохируулаагүй'}
-                                </Badge>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажил мэргэжлийн код (ЯАМАТ)</label>
-                            {isEditing ? (
-                                <Select value={formData.jobCategoryId} onValueChange={(val) => handleFieldUpdate('jobCategoryId', val)}>
-                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <p className="text-sm font-bold text-foreground">{category?.name || 'Ангилал оноогоогүй'}</p>
-                            )}
-                        </div>
+                {/* Permissions & Budget */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <label className="text-sm">Амралт батлах эрх</label>
+                        <Switch
+                            checked={formData.permissions.canApproveVacation}
+                            onCheckedChange={(checked) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveVacation: checked })}
+                        />
                     </div>
-                </div>
 
-                {/* 4. Employment Terms Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border">
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ажлын байрны төрөл</label>
-                            {isEditing ? (
-                                <div className="space-y-1">
-                                    <Select
-                                        value={formData.employmentTypeId}
-                                        onValueChange={(val) => handleFieldUpdate('employmentTypeId', val)}
-                                        disabled={position.isApproved}
-                                    >
-                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {employmentTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    {position.isApproved && <p className="text-[9px] text-amber-600 font-bold uppercase italic">Батлагдсан тул өөрчлөх боломжгүй</p>}
-                                </div>
-                            ) : (
-                                <p className="text-sm font-bold text-foreground">{employmentType?.name || 'Бүртгэгдээгүй'}</p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Цагийн хуваарь</label>
-                            {isEditing ? (
-                                <Select value={formData.workScheduleId} onValueChange={(val) => handleFieldUpdate('workScheduleId', val)}>
-                                    <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <p className="text-sm font-bold text-foreground">{schedule?.name || 'Тохируулаагүй'}</p>
-                            )}
-                        </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <label className="text-sm">Чөлөө батлах эрх</label>
+                        <Switch
+                            checked={formData.permissions.canApproveLeave}
+                            onCheckedChange={(checked) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveLeave: checked })}
+                        />
                     </div>
-                </div>
 
-                {/* 5. Permissions & Settings Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border h-full">
-                        <div className="space-y-3">
-                            <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Системийн эрхүүд</label>
-                            <div className="grid gap-3">
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border transition-all shadow-sm">
-                                    <p className="text-xs font-semibold text-foreground">Ээлжийн амралтын хуваарийн хүсэлт батлах</p>
-                                    {isEditing ? (
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.permissions.canApproveVacation}
-                                            onChange={(e) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveVacation: e.target.checked })}
-                                            className="h-5 w-5 rounded-md border-border text-primary focus:ring-primary cursor-pointer"
-                                        />
-                                    ) : (
-                                        formData.permissions.canApproveVacation ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-muted-foreground/30" />
-                                    )}
-                                </div>
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border transition-all shadow-sm">
-                                    <p className="text-xs font-semibold text-foreground">Чөлөө батлах эрх</p>
-                                    {isEditing ? (
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.permissions.canApproveLeave}
-                                            onChange={(e) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveLeave: e.target.checked })}
-                                            className="h-5 w-5 rounded-md border-border text-primary focus:ring-primary cursor-pointer"
-                                        />
-                                    ) : (
-                                        formData.permissions.canApproveLeave ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-muted-foreground/30" />
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 6. Budget Section */}
-                <div className="space-y-6">
-                    <div className="grid gap-5 bg-muted/50 p-8 rounded-xl border border-border h-full">
-                        <div className="space-y-4">
-                            <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Жилийн төсөв (Орчим)</label>
-                            {isEditing ? (
-                                <div className="flex gap-2">
-                                    <Input
-                                        type="number"
-                                        value={formData.budget.yearlyBudget}
-                                        onChange={(e) => handleFieldUpdate('budget', { ...formData.budget, yearlyBudget: Number(e.target.value) })}
-                                        className="h-10 rounded-lg border-border bg-background"
-                                    />
-                                    <Select value={formData.budget.currency} onValueChange={(val) => handleFieldUpdate('budget', { ...formData.budget, currency: val })}>
-                                        <SelectTrigger className="w-24 h-10 rounded-lg border-border bg-background shadow-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            <SelectItem value="MNT">₮</SelectItem>
-                                            <SelectItem value="USD">$</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            ) : (
-                                <div className="flex items-baseline gap-3">
-                                    <p className="text-2xl font-bold text-foreground">{formData.budget.yearlyBudget.toLocaleString()}</p>
-                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{formData.budget.currency}</p>
-                                </div>
-                            )}
-                            <p className="text-[10px] font-medium text-muted-foreground italic">Энэхүү дүн нь зөвхөн төлөвлөлтөнд ашиглагдана.</p>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Жилийн төсөв</label>
+                        <div className="flex gap-2">
+                            <Input
+                                type="number"
+                                value={formData.budget.yearlyBudget}
+                                onChange={(e) => handleFieldUpdate('budget', { ...formData.budget, yearlyBudget: Number(e.target.value) })}
+                                className="flex-1"
+                            />
+                            <Select 
+                                value={formData.budget.currency} 
+                                onValueChange={(val) => handleFieldUpdate('budget', { ...formData.budget, currency: val })}
+                            >
+                                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="MNT">₮</SelectItem>
+                                    <SelectItem value="USD">$</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </div>
             </div>
-        </section >
+        </div>
     );
 }
-

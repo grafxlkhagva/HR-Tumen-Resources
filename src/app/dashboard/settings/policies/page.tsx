@@ -104,7 +104,7 @@ export default function CompanyPoliciesPage() {
   const isLoading = isLoadingPolicies || isLoadingPositions;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8 ">
       <AddPolicyDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}

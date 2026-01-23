@@ -12,11 +12,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock, UserX, AlertTriangle, UserMinus, XCircle } from 'lucide-react';
+import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock, UserX, AlertTriangle, UserMinus, XCircle, Info } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment, setDoc, arrayUnion } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
@@ -86,28 +86,33 @@ export function ReleaseEmployeeDialog({
     const handleRelease = async () => {
         if (!firestore || !employee || !position || !firebaseUser) return;
 
-        // Block if no template is configured
-        if (!templateData) {
-            toast({
-                variant: 'destructive',
-                title: 'Загвар тохируулаагүй',
-                description: 'Үргэлжлүүлэхийн тулд эхлээд баримтын загвар тохируулна уу.'
-            });
-            return;
-        }
-
         setIsSubmitting(true);
         try {
+            if (!employee?.id || !position?.id) {
+                throw new Error('Ажилтан эсвэл ажлын байрны мэдээлэл дутуу байна');
+            }
+
             const batch = writeBatch(firestore);
 
-            // 1. Update Employee: Clear position data and set status
-            // Note: For temporary release, maybe status is different, but user asked for "чөлөөлөх"
+            // 1. Update Employee: Clear position data and set lifecycleStage to offboarding
+            const departureHistoryEntry = {
+                type: 'departure',
+                date: new Date().toISOString(),
+                position: position?.title || null,
+                positionId: position?.id || null,
+                departmentId: position?.departmentId || null,
+                reason: selectedActionId || null,
+                lastWorkingDate: customInputValues['releaseDate'] || customInputValues['Ажлаас чөлөөлөх огноо'] || null,
+                note: `${new Date().getFullYear()} онд ажлаас гарсан`
+            };
+
             const empRef = doc(firestore, 'employees', employee.id);
             batch.update(empRef, {
                 positionId: null,
                 jobTitle: null,
                 departmentId: null,
-                status: 'Идэвхтэй', // Re-available for hire
+                lifecycleStage: 'offboarding', // Set to offboarding stage
+                employmentHistory: arrayUnion(departureHistoryEntry),
                 updatedAt: Timestamp.now()
             });
 
@@ -118,50 +123,124 @@ export function ReleaseEmployeeDialog({
                 updatedAt: Timestamp.now()
             });
 
-            // 3. Create ER Document if template is selected
+            // 3. Create ER Document if template is configured (optional)
             if (templateData) {
-                const docContent = generateDocumentContent(templateData.content, {
-                    employee,
-                    position,
-                    customInputs: customInputValues,
-                    company: null, // Add placeholders as needed by the interface
-                    system: null,
-                });
+                try {
+                    const docContent = generateDocumentContent(templateData.content || '', {
+                        employee,
+                        position,
+                        customInputs: customInputValues,
+                        company: null,
+                        system: null,
+                    });
 
-                const erDocRef = doc(collection(firestore, 'er_documents'));
-                batch.set(erDocRef, {
-                    documentTypeId: templateData.documentTypeId,
-                    templateId: templateData.id,
-                    employeeId: employee.id,
-                    positionId: position.id,
-                    departmentId: position.departmentId,
-                    creatorId: firebaseUser.uid,
-                    status: 'DRAFT',
-                    content: docContent,
-                    version: 1,
-                    metadata: {
-                        employeeName: `${employee.firstName} ${employee.lastName}`,
-                        positionTitle: position.title,
-                        templateName: templateData.name,
-                        actionId: selectedActionId
-                    },
-                    customInputs: customInputValues,
-                    history: [{
-                        action: 'CREATE',
-                        actorId: firebaseUser.uid,
-                        timestamp: Timestamp.now(),
-                        note: 'Ажилтан чөлөөлөх үед системээс автоматаар үүсгэв.'
-                    }],
-                    createdAt: Timestamp.now(),
-                    updatedAt: Timestamp.now()
-                });
+                    const erDocRef = doc(collection(firestore, 'er_documents'));
+                    batch.set(erDocRef, {
+                        documentTypeId: templateData.documentTypeId || null,
+                        templateId: templateData.id || null,
+                        employeeId: employee.id,
+                        positionId: position?.id || null,
+                        departmentId: position?.departmentId || null,
+                        creatorId: firebaseUser.uid,
+                        status: 'DRAFT',
+                        content: docContent,
+                        version: 1,
+                        metadata: {
+                            employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
+                            positionTitle: position?.title || '',
+                            templateName: templateData.name || '',
+                            actionId: selectedActionId
+                        },
+                        customInputs: customInputValues,
+                        history: [{
+                            action: 'CREATE',
+                            actorId: firebaseUser.uid,
+                            timestamp: Timestamp.now(),
+                            note: 'Ажилтан чөлөөлөх үед системээс автоматаар үүсгэв.'
+                        }],
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    });
+                } catch (docError) {
+                    console.error("ER Document creation error:", docError);
+                    // Continue without creating ER document
+                }
             }
 
             await batch.commit();
 
+            // 4. Close/Freeze Onboarding Process if exists (employee is leaving, no point continuing onboarding)
+            try {
+                const onboardingSnap = await getDoc(doc(firestore, 'onboarding_processes', employee.id));
+                if (onboardingSnap.exists()) {
+                    const onboardingData = onboardingSnap.data();
+                    // Mark onboarding as CLOSED (frozen at current progress)
+                    await setDoc(doc(firestore, 'onboarding_processes', employee.id), {
+                        ...onboardingData,
+                        status: 'CLOSED',
+                        closedAt: new Date().toISOString(),
+                        closedReason: 'offboarding_started',
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+            } catch (onboardingCloseError) {
+                console.error("Onboarding close error:", onboardingCloseError);
+            }
+
+            // 5. Create Offboarding Process (outside batch to get config first)
+            try {
+                const configSnap = await getDoc(doc(firestore, 'settings', 'offboarding'));
+                const config = configSnap.exists() ? configSnap.data() : { stages: [] };
+
+                // Get position-specific offboarding task IDs (if configured)
+                // Use optional chaining and nullish coalescing for safety
+                const positionOffboardingTaskIds: string[] = (position as any)?.offboardingProgramIds ?? [];
+
+                const newStages = (config.stages || []).map((s: any) => ({
+                    id: s.id,
+                    title: s.title,
+                    icon: s.icon,
+                    completed: false,
+                    progress: 0,
+                    tasks: (s.tasks || [])
+                        // If position has specific tasks configured, filter by them; otherwise include all
+                        .filter((t: any) => positionOffboardingTaskIds.length === 0 || positionOffboardingTaskIds.includes(t.id))
+                        .map((t: any) => ({
+                            id: t.id,
+                            title: t.title,
+                            description: t.description,
+                            completed: false,
+                            policyId: t.policyId
+                        }))
+                })).filter((s: any) => s.tasks.length > 0);
+
+                if (newStages.length > 0) {
+                    const offboardingProcess = {
+                        id: employee.id,
+                        employeeId: employee.id,
+                        positionId: position?.id || null,
+                        positionTitle: position?.title || null,
+                        stages: newStages,
+                        progress: 0,
+                        status: 'IN_PROGRESS',
+                        reason: selectedActionId,
+                        lastWorkingDate: customInputValues['releaseDate'] || customInputValues['Ажлаас чөлөөлөх огноо'] || null,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    await setDoc(doc(firestore, 'offboarding_processes', employee.id), offboardingProcess);
+                }
+            } catch (offboardingError) {
+                console.error("Offboarding process creation error:", offboardingError);
+                // Don't fail the whole operation if offboarding process creation fails
+            }
+
             toast({
                 title: "Ажилтан чөлөөлөгдлөө",
-                description: templateData ? "Холбогдох баримтын ноорог үүсгэгдсэн." : "Ажилтныг амжилттай чөлөөллөө."
+                description: templateData 
+                    ? "Offboarding хөтөлбөр үүсгэгдлээ. Холбогдох баримтын ноорог үүсгэгдсэн."
+                    : "Offboarding хөтөлбөр үүсгэгдлээ."
             });
             onOpenChange(false);
         } catch (e: any) {
@@ -324,18 +403,19 @@ export function ReleaseEmployeeDialog({
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="p-8 rounded-2xl bg-rose-50 border border-rose-100 text-rose-700 text-sm space-y-4">
+                                        <div className="p-6 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-sm space-y-4">
                                             <div className="flex items-start gap-3">
-                                                <XCircle className="h-5 w-5 mt-0.5 shrink-0" />
+                                                <Info className="h-5 w-5 mt-0.5 shrink-0" />
                                                 <div>
-                                                    <p className="font-bold mb-1">Тохиргоо дутуу байна</p>
-                                                    <p className="opacity-80 leading-relaxed font-medium">Энэ үйлдлийг хийхийн тулд эхлээд "Байгууллагын тохиргоо" хэсэгт баримтын загвар холбосон байх шаардлагатай.</p>
+                                                    <p className="font-bold mb-1">Баримтын загвар тохируулаагүй</p>
+                                                    <p className="opacity-80 leading-relaxed font-medium">Чөлөөлөх үйлдлийг үргэлжлүүлж болно. Гэхдээ баримт автоматаар үүсгэхгүй.</p>
                                                 </div>
                                             </div>
 
                                             <Button
                                                 variant="outline"
-                                                className="w-full bg-white border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 h-10 rounded-xl font-bold uppercase tracking-widest text-[10px] gap-2"
+                                                size="sm"
+                                                className="bg-white border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 h-9 rounded-xl font-bold uppercase tracking-widest text-[10px] gap-2"
                                                 onClick={() => window.open('/dashboard/organization/settings', '_blank')}
                                             >
                                                 <ExternalLink className="h-3.5 w-3.5" />
@@ -379,7 +459,7 @@ export function ReleaseEmployeeDialog({
                                 </Button>
                                 <Button
                                     onClick={handleRelease}
-                                    disabled={isSubmitting || !templateData || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
+                                    disabled={isSubmitting || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
                                     className="flex-[2] bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-rose-200"
                                 >
                                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

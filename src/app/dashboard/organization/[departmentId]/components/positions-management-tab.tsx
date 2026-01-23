@@ -283,6 +283,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                 const posRef = doc(firestore, 'positions', pos.id);
                 batch.update(posRef, {
                     isApproved: true,
+                    isActive: true, // Батлах үед идэвхтэй болгоно
                     approvedAt,
                     approvedBy: user.uid,
                     approvedByName: user.displayName || user.email || 'Систем',
@@ -324,6 +325,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                 const posRef = doc(firestore, 'positions', pos.id);
                 batch.update(posRef, {
                     isApproved: false,
+                    isActive: false, // Цуцлах үед идэвхгүй болгоно
                     disapprovedAt,
                     disapprovedBy: user.uid,
                     disapprovedByName: user.displayName || user.email || 'Систем',

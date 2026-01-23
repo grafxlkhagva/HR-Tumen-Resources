@@ -102,8 +102,17 @@ export default function OnboardingSettingsPage() {
     useEffect(() => {
         if (config && config.stages) {
             setStages(config.stages);
+        } else if (config === null && firestore) {
+            // Config document doesn't exist - save default stages
+            setDoc(doc(firestore, 'settings', 'onboarding'), { stages: DEFAULT_STAGES })
+                .then(() => {
+                    console.log('Default onboarding stages initialized');
+                })
+                .catch((err) => {
+                    console.error('Failed to initialize default stages:', err);
+                });
         }
-    }, [config]);
+    }, [config, firestore]);
 
     const handleSaveConfig = async (newStages: OnboardingStage[]) => {
         if (!firestore) return;
@@ -189,7 +198,7 @@ export default function OnboardingSettingsPage() {
     }
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="space-y-8 ">
             <div className="space-y-1">
                 <h2 className="text-2xl font-bold tracking-tight text-slate-800">Чиглүүлэх хөтөлбөр тохиргоо</h2>
                 <p className="text-sm text-muted-foreground max-w-2xl">

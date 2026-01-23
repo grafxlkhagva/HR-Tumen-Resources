@@ -11,11 +11,9 @@ import {
     Smartphone,
     Car,
     Laptop,
-    Trash2,
     Gift,
     Shield,
     Edit3,
-    Plus,
     AlertCircle
 } from 'lucide-react';
 import { Position } from '../../../types';
@@ -104,33 +102,24 @@ export function PositionBenefits({
                 </div>
             )}
 
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Gift className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Хэрэглээ & Хангамж</label>
-                        <h2 className="text-lg font-bold text-foreground">Хангамж & Хөнгөлөлт</h2>
-                    </div>
-                </div>
+            <div className="flex items-center justify-end gap-2">
                 {!isEditing ? (
                     !position.isApproved && (
-                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-9 gap-2 text-primary hover:text-primary/90 hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="h-8 gap-2">
                             <Edit3 className="w-3.5 h-3.5" />
                             Засах
                         </Button>
                     )
                 ) : (
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-9 px-4 text-muted-foreground hover:text-foreground font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                    <>
+                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8">
                             Болих
                         </Button>
-                        <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving} className="h-9 gap-2 bg-primary hover:bg-primary/90 shadow-sm font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all">
+                        <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2">
                             <Save className="w-3.5 h-3.5" />
                             Хадгалах
                         </Button>
-                    </div>
+                    </>
                 )}
             </div>
 

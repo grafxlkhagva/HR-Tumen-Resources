@@ -50,7 +50,9 @@ interface OnboardingProcess {
     employeeId: string;
     stages: StageInstance[];
     progress: number;
-    status: 'IN_PROGRESS' | 'COMPLETED';
+    status: 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED';
+    closedAt?: string;
+    closedReason?: string;
     createdAt: string;
     updatedAt: any;
 }
@@ -71,6 +73,7 @@ export default function EmployeeOnboardingPage() {
     const [localStages, setLocalStages] = useState<StageInstance[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [editingTask, setEditingTask] = useState<{ stageId: string, task: TaskInstance } | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     const allEmployeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
     const { data: allEmployees } = useCollection<Employee>(allEmployeesQuery as any);
@@ -84,11 +87,15 @@ export default function EmployeeOnboardingPage() {
     useEffect(() => {
         if (process && process.stages) {
             setLocalStages(process.stages);
-        } else if (!isLoadingProcess && !process && employee && firestore) {
+            setIsInitialized(true);
+        } else if (!isLoadingProcess && !process && employee && firestore && !isInitialized) {
             // Initialize from config if not exists
             initializeOnboarding();
+        } else if (!isLoadingProcess && !process && !isInitialized) {
+            // No process and not loading - mark as initialized to stop infinite loading
+            setIsInitialized(true);
         }
-    }, [process, isLoadingProcess, employee]);
+    }, [process, isLoadingProcess, employee, firestore, isInitialized]);
 
     const initializeOnboarding = async () => {
         if (!firestore || !employee) return;
@@ -150,8 +157,10 @@ export default function EmployeeOnboardingPage() {
             }
 
             setLocalStages(newStages);
+            setIsInitialized(true);
         } catch (error) {
             console.error("Initialization error:", error);
+            setIsInitialized(true); // Mark as initialized even on error
         }
     };
 
@@ -242,7 +251,20 @@ export default function EmployeeOnboardingPage() {
     };
 
 
+    // Check if process is closed (frozen due to offboarding)
+    const isClosed = process?.status === 'CLOSED';
+
     const toggleTask = (stageId: string, taskId: string) => {
+        // Don't allow toggling if process is closed
+        if (isClosed) {
+            toast({ 
+                title: 'Хөтөлбөр хаагдсан', 
+                description: 'Offboarding эхэлсэн тул onboarding хөтөлбөрт өөрчлөлт хийх боломжгүй.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
         const newStages = localStages.map(s => {
             if (s.id === stageId) {
                 const newTasks = s.tasks.map(t =>
@@ -309,12 +331,39 @@ export default function EmployeeOnboardingPage() {
         setEditingTask(null);
     };
 
-    if (isLoadingEmp || isLoadingProcess || (employee && localStages.length === 0)) {
+    if (isLoadingEmp || isLoadingProcess) {
         return <div className="p-8 text-center animate-pulse text-slate-400">Ачаалж байна...</div>;
     }
 
     if (!employee) {
         return <div className="p-8 text-center">Ажилтан олдсонгүй.</div>;
+    }
+
+    // Show message if no onboarding program is configured
+    if (isInitialized && localStages.length === 0) {
+        return (
+            <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+                <PageHeader
+                    title={`${employee.lastName} ${employee.firstName}`}
+                    description={`${employee.jobTitle} - Чиглүүлэх процесс`}
+                    showBackButton
+                    backHref="/dashboard/onboarding"
+                />
+                <div className="bg-white rounded-xl border p-12 text-center">
+                    <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                        <Info className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Onboarding хөтөлбөр байхгүй</h3>
+                    <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                        Энэ ажилтанд зориулсан onboarding хөтөлбөр тохируулаагүй байна. 
+                        Эхлээд тохиргоо хэсэгт хөтөлбөр үүсгэнэ үү.
+                    </p>
+                    <Button asChild>
+                        <a href="/dashboard/settings/onboarding">Тохиргоо руу очих</a>
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     const overallProgress = Math.round(localStages.reduce((sum, s) => sum + s.progress, 0) / (localStages.length || 1));
@@ -334,29 +383,58 @@ export default function EmployeeOnboardingPage() {
                                 <span className="text-xs font-bold text-slate-600">{new Date(process.createdAt).toLocaleDateString()}</span>
                             </div>
                         )}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
-                            onClick={syncWithPosition}
-                            disabled={isSaving}
-                        >
-                            <RefreshCw className={cn("h-3 w-3 mr-2", isSaving && "animate-spin")} />
-                            Хөтөлбөр шинэчлэх
-                        </Button>
+                        {!isClosed && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-xl border-slate-200 bg-white text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                                onClick={syncWithPosition}
+                                disabled={isSaving}
+                            >
+                                <RefreshCw className={cn("h-3 w-3 mr-2", isSaving && "animate-spin")} />
+                                Хөтөлбөр шинэчлэх
+                            </Button>
+                        )}
                         <div className="flex items-center gap-2">
                             {isSaving && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
 
-                            <Badge variant={overallProgress === 100 ? "default" : "secondary"} className={cn(
+                            <Badge variant={isClosed ? "outline" : overallProgress === 100 ? "default" : "secondary"} className={cn(
                                 "px-3 py-1 font-bold",
+                                isClosed ? "bg-amber-50 text-amber-700 border-amber-200" :
                                 overallProgress === 100 ? "bg-emerald-500" : "bg-indigo-50 text-indigo-700"
                             )}>
-                                {overallProgress === 100 ? "Дууссан" : `Явц: ${overallProgress}%`}
+                                {isClosed ? "Хаагдсан" : overallProgress === 100 ? "Дууссан" : `Явц: ${overallProgress}%`}
                             </Badge>
                         </div>
                     </div>
                 }
             />
+
+            {/* Closed Warning Banner */}
+            {isClosed && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                        <Info className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="text-sm font-bold text-amber-900">Хөтөлбөр хаагдсан</h4>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                            Энэ ажилтны offboarding эхэлсэн тул onboarding хөтөлбөр одоогийн байдлаараа хаагдсан. 
+                            Таскуудыг өөрчлөх боломжгүй.
+                        </p>
+                        {process?.closedAt && (
+                            <p className="text-[10px] text-amber-600 mt-1">
+                                Хаагдсан: {new Date(process.closedAt).toLocaleDateString()}
+                            </p>
+                        )}
+                    </div>
+                    <Button variant="outline" size="sm" className="shrink-0 border-amber-200 text-amber-700 hover:bg-amber-100" asChild>
+                        <a href={`/dashboard/offboarding/${employeeId}`}>
+                            Offboarding харах
+                        </a>
+                    </Button>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Status Column */}
@@ -444,19 +522,26 @@ export default function EmployeeOnboardingPage() {
                                                 stage.tasks.map(task => (
                                                     <div
                                                         key={task.id}
-                                                        onClick={() => toggleTask(stage.id, task.id)}
+                                                        onClick={() => !isClosed && toggleTask(stage.id, task.id)}
                                                         className={cn(
-                                                            "group flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer",
-                                                            task.completed
+                                                            "group flex items-center gap-4 p-4 rounded-2xl border transition-all",
+                                                            isClosed 
+                                                                ? "cursor-not-allowed opacity-60 bg-slate-50 border-slate-200"
+                                                                : "cursor-pointer",
+                                                            !isClosed && task.completed
                                                                 ? "bg-emerald-50 border-emerald-100"
-                                                                : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-sm"
+                                                                : !isClosed && "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-sm"
                                                         )}
                                                     >
                                                         <div className={cn(
                                                             "h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-all",
-                                                            task.completed
-                                                                ? "bg-emerald-500 text-white"
-                                                                : "border-2 border-slate-200 group-hover:border-indigo-400"
+                                                            isClosed && task.completed 
+                                                                ? "bg-slate-400 text-white"
+                                                                : isClosed 
+                                                                    ? "border-2 border-slate-200"
+                                                                    : task.completed
+                                                                        ? "bg-emerald-500 text-white"
+                                                                        : "border-2 border-slate-200 group-hover:border-indigo-400"
                                                         )}>
                                                             {task.completed && <CheckCircle className="h-4 w-4" />}
                                                         </div>
@@ -464,12 +549,16 @@ export default function EmployeeOnboardingPage() {
                                                             <div className="flex items-center gap-2">
                                                                 <h4 className={cn(
                                                                     "text-sm font-bold transition-all",
+                                                                    isClosed ? "text-slate-500" :
                                                                     task.completed ? "text-emerald-800 line-through opacity-70" : "text-slate-700"
                                                                 )}>
                                                                     {task.title}
                                                                 </h4>
                                                                 {task.completed && (
-                                                                    <Badge className="bg-emerald-100 text-emerald-600 border-none text-[8px] h-4">
+                                                                    <Badge className={cn(
+                                                                        "border-none text-[8px] h-4",
+                                                                        isClosed ? "bg-slate-200 text-slate-500" : "bg-emerald-100 text-emerald-600"
+                                                                    )}>
                                                                         <Clock className="h-2.5 w-2.5 mr-1" />
                                                                         {new Date(task.completedAt).toLocaleDateString()}
                                                                     </Badge>
@@ -478,6 +567,7 @@ export default function EmployeeOnboardingPage() {
                                                             {task.description && (
                                                                 <p className={cn(
                                                                     "text-xs mt-0.5",
+                                                                    isClosed ? "text-slate-400" :
                                                                     task.completed ? "text-emerald-600/50" : "text-slate-400"
                                                                 )}>
                                                                     {task.description}

@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy } from 'lucide-react';
+import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,6 +62,9 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     // Add Position Dialog State
     const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
     const [pendingParentPositionId, setPendingParentPositionId] = useState<string | undefined>(undefined);
+    
+    // AI Generation State
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
     // -- Queries --
     const deptDocRef = useMemoFirebase(() => (firestore ? doc(firestore, 'departments', departmentId) : null), [firestore, departmentId]);
@@ -330,6 +333,59 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
         setIsAddPositionOpen(true);
     };
 
+    const handleAIGenerate = async () => {
+        if (!infoForm.name && !department?.name) {
+            toast({
+                title: 'Анхааруулга',
+                description: 'Нэгжийн нэр оруулсны дараа AI үүсгэх боломжтой',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        setIsGeneratingAI(true);
+        try {
+            const deptTypeName = departmentTypes?.find(t => t.id === (infoForm.typeId || department?.typeId))?.name;
+            const parentDeptName = allDepartments?.find(d => d.id === (infoForm.parentId || department?.parentId))?.name;
+
+            const response = await fetch('/api/generate-department-details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    departmentName: infoForm.name || department?.name,
+                    departmentType: deptTypeName,
+                    parentDepartment: parentDeptName
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'AI үүсгэхэд алдаа гарлаа');
+            }
+
+            setInfoForm(prev => ({
+                ...prev,
+                vision: result.data.vision || prev.vision,
+                description: result.data.description || prev.description
+            }));
+
+            toast({
+                title: 'AI үүсгэлт амжилттай',
+                description: 'Зорилго болон чиг үүргийг шалгаад хадгалаарай'
+            });
+        } catch (error) {
+            console.error('AI generation error:', error);
+            toast({
+                title: 'Алдаа',
+                description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
     if (isDeptLoading) return <div className="p-8"><Skeleton className="h-64 w-full" /></div>;
     if (!department) return <div className="p-10 text-center">Нэгж олдсонгүй</div>;
 
@@ -338,7 +394,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
             <div className="flex-1 p-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title={isEditingInfo ? infoForm.name || department.name : department.name}
-                    description={`${isEditingInfo ? infoForm.code || department.code : department.code} • ${typeName}`}
+                    description={`${(isEditingInfo ? infoForm.code : department.code) || 'Код оноогоогүй'} • ${typeName}`}
                     breadcrumbs={[
                         { label: 'Бүтэц', href: '/dashboard/organization' },
                         { label: department.name }
@@ -351,167 +407,188 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                     {/* Left Column: Info & Actions */}
                     <div className="lg:col-span-4 space-y-6">
                         {/* Brief Info Card */}
-                        <Card className="rounded-xl border-border/50 shadow-sm overflow-hidden">
-                            <CardHeader className="bg-muted/30 pb-4">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Үндсэн мэдээлэл
-                                    </CardTitle>
-                                    {isEditingInfo ? (
-                                        <div className="flex items-center gap-1">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleInfoCancel} disabled={isSavingInfo}>
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                            <Button size="icon" variant="default" className="h-7 w-7 bg-primary text-primary-foreground" onClick={handleInfoSave} disabled={isSavingInfo}>
-                                                {isSavingInfo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1">
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                                                onClick={handleDeptDeleteClick}
-                                                disabled={isDeptDeleting}
-                                                title="Нэгж устгах"
-                                            >
-                                                {isDeptDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-white/50" onClick={handleInfoEdit}>
-                                                <Edit3 className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
+                        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                            {/* Header */}
+                            <div className="px-4 py-3 border-b flex items-center justify-between">
+                                <span className="text-sm font-medium text-foreground">Мэдээлэл</span>
                                 {isEditingInfo ? (
-                                    <div className="p-4 space-y-4 bg-background">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Нэгжийн нэр</Label>
-                                            <Input
-                                                value={infoForm.name || ''}
-                                                onChange={(e) => setInfoForm(prev => ({ ...prev, name: e.target.value }))}
-                                                className="h-8"
-                                            />
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleInfoCancel} disabled={isSavingInfo}>
+                                            Болих
+                                        </Button>
+                                        <Button size="sm" className="h-7 px-3 text-xs gap-1" onClick={handleInfoSave} disabled={isSavingInfo}>
+                                            {isSavingInfo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                            Хадгалах
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleInfoEdit}>
+                                        <Edit3 className="h-3 w-3" />
+                                        Засах
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-4">
+                                {isEditingInfo ? (
+                                    <div className="space-y-4">
+                                        {/* Grid for basic fields */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2 space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Нэр</Label>
+                                                <Input
+                                                    value={infoForm.name || ''}
+                                                    onChange={(e) => setInfoForm(prev => ({ ...prev, name: e.target.value }))}
+                                                    className="h-9"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Код</Label>
+                                                <Input
+                                                    value={infoForm.code || ''}
+                                                    onChange={(e) => setInfoForm(prev => ({ ...prev, code: e.target.value }))}
+                                                    className="h-9 font-mono"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Төлөв</Label>
+                                                <Select
+                                                    value={infoForm.status || 'active'}
+                                                    onValueChange={(val) => setInfoForm(prev => ({ ...prev, status: val as any }))}
+                                                >
+                                                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="active">Идэвхтэй</SelectItem>
+                                                        <SelectItem value="inactive">Идэвхгүй</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Төрөл</Label>
+                                                <Select
+                                                    value={infoForm.typeId || ''}
+                                                    onValueChange={(val) => setInfoForm(prev => ({ ...prev, typeId: val }))}
+                                                >
+                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {departmentTypes?.map(t => (
+                                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Харьяалал</Label>
+                                                <Select
+                                                    value={infoForm.parentId || 'root'}
+                                                    onValueChange={(val) => setInfoForm(prev => ({ ...prev, parentId: val === 'root' ? '' : val }))}
+                                                >
+                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="root">Үндсэн нэгж</SelectItem>
+                                                        {allDepartments?.filter(d => d.id !== department.id).map(d => (
+                                                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Код</Label>
-                                            <Input
-                                                value={infoForm.code || ''}
-                                                onChange={(e) => setInfoForm(prev => ({ ...prev, code: e.target.value }))}
-                                                className="h-8"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Төрөл</Label>
-                                            <Select
-                                                value={infoForm.typeId || ''}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, typeId: val }))}
-                                            >
-                                                <SelectTrigger className="h-8"><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {departmentTypes?.map(t => (
-                                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Харьяалагдах нэгж</Label>
-                                            <Select
-                                                value={infoForm.parentId || 'root'}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, parentId: val === 'root' ? '' : val }))}
-                                            >
-                                                <SelectTrigger className="h-8"><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="root">Үндсэн нэгж</SelectItem>
-                                                    {allDepartments?.filter(d => d.id !== department.id).map(d => (
-                                                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Төлөв</Label>
-                                            <Select
-                                                value={infoForm.status || 'active'}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, status: val as any }))}
-                                            >
-                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="active">Идэвхтэй</SelectItem>
-                                                    <SelectItem value="inactive">Идэвхгүй</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2 pt-2 border-t border-border/50">
-                                            <Label className="text-xs">Зорилго</Label>
+
+                                        {/* Vision & Description with AI */}
+                                        <div className="pt-3 border-t space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-medium text-muted-foreground">Зорилго & Чиг үүрэг</span>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleAIGenerate}
+                                                    disabled={isGeneratingAI}
+                                                    className="h-7 gap-1.5 text-xs bg-violet-50 border-violet-200 hover:bg-violet-100 text-violet-700"
+                                                >
+                                                    {isGeneratingAI ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                                    AI
+                                                </Button>
+                                            </div>
                                             <Textarea
                                                 value={infoForm.vision || ''}
                                                 onChange={(e) => setInfoForm(prev => ({ ...prev, vision: e.target.value }))}
-                                                className="min-h-[80px] text-xs resize-none"
-                                                placeholder="Нэгжийн зорилго..."
+                                                className="min-h-[70px] text-sm resize-none"
+                                                placeholder="Зорилго..."
                                             />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Чиг үүрэг</Label>
                                             <Textarea
                                                 value={infoForm.description || ''}
                                                 onChange={(e) => setInfoForm(prev => ({ ...prev, description: e.target.value }))}
-                                                className="min-h-[80px] text-xs resize-none"
-                                                placeholder="Нэгжийн чиг үүрэг..."
+                                                className="min-h-[70px] text-sm resize-none"
+                                                placeholder="Чиг үүрэг..."
                                             />
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="divide-y divide-border/50">
-                                        <div className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                                            <span className="text-xs font-medium text-muted-foreground">Төрөл</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-semibold">{typeName}</span>
-                                                {department.typeId && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{departmentTypes?.find(t => t.id === department.typeId)?.level || '-'}</Badge>}
+                                    <div className="space-y-4">
+                                        {/* Info Grid */}
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground mb-0.5">Төрөл</p>
+                                                <p className="text-sm font-medium">{typeName}</p>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                                            <span className="text-xs font-medium text-muted-foreground">Харьяалал</span>
-                                            <span className="text-sm font-medium text-right line-clamp-1 pl-4">{parentName}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                                            <span className="text-xs font-medium text-muted-foreground">Төлөв</span>
-                                            <Badge variant={department.status === 'active' ? 'default' : 'secondary'} className={cn("text-[10px] h-5 px-2", department.status === 'active' ? "bg-emerald-500 hover:bg-emerald-600" : "")}>
-                                                {department.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                            </Badge>
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                                            <span className="text-xs font-medium text-muted-foreground">Орон тоо</span>
-                                            <div className="flex items-center gap-2 text-sm font-medium">
-                                                <span>{positions?.length || 0}</span>
-                                                <span className="text-muted-foreground text-xs font-normal">ажлын байр</span>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground mb-0.5">Төлөв</p>
+                                                <Badge variant="outline" className={cn(
+                                                    "text-[10px] h-5",
+                                                    department.status === 'active' 
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                                                        : "bg-slate-50 text-slate-600"
+                                                )}>
+                                                    {department.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                                </Badge>
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground mb-0.5">Харьяалал</p>
+                                                <p className="text-sm font-medium truncate">{parentName}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] text-muted-foreground mb-0.5">Ажлын байр</p>
+                                                <p className="text-sm font-medium">{positions?.length || 0}</p>
                                             </div>
                                         </div>
 
+                                        {/* Vision & Description */}
                                         {(department.vision || department.description) && (
-                                            <div className="p-4 space-y-4 bg-muted/5">
+                                            <div className="pt-3 border-t space-y-4">
                                                 {department.vision && (
-                                                    <div className="space-y-1">
-                                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Зорилго</h4>
-                                                        <p className="text-xs leading-relaxed text-foreground/90">{department.vision}</p>
+                                                    <div className="bg-slate-50 rounded-lg p-3">
+                                                        <p className="text-xs font-semibold text-slate-600 mb-1.5">Зорилго</p>
+                                                        <p className="text-sm text-foreground leading-relaxed">{department.vision}</p>
                                                     </div>
                                                 )}
                                                 {department.description && (
-                                                    <div className="space-y-1">
-                                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Чиг үүрэг</h4>
-                                                        <p className="text-xs leading-relaxed text-foreground/90 whitespace-pre-wrap">{department.description}</p>
+                                                    <div className="bg-slate-50 rounded-lg p-3">
+                                                        <p className="text-xs font-semibold text-slate-600 mb-1.5">Чиг үүрэг</p>
+                                                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{department.description}</p>
                                                     </div>
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* Delete Button */}
+                                        <div className="pt-3 border-t">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-full h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                onClick={handleDeptDeleteClick}
+                                                disabled={isDeptDeleting}
+                                            >
+                                                {isDeptDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                                                Нэгж устгах
+                                            </Button>
+                                        </div>
                                     </div>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
 
                     </div>
@@ -535,7 +612,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                                             className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 py-4 px-6 gap-2 text-muted-foreground transition-all"
                                         >
                                             <LayoutDashboard className="w-4 h-4" />
-                                            <span>Албан тушаалууд</span>
+                                            <span>Ажлын байрууд</span>
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="history"

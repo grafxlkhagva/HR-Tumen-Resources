@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Printer, Save, ArrowLeft, Plus, Trash2, Settings2, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
+import { Printer, Save, ArrowLeft, Plus, Trash2, Settings2, ChevronUp, ChevronDown, GripVertical, Sparkles, Loader2, Eye, Code } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DynamicFieldSelector } from './dynamic-field-selector';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     DndContext,
     closestCenter,
@@ -57,6 +58,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isInputsDialogOpen, setIsInputsDialogOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
     const [formData, setFormData] = useState<Partial<ERTemplate>>({
@@ -179,6 +181,107 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }
     };
 
+    const handleAIGenerate = async () => {
+        if (!formData.name) {
+            toast({
+                title: 'Анхааруулга',
+                description: 'Загварын нэрийг эхлээд оруулна уу',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        // Find selected document type name
+        const selectedDocType = docTypes.find(dt => dt.id === formData.documentTypeId);
+
+        setIsGenerating(true);
+        try {
+            const response = await fetch('/api/generate-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    templateName: formData.name,
+                    documentTypeName: selectedDocType?.name || '',
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Generation failed');
+            }
+
+            // Update form with generated content
+            setFormData(prev => ({
+                ...prev,
+                content: result.data.content || prev.content,
+                customInputs: result.data.customInputs || prev.customInputs
+            }));
+
+            toast({
+                title: 'Амжилттай',
+                description: 'AI загвар үүсгэлээ. Шаардлагатай бол засварлана уу.',
+            });
+        } catch (error) {
+            console.error('AI generation error:', error);
+            toast({
+                title: 'Алдаа',
+                description: 'AI загвар үүсгэхэд алдаа гарлаа',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // Generate preview HTML with sample data
+    const getPreviewHtml = React.useMemo(() => {
+        if (!formData.content) return '';
+        
+        // Sample data for system placeholders
+        const sampleData: Record<string, string> = {
+            '{{company.name}}': 'ХХК "Жишээ Компани"',
+            '{{company.address}}': 'УБ хот, СБД, 1-р хороо',
+            '{{company.phone}}': '7700-1234',
+            '{{company.email}}': 'info@example.mn',
+            '{{employee.firstName}}': 'Бат',
+            '{{employee.lastName}}': 'Дорж',
+            '{{employee.registrationNumber}}': 'АА00112233',
+            '{{employee.position}}': 'Ахлах менежер',
+            '{{employee.department}}': 'Санхүү',
+            '{{employee.phone}}': '9900-1234',
+            '{{employee.email}}': 'bat@example.mn',
+            '{{employee.startDate}}': '2024-01-15',
+            '{{currentDate}}': new Date().toISOString().split('T')[0],
+            '{{documentNumber}}': 'DOC-2024-001',
+        };
+
+        // Add custom inputs with sample values
+        formData.customInputs?.forEach(input => {
+            if (input.key) {
+                const placeholder = `{{${input.key}}}`;
+                let sampleValue = input.label || input.key;
+                if (input.type === 'number') sampleValue = '100,000';
+                if (input.type === 'date') sampleValue = '2024-12-31';
+                if (input.type === 'boolean') sampleValue = 'Тийм';
+                sampleData[placeholder] = `[${sampleValue}]`;
+            }
+        });
+
+        // Replace all placeholders
+        let html = formData.content;
+        Object.entries(sampleData).forEach(([key, value]) => {
+            html = html.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), 
+                `<span style="background-color: #fef3c7; padding: 0 4px; border-radius: 2px;">${value}</span>`);
+        });
+
+        // Highlight remaining placeholders that weren't replaced
+        html = html.replace(/\{\{([^}]+)\}\}/g, 
+            '<span style="background-color: #fee2e2; padding: 0 4px; border-radius: 2px; color: #dc2626;">{{$1}}</span>');
+
+        return html;
+    }, [formData.content, formData.customInputs]);
+
     const handleSubmit = async () => {
         // ... (existing submit logic)
         if (!firestore || !formData.name || !formData.documentTypeId || !formData.content) {
@@ -225,6 +328,24 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                     {mode === 'create' ? 'Шинэ загвар үүсгэх' : 'Загвар засах'}
                 </h1>
                 <div className="flex-1" />
+                <Button
+                    variant="outline"
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating || !formData.name}
+                    className="gap-2 border-violet-200 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
+                >
+                    {isGenerating ? (
+                        <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Үүсгэж байна...
+                        </>
+                    ) : (
+                        <>
+                            <Sparkles className="h-4 w-4" />
+                            AI-р үүсгэх
+                        </>
+                    )}
+                </Button>
                 <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-slate-900 text-white hover:bg-slate-800">
                     <Save className="h-4 w-4 mr-2" />
                     {isSubmitting ? 'Хадгалж байна...' : 'Хадгалах'}
@@ -268,18 +389,58 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                     </Card>
 
                     <Card className="border-none shadow-sm flex-1">
-                        <CardHeader>
+                        <CardHeader className="pb-2">
                             <CardTitle>HTML Агуулга</CardTitle>
                             <CardDescription>Баримтын эх бэлтгэлийг энд оруулна</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Textarea
-                                ref={textareaRef}
-                                className="min-h-[500px] font-mono text-sm leading-relaxed p-4"
-                                value={formData.content || ''}
-                                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                                placeholder="HTML код энд бичнэ..."
-                            />
+                            <Tabs defaultValue="code" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 mb-4">
+                                    <TabsTrigger value="code" className="gap-2">
+                                        <Code className="h-4 w-4" />
+                                        HTML код
+                                    </TabsTrigger>
+                                    <TabsTrigger value="preview" className="gap-2">
+                                        <Eye className="h-4 w-4" />
+                                        Бодит харагдах байдал
+                                    </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="code" className="mt-0">
+                                    <Textarea
+                                        ref={textareaRef}
+                                        className="min-h-[500px] font-mono text-sm leading-relaxed p-4 bg-slate-950 text-slate-100 border-slate-800 rounded-lg"
+                                        value={formData.content || ''}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                                        placeholder="HTML код энд бичнэ..."
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="preview" className="mt-0">
+                                    <div className="min-h-[500px] border rounded-lg bg-white overflow-auto">
+                                        {formData.content ? (
+                                            <div 
+                                                className="p-6 prose prose-sm max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: getPreviewHtml }}
+                                            />
+                                        ) : (
+                                            <div className="h-[500px] flex items-center justify-center text-muted-foreground text-sm">
+                                                HTML код оруулснаар энд харагдана
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4 text-[10px] text-muted-foreground mt-3">
+                                        <div className="flex items-center gap-1">
+                                            <span className="inline-block w-3 h-3 bg-amber-100 rounded" />
+                                            Системийн утга
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="inline-block w-3 h-3 bg-red-100 rounded" />
+                                            Тодорхойлогдоогүй утга
+                                        </div>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
                         </CardContent>
                     </Card>
                 </div>

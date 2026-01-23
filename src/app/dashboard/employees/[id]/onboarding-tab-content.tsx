@@ -38,7 +38,9 @@ interface OnboardingProcess {
     employeeId: string;
     stages: StageInstance[];
     progress: number;
-    status: 'IN_PROGRESS' | 'COMPLETED';
+    status: 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED';
+    closedAt?: string;
+    closedReason?: string;
     createdAt: string;
     updatedAt: any;
 }
@@ -67,7 +69,20 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
         }
     }, [process]);
 
+    // Check if process is closed (frozen due to offboarding)
+    const isClosed = process?.status === 'CLOSED';
+
     const toggleTask = (stageId: string, taskId: string) => {
+        // Don't allow toggling if process is closed
+        if (isClosed) {
+            toast({ 
+                title: 'Хөтөлбөр хаагдсан', 
+                description: 'Offboarding эхэлсэн тул onboarding хөтөлбөрт өөрчлөлт хийх боломжгүй.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
         const newStages = localStages.map(s => {
             if (s.id === stageId) {
                 const newTasks = s.tasks.map(t =>
@@ -300,33 +315,69 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
+            {/* Closed Warning Banner */}
+            {isClosed && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                        <Info className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="text-sm font-bold text-amber-900">Хөтөлбөр хаагдсан</h4>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                            Энэ ажилтны offboarding эхэлсэн тул onboarding хөтөлбөр одоогийн байдлаараа хаагдсан. 
+                            Таскуудыг өөрчлөх боломжгүй.
+                        </p>
+                        {process?.closedAt && (
+                            <p className="text-[10px] text-amber-600 mt-1">
+                                Хаагдсан: {new Date(process.closedAt).toLocaleDateString()}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <Card className={cn(
+                "border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden",
+                isClosed && "opacity-75"
+            )}>
                 <CardHeader className="p-8 border-b border-slate-50">
                     <div className="flex items-center justify-between gap-4">
                         <div>
-                            <CardTitle className="text-xl font-black text-slate-800">Чиглүүлэх явц</CardTitle>
+                            <div className="flex items-center gap-3">
+                                <CardTitle className="text-xl font-black text-slate-800">Чиглүүлэх явц</CardTitle>
+                                {isClosed && (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase rounded-full">
+                                        Хаагдсан
+                                    </span>
+                                )}
+                            </div>
                             <CardDescription className="text-slate-400">Шинэ ажилтны дасан зохицох үйл явц</CardDescription>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 rounded-xl border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white hover:text-indigo-600"
-                                onClick={syncWithPosition}
-                                disabled={isSaving}
-                            >
-                                <RefreshCw className={cn("h-3 w-3 mr-2", isSaving && "animate-spin")} />
-                                Хөтөлбөр шинэчлэх
-                            </Button>
+                            {!isClosed && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-xl border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white hover:text-indigo-600"
+                                    onClick={syncWithPosition}
+                                    disabled={isSaving}
+                                >
+                                    <RefreshCw className={cn("h-3 w-3 mr-2", isSaving && "animate-spin")} />
+                                    Хөтөлбөр шинэчлэх
+                                </Button>
+                            )}
                             {isSaving && <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />}
                             <div className="text-right">
-                                <p className="text-2xl font-black text-indigo-600 leading-none">{overallProgress}%</p>
+                                <p className={cn(
+                                    "text-2xl font-black leading-none",
+                                    isClosed ? "text-slate-400" : "text-indigo-600"
+                                )}>{overallProgress}%</p>
                                 <p className="text-[10px] font-bold text-slate-300 uppercase mt-1">Нийт явц</p>
                             </div>
                         </div>
                     </div>
                     <div className="mt-6">
-                        <Progress value={overallProgress} className="h-2 bg-slate-100" />
+                        <Progress value={overallProgress} className={cn("h-2", isClosed ? "bg-slate-200 [&>div]:bg-slate-400" : "bg-slate-100")} />
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -384,25 +435,33 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                                             {stage.tasks.map(task => (
                                                 <div
                                                     key={task.id}
-                                                    onClick={() => toggleTask(stage.id, task.id)}
+                                                    onClick={() => !isClosed && toggleTask(stage.id, task.id)}
                                                     className={cn(
-                                                        "group flex items-start gap-4 p-5 rounded-3xl border transition-all cursor-pointer",
-                                                        task.completed
+                                                        "group flex items-start gap-4 p-5 rounded-3xl border transition-all",
+                                                        isClosed 
+                                                            ? "cursor-not-allowed opacity-60 bg-slate-50 border-slate-200"
+                                                            : "cursor-pointer",
+                                                        !isClosed && task.completed
                                                             ? "bg-emerald-50 border-emerald-100 shadow-sm shadow-emerald-100/20"
-                                                            : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/10"
+                                                            : !isClosed && "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/10"
                                                     )}
                                                 >
                                                     <div className={cn(
-                                                        "h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all text-white",
-                                                        task.completed
-                                                            ? "bg-emerald-500"
-                                                            : "border-2 border-slate-100 bg-slate-50 group-hover:border-indigo-500 group-hover:bg-white"
+                                                        "h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                                                        isClosed && task.completed 
+                                                            ? "bg-slate-400 text-white"
+                                                            : isClosed 
+                                                                ? "border-2 border-slate-200 bg-slate-100"
+                                                                : task.completed
+                                                                    ? "bg-emerald-500 text-white"
+                                                                    : "border-2 border-slate-100 bg-slate-50 group-hover:border-indigo-500 group-hover:bg-white"
                                                     )}>
                                                         {task.completed && <CheckCircle className="h-4 w-4" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h5 className={cn(
                                                             "text-sm font-bold transition-all",
+                                                            isClosed ? "text-slate-500" : 
                                                             task.completed ? "text-emerald-800 line-through opacity-60" : "text-slate-700"
                                                         )}>
                                                             {task.title}
@@ -410,6 +469,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                                                         {task.description && (
                                                             <p className={cn(
                                                                 "text-[11px] mt-1 leading-relaxed",
+                                                                isClosed ? "text-slate-400" :
                                                                 task.completed ? "text-emerald-600/50" : "text-slate-400"
                                                             )}>
                                                                 {task.description}

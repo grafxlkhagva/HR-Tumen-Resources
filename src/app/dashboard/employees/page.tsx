@@ -21,7 +21,9 @@ import {
   UserPlus,
   Briefcase,
   Filter,
-  FileText
+  FileText,
+  Flag,
+  LogOut
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -160,6 +162,53 @@ export default function EmployeesPage() {
             href="/dashboard/employee-documents"
           />
         </StatGrid>
+
+        {/* Quick Access - Onboarding & Offboarding */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Onboarding Card */}
+          <Link href="/dashboard/onboarding">
+            <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden border-teal-200/50 hover:border-teal-300">
+              <CardContent className="p-5 relative">
+                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-gradient-to-br from-teal-500/10 to-emerald-500/10 rounded-full blur-2xl group-hover:from-teal-500/20 group-hover:to-emerald-500/20 transition-all" />
+                
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:scale-110 transition-transform">
+                    <Flag className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-slate-800">Чиглүүлэх хөтөлбөр</h3>
+                    <p className="text-sm text-slate-500">Шинэ ажилтныг чиглүүлэх</p>
+                  </div>
+                  <div className="text-[10px] font-bold text-teal-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                    Onboarding →
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Offboarding Card */}
+          <Link href="/dashboard/offboarding">
+            <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden border-rose-200/50 hover:border-rose-300">
+              <CardContent className="p-5 relative">
+                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-gradient-to-br from-rose-500/10 to-amber-500/10 rounded-full blur-2xl group-hover:from-rose-500/20 group-hover:to-amber-500/20 transition-all" />
+                
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform">
+                    <LogOut className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-slate-800">Чөлөөлөх хөтөлбөр</h3>
+                    <p className="text-sm text-slate-500">Ажлаас гарах процесс</p>
+                  </div>
+                  <div className="text-[10px] font-bold text-rose-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                    Offboarding →
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
 
         {/* Filter Bar */}
         <Card>

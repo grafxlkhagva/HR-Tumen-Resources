@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Card,
@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Pencil, Trash2, History } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Settings, Pencil, Trash2, History, Printer, Loader2 } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -54,6 +54,8 @@ interface StructureTabProps {
 export const StructureTab = ({ departments, departmentTypes, positions, filters, onAddDepartment, onClearFilters, onDepartmentClick }: StructureTabProps) => {
     const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
     const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const chartRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
     const { firestore } = useFirebase();
@@ -155,6 +157,144 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
         deleteDocumentNonBlocking(docRef);
     }
 
+    const handlePrint = useCallback(() => {
+        setIsPrinting(true);
+        
+        // Get the chart container
+        const chartContainer = chartRef.current;
+        if (!chartContainer) {
+            setIsPrinting(false);
+            return;
+        }
+
+        // Find the ReactFlow viewport
+        const viewport = chartContainer.querySelector('.react-flow__viewport') as HTMLElement;
+        if (!viewport) {
+            setIsPrinting(false);
+            return;
+        }
+
+        // Get current date
+        const currentDate = new Date().toLocaleDateString('mn-MN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // Clone the viewport content
+        const clonedViewport = viewport.cloneNode(true) as HTMLElement;
+        
+        // Remove interactive elements and handles
+        clonedViewport.querySelectorAll('.react-flow__handle, button, [class*="opacity-0"]').forEach(el => el.remove());
+
+        // Create a hidden iframe for printing
+        const printFrame = document.createElement('iframe');
+        printFrame.style.position = 'fixed';
+        printFrame.style.right = '0';
+        printFrame.style.bottom = '0';
+        printFrame.style.width = '0';
+        printFrame.style.height = '0';
+        printFrame.style.border = 'none';
+        document.body.appendChild(printFrame);
+
+        const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+        if (!frameDoc) {
+            document.body.removeChild(printFrame);
+            setIsPrinting(false);
+            return;
+        }
+
+        // Write content to iframe
+        frameDoc.open();
+        frameDoc.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Байгууллагын бүтэц</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    @page { 
+                        size: A4 landscape; 
+                        margin: 10mm;
+                    }
+                    body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: white;
+                        padding: 15px;
+                    }
+                    .header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid #e2e8f0;
+                    }
+                    .header h1 {
+                        font-size: 20px;
+                        font-weight: 700;
+                        color: #0f172a;
+                        margin-bottom: 5px;
+                    }
+                    .header p {
+                        font-size: 11px;
+                        color: #64748b;
+                    }
+                    .chart-container {
+                        position: relative;
+                        width: 100%;
+                        min-height: 400px;
+                        overflow: visible;
+                    }
+                    .react-flow__viewport {
+                        transform-origin: top left;
+                    }
+                    .footer {
+                        margin-top: 20px;
+                        padding-top: 10px;
+                        border-top: 1px solid #e2e8f0;
+                        display: flex;
+                        justify-content: space-between;
+                        font-size: 9px;
+                        color: #94a3b8;
+                    }
+                    @media print {
+                        body { 
+                            -webkit-print-color-adjust: exact !important; 
+                            print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>${companyProfile?.legalName || 'Байгууллагын бүтэц'}</h1>
+                    <p>Байгууллагын зохион байгуулалтын бүтэц</p>
+                </div>
+                <div class="chart-container">
+                    ${clonedViewport.outerHTML}
+                </div>
+                <div class="footer">
+                    <span>Хэвлэсэн: ${currentDate}</span>
+                    <span>Нийт ${deptsWithData.length} нэгж</span>
+                </div>
+            </body>
+            </html>
+        `);
+        frameDoc.close();
+
+        // Wait for content to render then print
+        setTimeout(() => {
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
+            
+            // Clean up after printing
+            setTimeout(() => {
+                document.body.removeChild(printFrame);
+                setIsPrinting(false);
+            }, 1000);
+        }, 300);
+    }, [companyProfile, deptsWithData]);
+
     return (
         <div className="space-y-6">
             {/* Local dialog for Editing only */}
@@ -177,8 +317,23 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
                             <Button
                                 variant="outline"
                                 size="icon"
+                                onClick={handlePrint}
+                                disabled={isPrinting || orgTree.length === 0}
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                                title="Хэвлэх"
+                            >
+                                {isPrinting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Printer className="h-4 w-4" />
+                                )}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
                                 onClick={() => router.push('/dashboard/organization/history')}
                                 className="text-muted-foreground hover:text-primary transition-colors"
+                                title="Түүх"
                             >
                                 <History className="h-4 w-4" />
                             </Button>
@@ -186,10 +341,11 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
                                 variant="outline"
                                 size="icon"
                                 onClick={() => router.push('/dashboard/organization/settings')}
+                                title="Тохиргоо"
                             >
                                 <Settings className="h-4 w-4" />
                             </Button>
-                            <Button variant="default" size="icon" onClick={onAddDepartment}>
+                            <Button variant="default" size="icon" onClick={onAddDepartment} title="Нэгж нэмэх">
                                 <PlusCircle className="h-4 w-4" />
                             </Button>
                         </div>
@@ -209,11 +365,13 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
                         </div>
                     )}
                     {!isLoading && orgTree.length > 0 ? (
-                        <OrgChartFlowCanvas
-                            data={orgTree}
-                            onDepartmentClick={onDepartmentClick}
-                            onDepartmentUpdate={onDepartmentUpdate}
-                        />
+                        <div ref={chartRef}>
+                            <OrgChartFlowCanvas
+                                data={orgTree}
+                                onDepartmentClick={onDepartmentClick}
+                                onDepartmentUpdate={onDepartmentUpdate}
+                            />
+                        </div>
                     ) : (
                         !isLoading && (
                             <div className="flex flex-col items-center justify-center min-h-[400px] p-8">

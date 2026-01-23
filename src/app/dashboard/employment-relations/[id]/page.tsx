@@ -13,7 +13,7 @@ import {
     Loader2, ArrowLeft, CheckCircle2, Circle, Clock,
     User, Briefcase, Building2, Send, Save, Undo2,
     MessageSquare, Check, X, Upload, Printer, Download,
-    Search, Plus, Trash2, FileText, Sparkles, Users, XCircle, AlertCircle, Wand2
+    Search, Plus, Trash2, FileText, Sparkles, Users, XCircle, AlertCircle, Wand2, Edit3
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -389,27 +389,91 @@ export default function DocumentDetailPage({ params }: PageProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/30 overflow-hidden">
-            {/* Header Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 space-y-8">
-                {/* Breadcrumbs & Status Stepper */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="space-y-4">
-                        <Link href="/dashboard/employment-relations" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-primary transition-colors">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Процесс удирдлага
-                        </Link>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-black tracking-tight text-slate-900 truncate max-w-md">
-                                {document.metadata?.templateName || 'Баримтын нэр'}
-                            </h1>
-                            <Badge className={cn("px-3 py-1 font-bold", DOCUMENT_STATUSES[currentStatus].color)}>
-                                {DOCUMENT_STATUSES[currentStatus].label}
-                            </Badge>
+        <div className="flex flex-col h-full bg-slate-50/50 overflow-hidden">
+            {/* Sticky Header */}
+            <div className="bg-white border-b sticky top-0 z-30">
+                <div className="px-6 md:px-8">
+                    {/* Top Row: Back + Title + Actions */}
+                    <div className="flex items-center justify-between py-4 gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+                                <Link href="/dashboard/employment-relations">
+                                    <ArrowLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-lg font-semibold truncate">
+                                        {document.metadata?.templateName || 'Баримт'}
+                                    </h1>
+                                    <Badge className={cn("shrink-0 text-[10px]", DOCUMENT_STATUSES[currentStatus].color)}>
+                                        {DOCUMENT_STATUSES[currentStatus].label}
+                                    </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedEmployee ? `${selectedEmployee.lastName || ''} ${selectedEmployee.firstName || ''}`.trim() : document.metadata?.employeeName || 'Ажилтан сонгоогүй'}
+                                    {document.metadata?.departmentName && ` • ${document.metadata.departmentName}`}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Header Actions */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            {/* Print/Download */}
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrint && handlePrint()} title="Хэвлэх">
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                            
+                            {/* Status-based actions */}
+                            {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
+                                <>
+                                    {currentStatus === 'DRAFT' && (template?.isDeletable ?? true) && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    <Button variant="outline" size="sm" className="h-8" onClick={handleSaveDraft} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                                        Хадгалах
+                                    </Button>
+                                    {currentStatus === 'DRAFT' && (
+                                        <Button size="sm" className="h-8" onClick={handleSendForReview} disabled={isSaving}>
+                                            <Send className="h-3.5 w-3.5 mr-1.5" />
+                                            Илгээх
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                            {currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED' && (
+                                <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
+                                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                                    Батлах
+                                </Button>
+                            )}
+                            {currentStatus === 'REVIEWED' && (isOwner || isAdmin) && (
+                                <>
+                                    <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} />
+                                    <Button variant="outline" size="sm" className="h-8" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                                        {isUploading ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-1.5" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
+                                        Эх хувь
+                                    </Button>
+                                    <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleFinalApprove} disabled={isSaving || isUploading}>
+                                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                                        Батлах
+                                    </Button>
+                                </>
+                            )}
+                            {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
+                                <Button variant="outline" size="sm" className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700" onClick={() => window.open(document.signedDocUrl, '_blank')}>
+                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                    Эх хувь
+                                </Button>
+                            )}
                         </div>
                     </div>
-
-                    {/* Progress Stepper */}
-                    <div className="flex items-center bg-white p-2 rounded-2xl shadow-sm border">
+                    
+                    {/* Progress Stepper Row */}
+                    <div className="flex items-center gap-1 pb-3 overflow-x-auto no-scrollbar">
                         {steps.map((step, idx) => {
                             const isPast = steps.findIndex(s => s.id === currentStatus) > idx;
                             const isCurrent = step.id === currentStatus;
@@ -418,450 +482,212 @@ export default function DocumentDetailPage({ params }: PageProps) {
                             return (
                                 <React.Fragment key={step.id}>
                                     <div className={cn(
-                                        "flex items-center gap-2 px-4 py-2 rounded-xl transition-all",
-                                        isCurrent ? "bg-primary text-white shadow-md shadow-primary/20 scale-105 z-10" : "text-slate-400"
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                                        isCurrent ? "bg-primary text-white" : isPast ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
                                     )}>
                                         <div className={cn(
-                                            "h-6 w-6 rounded-full flex items-center justify-center font-bold text-xs border-2",
-                                            isPast ? "bg-emerald-500 border-emerald-500 text-white" :
-                                                isCurrent ? "bg-white text-primary border-white" : "border-slate-200"
+                                            "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                                            isPast ? "bg-emerald-500 text-white" : isCurrent ? "bg-white/20" : "bg-slate-200"
                                         )}>
-                                            {isPast ? <Check className="h-4 w-4" /> : idx + 1}
+                                            {isPast ? <Check className="h-3 w-3" /> : idx + 1}
                                         </div>
-                                        <span className="text-xs font-bold uppercase tracking-wider">{step.label}</span>
+                                        {step.label}
                                     </div>
-                                    {!isLast && <div className="w-12 h-0.5 bg-slate-100 mx-1" />}
+                                    {!isLast && <div className="w-6 h-0.5 bg-slate-200 shrink-0" />}
                                 </React.Fragment>
                             );
                         })}
                     </div>
                 </div>
+            </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-                    {/* Sidebar: Entities */}
+            {/* Main Content */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-6 md:p-8 space-y-6 pb-32">
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    {/* Sidebar */}
                     <div className="xl:col-span-1 space-y-4">
-                        <EntityCard
-                            title="Ажилтан"
-                            icon={User}
-                            name={selectedEmployee ? `${selectedEmployee.lastName || ''} ${selectedEmployee.firstName || ''}`.trim() : (document.metadata?.employeeName || 'Сонгоогүй')}
-                            subText={`ID: ${document.employeeId}`}
-                            color="blue"
-                        />
+                        {/* Entity Info Card */}
+                        <div className="bg-white rounded-xl border p-4 space-y-4">
+                            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Холбогдох мэдээлэл</h3>
+                            
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                                    <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                                        <User className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] text-slate-400 uppercase font-medium">Ажилтан</p>
+                                        <p className="text-sm font-medium truncate">
+                                            {selectedEmployee ? `${selectedEmployee.lastName || ''} ${selectedEmployee.firstName || ''}`.trim() : document.metadata?.employeeName || 'Сонгоогүй'}
+                                        </p>
+                                    </div>
+                                </div>
 
-                        {currentStatus === 'DRAFT' ? (
-                            <>
-                                <EntityCard
-                                    title="Албан нэгж"
-                                    icon={Building2}
-                                    name={document.metadata?.departmentName || departments?.find(d => d.id === selectedDept)?.name || 'Мэдээлэлгүй'}
-                                    color="amber"
-                                />
-                                <EntityCard
-                                    title="Ажлын байр"
-                                    icon={Briefcase}
-                                    name={document.metadata?.positionName || positions?.find(p => p.id === selectedPos)?.title || 'Мэдээлэлгүй'}
-                                    color="purple"
-                                />
-                            </>
-                        ) : (
-                            <>
-                                <EntityCard
-                                    title="Албан нэгж"
-                                    icon={Building2}
-                                    name={document.metadata?.departmentName || 'Мэдээлэлгүй'}
-                                    color="amber"
-                                />
-                                <EntityCard
-                                    title="Ажлын байр"
-                                    icon={Briefcase}
-                                    name={document.metadata?.positionName || 'Мэдээлэлгүй'}
-                                    color="purple"
-                                />
-                            </>
-                        )}
+                                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                                    <div className="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center">
+                                        <Building2 className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] text-slate-400 uppercase font-medium">Албан нэгж</p>
+                                        <p className="text-sm font-medium truncate">
+                                            {document.metadata?.departmentName || departments?.find(d => d.id === selectedDept)?.name || 'Мэдээлэлгүй'}
+                                        </p>
+                                    </div>
+                                </div>
 
-                        {/* Approvers Section */}
-                        <Card className="border-none shadow-sm bg-white overflow-hidden">
-                            <CardHeader className="bg-slate-900 text-white p-4">
-                                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                    <Users className="h-4 w-4 text-primary" /> Хянах, Батлах
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-4">
-                                {/* Allow editing reviewers in DRAFT or IN_REVIEW */}
+                                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                                    <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                                        <Briefcase className="h-4 w-4 text-purple-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] text-slate-400 uppercase font-medium">Ажлын байр</p>
+                                        <p className="text-sm font-medium truncate">
+                                            {document.metadata?.positionName || positions?.find(p => p.id === selectedPos)?.title || 'Мэдээлэлгүй'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Reviewers Card */}
+                        <div className="bg-white rounded-xl border overflow-hidden">
+                            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Хянагчид</span>
+                                </div>
+                                {reviewers.length > 0 && (
+                                    <Badge variant="secondary" className="bg-white/20 text-white text-[10px]">
+                                        {reviewers.length}
+                                    </Badge>
+                                )}
+                            </div>
+                            <div className="p-4 space-y-3">
                                 {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                            <Label className="text-xs font-bold text-slate-700">Хянуулах шаардлагатай</Label>
+                                    <>
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-xs text-slate-600">Хянуулах</Label>
                                             <Switch
                                                 checked={isReviewRequired}
                                                 onCheckedChange={(checked) => {
                                                     setIsReviewRequired(checked);
-                                                    if (!checked) setReviewers([]); // Clear reviewers if not required logic prefers
+                                                    if (!checked) setReviewers([]);
                                                 }}
                                             />
                                         </div>
 
                                         {isReviewRequired && (
-                                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                <Label className="text-[10px] uppercase font-bold text-slate-400">Албан тушаалаар сонгох</Label>
-                                                <Select onValueChange={(posId) => {
-                                                    if (posId && !reviewers.includes(posId)) {
-                                                        setReviewers([...reviewers, posId]);
-                                                    }
-                                                }}>
-                                                    <SelectTrigger className="text-xs h-9 bg-slate-50 border-slate-200">
-                                                        <Briefcase className="h-3 w-3 mr-2 text-slate-400" />
-                                                        <SelectValue placeholder="Сонгох..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {occupiedPositions?.length === 0 ? (
-                                                            <div className="p-2 text-[10px] text-slate-400 text-center">Сонгох боломжтой албан тушаал алга</div>
-                                                        ) : (
-                                                            occupiedPositions?.map(p => {
-                                                                const pos = p as any;
-                                                                return (
-                                                                    <SelectItem key={pos.id} value={pos.id}>
-                                                                        <span className="font-bold">{pos.title}</span> <span className="text-slate-400">- {pos.occupant?.firstName}</span>
-                                                                    </SelectItem>
-                                                                );
-                                                            })
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-[10px] text-slate-400 pt-1">
-                                                    * Зөвхөн ажилтан томилогдсон ажлын байр харагдана.
-                                                </p>
-                                            </div>
+                                            <Select onValueChange={(posId) => {
+                                                if (posId && !reviewers.includes(posId)) {
+                                                    setReviewers([...reviewers, posId]);
+                                                }
+                                            }}>
+                                                <SelectTrigger className="text-xs h-9">
+                                                    <SelectValue placeholder="Хянагч нэмэх..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {occupiedPositions?.length === 0 ? (
+                                                        <div className="p-2 text-xs text-slate-400 text-center">Сонгох боломжтой албан тушаал алга</div>
+                                                    ) : (
+                                                        occupiedPositions?.map(p => {
+                                                            const pos = p as any;
+                                                            return (
+                                                                <SelectItem key={pos.id} value={pos.id}>
+                                                                    <span className="font-medium">{pos.title}</span>
+                                                                    <span className="text-slate-400 ml-1">- {pos.occupant?.firstName}</span>
+                                                                </SelectItem>
+                                                            );
+                                                        })
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         )}
-                                    </div>
+                                    </>
                                 )}
 
-                                <div className="space-y-3 pt-2">
-                                    {reviewers.map((rid, idx) => {
+                                <div className="space-y-2">
+                                    {reviewers.map((rid) => {
                                         const pos = allPositions?.find(p => p.id === rid);
                                         const occupant = employeesList?.find(u => u.positionId === rid || u.id === rid);
                                         const status = document.approvalStatus?.[occupant?.id || rid];
 
                                         return (
-                                            <div key={rid} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 group">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <Avatar className="h-7 w-7 border shrink-0">
-                                                        <AvatarImage src={occupant?.photoURL} />
-                                                        <AvatarFallback className="text-[10px]">{pos?.title?.charAt(0) || '?'}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter truncate">
-                                                            {pos?.title || 'Тодорхойгүй талбар'}
-                                                        </div>
-                                                        <div className="text-[11px] font-bold text-slate-800 truncate">
-                                                            {occupant ? `${occupant.firstName} ${occupant.lastName}` : 'Сул орон тоо'}
-                                                        </div>
-                                                        {status && (
-                                                            <div className={cn(
-                                                                "text-[9px] font-bold uppercase mt-0.5",
-                                                                status.status === 'APPROVED' ? "text-emerald-500" :
-                                                                    status.status === 'REJECTED' ? "text-rose-500" : "text-amber-500"
-                                                            )}>
-                                                                {status.status === 'APPROVED' ? 'Зөвшөөрсөн' : status.status === 'REJECTED' ? 'Татгалзсан' : 'Хүлээгдэж буй'}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                            <div key={rid} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 group">
+                                                <Avatar className="h-8 w-8 shrink-0">
+                                                    <AvatarImage src={occupant?.photoURL} />
+                                                    <AvatarFallback className="text-xs bg-slate-200">{pos?.title?.charAt(0) || '?'}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-medium truncate">{occupant ? `${occupant.firstName} ${occupant.lastName}` : 'Сул'}</p>
+                                                    <p className="text-[10px] text-slate-400 truncate">{pos?.title}</p>
                                                 </div>
+                                                {status?.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                                                {status?.status === 'REJECTED' && <XCircle className="h-4 w-4 text-rose-500 shrink-0" />}
+                                                {status?.status === 'PENDING' && <Clock className="h-4 w-4 text-amber-500 shrink-0" />}
                                                 {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-500" onClick={() => setReviewers(reviewers.filter(r => r !== rid))}>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500" onClick={() => setReviewers(reviewers.filter(r => r !== rid))}>
                                                         <X className="h-3 w-3" />
                                                     </Button>
                                                 )}
-                                                {status?.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
-                                                {status?.status === 'REJECTED' && <XCircle className="h-4 w-4 text-rose-500 shrink-0" />}
                                             </div>
                                         );
                                     })}
-                                    {reviewers.length === 0 && <p className="text-[10px] text-center text-slate-400 py-4 italic">Хянагч сонгоогүй байна</p>}
+                                    {reviewers.length === 0 && (
+                                        <p className="text-xs text-center text-slate-400 py-3">Хянагч байхгүй</p>
+                                    )}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        {/* Custom Inputs Editing Section - Only in Draft/Review */}
+                        {/* Custom Inputs */}
                         {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && template?.customInputs && template.customInputs.length > 0 && (
-                            <Card className="border-none shadow-sm bg-white overflow-hidden">
-                                <CardHeader className="bg-primary/5 p-4 border-b">
-                                    <CardTitle className="text-xs font-bold flex items-center gap-2 text-primary">
-                                        <Wand2 className="h-4 w-4" /> Шаардлагатай утгууд
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 space-y-4">
+                            <div className="bg-white rounded-xl border overflow-hidden">
+                                <div className="px-4 py-3 border-b bg-primary/5 flex items-center gap-2">
+                                    <Wand2 className="h-4 w-4 text-primary" />
+                                    <span className="text-sm font-medium text-primary">Нэмэлт утгууд</span>
+                                </div>
+                                <div className="p-4 space-y-3">
                                     {[...(template.customInputs || [])]
                                         .sort((a, b) => (a.order || 0) - (b.order || 0))
                                         .map(input => (
-                                            <div key={input.key} className="space-y-1.5">
-                                                <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
-                                                    <span>{input.label} {input.required && <span className="text-rose-500">*</span>}</span>
+                                            <div key={input.key} className="space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-xs text-slate-600">
+                                                        {input.label} {input.required && <span className="text-rose-500">*</span>}
+                                                    </Label>
                                                     {input.type === 'boolean' && (
                                                         <Switch
                                                             checked={customInputValues[input.key] === 'Тийм'}
                                                             onCheckedChange={(c) => setCustomInputValues(prev => ({ ...prev, [input.key]: c ? 'Тийм' : 'Үгүй' }))}
                                                         />
                                                     )}
-                                                </Label>
-
+                                                </div>
                                                 {input.type !== 'boolean' && (
                                                     <Input
                                                         type={input.type === 'number' ? 'number' : input.type === 'date' ? 'date' : 'text'}
                                                         value={customInputValues[input.key] || ''}
                                                         onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
-                                                        placeholder={input.description || `${input.label} оруулна уу...`}
-                                                        className="h-9 text-xs border-slate-200 focus:border-primary focus:ring-primary/10 bg-slate-50/30"
+                                                        placeholder={input.description || `${input.label}...`}
+                                                        className="h-8 text-xs"
                                                     />
-                                                )}
-                                                {input.type === 'boolean' && (
-                                                    <p className="text-[9px] text-muted-foreground">{input.description || 'Сонголтыг идэвхжүүлэх эсвэл цуцлах'}</p>
                                                 )}
                                             </div>
                                         ))
                                     }
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-
-                    {/* Main Content: Content & Collaboration */}
-                    <div className="xl:col-span-3 space-y-6">
-                        {/* Rejection Notification in Draft */}
-                        {currentStatus === 'DRAFT' && document.approvalStatus && Object.values(document.approvalStatus).some((s: any) => s.status === 'REJECTED') && (
-                            <Card className="border-none shadow-sm bg-rose-50 border-l-4 border-l-rose-500 overflow-hidden">
-                                <CardContent className="p-4 flex gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                                        <Undo2 className="h-5 w-5 text-rose-600" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="font-bold text-rose-900">Засварлах шаардлагатай байна</h4>
-                                        <div className="text-sm text-rose-700 space-y-2">
-                                            {Object.entries(document.approvalStatus).filter(([_, s]: [any, any]) => s.status === 'REJECTED').map(([uid, s]: [any, any]) => {
-                                                const rUser = employeesList?.find(u => u.id === uid);
-                                                return (
-                                                    <div key={uid} className="bg-white/50 p-2 rounded border border-rose-100 italic">
-                                                        <span className="font-bold not-italic">{rUser?.firstName}:</span> "{s.comment}"
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         )}
 
-                        {/* Actions Bar */}
-                        <Card className="border-none shadow-sm bg-white overflow-hidden">
-                            <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
-                                <div className="flex items-center gap-2 font-bold text-slate-700">
-                                    <FileText className="h-4 w-4" /> Документын байдал
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {/* Edit Actions: Available in DRAFT and IN_REVIEW for Owner/Admin */}
-                                    {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
-                                        <>
-                                            {currentStatus === 'DRAFT' && (template?.isDeletable ?? true) && (
-                                                <Button variant="outline" size="sm" className="text-rose-600 hover:bg-rose-50 border-rose-200" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving}>
-                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                    Устгах
-                                                </Button>
-                                            )}
-
-                                            <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSaving}>
-                                                {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
-                                                Хадгалах
-                                            </Button>
-
-                                            {currentStatus === 'DRAFT' && (
-                                                <Button size="sm" onClick={handleSendForReview} disabled={isSaving}>
-                                                    <Send className="h-3.5 w-3.5 mr-2" />
-                                                    Хянахаар илгээх
-                                                </Button>
-                                            )}
-                                        </>
-                                    )}
-
-                                    {currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED' && (
-                                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
-                                            <Check className="h-3.5 w-3.5 mr-2" />
-                                            Батлах
-                                        </Button>
-                                    )}
-                                    {/* Final Approve & File Upload: Available in REVIEWED for Admin/Owner */}
-                                    {currentStatus === 'REVIEWED' && (isOwner || isAdmin) && (
-                                        <>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                                onChange={handleFileUpload}
-                                            />
-                                            <Button variant="outline" size="sm" className="border-slate-300" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                                                {isUploading ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-2" /> : <Upload className="h-3.5 w-3.5 mr-2" />}
-                                                {document.signedDocUrl ? 'Эх хувийг шинэчлэх' : 'Эх хувийг хавсаргах'}
-                                            </Button>
-
-                                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleFinalApprove} disabled={isSaving || isUploading}>
-                                                <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
-                                                Батлах
-                                            </Button>
-                                        </>
-                                    )}
-
-                                    {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                            onClick={() => window.open(document.signedDocUrl, '_blank')}
-                                        >
-                                            <FileText className="h-3.5 w-3.5 mr-2" />
-                                            Эх хувийг харах
-                                        </Button>
-                                    )}
-                                    {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-9 w-9 bg-primary/5 text-primary border-primary/20 hover:bg-primary/10"
-                                            onClick={() => setIsEditorOpen(true)}
-                                            title="Загварчлах"
-                                        >
-                                            <FileText className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    <div className="h-6 w-px bg-slate-200 mx-2" />
-                                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handlePrint && handlePrint()}>
-                                        <Printer className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handlePrint && handlePrint()}>
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Hidden Print Layout */}
-                        <div style={{ display: 'none' }}>
-                            <PrintLayout
-                                ref={printComponentRef}
-                                content={editContent || document.content || ''}
-                                settings={document?.metadata?.printSettings}
-                            />
-                        </div>
-
-                        {/* Document Content */}
-                        <Card className="border-none shadow-xl bg-white overflow-hidden min-h-[850px] flex flex-col">
-                            <CardHeader className="p-4 px-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                        <Sparkles className="h-4 w-4 text-primary" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-sm font-black tracking-tight uppercase">Урьдчилан харах</CardTitle>
-                                        <p className="text-[10px] text-muted-foreground font-bold">Баримтын бодит харагдац</p>
-                                    </div>
-                                </div>
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] uppercase font-bold px-2 py-0.5 animate-pulse">
-                                    Live Preview
-                                </Badge>
-                            </CardHeader>
-                            <CardContent className="p-0 flex-1 overflow-hidden">
-                                <div className="bg-slate-200/40 p-12 h-full flex justify-center overflow-auto scrollbar-thin">
-                                    <div className="flex flex-col items-center">
-                                        <div
-                                            className="bg-white shadow-2xl p-[20mm] prose prose-slate max-w-none w-[210mm] min-h-[297mm] ring-1 ring-slate-900/10 relative transition-all duration-500 animate-in fade-in zoom-in-95"
-                                            dangerouslySetInnerHTML={{
-                                                __html: generateDocumentContent(editContent || document.content, {
-                                                    employee: selectedEmployee,
-                                                    department: departments?.find(d => d.id === selectedDept),
-                                                    position: positions?.find(p => p.id === selectedPos),
-                                                    company: companyProfile,
-                                                    system: {
-                                                        date: format(new Date(), 'yyyy-MM-dd'),
-                                                        year: format(new Date(), 'yyyy'),
-                                                        month: format(new Date(), 'MM'),
-                                                        day: format(new Date(), 'dd'),
-                                                        user: currentUser?.displayName || 'Системийн хэрэглэгч'
-                                                    },
-                                                    customInputs: customInputValues
-                                                }).replace(/\n/g, '<br/>')
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Editor Dialog */}
-                        <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-                            <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0 overflow-hidden">
-                                <DialogHeader className="p-6 border-b bg-slate-50 shrink-0">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                                                <FileText className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <DialogTitle className="text-lg font-black tracking-tight uppercase">Загварчлах горим</DialogTitle>
-                                                <p className="text-xs text-muted-foreground">Баримтын анхны эх кодыг засах хэсэг</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 mr-8">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-9 text-xs font-bold text-slate-500"
-                                                onClick={restoreTemplateContent}
-                                            >
-                                                <Undo2 className="h-4 w-4 mr-2" /> Загвар сэргээх
-                                            </Button>
-                                            <Button
-                                                className="h-9 text-xs font-bold px-6"
-                                                onClick={() => setIsEditorOpen(false)}
-                                            >
-                                                <Check className="h-4 w-4 mr-2" /> Дуусгах
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </DialogHeader>
-                                <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50">
-                                    <TemplateBuilder
-                                        content={editContent}
-                                        onChange={setEditContent}
-                                        resolvers={getReplacementMap({
-                                            employee: selectedEmployee,
-                                            department: departments?.find(d => d.id === selectedDept),
-                                            position: positions?.find(p => p.id === selectedPos),
-                                            company: companyProfile,
-                                            system: {
-                                                date: format(new Date(), 'yyyy-MM-dd'),
-                                                year: format(new Date(), 'yyyy'),
-                                                month: format(new Date(), 'MM'),
-                                                day: format(new Date(), 'dd'),
-                                                user: currentUser?.displayName || 'Системийн хэрэглэгч'
-                                            },
-                                            customInputs: customInputValues
-                                        })}
-                                        printSettings={document.printSettings}
-                                        customInputs={template?.customInputs || []}
-                                    />
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-
-                        {/* Review History / Comments (Visible in Review & Approved) */}
+                        {/* Activity Feed for mobile/tablet */}
                         {currentStatus !== 'DRAFT' && (
-                            <Card className="border-none shadow-sm bg-white overflow-hidden max-h-[600px] flex flex-col">
-                                <CardHeader className="p-4 bg-slate-50 border-b shrink-0">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                        <MessageSquare className="h-4 w-4 text-slate-400" /> Процессын түүх
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0 overflow-y-auto flex-1 bg-slate-50/30">
+                            <div className="xl:hidden bg-white rounded-xl border overflow-hidden">
+                                <div className="px-4 py-3 border-b flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4 text-slate-400" />
+                                    <span className="text-sm font-medium">Түүх & Коммент</span>
+                                </div>
+                                <div className="h-[400px]">
                                     <ActivityFeed
                                         documentId={id}
                                         employeesList={employeesList || []}
@@ -872,10 +698,160 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}
                                     />
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         )}
                     </div>
+
+                    {/* Main Content */}
+                    <div className="xl:col-span-2 space-y-4">
+                        {/* Rejection Alert */}
+                        {currentStatus === 'DRAFT' && document.approvalStatus && Object.values(document.approvalStatus).some((s: any) => s.status === 'REJECTED') && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3">
+                                <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-rose-900">Засварлах шаардлагатай</p>
+                                    {Object.entries(document.approvalStatus).filter(([_, s]: [any, any]) => s.status === 'REJECTED').map(([uid, s]: [any, any]) => {
+                                        const rUser = employeesList?.find(u => u.id === uid);
+                                        return (
+                                            <p key={uid} className="text-sm text-rose-700">
+                                                <span className="font-medium">{rUser?.firstName}:</span> "{s.comment}"
+                                            </p>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Document Preview Card */}
+                        <div className="bg-white rounded-xl border overflow-hidden">
+                            {/* Preview Header */}
+                            <div className="px-4 py-3 border-b flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-slate-400" />
+                                    <span className="text-sm font-medium">Баримтын харагдац</span>
+                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200">Live</Badge>
+                                </div>
+                                {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => setIsEditorOpen(true)}
+                                    >
+                                        <Edit3 className="h-3 w-3 mr-1.5" />
+                                        Засах
+                                    </Button>
+                                )}
+                            </div>
+                            
+                            {/* Document Preview */}
+                            <div className="bg-slate-100 p-6 md:p-10">
+                                <div className="max-w-3xl mx-auto">
+                                    <div
+                                        className="bg-white shadow-lg p-8 md:p-12 prose prose-slate max-w-none min-h-[600px] ring-1 ring-slate-200"
+                                        dangerouslySetInnerHTML={{
+                                            __html: generateDocumentContent(editContent || document.content, {
+                                                employee: selectedEmployee,
+                                                department: departments?.find(d => d.id === selectedDept),
+                                                position: positions?.find(p => p.id === selectedPos),
+                                                company: companyProfile,
+                                                system: {
+                                                    date: format(new Date(), 'yyyy-MM-dd'),
+                                                    year: format(new Date(), 'yyyy'),
+                                                    month: format(new Date(), 'MM'),
+                                                    day: format(new Date(), 'dd'),
+                                                    user: currentUser?.displayName || 'Системийн хэрэглэгч'
+                                                },
+                                                customInputs: customInputValues
+                                            }).replace(/\n/g, '<br/>')
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Hidden Print Layout */}
+                        <div style={{ display: 'none' }}>
+                            <PrintLayout
+                                ref={printComponentRef}
+                                content={editContent || document.content || ''}
+                                settings={document?.metadata?.printSettings}
+                            />
+                        </div>
+
+            {/* Editor Dialog */}
+            <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+                <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-4 border-b bg-slate-50 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-white">
+                                    <FileText className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-base font-semibold">Агуулга засах</DialogTitle>
+                                    <p className="text-xs text-muted-foreground">HTML эх кодыг засах</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={restoreTemplateContent}>
+                                    <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Сэргээх
+                                </Button>
+                                <Button size="sm" className="h-8 text-xs" onClick={() => setIsEditorOpen(false)}>
+                                    <Check className="h-3.5 w-3.5 mr-1.5" /> Дуусгах
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                        <TemplateBuilder
+                            content={editContent}
+                            onChange={setEditContent}
+                            resolvers={getReplacementMap({
+                                employee: selectedEmployee,
+                                department: departments?.find(d => d.id === selectedDept),
+                                position: positions?.find(p => p.id === selectedPos),
+                                company: companyProfile,
+                                system: {
+                                    date: format(new Date(), 'yyyy-MM-dd'),
+                                    year: format(new Date(), 'yyyy'),
+                                    month: format(new Date(), 'MM'),
+                                    day: format(new Date(), 'dd'),
+                                    user: currentUser?.displayName || 'Системийн хэрэглэгч'
+                                },
+                                customInputs: customInputValues
+                            })}
+                            printSettings={document.printSettings}
+                            customInputs={template?.customInputs || []}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+                        {/* Activity Feed for desktop */}
+                        {currentStatus !== 'DRAFT' && (
+                            <div className="hidden xl:block bg-white rounded-xl border overflow-hidden">
+                                <div className="px-4 py-3 border-b flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4 text-slate-400" />
+                                    <span className="text-sm font-medium">Түүх & Коммент</span>
+                                </div>
+                                <div className="h-[450px]">
+                                    <ActivityFeed
+                                        documentId={id}
+                                        employeesList={employeesList || []}
+                                        isApprover={isApprover}
+                                        isAdmin={isAdmin}
+                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED'}
+                                        onApprove={handleApprove}
+                                        canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
+                                        onFinalApprove={handleFinalApprove}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
                 </div>
             </div>
 
@@ -898,33 +874,6 @@ export default function DocumentDetailPage({ params }: PageProps) {
                 </DialogContent>
             </Dialog>
         </div>
-    );
-}
-
-function EntityCard({ title, icon: Icon, name, subText, color }: { title: string, icon: any, name: string, subText?: string, color: 'blue' | 'amber' | 'purple' | 'slate' }) {
-    const colorClasses: Record<string, string> = {
-        blue: "bg-blue-50 text-blue-600 border-blue-100",
-        amber: "bg-amber-50 text-amber-600 border-amber-100",
-        purple: "bg-purple-50 text-purple-600 border-purple-100",
-        slate: "bg-slate-50 text-slate-600 border-slate-100",
-    };
-
-    return (
-        <Card className="border-none shadow-sm overflow-hidden bg-white">
-            <div className={cn("px-4 py-3 border-b flex items-center gap-2", "bg-slate-50/50")}>
-                <Icon className="h-4 w-4 text-slate-400" />
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{title}</h3>
-            </div>
-            <CardContent className="p-4 flex items-center gap-3">
-                <div className={cn("h-10 w-10 rounded-2xl flex items-center justify-center border", colorClasses[color] || colorClasses.slate)}>
-                    <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="font-bold text-slate-900 truncate leading-none">{name}</div>
-                    {subText && <div className="text-[10px] text-slate-400 mt-1">{subText}</div>}
-                </div>
-            </CardContent>
-        </Card>
     );
 }
 
@@ -1001,10 +950,10 @@ function ActivityFeed({
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {activities.length === 0 && (
-                    <div className="text-center py-8 text-slate-400 text-xs italic">
-                        Түүх байхгүй байна.
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                        Түүх байхгүй
                     </div>
                 )}
                 {activities.map((act) => {
@@ -1016,56 +965,56 @@ function ActivityFeed({
 
                     if (isSys) {
                         return (
-                            <div key={act.id} className="flex justify-center my-2">
-                                <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px] font-medium px-2 py-0.5">
+                            <div key={act.id} className="flex justify-center my-1">
+                                <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                                     {act.content}
-                                </Badge>
+                                </span>
                             </div>
-                        )
+                        );
                     }
 
                     return (
-                        <div key={act.id} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
-                            <Avatar className="h-8 w-8 border shrink-0">
+                        <div key={act.id} className={cn("flex gap-2", isMe ? "flex-row-reverse" : "flex-row")}>
+                            <Avatar className="h-7 w-7 shrink-0">
                                 <AvatarImage src={user.avatar} />
-                                <AvatarFallback className="text-[10px]">{user.initial}</AvatarFallback>
+                                <AvatarFallback className="text-[10px] bg-slate-100">{user.initial}</AvatarFallback>
                             </Avatar>
                             <div className={cn(
-                                "max-w-[85%] rounded-2xl p-3 text-sm shadow-sm relative",
-                                isMe ? "bg-slate-100 text-slate-800 rounded-tr-none" : "bg-white border border-slate-100 text-slate-700 rounded-tl-none",
-                                isApprove ? "bg-emerald-50 border-emerald-100 text-emerald-800" :
-                                    isReject ? "bg-rose-50 border-rose-100 text-rose-800" : ""
+                                "max-w-[80%] rounded-xl px-3 py-2 text-xs",
+                                isMe ? "bg-primary/10 text-slate-800" : "bg-slate-100 text-slate-700",
+                                isApprove && "bg-emerald-50 text-emerald-800",
+                                isReject && "bg-rose-50 text-rose-800"
                             )}>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-bold opacity-70">{user.name}</span>
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="font-medium">{user.name}</span>
                                     <span className="text-[9px] opacity-50">{formatDateTime(act.createdAt)}</span>
                                 </div>
                                 {isApprove && (
-                                    <div className="flex items-center gap-1 font-bold text-xs mb-1">
-                                        <CheckCircle2 className="h-3.5 w-3.5" /> Батлав
+                                    <div className="flex items-center gap-1 font-medium text-[11px] mb-0.5">
+                                        <CheckCircle2 className="h-3 w-3" /> Батлав
                                     </div>
                                 )}
                                 {isReject && (
-                                    <div className="flex items-center gap-1 font-bold text-xs mb-1">
-                                        <AlertCircle className="h-3.5 w-3.5" /> Буцаав
+                                    <div className="flex items-center gap-1 font-medium text-[11px] mb-0.5">
+                                        <AlertCircle className="h-3 w-3" /> Буцаав
                                     </div>
                                 )}
-                                <p className="leading-relaxed whitespace-pre-wrap">{act.content}</p>
+                                <p className="whitespace-pre-wrap">{act.content}</p>
                             </div>
                         </div>
-                    )
+                    );
                 })}
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Chat Input Area */}
-            <div className="p-3 border-t bg-white shrink-0">
-                <div className="flex gap-2 items-center">
+            {/* Input */}
+            <div className="p-3 border-t shrink-0">
+                <div className="flex gap-2">
                     <Input
                         value={commentText}
                         onChange={e => setCommentText(e.target.value)}
-                        placeholder="Коммент бичих..."
-                        className="flex-1 bg-slate-50 border-slate-200 text-xs h-9"
+                        placeholder="Коммент..."
+                        className="flex-1 h-8 text-xs"
                         onKeyDown={e => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
@@ -1073,37 +1022,18 @@ function ActivityFeed({
                             }
                         }}
                     />
-
-                    {/* Quick Action Buttons placed before Send button */}
                     {canApprove && (
-                        <Button
-                            size="icon"
-                            className="h-9 w-9 shrink-0 bg-emerald-600 hover:bg-emerald-700 shadow-sm"
-                            onClick={(e) => { e.preventDefault(); onApprove?.(); }}
-                            title="Батлах"
-                        >
-                            <Check className="h-4 w-4" />
+                        <Button size="icon" className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => onApprove?.()} title="Батлах">
+                            <Check className="h-3.5 w-3.5" />
                         </Button>
                     )}
-
                     {canFinalApprove && (
-                        <Button
-                            size="icon"
-                            className="h-9 w-9 shrink-0 bg-indigo-600 hover:bg-indigo-700 shadow-sm"
-                            onClick={(e) => { e.preventDefault(); onFinalApprove?.(); }}
-                            title="Эцэслэн батлах"
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
+                        <Button size="icon" className="h-8 w-8 bg-indigo-600 hover:bg-indigo-700" onClick={() => onFinalApprove?.()} title="Эцэслэн батлах">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
                         </Button>
                     )}
-
-                    <Button
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        onClick={handleSendComment}
-                        disabled={!commentText.trim() || isSending}
-                    >
-                        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    <Button size="icon" className="h-8 w-8" onClick={handleSendComment} disabled={!commentText.trim() || isSending}>
+                        {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                     </Button>
                 </div>
             </div>
