@@ -191,8 +191,21 @@ export const PositionsListTable = ({
                     ))}
                 {!isLoading && positions?.map((pos) => {
                     const isSelected = selectedIds.includes(pos.id);
+                    const deptColor = lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor || undefined;
+                    const hasColor = deptColor && deptColor !== '#ffffff' && deptColor.toLowerCase() !== 'white';
+                    
                     return (
-                        <TableRow key={pos.id} className={cn(isSelected && 'bg-primary/5')}>
+                        <TableRow 
+                            key={pos.id} 
+                            className={cn(
+                                isSelected && 'bg-primary/5',
+                                hasColor && 'hover:opacity-90 transition-opacity'
+                            )}
+                            style={{
+                                borderLeft: hasColor ? `4px solid ${deptColor}` : undefined,
+                                backgroundColor: hasColor ? `${deptColor}08` : undefined
+                            }}
+                        >
                             <TableCell className="pl-6">
                                 <Checkbox
                                     checked={isSelected}

@@ -82,32 +82,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="mb-4 flex flex-col items-center gap-3">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-8">
+      <Card className="w-full max-w-sm rounded-2xl border-0 shadow-xl">
+        <CardHeader className="text-center space-y-2 pb-2">
+          <div className="mb-2 flex flex-col items-center gap-4">
             {isLoadingProfile ? (
               <>
-                <Skeleton className="h-16 w-16 rounded-full" />
+                <Skeleton className="h-16 w-16 rounded-2xl" />
                 <Skeleton className="h-7 w-40" />
               </>
             ) : (
               <>
-                <Avatar className="h-16 w-16">
+                <Avatar className="h-16 w-16 rounded-2xl ring-4 ring-primary/5">
                   <AvatarImage src={companyProfile?.logoUrl} alt={companyProfile?.name} />
-                  <AvatarFallback className="rounded-lg bg-muted">
-                    <Building className="h-8 w-8 text-muted-foreground" />
+                  <AvatarFallback className="rounded-2xl bg-primary/10">
+                    <Building className="h-8 w-8 text-primary" />
                   </AvatarFallback>
                 </Avatar>
-                <CardTitle className="text-2xl">{companyProfile?.name || 'Teal HR'}-т нэвтрэх</CardTitle>
+                <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+                  {companyProfile?.name || 'Teal HR'}-т нэвтрэх
+                </CardTitle>
               </>
             )}
           </div>
-          <CardDescription>
+          <CardDescription className="text-sm leading-relaxed">
             Өөрийн нэвтрэх нэр эсвэл имэйл хаягаар нэвтэрнэ үү.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="identifier">Ажилтны код эсвэл имэйл</Label>
@@ -159,9 +161,9 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
-      <div className="mt-4 text-center text-sm">
+      <div className="mt-6 text-center text-sm text-muted-foreground">
         Анхны админ уу?{' '}
-        <Link href="/signup" className="underline">
+        <Link href="/signup" className="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors">
           Бүртгүүлэх
         </Link>
       </div>

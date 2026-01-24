@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
-import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2 } from 'lucide-react';
+import { doc, collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
+import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,6 +29,70 @@ import { CoreValue } from '@/types/points';
 import { query, orderBy } from 'firebase/firestore';
 import { hexToHsl } from '@/lib/color-utils';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Position, Department, PositionLevel, EmploymentType } from '../organization/types';
+import { Employee } from '@/types';
+import { AppointEmployeeDialog } from '../organization/[departmentId]/components/flow/appoint-employee-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CurrencyInput } from '../organization/positions/[positionId]/components/currency-input';
+
+// CEO Setup wizard types
+interface SalaryStep {
+    name: string;
+    value: number;
+}
+
+interface Incentive {
+    type: string;
+    description: string;
+    amount: number;
+    currency: string;
+    unit: '%' | '₮';
+    frequency: string;
+}
+
+interface Allowance {
+    type: string;
+    amount: number;
+    currency: string;
+    period: 'once' | 'daily' | 'monthly' | 'quarterly' | 'semi-annually' | 'yearly';
+}
+
+interface CEOSetupData {
+    levelId: string;
+    employmentTypeId: string;
+    salaryRange: {
+        min: number;
+        max: number;
+        currency: string;
+    };
+    salarySteps: {
+        items: SalaryStep[];
+        activeIndex: number;
+        currency: string;
+    };
+    incentives: Incentive[];
+    allowances: Allowance[];
+}
+
+// Helper functions for number formatting
+const formatNumberWithCommas = (num: number | string): string => {
+    if (!num && num !== 0) return '';
+    const numStr = typeof num === 'string' ? num.replace(/,/g, '') : num.toString();
+    const numVal = parseFloat(numStr);
+    if (isNaN(numVal)) return '';
+    return numVal.toLocaleString('en-US');
+};
+
+const parseFormattedNumber = (str: string): number => {
+    if (!str) return 0;
+    const cleaned = str.replace(/,/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+};
 
 interface BrandColor {
     id: string;
@@ -127,6 +191,24 @@ function PageSkeleton() {
 
 export default function CompanyPage() {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isSettingUpCEO, setIsSettingUpCEO] = React.useState(false);
+    const [showAppointDialog, setShowAppointDialog] = React.useState(false);
+    
+    // CEO Setup Wizard State
+    const [showCEOWizard, setShowCEOWizard] = React.useState(false);
+    const [wizardStep, setWizardStep] = React.useState(1);
+    const [isResettingCEO, setIsResettingCEO] = React.useState(false);
+    const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+    const [ceoSetupData, setCeoSetupData] = React.useState<CEOSetupData>({
+        levelId: '',
+        employmentTypeId: '',
+        salaryRange: { min: 0, max: 0, currency: 'MNT' },
+        salarySteps: { items: [], activeIndex: 0, currency: 'MNT' },
+        incentives: [],
+        allowances: []
+    });
+    
     const companyProfileRef = useMemoFirebase(
         () => (firestore ? doc(firestore, 'company', 'profile') : null),
         [firestore]
@@ -135,6 +217,10 @@ export default function CompanyPage() {
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
     const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
+    
+    // For CEO Setup Wizard
+    const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+    const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
 
     const brandingRef = useMemoFirebase(
         () => (firestore ? doc(firestore, 'company', 'branding') : null),
@@ -144,10 +230,38 @@ export default function CompanyPage() {
     const valuesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: branding, isLoading: isLoadingBranding } = useDoc<CompanyBranding>(brandingRef as any);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection(departmentsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection(positionsQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
     const { data: policies, isLoading: isLoadingPolicies } = useCollection(policiesQuery);
     const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
+    
+    // For CEO Setup Wizard
+    const { data: positionLevels } = useCollection<PositionLevel>(positionLevelsQuery);
+    const { data: employmentTypes } = useCollection<EmploymentType>(employmentTypesQuery);
+
+    // CEO Position and Employee fetching
+    const ceoPositionRef = useMemoFirebase(
+        () => {
+            if (!firestore || !companyProfile) return null;
+            const ceoPositionId = (companyProfile as any).ceoPositionId;
+            if (!ceoPositionId) return null;
+            return doc(firestore, 'positions', ceoPositionId);
+        },
+        [firestore, companyProfile]
+    );
+    
+    const ceoEmployeeRef = useMemoFirebase(
+        () => {
+            if (!firestore || !companyProfile) return null;
+            const ceoEmployeeId = (companyProfile as any).ceoEmployeeId;
+            if (!ceoEmployeeId) return null;
+            return doc(firestore, 'employees', ceoEmployeeId);
+        },
+        [firestore, companyProfile]
+    );
+
+    const { data: ceoPosition, isLoading: isLoadingCeoPosition } = useDoc<Position>(ceoPositionRef as any);
+    const { data: ceoEmployee, isLoading: isLoadingCeoEmployee } = useDoc<Employee>(ceoEmployeeRef as any);
 
     const [api, setApi] = React.useState<CarouselApi>();
 
@@ -180,6 +294,255 @@ export default function CompanyPage() {
         return styles;
     }, [branding]);
 
+    // Start CEO Setup Wizard
+    const handleStartCEOWizard = () => {
+        setShowCEOWizard(true);
+        setWizardStep(1);
+        setCeoSetupData({
+            levelId: '',
+            employmentTypeId: '',
+            salaryRange: { min: 0, max: 0, currency: 'MNT' },
+            salarySteps: { items: [], activeIndex: 0, currency: 'MNT' },
+            incentives: [],
+            allowances: []
+        });
+    };
+
+    // Handle CEO Position Setup (Final step of wizard)
+    const handleSetupCEO = async () => {
+        if (!firestore) return;
+        
+        setIsSettingUpCEO(true);
+        try {
+            let ceoDepartmentId: string;
+            
+            // Step 1: Find or create "Удирдлага" department
+            const existingDept = departments?.find(d => d.name === 'Удирдлага');
+            if (!existingDept) {
+                // Create new department
+                const deptRef = await addDoc(collection(firestore, 'departments'), {
+                    name: 'Удирдлага',
+                    type: 'executive',
+                    description: 'Байгууллагын удирдлага',
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now()
+                });
+                ceoDepartmentId = deptRef.id;
+            } else {
+                ceoDepartmentId = existingDept.id;
+            }
+
+            // Step 2: Create "Гүйцэтгэх захирал" position with all wizard data
+            const posRef = await addDoc(collection(firestore, 'positions'), {
+                title: 'Гүйцэтгэх захирал',
+                code: 'CEO',
+                departmentId: ceoDepartmentId,
+                reportsTo: null,
+                filled: 0,
+                headcount: 1,
+                isApproved: true,
+                isActive: true,
+                // Wizard data
+                levelId: ceoSetupData.levelId || null,
+                employmentTypeId: ceoSetupData.employmentTypeId || null,
+                salaryRange: ceoSetupData.salaryRange,
+                salarySteps: ceoSetupData.salarySteps,
+                incentives: ceoSetupData.incentives,
+                allowances: ceoSetupData.allowances,
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+            });
+
+            // Step 3: Update company profile with CEO IDs
+            await updateDoc(doc(firestore, 'company', 'profile'), {
+                ceoDepartmentId: ceoDepartmentId,
+                ceoPositionId: posRef.id,
+                ceoEmployeeId: null
+            });
+
+            toast({
+                title: 'Амжилттай',
+                description: 'Гүйцэтгэх захирлын ажлын байр үүслээ. Одоо ажилтан томилно уу.',
+            });
+            
+            // Close wizard
+            setShowCEOWizard(false);
+            setWizardStep(1);
+
+        } catch (error: any) {
+            console.error('CEO setup error:', error);
+            toast({
+                title: 'Алдаа гарлаа',
+                description: error?.message || 'Гүйцэтгэх захирлын ажлын байр үүсгэхэд алдаа гарлаа.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsSettingUpCEO(false);
+        }
+    };
+    
+    // Wizard helper functions
+    const addSalaryStep = () => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            salarySteps: {
+                ...prev.salarySteps,
+                items: [...prev.salarySteps.items, { name: '', value: 0 }]
+            }
+        }));
+    };
+    
+    const removeSalaryStep = (index: number) => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            salarySteps: {
+                ...prev.salarySteps,
+                items: prev.salarySteps.items.filter((_, i) => i !== index)
+            }
+        }));
+    };
+    
+    const addIncentive = () => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            incentives: [...prev.incentives, { type: '', description: '', amount: 0, currency: 'MNT', unit: '₮', frequency: 'Сар бүр' }]
+        }));
+    };
+    
+    const removeIncentive = (index: number) => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            incentives: prev.incentives.filter((_, i) => i !== index)
+        }));
+    };
+    
+    const addAllowance = () => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            allowances: [...prev.allowances, { type: '', amount: 0, currency: 'MNT', period: 'monthly' }]
+        }));
+    };
+    
+    const removeAllowance = (index: number) => {
+        setCeoSetupData(prev => ({
+            ...prev,
+            allowances: prev.allowances.filter((_, i) => i !== index)
+        }));
+    };
+    
+    const canProceedToNextStep = () => {
+        switch (wizardStep) {
+            case 1: return !!ceoSetupData.levelId;
+            case 2: return !!ceoSetupData.employmentTypeId;
+            case 3: return true; // Salary is optional
+            case 4: return true; // Benefits is optional
+            default: return true;
+        }
+    };
+
+    // Handle CEO Appointment Complete
+    const handleAppointComplete = async (employeeId: string) => {
+        if (!firestore) return;
+        
+        try {
+            // Update company profile with CEO employee ID
+            await updateDoc(doc(firestore, 'company', 'profile'), {
+                ceoEmployeeId: employeeId
+            });
+            
+            toast({
+                title: 'Амжилттай',
+                description: 'Гүйцэтгэх захирал амжилттай томилогдлоо.',
+            });
+        } catch (error: any) {
+            console.error('CEO appointment update error:', error);
+        }
+    };
+    
+    // Reset CEO Setup - Delete everything and start fresh
+    const handleResetCEO = async () => {
+        if (!firestore || !companyProfile) return;
+        
+        setIsResettingCEO(true);
+        try {
+            const profile = companyProfile as any;
+            
+            // 1. If CEO employee is appointed, release them (use individual update with try-catch)
+            if (profile.ceoEmployeeId && ceoEmployee) {
+                try {
+                    const empRef = doc(firestore, 'employees', profile.ceoEmployeeId);
+                    await updateDoc(empRef, {
+                        positionId: null,
+                        jobTitle: null,
+                        departmentId: null,
+                        updatedAt: Timestamp.now()
+                    });
+                } catch (empError) {
+                    console.warn('Employee update skipped:', empError);
+                }
+            }
+            
+            // 2. Delete CEO position if exists
+            if (profile.ceoPositionId) {
+                try {
+                    const posRef = doc(firestore, 'positions', profile.ceoPositionId);
+                    await deleteDoc(posRef);
+                } catch (posError) {
+                    console.warn('Position delete skipped:', posError);
+                }
+            }
+            
+            // 3. Delete "Удирдлага" department if it was created for CEO
+            // Only delete if it's the CEO department and has no other positions
+            if (profile.ceoDepartmentId) {
+                const dept = departments?.find(d => d.id === profile.ceoDepartmentId);
+                if (dept && dept.name === 'Удирдлага') {
+                    // Check if there are other positions in this department
+                    const otherPositions = positions?.filter(
+                        p => p.departmentId === profile.ceoDepartmentId && p.id !== profile.ceoPositionId
+                    );
+                    if (!otherPositions || otherPositions.length === 0) {
+                        try {
+                            const deptRef = doc(firestore, 'departments', profile.ceoDepartmentId);
+                            await deleteDoc(deptRef);
+                        } catch (deptError) {
+                            console.warn('Department delete skipped:', deptError);
+                        }
+                    }
+                }
+            }
+            
+            // 4. Clear CEO IDs from company profile
+            const profileRef = doc(firestore, 'company', 'profile');
+            await updateDoc(profileRef, {
+                ceoDepartmentId: null,
+                ceoPositionId: null,
+                ceoEmployeeId: null
+            });
+            
+            toast({
+                title: 'Амжилттай',
+                description: 'Гүйцэтгэх захирлын тохиргоо устгагдлаа. Дахин эхлүүлж болно.',
+            });
+            
+            setShowResetConfirm(false);
+            
+            // Auto-start wizard after reset
+            setTimeout(() => {
+                handleStartCEOWizard();
+            }, 500);
+            
+        } catch (error: any) {
+            console.error('CEO reset error:', error);
+            toast({
+                title: 'Алдаа гарлаа',
+                description: error?.message || 'Тохиргоо устгахад алдаа гарлаа.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsResettingCEO(false);
+        }
+    };
 
     if (error) {
         return (
@@ -292,14 +655,14 @@ export default function CompanyPage() {
 
                         {/* Company Info */}
                         <div className="p-6 -mt-16 relative">
-                            <div className="flex flex-col md:flex-row md:items-end gap-6">
-                                <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-lg bg-white">
+                            <div className="flex flex-col md:flex-row gap-6">
+                                <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-lg bg-white self-start md:self-end">
                                     <AvatarImage src={companyProfile.logoUrl} className="object-contain p-2" />
                                     <AvatarFallback className="rounded-2xl bg-slate-50">
                                         <Building className="h-12 w-12 text-slate-300" />
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 space-y-2">
+                                <div className="flex-1 space-y-2 mt-20 md:mt-0 md:pt-28">
                                     <h2 className="text-2xl font-bold text-foreground">{companyProfile.name}</h2>
                                     {companyProfile.legalName && (
                                         <p className="text-sm text-muted-foreground">{companyProfile.legalName}</p>
@@ -382,6 +745,790 @@ export default function CompanyPage() {
                             </div>
                         </Link>
                     </div>
+
+                    {/* CEO Card */}
+                    <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-xl border border-amber-200/60 overflow-hidden">
+                        <div className="p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200">
+                                    <Crown className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-amber-900">Гүйцэтгэх захирал</h3>
+                                    <p className="text-xs text-amber-600">Байгууллагын удирдлага</p>
+                                </div>
+                            </div>
+
+                            {/* State A: Not configured - Show Wizard */}
+                            {!(companyProfile as any).ceoPositionId && !showCEOWizard && (
+                                <div className="text-center py-6">
+                                    <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                                        <Crown className="h-8 w-8 text-amber-400" />
+                                    </div>
+                                    <p className="text-sm text-amber-700 mb-4">
+                                        Гүйцэтгэх захирлын ажлын байр тохируулаагүй байна
+                                    </p>
+                                    <Button 
+                                        onClick={handleStartCEOWizard}
+                                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-200"
+                                    >
+                                        <Crown className="h-4 w-4 mr-2" />
+                                        Гүйцэтгэх захирал тохируулах
+                                    </Button>
+                                </div>
+                            )}
+                            
+                            {/* CEO Setup Wizard */}
+                            {!(companyProfile as any).ceoPositionId && showCEOWizard && (
+                                <div className="py-4">
+                                    {/* Wizard Progress */}
+                                    <div className="flex items-center justify-between mb-6 px-2">
+                                        {[
+                                            { step: 1, icon: Layers, label: 'Зэрэглэл' },
+                                            { step: 2, icon: Briefcase, label: 'Төрөл' },
+                                            { step: 3, icon: DollarSign, label: 'Цалин' },
+                                            { step: 4, icon: Gift, label: 'Хангамж' },
+                                            { step: 5, icon: Check, label: 'Баталгаажуулах' }
+                                        ].map(({ step, icon: Icon, label }, index) => (
+                                            <React.Fragment key={step}>
+                                                <div className="flex flex-col items-center">
+                                                    <div className={cn(
+                                                        "h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium transition-all",
+                                                        wizardStep === step 
+                                                            ? "bg-amber-500 text-white shadow-lg" 
+                                                            : wizardStep > step 
+                                                                ? "bg-emerald-500 text-white" 
+                                                                : "bg-amber-100 text-amber-600"
+                                                    )}>
+                                                        {wizardStep > step ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                                                    </div>
+                                                    <span className={cn(
+                                                        "text-[10px] mt-1 font-medium",
+                                                        wizardStep >= step ? "text-amber-700" : "text-amber-400"
+                                                    )}>{label}</span>
+                                                </div>
+                                                {index < 4 && (
+                                                    <div className={cn(
+                                                        "flex-1 h-0.5 mx-1",
+                                                        wizardStep > step ? "bg-emerald-400" : "bg-amber-200"
+                                                    )} />
+                                                )}
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                    
+                                    <ScrollArea className="h-[320px] pr-3">
+                                        {/* Step 1: Position Level */}
+                                        {wizardStep === 1 && (
+                                            <div className="space-y-4">
+                                                <div className="text-center mb-4">
+                                                    <h4 className="font-semibold text-amber-900">Түвшин / Зэрэглэл сонгох</h4>
+                                                    <p className="text-xs text-amber-600 mt-1">Гүйцэтгэх захирлын ажлын байрны зэрэглэлийг сонгоно уу</p>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {positionLevels?.map((level) => (
+                                                        <button
+                                                            key={level.id}
+                                                            onClick={() => setCeoSetupData(prev => ({ ...prev, levelId: level.id }))}
+                                                            className={cn(
+                                                                "p-4 rounded-xl border-2 text-left transition-all hover:shadow-md",
+                                                                ceoSetupData.levelId === level.id
+                                                                    ? "border-amber-500 bg-amber-50 shadow-md"
+                                                                    : "border-amber-100 hover:border-amber-300"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={cn(
+                                                                    "h-10 w-10 rounded-lg flex items-center justify-center",
+                                                                    ceoSetupData.levelId === level.id ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-600"
+                                                                )}>
+                                                                    <Layers className="h-5 w-5" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-amber-900">{level.name}</p>
+                                                                </div>
+                                                                {ceoSetupData.levelId === level.id && (
+                                                                    <Check className="h-5 w-5 text-amber-500 ml-auto" />
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                    {(!positionLevels || positionLevels.length === 0) && (
+                                                        <p className="text-center text-amber-600 text-sm py-4">
+                                                            Зэрэглэл тохируулаагүй байна. Тохиргоо хэсэгт нэмнэ үү.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Step 2: Employment Type */}
+                                        {wizardStep === 2 && (
+                                            <div className="space-y-4">
+                                                <div className="text-center mb-4">
+                                                    <h4 className="font-semibold text-amber-900">Ажлын байрны төрөл</h4>
+                                                    <p className="text-xs text-amber-600 mt-1">Хөдөлмөр эрхлэлтийн төрлийг сонгоно уу</p>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {employmentTypes?.map((type) => (
+                                                        <button
+                                                            key={type.id}
+                                                            onClick={() => setCeoSetupData(prev => ({ ...prev, employmentTypeId: type.id }))}
+                                                            className={cn(
+                                                                "p-4 rounded-xl border-2 text-left transition-all hover:shadow-md",
+                                                                ceoSetupData.employmentTypeId === type.id
+                                                                    ? "border-amber-500 bg-amber-50 shadow-md"
+                                                                    : "border-amber-100 hover:border-amber-300"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={cn(
+                                                                    "h-10 w-10 rounded-lg flex items-center justify-center",
+                                                                    ceoSetupData.employmentTypeId === type.id ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-600"
+                                                                )}>
+                                                                    <Briefcase className="h-5 w-5" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-amber-900">{type.name}</p>
+                                                                </div>
+                                                                {ceoSetupData.employmentTypeId === type.id && (
+                                                                    <Check className="h-5 w-5 text-amber-500 ml-auto" />
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                    {(!employmentTypes || employmentTypes.length === 0) && (
+                                                        <p className="text-center text-amber-600 text-sm py-4">
+                                                            Ажлын байрны төрөл тохируулаагүй байна.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Step 3: Salary */}
+                                        {wizardStep === 3 && (
+                                            <div className="space-y-5">
+                                                <div className="text-center mb-4">
+                                                    <h4 className="font-semibold text-amber-900">Цалин тохируулах</h4>
+                                                    <p className="text-xs text-amber-600 mt-1">Цалингийн шатлал болон урамшууллыг тохируулна уу</p>
+                                                </div>
+                                                
+                                                {/* Salary Steps */}
+                                                <div className="space-y-4 p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-sm font-bold text-amber-800">Цалингийн шатлал</Label>
+                                                    </div>
+                                                    
+                                                    {/* Step Count Selector */}
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Шатлалын тоо</label>
+                                                        <Select
+                                                            value={ceoSetupData.salarySteps.items.length.toString()}
+                                                            onValueChange={(val) => {
+                                                                const count = parseInt(val);
+                                                                const currentItems = [...ceoSetupData.salarySteps.items];
+                                                                let newItems = [];
+                                                                if (count > currentItems.length) {
+                                                                    newItems = [
+                                                                        ...currentItems,
+                                                                        ...Array(count - currentItems.length).fill(0).map((_, i) => ({
+                                                                            name: `Шатлал ${currentItems.length + i + 1}`,
+                                                                            value: 0
+                                                                        }))
+                                                                    ];
+                                                                } else {
+                                                                    newItems = currentItems.slice(0, count);
+                                                                }
+                                                                setCeoSetupData(prev => ({
+                                                                    ...prev,
+                                                                    salarySteps: {
+                                                                        ...prev.salarySteps,
+                                                                        items: newItems,
+                                                                        activeIndex: Math.min(prev.salarySteps.activeIndex, newItems.length - 1)
+                                                                    }
+                                                                }));
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-10 rounded-lg">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                                                                    <SelectItem key={n} value={n.toString()}>{n} шатлалт</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    
+                                                    {/* Step Items */}
+                                                    <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                                                        {ceoSetupData.salarySteps.items.map((step, index) => (
+                                                            <div
+                                                                key={index}
+                                                                className={cn(
+                                                                    "p-4 rounded-xl border transition-all space-y-3 relative",
+                                                                    ceoSetupData.salarySteps.activeIndex === index
+                                                                        ? "bg-amber-100/50 border-amber-400"
+                                                                        : "bg-white border-amber-200"
+                                                                )}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <Badge
+                                                                        variant={ceoSetupData.salarySteps.activeIndex === index ? "default" : "outline"}
+                                                                        className={cn(
+                                                                            "h-5 px-2 text-[9px] font-bold uppercase cursor-pointer transition-all",
+                                                                            ceoSetupData.salarySteps.activeIndex === index
+                                                                                ? "bg-amber-500 text-white"
+                                                                                : "text-amber-600 hover:border-amber-400"
+                                                                        )}
+                                                                        onClick={() => setCeoSetupData(prev => ({
+                                                                            ...prev,
+                                                                            salarySteps: { ...prev.salarySteps, activeIndex: index }
+                                                                        }))}
+                                                                    >
+                                                                        {ceoSetupData.salarySteps.activeIndex === index ? 'Идэвхтэй' : 'Сонгох'}
+                                                                    </Badge>
+                                                                </div>
+                                                                
+                                                                <div className="space-y-2">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Шатлалын нэр</label>
+                                                                        <Input
+                                                                            value={step.name}
+                                                                            onChange={(e) => {
+                                                                                const newItems = [...ceoSetupData.salarySteps.items];
+                                                                                newItems[index].name = e.target.value;
+                                                                                setCeoSetupData(prev => ({
+                                                                                    ...prev,
+                                                                                    salarySteps: { ...prev.salarySteps, items: newItems }
+                                                                                }));
+                                                                            }}
+                                                                            placeholder={`Шатлал ${index + 1}`}
+                                                                            className="h-9 text-sm font-medium"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Цалингийн дүн</label>
+                                                                        <CurrencyInput
+                                                                            value={step.value}
+                                                                            onValueChange={(val) => {
+                                                                                const newItems = [...ceoSetupData.salarySteps.items];
+                                                                                newItems[index].value = val;
+                                                                                setCeoSetupData(prev => ({
+                                                                                    ...prev,
+                                                                                    salarySteps: { ...prev.salarySteps, items: newItems }
+                                                                                }));
+                                                                            }}
+                                                                            className="h-9"
+                                                                            placeholder="Цалингийн дүн"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Incentives */}
+                                                <div className="space-y-3 p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-sm font-bold text-amber-800">Урамшуулал & Нэмэгдэл</Label>
+                                                        <Button variant="ghost" size="sm" onClick={addIncentive} className="h-7 text-amber-600 hover:text-amber-700 text-xs">
+                                                            <Plus className="h-3.5 w-3.5 mr-1" />
+                                                            Нэмэх
+                                                        </Button>
+                                                    </div>
+                                                    
+                                                    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+                                                        {ceoSetupData.incentives.map((inc, index) => (
+                                                            <div key={index} className="p-4 rounded-xl bg-white border border-amber-200 space-y-3 relative group">
+                                                                <button
+                                                                    onClick={() => removeIncentive(index)}
+                                                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                                
+                                                                <div className="space-y-1">
+                                                                    <label className="text-[10px] font-bold text-amber-600 uppercase">Урамшууллын нэр</label>
+                                                                    <Input
+                                                                        value={inc.type}
+                                                                        onChange={(e) => {
+                                                                            const newInc = [...ceoSetupData.incentives];
+                                                                            newInc[index].type = e.target.value;
+                                                                            setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                        }}
+                                                                        placeholder="Жишээ: KPI Бонус, Хоолны мөнгө"
+                                                                        className="h-9 text-sm font-medium"
+                                                                    />
+                                                                </div>
+                                                                
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Дүн / Хэмжээ</label>
+                                                                        <div className="flex gap-1.5">
+                                                                            <div className="flex-1">
+                                                                                {inc.unit === '₮' ? (
+                                                                                    <CurrencyInput
+                                                                                        value={inc.amount}
+                                                                                        onValueChange={(val) => {
+                                                                                            const newInc = [...ceoSetupData.incentives];
+                                                                                            newInc[index].amount = val;
+                                                                                            setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                                        }}
+                                                                                        className="h-9"
+                                                                                        placeholder="Дүн"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="relative">
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            value={inc.amount || ''}
+                                                                                            onChange={(e) => {
+                                                                                                const newInc = [...ceoSetupData.incentives];
+                                                                                                newInc[index].amount = Number(e.target.value);
+                                                                                                setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                                            }}
+                                                                                            className="h-9 pr-7 font-medium"
+                                                                                            placeholder="Хэмжээ"
+                                                                                        />
+                                                                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-400">%</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            <Select
+                                                                                value={inc.unit}
+                                                                                onValueChange={(val) => {
+                                                                                    const newInc = [...ceoSetupData.incentives];
+                                                                                    newInc[index].unit = val as '%' | '₮';
+                                                                                    setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                                }}
+                                                                            >
+                                                                                <SelectTrigger className="w-14 h-9 font-bold">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="%">%</SelectItem>
+                                                                                    <SelectItem value="₮">₮</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Олгох давтамж</label>
+                                                                        <Select
+                                                                            value={inc.frequency || 'Сар бүр'}
+                                                                            onValueChange={(val) => {
+                                                                                const newInc = [...ceoSetupData.incentives];
+                                                                                newInc[index].frequency = val;
+                                                                                setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="h-9 font-medium">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="Өдөр бүр">Өдөр бүр</SelectItem>
+                                                                                <SelectItem value="Сар бүр">Сар бүр</SelectItem>
+                                                                                <SelectItem value="Улирал бүр">Улирал бүр</SelectItem>
+                                                                                <SelectItem value="Хагас жил тутам">Хагас жил тутам</SelectItem>
+                                                                                <SelectItem value="Жил бүр">Жил бүр</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <div className="space-y-1">
+                                                                    <label className="text-[10px] font-bold text-amber-600 uppercase">Тайлбар / Нөхцөл</label>
+                                                                    <Input
+                                                                        value={inc.description}
+                                                                        onChange={(e) => {
+                                                                            const newInc = [...ceoSetupData.incentives];
+                                                                            newInc[index].description = e.target.value;
+                                                                            setCeoSetupData(prev => ({ ...prev, incentives: newInc }));
+                                                                        }}
+                                                                        placeholder="Олгох нөхцөл, дүрмийн тайлбар..."
+                                                                        className="h-8 text-xs text-muted-foreground italic"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    {ceoSetupData.incentives.length === 0 && (
+                                                        <div className="py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-amber-200 rounded-xl">
+                                                            <DollarSign className="w-6 h-6 text-amber-300 mb-2" />
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Урамшуулал нэмэгдээгүй</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Step 4: Benefits/Allowances */}
+                                        {wizardStep === 4 && (
+                                            <div className="space-y-5">
+                                                <div className="text-center mb-4">
+                                                    <h4 className="font-semibold text-amber-900">Хангамж тохируулах</h4>
+                                                    <p className="text-xs text-amber-600 mt-1">Нэмэгдэл хөлс, тэтгэмжүүдийг тохируулна уу</p>
+                                                </div>
+                                                
+                                                <div className="space-y-3 p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-sm font-bold text-amber-800">Нэмэгдэл хөлс</Label>
+                                                        <Button variant="ghost" size="sm" onClick={addAllowance} className="h-7 text-amber-600 hover:text-amber-700 text-xs">
+                                                            <Plus className="h-3.5 w-3.5 mr-1" />
+                                                            Нэмэх
+                                                        </Button>
+                                                    </div>
+                                                    
+                                                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                                                        {ceoSetupData.allowances.map((all, index) => (
+                                                            <div key={index} className="p-4 rounded-xl bg-white border border-amber-200 space-y-3 relative group">
+                                                                <button
+                                                                    onClick={() => removeAllowance(index)}
+                                                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                                
+                                                                <div className="space-y-1">
+                                                                    <label className="text-[10px] font-bold text-amber-600 uppercase">Нэмэгдлийн төрөл</label>
+                                                                    <Input
+                                                                        placeholder="Жишээ: Унааны мөнгө, Утасны төлбөр"
+                                                                        value={all.type}
+                                                                        onChange={(e) => {
+                                                                            const newAll = [...ceoSetupData.allowances];
+                                                                            newAll[index].type = e.target.value;
+                                                                            setCeoSetupData(prev => ({ ...prev, allowances: newAll }));
+                                                                        }}
+                                                                        className="h-9 text-sm font-medium"
+                                                                    />
+                                                                </div>
+                                                                
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Дүн</label>
+                                                                        <CurrencyInput
+                                                                            value={all.amount}
+                                                                            onValueChange={(val) => {
+                                                                                const newAll = [...ceoSetupData.allowances];
+                                                                                newAll[index].amount = val;
+                                                                                setCeoSetupData(prev => ({ ...prev, allowances: newAll }));
+                                                                            }}
+                                                                            className="h-9"
+                                                                            placeholder="Дүн оруулна уу"
+                                                                        />
+                                                                    </div>
+                                                                <div className="space-y-1">
+                                                                        <label className="text-[10px] font-bold text-amber-600 uppercase">Олгох давтамж</label>
+                                                                        <Select
+                                                                            value={all.period}
+                                                                            onValueChange={(value) => {
+                                                                                const newAll = [...ceoSetupData.allowances];
+                                                                                newAll[index].period = value as any;
+                                                                                setCeoSetupData(prev => ({ ...prev, allowances: newAll }));
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="h-9 font-medium">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="once">Нэг удаа</SelectItem>
+                                                                                <SelectItem value="daily">Өдөр бүр</SelectItem>
+                                                                                <SelectItem value="monthly">Сар бүр</SelectItem>
+                                                                                <SelectItem value="quarterly">Улирал бүр</SelectItem>
+                                                                                <SelectItem value="semi-annually">Хагас жил тутам</SelectItem>
+                                                                                <SelectItem value="yearly">Жил бүр</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    {ceoSetupData.allowances.length === 0 && (
+                                                        <div className="py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-amber-200 rounded-xl">
+                                                            <Gift className="w-6 h-6 text-amber-300 mb-2" />
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Нэмэгдэл хөлс нэмэгдээгүй</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Step 5: Confirmation */}
+                                        {wizardStep === 5 && (
+                                            <div className="space-y-4">
+                                                <div className="text-center mb-4">
+                                                    <h4 className="font-semibold text-amber-900">Баталгаажуулах</h4>
+                                                    <p className="text-xs text-amber-600 mt-1">Мэдээллийг шалгаад баталгаажуулна уу</p>
+                                                </div>
+                                                
+                                                <div className="space-y-3">
+                                                    {/* Summary */}
+                                                    <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                                            <div>
+                                                                <span className="text-amber-600">Зэрэглэл:</span>
+                                                                <p className="font-medium text-amber-900">
+                                                                    {positionLevels?.find(l => l.id === ceoSetupData.levelId)?.name || '-'}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-amber-600">Төрөл:</span>
+                                                                <p className="font-medium text-amber-900">
+                                                                    {employmentTypes?.find(t => t.id === ceoSetupData.employmentTypeId)?.name || '-'}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-amber-600">Цалингийн хүрээ:</span>
+                                                                <p className="font-medium text-amber-900">
+                                                                    {ceoSetupData.salaryRange.min.toLocaleString()} - {ceoSetupData.salaryRange.max.toLocaleString()} ₮
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-amber-600">Шатлал:</span>
+                                                                <p className="font-medium text-amber-900">{ceoSetupData.salarySteps.items.length} шатлал</p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-amber-600">Урамшуулал:</span>
+                                                                <p className="font-medium text-amber-900">{ceoSetupData.incentives.length} урамшуулал</p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-amber-600">Нэмэгдэл:</span>
+                                                                <p className="font-medium text-amber-900">{ceoSetupData.allowances.length} нэмэгдэл</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                                                        <Check className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+                                                        <p className="text-sm font-medium text-emerald-800">
+                                                            "Гүйцэтгэх захирал" ажлын байр үүсгэхэд бэлэн
+                                                        </p>
+                                                        <p className="text-xs text-emerald-600 mt-1">
+                                                            "Удирдлага" бүтэц нэгж автоматаар үүснэ
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </ScrollArea>
+                                    
+                                    {/* Navigation Buttons */}
+                                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-amber-100">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => {
+                                                if (wizardStep === 1) {
+                                                    setShowCEOWizard(false);
+                                                } else {
+                                                    setWizardStep(prev => prev - 1);
+                                                }
+                                            }}
+                                            className="text-amber-600 hover:text-amber-700"
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" />
+                                            {wizardStep === 1 ? 'Цуцлах' : 'Өмнөх'}
+                                        </Button>
+                                        
+                                        {wizardStep < 5 ? (
+                                            <Button
+                                                onClick={() => setWizardStep(prev => prev + 1)}
+                                                disabled={!canProceedToNextStep()}
+                                                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                                            >
+                                                Үргэлжлүүлэх
+                                                <ChevronRight className="h-4 w-4 ml-1" />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                onClick={handleSetupCEO}
+                                                disabled={isSettingUpCEO}
+                                                className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
+                                            >
+                                                {isSettingUpCEO ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                        Үүсгэж байна...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Check className="h-4 w-4 mr-2" />
+                                                        Баталгаажуулах
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* State B: Position created, vacant */}
+                            {(companyProfile as any).ceoPositionId && !(companyProfile as any).ceoEmployeeId && !showResetConfirm && (
+                                <div className="text-center py-6">
+                                    <div className="flex items-center justify-center gap-3 mb-4">
+                                        <div className="h-14 w-14 rounded-xl bg-amber-100 border-2 border-dashed border-amber-300 flex items-center justify-center">
+                                            <UserPlus className="h-6 w-6 text-amber-400" />
+                                        </div>
+                                    </div>
+                                    <p className="text-sm font-medium text-amber-900 mb-1">
+                                        Гүйцэтгэх захирал
+                                    </p>
+                                    <p className="text-xs text-amber-600 mb-4">
+                                        Ажлын байр үүссэн • Ажилтан томилогдоогүй
+                                    </p>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Button 
+                                            onClick={() => setShowAppointDialog(true)}
+                                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-200"
+                                        >
+                                            <UserPlus className="h-4 w-4 mr-2" />
+                                            Ажилтан томилох
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => setShowResetConfirm(true)}
+                                            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                        >
+                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                            Шинээр эхлэх
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* State C: Fully configured */}
+                            {(companyProfile as any).ceoPositionId && (companyProfile as any).ceoEmployeeId && !showResetConfirm && (
+                                <div className="space-y-4 py-2">
+                                    {ceoEmployee ? (
+                                        <div className="flex items-center gap-4">
+                                            <Avatar className="h-16 w-16 rounded-xl border-2 border-amber-200 shadow-lg">
+                                                <AvatarImage src={ceoEmployee.avatarUrl} className="object-cover" />
+                                                <AvatarFallback className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 text-lg font-semibold">
+                                                    {ceoEmployee.firstName?.[0]}{ceoEmployee.lastName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-amber-900 text-lg">
+                                                    {ceoEmployee.lastName} {ceoEmployee.firstName}
+                                                </p>
+                                                <p className="text-sm text-amber-600 mt-0.5">
+                                                    Гүйцэтгэх захирал
+                                                </p>
+                                                {ceoEmployee.email && (
+                                                    <p className="text-xs text-amber-500 mt-1 truncate">
+                                                        {ceoEmployee.email}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <Link 
+                                                href={`/dashboard/employees/${ceoEmployee.id}`}
+                                                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                                            >
+                                                Дэлгэрэнгүй
+                                                <ArrowRight className="h-3.5 w-3.5" />
+                                            </Link>
+                                        </div>
+                                    ) : (isLoadingCeoEmployee || isLoadingCeoPosition) ? (
+                                        <div className="flex items-center gap-4">
+                                            <Skeleton className="h-16 w-16 rounded-xl" />
+                                            <div className="flex-1 space-y-2">
+                                                <Skeleton className="h-5 w-32" />
+                                                <Skeleton className="h-4 w-24" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4">
+                                            <p className="text-sm text-amber-600">Томилогдсон ажилтны мэдээлэл олдсонгүй</p>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end">
+                                        <Button 
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowResetConfirm(true)}
+                                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                        >
+                                            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                                            Шинээр эхлэх
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Reset Confirmation */}
+                            {(companyProfile as any).ceoPositionId && showResetConfirm && (
+                                <div className="py-4">
+                                    <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-center">
+                                        <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                                            <AlertTriangle className="h-6 w-6 text-red-500" />
+                                        </div>
+                                        <h4 className="font-semibold text-red-900 mb-2">Шинээр эхлэх</h4>
+                                        <p className="text-sm text-red-700 mb-4">
+                                            Энэ үйлдэл нь:
+                                        </p>
+                                        <ul className="text-xs text-red-600 text-left mb-4 space-y-1 max-w-xs mx-auto">
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-red-400">•</span>
+                                                "Гүйцэтгэх захирал" ажлын байрыг устгана
+                                            </li>
+                                            {(companyProfile as any).ceoEmployeeId && (
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-red-400">•</span>
+                                                    Томилогдсон ажилтныг чөлөөлнө
+                                                </li>
+                                            )}
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-red-400">•</span>
+                                                "Удирдлага" бүтэц нэгжийг устгана (бусад ажлын байр байхгүй бол)
+                                            </li>
+                                        </ul>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Button 
+                                                variant="outline"
+                                                onClick={() => setShowResetConfirm(false)}
+                                                className="border-red-200 text-red-700 hover:bg-red-50"
+                                            >
+                                                Цуцлах
+                                            </Button>
+                                            <Button 
+                                                onClick={handleResetCEO}
+                                                disabled={isResettingCEO}
+                                                className="bg-red-500 hover:bg-red-600 text-white"
+                                            >
+                                                {isResettingCEO ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                        Устгаж байна...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                                        Тийм, шинээр эхлэх
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* AppointEmployeeDialog for CEO */}
+                    {ceoPosition && (
+                        <AppointEmployeeDialog
+                            open={showAppointDialog}
+                            onOpenChange={setShowAppointDialog}
+                            position={ceoPosition}
+                            onSuccess={handleAppointComplete}
+                        />
+                    )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column - Details */}

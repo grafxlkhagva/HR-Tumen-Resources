@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { CompanyThemeProvider } from '@/components/theme-provider';
 import { FirebaseClientProvider } from '@/firebase';
+import { InactivityLogout } from '@/components/inactivity-logout';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -29,6 +30,7 @@ export default function RootLayout({
           <CompanyThemeProvider>
             {children}
             <Toaster />
+            <InactivityLogout />
           </CompanyThemeProvider>
         </FirebaseClientProvider>
       </body>

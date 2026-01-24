@@ -288,175 +288,190 @@ function EditMissionVisionForm({
         </div>
 
         {/* Core Values Section */}
-        <div className="bg-white rounded-xl border">
-          <div className="p-4 border-b flex items-center justify-between">
+        <div className="bg-white rounded-xl border shadow-sm">
+          <div className="p-5 border-b flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
             <div>
-              <h3 className="font-medium">Үнэт зүйлс</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Пойнт системтэй холбоотой</p>
+              <h3 className="font-semibold text-base">Үнэт зүйлс</h3>
+              <p className="text-xs text-muted-foreground mt-1">Пойнт системтэй холбоотой</p>
             </div>
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="icon"
+              className="h-9 w-9 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
               onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
             >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Нэмэх
+              <PlusCircle className="h-4 w-4" />
             </Button>
           </div>
           
-          <div className="p-4">
+          <div className="p-6">
             {fields.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                  <Heart className="h-6 w-6 text-slate-400" />
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-orange-50 to-pink-50 flex items-center justify-center mb-4 shadow-sm">
+                  <Heart className="h-8 w-8 text-orange-500" />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Үнэт зүйлс хоосон байна</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Байгууллагын соёлыг тодорхойлох үнэт зүйлийг нэмнэ үү</p>
+                <p className="text-sm font-semibold text-slate-700 mb-1">Үнэт зүйлс хоосон байна</p>
+                <p className="text-xs text-muted-foreground mb-6 max-w-sm">Байгууллагын соёлыг тодорхойлох үнэт зүйлийг нэмнэ үү</p>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="mt-4"
+                  size="icon"
+                  className="h-10 w-10 rounded-full hover:bg-primary hover:text-primary-foreground transition-all hover:scale-105"
                   onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
                 >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Үнэт зүйл нэмэх
+                  <PlusCircle className="h-5 w-5" />
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div 
-                    key={field.id} 
-                    className="border rounded-lg p-4 hover:border-slate-300 transition-colors"
-                    style={{ borderLeftWidth: '4px', borderLeftColor: form.watch(`values.${index}.color`) || '#3b82f6' }}
-                  >
-                    <div className="flex gap-4">
-                      {/* Emoji & Color */}
-                      <div className="flex flex-col gap-2">
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.emoji`}
-                          render={({ field: emojiField }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <button
-                                      type="button"
-                                      className="h-12 w-12 flex items-center justify-center rounded-lg bg-slate-50 border text-2xl hover:bg-slate-100 transition-colors"
-                                    >
-                                      {emojiField.value || '⭐'}
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-full p-0 border-none shadow-xl" align="start">
-                                    <EmojiPicker
-                                      onEmojiClick={(emojiData) => emojiField.onChange(emojiData.emoji)}
-                                      autoFocusSearch={false}
-                                      theme={"light" as any}
-                                      width={320}
-                                      height={350}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {fields.map((field, index) => {
+                  const valueColor = form.watch(`values.${index}.color`) || '#3b82f6';
+                  return (
+                    <div 
+                      key={field.id} 
+                      className="group relative border-2 rounded-xl p-5 bg-gradient-to-br from-white to-slate-50/50 hover:shadow-lg transition-all duration-200 hover:border-opacity-60"
+                      style={{ 
+                        borderColor: `${valueColor}40`,
+                        borderLeftWidth: '4px',
+                        borderLeftColor: valueColor
+                      }}
+                    >
+                      {/* Emoji & Color Picker */}
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="flex flex-col gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.emoji`}
+                            render={({ field: emojiField }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="h-14 w-14 flex items-center justify-center rounded-xl bg-white border-2 shadow-sm hover:shadow-md text-3xl transition-all hover:scale-105"
+                                        style={{ borderColor: `${valueColor}30` }}
+                                      >
+                                        {emojiField.value || '⭐'}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0 border-none shadow-xl rounded-lg" align="start">
+                                      <EmojiPicker
+                                        onEmojiClick={(emojiData) => emojiField.onChange(emojiData.emoji)}
+                                        autoFocusSearch={false}
+                                        theme={"light" as any}
+                                        width={320}
+                                        height={350}
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.color`}
+                            render={({ field: colorField }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <div className="relative h-10 w-14 rounded-lg border-2 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer group/color"
+                                    style={{ borderColor: `${colorField.value}40` }}
+                                  >
+                                    <div
+                                      className="absolute inset-0 rounded-lg"
+                                      style={{ backgroundColor: colorField.value }}
                                     />
-                                  </PopoverContent>
-                                </Popover>
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.color`}
-                          render={({ field: colorField }) => (
-                            <FormItem>
-                              <FormControl>
-                                <div className="relative h-8 w-12 rounded border overflow-hidden">
-                                  <div
-                                    className="absolute inset-0"
-                                    style={{ backgroundColor: colorField.value }}
-                                  />
-                                  <Input
-                                    type="color"
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    {...colorField}
-                                  />
-                                </div>
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <FormField
-                              control={form.control}
-                              name={`values.${index}.title`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
                                     <Input
-                                      className="font-medium"
-                                      placeholder="Үнэт зүйлийн нэр"
-                                      {...field}
+                                      type="color"
+                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                      {...colorField}
                                     />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <FormField
-                              control={form.control}
-                              name={`values.${index}.isActive`}
-                              render={({ field }) => (
-                                <FormItem className="flex items-center gap-2">
-                                  <FormControl>
-                                    <Switch
-                                      checked={field.value}
-                                      onCheckedChange={field.onChange}
-                                    />
-                                  </FormControl>
-                                  <span className="text-xs text-muted-foreground">
-                                    {field.value ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                  </span>
-                                </FormItem>
-                              )}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => remove(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/color:opacity-100 transition-opacity">
+                                      <div className="h-2 w-2 rounded-full bg-white shadow-sm" />
+                                    </div>
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        <FormField
-                          control={form.control}
-                          name={`values.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Textarea
-                                  className="resize-none min-h-[80px] text-sm"
-                                  placeholder="Тайлбар..."
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+
+                        {/* Title & Actions */}
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <FormField
+                                control={form.control}
+                                name={`values.${index}.title`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        className="font-semibold text-base border-0 bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-slate-400"
+                                        placeholder="Үнэт зүйлийн нэр"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <FormField
+                                control={form.control}
+                                name={`values.${index}.isActive`}
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center gap-2">
+                                    <FormControl>
+                                      <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-slate-100">
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                          className="data-[state=checked]:bg-green-500"
+                                        />
+                                        <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                                          {field.value ? 'Идэвхтэй' : 'Идэвхгүй'}
+                                        </span>
+                                      </div>
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                                onClick={() => remove(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <FormField
+                            control={form.control}
+                            name={`values.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Textarea
+                                    className="resize-none min-h-[100px] text-sm bg-white border-slate-200 rounded-lg focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
+                                    placeholder="Үнэт зүйлийн тайлбар..."
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

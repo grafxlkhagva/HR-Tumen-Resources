@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, ChevronRight, FileText, Shield, FileSearch } from 'lucide-react';
-import type { CompanyPolicy } from '@/app/dashboard/settings/policies/page';
+import type { CompanyPolicy } from '@/app/dashboard/company/policies/types';
 
 function PageSkeleton() {
     return (

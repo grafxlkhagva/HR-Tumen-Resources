@@ -38,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink } from 'lucide-react';
+import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AppointEmployeeDialog } from './organization/[departmentId]/components/flow/appoint-employee-dialog';
 import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
@@ -963,12 +963,12 @@ const OrganizationChart = () => {
         <div className="flex flex-col h-full">
             {/* Stats Bar - 20% height, horizontal scroll */}
             <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950">
-                <div className="h-full overflow-x-auto overflow-y-hidden px-6 py-4">
-                    <div className="flex gap-6 h-full">
+                <div className="h-full overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4 scrollbar-hide">
+                    <div className="flex gap-4 sm:gap-6 h-full min-w-max">
                         {/* 1. Ажилчид - Statistics */}
                         <Link href="/dashboard/employees" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ажилчид</div>
                                         <Users className="h-5 w-5 text-slate-500" />
@@ -1005,8 +1005,8 @@ const OrganizationChart = () => {
 
                         {/* 2. Бүтэц - Organization Structure */}
                         <Link href="/dashboard/organization" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Бүтэц</div>
                                         <Network className="h-5 w-5 text-slate-500" />
@@ -1034,8 +1034,8 @@ const OrganizationChart = () => {
 
                         {/* 3. Attendance */}
                         <Link href="/dashboard/attendance" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Өнөөдрийн ирц</div>
                                         <UserCheck className="h-5 w-5 text-slate-500" />
@@ -1061,8 +1061,8 @@ const OrganizationChart = () => {
 
                         {/* 3. Vacation (New) */}
                         <Link href="/dashboard/vacation" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ээлжийн амралт</div>
                                         <Palmtree className="h-5 w-5 text-slate-500" />
@@ -1081,8 +1081,8 @@ const OrganizationChart = () => {
 
                         {/* 3. Posts */}
                         <Link href="/dashboard/posts" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-5 h-full flex flex-col justify-between">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                                     <div className="flex items-center justify-between">
                                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Мэдээлэл</div>
                                         <Newspaper className="h-5 w-5 text-slate-500" />
@@ -1101,8 +1101,8 @@ const OrganizationChart = () => {
 
                         {/* 4c. Recruitment & Selection (New) */}
                         <Link href="/dashboard/recruitment" className="flex-shrink-0">
-                            <Card className="h-full w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
                                     <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
 
                                     <div className="flex items-center justify-between relative z-10">
@@ -1123,8 +1123,8 @@ const OrganizationChart = () => {
 
                         {/* 5. Point Module */}
                         <Link href="/dashboard/points" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
                                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full blur-2xl group-hover:from-yellow-500/30 transition-all" />
 
                                     <div className="flex items-center justify-between relative z-10">
@@ -1145,8 +1145,8 @@ const OrganizationChart = () => {
 
                         {/* 8. Process Management (New) */}
                         <Link href="/dashboard/employment-relations" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
                                     <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-3xl group-hover:from-blue-500/20 group-hover:to-indigo-500/20 transition-all" />
 
                                     <div className="flex items-center justify-between relative z-10">
@@ -1166,8 +1166,8 @@ const OrganizationChart = () => {
 
                         {/* 9. Process Management */}
                         <Link href="/dashboard/process" className="flex-shrink-0">
-                            <Card className="h-full w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
+                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
+                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
                                     <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-full blur-3xl group-hover:from-pink-500/20 group-hover:to-rose-500/20 transition-all" />
 
                                     <div className="flex items-center justify-between relative z-10">
@@ -1208,6 +1208,12 @@ const OrganizationChart = () => {
                     <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
                         <RotateCcw className="h-6 w-6" />
                         <span className="sr-only">Байршлыг сэргээх</span>
+                    </Button>
+                    <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20">
+                        <Link href="/dashboard/calendar">
+                            <Calendar className="h-6 w-6 text-green-500" />
+                            <span className="sr-only">Календар</span>
+                        </Link>
                     </Button>
                     <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
                         <Link href="/dashboard/employees/add">

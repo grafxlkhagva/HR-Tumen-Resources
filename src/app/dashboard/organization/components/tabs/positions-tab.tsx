@@ -39,8 +39,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { generateNextPositionCode } from '@/lib/code-generator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -174,29 +175,38 @@ export const PositionsTab = ({
         });
     }
 
-    const handleDuplicatePosition = (pos: Position) => {
-        if (!firestore) return;
+    const posCodeConfigRef = useMemoFirebase(
+        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        []
+    );
 
-        const {
-            id,
-            filled,
-            ...clonedData
-        } = pos;
+    const handleDuplicatePosition = async (pos: Position) => {
+        if (!firestore || !posCodeConfigRef) return;
 
-        const newPositionData = {
-            ...clonedData,
-            title: `${pos.title} (Хуулбар)`,
-            filled: 0,
-            isActive: true, // Always create as active
-        };
+        const { id, filled, code: _code, ...clonedData } = pos as any;
+        const cleanData = Object.entries(clonedData).reduce((acc, [key, value]) => {
+            if (value !== undefined && typeof value !== 'function') acc[key] = value;
+            return acc;
+        }, {} as any);
 
-        const positionsCollection = collection(firestore, 'positions');
-        addDocumentNonBlocking(positionsCollection, newPositionData);
-
-        toast({
-            title: "Амжилттай хувиллаа",
-            description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`
-        });
+        try {
+            const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
+            const newPositionData = {
+                ...cleanData,
+                code: newCode,
+                title: `${pos.title} (Хуулбар)`,
+                filled: 0,
+                isActive: true,
+            };
+            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            toast({
+                title: "Амжилттай хувиллаа",
+                description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`,
+            });
+        } catch (e) {
+            console.error('Хуулбарлах алдаа:', e);
+            toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+        }
     };
 
     return (

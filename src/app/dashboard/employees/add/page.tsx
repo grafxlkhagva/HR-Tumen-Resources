@@ -38,6 +38,7 @@ import {
     useMemoFirebase,
     useAuth,
     useDoc,
+    createUserWithSecondaryAuth,
 } from '@/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -163,15 +164,14 @@ export function AddEmployeeDialog({
         setIsSubmitting(true);
 
         try {
-            const { createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
-
             const employeeCode = await generateEmployeeCode();
             const authEmail = `${employeeCode}@example.com`;
 
-            const userCredential = await createUserWithEmailAndPassword(auth, authEmail, values.phoneNumber);
-            const newUser = userCredential.user;
+            // Secondary Firebase App ашиглан хэрэглэгч үүсгэх
+            // Энэ нь админы session-д нөлөөлөхгүй!
+            const newUser = await createUserWithSecondaryAuth(authEmail, values.phoneNumber);
 
-            if (!newUser) {
+            if (!newUser.uid) {
                 throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
             }
 
@@ -204,29 +204,33 @@ export function AddEmployeeDialog({
             const employeeDocRef = doc(firestore, 'employees', newUser.uid);
             await setDoc(employeeDocRef, employeeData);
 
-            if (auth.currentUser?.uid !== originalUser.uid) {
-                await signOut(auth);
-                toast({
-                    title: 'Амжилттай хадгаллаа',
-                    description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
-                });
-                router.push('/login');
-                return;
-            }
-
             toast({
                 title: 'Амжилттай хадгаллаа',
-                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ.`,
+                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}`,
             });
+            
+            // Form-ийг цэвэрлэх
+            form.reset();
+            setPhotoPreview(null);
+            setPhotoFile(null);
             onOpenChange(false);
 
         } catch (error: any) {
             console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
 
+            let errorMessage = "Ажилтан үүсгэхэд алдаа гарлаа.";
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = "Энэ имэйл хаягтай хэрэглэгч аль хэдийн бүртгэгдсэн байна.";
+            } else if (error.code === 'auth/weak-password') {
+                errorMessage = "Нууц үг хэт богино байна. 6-аас дээш тэмдэгт оруулна уу.";
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
             toast({
                 variant: "destructive",
                 title: "Алдаа гарлаа",
-                description: error.message || "Ажилтан үүсгэхэд алдаа гарлаа."
+                description: errorMessage
             });
         } finally {
             setIsSubmitting(false);

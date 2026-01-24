@@ -16,7 +16,8 @@ interface ThemeMapping {
     primary: string;
     secondary: string;
     accent: string;
-    // We can add more slots here as needed by the Design Schema
+    destructive?: string;
+    muted?: string;
 }
 
 interface CompanyBranding {
@@ -41,13 +42,18 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
         const root = document.documentElement;
 
         // Helper to find hex by ID
-        const getColorHex = (id: string) => brandColors.find(c => c.id === id)?.hex;
+        const getColorHex = (id: string | undefined) => {
+            if (!id) return undefined;
+            return brandColors.find(c => c.id === id)?.hex;
+        };
 
-        // Map and Apply
-        const mappings: { slot: string; colorId: string }[] = [
+        // Map and Apply - all theme slots
+        const mappings: { slot: string; colorId: string | undefined }[] = [
             { slot: '--primary', colorId: themeMapping.primary },
             { slot: '--secondary', colorId: themeMapping.secondary },
             { slot: '--accent', colorId: themeMapping.accent },
+            { slot: '--destructive', colorId: themeMapping.destructive },
+            { slot: '--muted', colorId: themeMapping.muted },
         ];
 
         mappings.forEach(({ slot, colorId }) => {

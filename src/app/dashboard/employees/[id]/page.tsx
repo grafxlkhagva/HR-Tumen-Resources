@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, query, orderBy, where } from 'firebase/firestore';
 import { type Employee } from '../data';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,8 @@ import {
     File as FileIcon,
     Activity,
     ClipboardCheck,
-    LogOut
+    LogOut,
+    Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,6 +36,7 @@ import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
 import { OffboardingTabContent } from './offboarding-tab-content';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
+import { MakeAdminDialog } from './make-admin-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -468,6 +470,8 @@ export default function EmployeeProfilePage() {
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const { user } = useUser();
+    const [showAdminDialog, setShowAdminDialog] = React.useState(false);
 
 
     const employeeDocRef = useMemoFirebase(
@@ -709,6 +713,7 @@ export default function EmployeeProfilePage() {
 
 
     return (
+        <>
         <div className="flex flex-col h-full bg-slate-50/50">
 
             {/* Sticky Header */}
@@ -744,6 +749,15 @@ export default function EmployeeProfilePage() {
                         
                         {/* Header Actions */}
                         <div className="flex items-center gap-2 shrink-0">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className={cn("h-8", employee.role === 'admin' && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
+                                onClick={() => setShowAdminDialog(true)}
+                            >
+                                <Shield className="h-3.5 w-3.5 mr-1.5" />
+                                {employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
+                            </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
                                     <FileText className="h-3.5 w-3.5 mr-1.5" />
@@ -1022,5 +1036,16 @@ export default function EmployeeProfilePage() {
                 </div>
             </div>
         </div>
+
+            {/* Admin Dialog */}
+            {user && (
+                <MakeAdminDialog
+                    open={showAdminDialog}
+                    onOpenChange={setShowAdminDialog}
+                    employee={employee}
+                    currentUserId={user.uid}
+                />
+            )}
+        </>
     )
 }

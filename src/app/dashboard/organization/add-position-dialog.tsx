@@ -54,8 +54,7 @@ import {
   useCollection,
 } from '@/firebase';
 import {
-  collection, doc, increment, query, where, getDocs,
-  runTransaction,
+  collection, doc, query, where, getDocs,
   updateDoc,
   addDoc
 } from 'firebase/firestore';
@@ -67,7 +66,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
-import { generateCode } from '@/lib/code-generator';
+import { generateCode, generateNextPositionCode } from '@/lib/code-generator';
 
 
 const positionSchema = z.object({
@@ -194,7 +193,7 @@ export function AddPositionDialog({
         levelId: editingPosition.levelId || '',
         employmentTypeId: editingPosition.employmentTypeId || '',
         workScheduleId: editingPosition.workScheduleId || '',
-        reportsTo: editingPosition.reportsTo || '(none)',
+        reportsTo: editingPosition.reportsToId || editingPosition.reportsTo || '(none)',
         jobCategoryId: editingPosition.jobCategoryId || '',
         canApproveAttendance: editingPosition.canApproveAttendance || false,
         canApproveVacation: editingPosition.canApproveVacation || false,
@@ -280,10 +279,36 @@ export function AddPositionDialog({
       return;
     }
 
+    let finalCode = data.code?.trim().toUpperCase() || '';
+
+    if (!isEditMode && !finalCode) {
+      if (!posCodeConfigRef) {
+        toast({ variant: 'destructive', title: 'Алдаа', description: 'Ажлын байрны код тохиргоо олдсонгүй. Тохиргооноос тохируулна уу.' });
+        return;
+      }
+      try {
+        finalCode = await generateNextPositionCode(firestore, posCodeConfigRef);
+      } catch (e) {
+        console.error('Код үүсгэх алдаа:', e);
+        toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+        return;
+      }
+    }
+
+    if (finalCode) {
+      const dupQuery = query(collection(firestore, 'positions'), where('code', '==', finalCode));
+      const dupSnap = await getDocs(dupQuery);
+      const existing = dupSnap.docs.find(d => !isEditMode || d.id !== editingPosition?.id);
+      if (existing) {
+        toast({ variant: 'destructive', title: 'Код давхардаж байна', description: `"${finalCode}" кодтой ажлын байр аль хэдийн бүртгэгдсэн байна.` });
+        return;
+      }
+    }
+
     try {
       const baseData: any = {
         title: data.title,
-        code: data.code?.trim().toUpperCase() || '',
+        code: finalCode,
         departmentId: finalDepartmentId,
         levelId: data.levelId || '',
         employmentTypeId: data.employmentTypeId || '',
@@ -320,16 +345,27 @@ export function AddPositionDialog({
       };
 
       if (data.reportsTo && data.reportsTo !== '(none)') {
+        baseData.reportsToId = data.reportsTo;
         baseData.reportsTo = data.reportsTo;
       } else {
+        baseData.reportsToId = null;
         baseData.reportsTo = null;
       }
 
+      // Remove undefined values and functions to prevent Firestore errors
+      const cleanBaseData = Object.entries(baseData).reduce((acc, [key, value]) => {
+        // Skip undefined values and functions (UI callbacks)
+        if (value !== undefined && typeof value !== 'function') {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+
       if (isEditMode && editingPosition) {
-        await updateDoc(doc(firestore, 'positions', editingPosition.id), baseData);
+        await updateDoc(doc(firestore, 'positions', editingPosition.id), cleanBaseData);
       } else {
         await addDoc(collection(firestore, 'positions'), {
-          ...baseData,
+          ...cleanBaseData,
           filled: 0,
           isApproved: false,
           createdAt: new Date().toISOString()
@@ -414,13 +450,15 @@ export function AddPositionDialog({
                               variant="ghost"
                               size="sm"
                               className="h-6 px-2 text-[10px] gap-1 text-primary"
-                              onClick={() => {
-                                if (posCodeConfig) {
-                                  field.onChange(generateCode({
-                                    prefix: posCodeConfig.prefix || '',
-                                    digitCount: posCodeConfig.digitCount || 4,
-                                    nextNumber: posCodeConfig.nextNumber || 1
-                                  }));
+                              disabled={!firestore || !posCodeConfigRef}
+                              onClick={async () => {
+                                if (!firestore || !posCodeConfigRef) return;
+                                try {
+                                  const code = await generateNextPositionCode(firestore, posCodeConfigRef);
+                                  field.onChange(code);
+                                } catch (e) {
+                                  console.error('Код үүсгэх алдаа:', e);
+                                  toast({ title: 'Код үүсгэхэд алдаа гарлаа', variant: 'destructive' });
                                 }
                               }}
                             >
@@ -546,28 +584,14 @@ export function AddPositionDialog({
                                       variant="ghost"
                                       size="sm"
                                       className="h-6 px-2 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                                      disabled={!firestore || !posCodeConfigRef}
                                       onClick={async () => {
                                         if (!firestore || !posCodeConfigRef) return;
                                         try {
-                                          const { runTransaction } = await import('firebase/firestore');
-                                          await runTransaction(firestore, async (transaction) => {
-                                            const configDoc = await transaction.get(posCodeConfigRef);
-                                            if (configDoc.exists()) {
-                                              const configData = configDoc.data();
-                                              const currentNum = configData.nextNumber || 1;
-                                              const generated = generateCode({
-                                                prefix: configData.prefix || '',
-                                                digitCount: configData.digitCount || 4,
-                                                nextNumber: currentNum
-                                              });
-                                              form.setValue('code', generated);
-                                              transaction.update(posCodeConfigRef, {
-                                                nextNumber: currentNum + 1
-                                              });
-                                            }
-                                          });
+                                          const code = await generateNextPositionCode(firestore, posCodeConfigRef);
+                                          form.setValue('code', code);
                                         } catch (e) {
-                                          console.error("Manual generate error:", e);
+                                          console.error("Код үүсгэх алдаа:", e);
                                           toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
                                         }
                                       }}

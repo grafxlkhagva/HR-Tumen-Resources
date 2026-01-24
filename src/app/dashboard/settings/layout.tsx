@@ -11,7 +11,6 @@ import {
     GraduationCap,
     MapPin,
     Files,
-    ScrollText,
     Zap,
     LogOut,
     ChevronLeft
@@ -52,11 +51,6 @@ const settingsNavItems = [
         title: "Баримт бичиг",
         href: "/dashboard/settings/documents",
         icon: Files,
-    },
-    {
-        title: "Журам",
-        href: "/dashboard/settings/policies",
-        icon: ScrollText,
     },
     {
         title: "Onboarding",

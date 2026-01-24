@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, FileText, Download } from 'lucide-react';
-import type { CompanyPolicy } from '@/app/dashboard/settings/policies/page';
+import type { CompanyPolicy } from '@/app/dashboard/company/policies/types';
 
 function PageSkeleton() {
     return (

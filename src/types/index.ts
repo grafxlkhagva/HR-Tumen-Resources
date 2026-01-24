@@ -76,6 +76,7 @@ export interface Employee {
     vacationConfig?: {
         baseDays: number;
     };
+    role?: 'admin' | 'employee';
 }
 
 

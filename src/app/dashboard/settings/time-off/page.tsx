@@ -2,13 +2,12 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
 import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, CalendarDays } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -346,21 +345,6 @@ export default function TimeAndAttendanceSettingsPage() {
                 {isLoading ? <Skeleton className="h-64 w-full" /> : <VacationConfigForm initialData={vacationConfigData || {}} />}
 
                 {isLoading ? <Skeleton className="h-96 w-full" /> : <TimeConfigForm initialData={timeConfig || {}} />}
-
-                <Card className="shadow-premium border-slate-200/60">
-                    <CardHeader>
-                        <CardTitle>Бүх нийтийн амралтын өдрүүд</CardTitle>
-                        <CardDescription>Улсын хэмжээнд тэмдэглэгддэг баярын өдрүүдийг бүртгэж, удирдах.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild>
-                            <Link href="/dashboard/settings/time-off/holidays">
-                                <CalendarDays className="mr-2 h-4 w-4" />
-                                Амралтын өдрийн тохиргоо
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
 
                 <Card className="shadow-premium border-slate-200/60">
                     <CardHeader>

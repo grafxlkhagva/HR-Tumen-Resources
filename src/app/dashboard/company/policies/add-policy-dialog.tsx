@@ -46,6 +46,11 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon, Video } from 'lucide-react';
 import { CompanyPolicy, Position } from './types';
 
+export interface DepartmentOption {
+    id: string;
+    name: string;
+}
+
 const policySchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
     type: z.string().min(1, 'Төрөл сонгоно уу.'),
@@ -54,6 +59,8 @@ const policySchema = z.object({
     documentUrl: z.string().optional(),
     videoUrl: z.string().optional(),
     appliesToAll: z.boolean().default(true),
+    selectionType: z.enum(['departments', 'positions']).optional(),
+    applicableDepartmentIds: z.array(z.string()).optional(),
     applicablePositionIds: z.array(z.string()).optional(),
 });
 
@@ -72,6 +79,7 @@ interface AddPolicyDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     editingPolicy?: CompanyPolicy | null;
+    departments: DepartmentOption[];
     positions: Position[];
 }
 
@@ -79,6 +87,7 @@ export function AddPolicyDialog({
     open,
     onOpenChange,
     editingPolicy,
+    departments,
     positions,
 }: AddPolicyDialogProps) {
     const { firestore } = useFirebase();
@@ -88,6 +97,7 @@ export function AddPolicyDialog({
     const [fileName, setFileName] = React.useState<string | null>(null);
     const [isUploadingVideo, setIsUploadingVideo] = React.useState(false);
     const [videoFileName, setVideoFileName] = React.useState<string | null>(null);
+    const [deptSearch, setDeptSearch] = React.useState('');
     const [posSearch, setPosSearch] = React.useState('');
 
     const policiesCollectionRef = React.useMemo(
@@ -104,6 +114,8 @@ export function AddPolicyDialog({
             description: '',
             documentUrl: '',
             appliesToAll: true,
+            selectionType: 'departments',
+            applicableDepartmentIds: [],
             applicablePositionIds: [],
             videoUrl: '',
         }
@@ -111,7 +123,14 @@ export function AddPolicyDialog({
 
     React.useEffect(() => {
         if (open) {
+            setDeptSearch('');
+            setPosSearch('');
             if (isEditMode && editingPolicy) {
+                // Determine selectionType based on existing data
+                const hasDeptIds = editingPolicy.applicableDepartmentIds && editingPolicy.applicableDepartmentIds.length > 0;
+                const hasPosIds = editingPolicy.applicablePositionIds && editingPolicy.applicablePositionIds.length > 0;
+                const defaultSelectionType = hasDeptIds ? 'departments' : (hasPosIds ? 'positions' : 'departments');
+                
                 form.reset({
                     title: editingPolicy.title,
                     type: editingPolicy.type || '',
@@ -119,7 +138,9 @@ export function AddPolicyDialog({
                     description: editingPolicy.description || '',
                     documentUrl: editingPolicy.documentUrl || '',
                     videoUrl: editingPolicy.videoUrl || '',
-                    appliesToAll: editingPolicy.appliesToAll || false,
+                    appliesToAll: editingPolicy.appliesToAll ?? true,
+                    selectionType: editingPolicy.selectionType || defaultSelectionType,
+                    applicableDepartmentIds: editingPolicy.applicableDepartmentIds || [],
                     applicablePositionIds: editingPolicy.applicablePositionIds || [],
                 });
                 if (editingPolicy.documentUrl) {
@@ -148,11 +169,15 @@ export function AddPolicyDialog({
                 description: '',
                 documentUrl: '',
                 appliesToAll: true,
+                selectionType: 'departments',
+                applicableDepartmentIds: [],
                 applicablePositionIds: [],
                 videoUrl: '',
             });
             setFileName(null);
             setVideoFileName(null);
+            setDeptSearch('');
+            setPosSearch('');
         }
     }, [open, editingPolicy, isEditMode, form]);
 
@@ -203,9 +228,12 @@ export function AddPolicyDialog({
     const onSubmit = (data: PolicyFormValues) => {
         if (!policiesCollectionRef || !firestore) return;
 
+        // Clear the non-selected type's IDs
         const finalData = {
             ...data,
             uploadDate: new Date().toISOString(),
+            applicableDepartmentIds: data.selectionType === 'departments' ? (data.applicableDepartmentIds ?? []) : [],
+            applicablePositionIds: data.selectionType === 'positions' ? (data.applicablePositionIds ?? []) : [],
         };
 
         if (isEditMode && editingPolicy) {
@@ -221,9 +249,15 @@ export function AddPolicyDialog({
     };
 
     const appliesToAll = form.watch('appliesToAll');
+    const selectionType = form.watch('selectionType') || 'departments';
+
+    const filteredDepartments = React.useMemo(() => {
+        if (!departments.length) return [];
+        return departments.filter(d => d.name.toLowerCase().includes(deptSearch.toLowerCase()));
+    }, [departments, deptSearch]);
 
     const filteredPositions = React.useMemo(() => {
-        if (!positions) return [];
+        if (!positions.length) return [];
         return positions.filter(p => p.title.toLowerCase().includes(posSearch.toLowerCase()));
     }, [positions, posSearch]);
 
@@ -306,70 +340,169 @@ export function AddPolicyDialog({
                             </FormItem>
                             <FormField control={form.control} name="appliesToAll" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel>Бүх ажилтанд хамааралтай эсэх</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
                             {!appliesToAll && (
-                                <FormField
-                                    control={form.control}
-                                    name="applicablePositionIds"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Хамааралтай ажлын байр</FormLabel>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-start font-normal">
-                                                        {field.value && field.value.length > 0 ? `${field.value.length} ажлын байр сонгосон` : "Ажлын байр сонгох..."}
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
-                                                    <div className="p-2 sticky top-0 bg-popover z-10">
-                                                        <div className="relative">
-                                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                            <Input
-                                                                placeholder="Хайх..."
-                                                                className="pl-9 h-9"
-                                                                value={posSearch}
-                                                                onChange={(e) => setPosSearch(e.target.value)}
-                                                                onKeyDown={(e) => e.stopPropagation()}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <DropdownMenuSeparator />
-                                                    <div className="max-h-[250px] overflow-y-auto pointer-events-auto">
-                                                        {filteredPositions.length === 0 ? (
-                                                            <div className="py-4 px-2 text-center text-sm text-muted-foreground">
-                                                                Ажлын байр олдсонгүй
+                                <>
+                                    <FormField
+                                        control={form.control}
+                                        name="selectionType"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Сонголтын төрөл</FormLabel>
+                                                <Select onValueChange={(value) => {
+                                                    field.onChange(value);
+                                                    // Clear the other type's IDs when switching
+                                                    if (value === 'departments') {
+                                                        form.setValue('applicablePositionIds', []);
+                                                    } else {
+                                                        form.setValue('applicableDepartmentIds', []);
+                                                    }
+                                                }} value={field.value || 'departments'}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Сонгох..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="departments">Алба нэгж</SelectItem>
+                                                        <SelectItem value="positions">Ажлын байр</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    {selectionType === 'departments' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="applicableDepartmentIds"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Хамааралтай нэгжүүд</FormLabel>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-start font-normal">
+                                                                {field.value && field.value.length > 0 ? `${field.value.length} нэгж сонгосон` : "Нэгж сонгох..."}
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                                                            <div className="p-2 sticky top-0 bg-popover z-10">
+                                                                <div className="relative">
+                                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                                    <Input
+                                                                        placeholder="Хайх..."
+                                                                        className="pl-9 h-9"
+                                                                        value={deptSearch}
+                                                                        onChange={(e) => setDeptSearch(e.target.value)}
+                                                                        onKeyDown={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                        ) : (
-                                                            filteredPositions.map(pos => (
-                                                                <DropdownMenuCheckboxItem
-                                                                    key={pos.id}
-                                                                    checked={!!field.value?.includes(pos.id)}
-                                                                    onSelect={(e) => e.preventDefault()}
-                                                                    onCheckedChange={(checked) => {
-                                                                        const currentValues = field.value || [];
-                                                                        const newValues = checked
-                                                                            ? [...currentValues, pos.id]
-                                                                            : currentValues.filter((id) => id !== pos.id);
-                                                                        field.onChange(newValues);
-                                                                    }}
+                                                            <DropdownMenuSeparator />
+                                                            <div className="max-h-[250px] overflow-y-auto pointer-events-auto">
+                                                                {filteredDepartments.length === 0 ? (
+                                                                    <div className="py-4 px-2 text-center text-sm text-muted-foreground">
+                                                                        Нэгж олдсонгүй
+                                                                    </div>
+                                                                ) : (
+                                                                    filteredDepartments.map(dept => (
+                                                                        <DropdownMenuCheckboxItem
+                                                                            key={dept.id}
+                                                                            checked={!!field.value?.includes(dept.id)}
+                                                                            onSelect={(e) => e.preventDefault()}
+                                                                            onCheckedChange={(checked) => {
+                                                                                const currentValues = field.value || [];
+                                                                                const newValues = checked
+                                                                                    ? [...currentValues, dept.id]
+                                                                                    : currentValues.filter((id) => id !== dept.id);
+                                                                                field.onChange(newValues);
+                                                                            }}
+                                                                        >
+                                                                            {dept.name}
+                                                                        </DropdownMenuCheckboxItem>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                            <DropdownMenuSeparator />
+                                                            <div className="p-1">
+                                                                <DropdownMenuItem
+                                                                    className="w-full justify-center text-xs h-8 text-primary hover:text-primary hover:bg-primary/10 cursor-pointer focus:bg-primary/10 focus:text-primary"
                                                                 >
-                                                                    {pos.title}
-                                                                </DropdownMenuCheckboxItem>
-                                                            ))
-                                                        )}
-                                                    </div>
-                                                    <DropdownMenuSeparator />
-                                                    <div className="p-1">
-                                                        <DropdownMenuItem
-                                                            className="w-full justify-center text-xs h-8 text-primary hover:text-primary hover:bg-primary/10 cursor-pointer focus:bg-primary/10 focus:text-primary"
-                                                        >
-                                                            Сонгож дууссан
-                                                        </DropdownMenuItem>
-                                                    </div>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                            <FormMessage />
-                                        </FormItem>
+                                                                    Сонгож дууссан
+                                                                </DropdownMenuItem>
+                                                            </div>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                     )}
-                                />
+                                    {selectionType === 'positions' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="applicablePositionIds"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Хамааралтай ажлын байр</FormLabel>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-start font-normal">
+                                                                {field.value && field.value.length > 0 ? `${field.value.length} ажлын байр сонгосон` : "Ажлын байр сонгох..."}
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                                                            <div className="p-2 sticky top-0 bg-popover z-10">
+                                                                <div className="relative">
+                                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                                    <Input
+                                                                        placeholder="Хайх..."
+                                                                        className="pl-9 h-9"
+                                                                        value={posSearch}
+                                                                        onChange={(e) => setPosSearch(e.target.value)}
+                                                                        onKeyDown={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <DropdownMenuSeparator />
+                                                            <div className="max-h-[250px] overflow-y-auto pointer-events-auto">
+                                                                {filteredPositions.length === 0 ? (
+                                                                    <div className="py-4 px-2 text-center text-sm text-muted-foreground">
+                                                                        Ажлын байр олдсонгүй
+                                                                    </div>
+                                                                ) : (
+                                                                    filteredPositions.map(pos => (
+                                                                        <DropdownMenuCheckboxItem
+                                                                            key={pos.id}
+                                                                            checked={!!field.value?.includes(pos.id)}
+                                                                            onSelect={(e) => e.preventDefault()}
+                                                                            onCheckedChange={(checked) => {
+                                                                                const currentValues = field.value || [];
+                                                                                const newValues = checked
+                                                                                    ? [...currentValues, pos.id]
+                                                                                    : currentValues.filter((id) => id !== pos.id);
+                                                                                field.onChange(newValues);
+                                                                            }}
+                                                                        >
+                                                                            {pos.title}
+                                                                        </DropdownMenuCheckboxItem>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                            <DropdownMenuSeparator />
+                                                            <div className="p-1">
+                                                                <DropdownMenuItem
+                                                                    className="w-full justify-center text-xs h-8 text-primary hover:text-primary hover:bg-primary/10 cursor-pointer focus:bg-primary/10 focus:text-primary"
+                                                                >
+                                                                    Сонгож дууссан
+                                                                </DropdownMenuItem>
+                                                            </div>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
+                                </>
                             )}
                         </div>
                         <DialogFooter>

@@ -37,12 +37,11 @@ import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, ArrowLeft, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { PageHeader } from '@/components/page-header';
 
 const videoSchema = z.object({
     title: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
@@ -178,111 +177,270 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 pb-32">
-                <PageHeader
-                    title="Видео контент"
-                    showBackButton
-                    backHref="/dashboard/company"
-                    hideBreadcrumbs
-                    actions={
-                        <div className="flex items-center gap-2">
-                            <Button type="submit" disabled={isSubmitting || Object.keys(uploadingVideos).length > 0} size="sm">
-                                {isSubmitting || Object.keys(uploadingVideos).length > 0 ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="mr-2 h-4 w-4" />
-                                )}
-                                Хадгалах
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
-                                <X className="mr-2 h-4 w-4" />
-                                Цуцлах
-                            </Button>
-                        </div>
-                    }
-                />
-                <Card>
-                    <CardHeader className="hidden">
-                        <CardTitle>Видео контент засах</CardTitle>
-                        <CardDescription>Компанийн танилцуулга, соёлын видеонуудыг энд оруулна уу.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {fields.map((field, index) => (
-                            <Card key={field.id} className="p-4 bg-muted/20">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-4">
-                                        <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Гарчиг</FormLabel><FormControl><Input placeholder="Компанийн танилцуулга" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name={`videos.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Товч тайлбар</FormLabel><FormControl><Textarea placeholder="Энэ видеонд юу гардаг вэ?" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                {/* Header */}
+                <div className="bg-white border-b sticky top-0 z-20 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6">
+                    <div className="px-6 md:px-8">
+                        <div className="flex items-center justify-between py-4">
+                            <div className="flex items-center gap-4">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" type="button" asChild>
+                                    <Link href="/dashboard/company">
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                                        <Video className="h-5 w-5 text-blue-600" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <FormLabel>Видео файл</FormLabel>
-                                        {form.watch(`videos.${index}.url`) ? (
-                                            <div className="aspect-video rounded-md overflow-hidden bg-background">
-                                                <video src={form.watch(`videos.${index}.url`)} controls className="w-full h-full object-cover" />
-                                            </div>
-                                        ) : (
-                                            <div className="aspect-video flex items-center justify-center rounded-md border-2 border-dashed">
-                                                <div className="text-center">
-                                                    <Film className="mx-auto h-12 w-12 text-gray-400" />
-                                                    <p className="mt-2 text-sm text-muted-foreground">Видео байршуулаагүй байна</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="flex flex-col gap-3">
-                                            {uploadingVideos[index] !== undefined && (
-                                                <div className="space-y-2 p-3 border rounded-md bg-background/50">
-                                                    <div className="flex justify-between items-center text-xs">
-                                                        <span className="font-medium text-primary flex items-center gap-2">
-                                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                                            Байршуулж байна...
-                                                        </span>
-                                                        <span className="text-muted-foreground">{uploadingVideos[index]}%</span>
-                                                    </div>
-                                                    <Progress value={uploadingVideos[index]} className="h-1.5" />
-                                                </div>
-                                            )}
-                                            <div className="flex gap-2 items-center">
-                                                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`video-upload-${index}`)?.click()} disabled={uploadingVideos[index] !== undefined}>
-                                                    {uploadingVideos[index] !== undefined ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                                    Шинээр оруулах
-                                                </Button>
-                                                <input id={`video-upload-${index}`} type="file" accept="video/*" className="hidden" onChange={(e) => handleVideoUpload(e, index)} />
-
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button type="button" variant="destructive" size="sm">
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Устгах
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Энэ видеог устгаснаар дахин сэргээх боломжгүй болно.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                                            <AlertDialogAction
-                                                                onClick={() => remove(index)}
-                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                            >
-                                                                Устгах
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </div>
-                                            <FormField control={form.control} name={`videos.${index}.url`} render={() => (<FormMessage />)} />
-                                        </div>
+                                    <div>
+                                        <h1 className="text-lg font-semibold">Видео контент</h1>
+                                        <p className="text-xs text-muted-foreground">Компанийн танилцуулга, соёлын видеонууд</p>
                                     </div>
                                 </div>
-                            </Card>
-                        ))}
-                        <Button type="button" size="icon" onClick={() => append({ title: '', description: '', url: '' })} title="Видео нэмэх">
-                            <PlusCircle className="h-5 w-5" />
-                        </Button>
-                    </CardContent>
-                </Card>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" type="button" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
+                                    Цуцлах
+                                </Button>
+                                <Button size="sm" type="submit" disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
+                                    {isSubmitting || Object.keys(uploadingVideos).length > 0 ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <Save className="h-4 w-4 mr-2" />
+                                    )}
+                                    Хадгалах
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white rounded-xl border shadow-sm">
+                    <div className="p-5 border-b bg-gradient-to-r from-slate-50 to-white">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-semibold text-base">Видео контент</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Компанийн танилцуулга, соёлын видеонууд</p>
+                            </div>
+                            {fields.length > 0 && (
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="icon"
+                                    className="h-9 w-9 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
+                                    onClick={() => append({ title: '', description: '', url: '' })} 
+                                    title="Видео нэмэх"
+                                >
+                                    <PlusCircle className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        {fields.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center mb-4 shadow-sm">
+                                    <Film className="h-8 w-8 text-blue-500" />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-700 mb-1">Видео контент хоосон байна</p>
+                                <p className="text-xs text-muted-foreground mb-6 max-w-sm">Компанийн танилцуулга, соёлын видеонуудыг нэмнэ үү</p>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full hover:bg-primary hover:text-primary-foreground transition-all hover:scale-105"
+                                    onClick={() => append({ title: '', description: '', url: '' })} 
+                                    title="Видео нэмэх"
+                                >
+                                    <PlusCircle className="h-5 w-5" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {fields.map((field, index) => {
+                                    const videoUrl = form.watch(`videos.${index}.url`);
+                                    const isUploading = uploadingVideos[index] !== undefined;
+                                    return (
+                                        <div 
+                                            key={field.id} 
+                                            className="group relative border-2 rounded-xl p-6 bg-gradient-to-br from-white to-slate-50/50 hover:shadow-lg transition-all duration-200"
+                                        >
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                {/* Video Preview Section */}
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                                            <Film className="h-4 w-4 text-blue-600" />
+                                                        </div>
+                                                        <FormLabel className="text-sm font-semibold">Видео файл</FormLabel>
+                                                    </div>
+                                                    {videoUrl ? (
+                                                        <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 shadow-lg ring-2 ring-slate-200 group-hover:ring-blue-300 transition-all">
+                                                            <video 
+                                                                src={videoUrl} 
+                                                                controls 
+                                                                className="w-full h-full object-contain"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="aspect-video flex items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-white group-hover:border-blue-400 transition-colors">
+                                                            <div className="text-center px-4">
+                                                                <div className="mx-auto h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                                                                    <Film className="h-7 w-7 text-slate-400" />
+                                                                </div>
+                                                                <p className="text-sm font-medium text-slate-600 mb-1">Видео байршуулаагүй байна</p>
+                                                                <p className="text-xs text-muted-foreground">Видео файлаа оруулна уу</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Upload Progress */}
+                                                    {isUploading && (
+                                                        <div className="space-y-3 p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-white shadow-sm">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-sm font-semibold text-blue-700 flex items-center gap-2">
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    Байршуулж байна...
+                                                                </span>
+                                                                <span className="text-sm font-bold text-blue-600">{uploadingVideos[index]}%</span>
+                                                            </div>
+                                                            <Progress 
+                                                                value={uploadingVideos[index]} 
+                                                                className="h-2.5 bg-blue-100"
+                                                            />
+                                                            <p className="text-xs text-blue-600 text-center">Та түр хүлээнэ үү...</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Video Actions */}
+                                                    <div className="flex gap-2">
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="flex-1"
+                                                            onClick={() => document.getElementById(`video-upload-${index}`)?.click()} 
+                                                            disabled={isUploading}
+                                                        >
+                                                            {isUploading ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Байршуулж байна
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Upload className="mr-2 h-4 w-4" />
+                                                                    {videoUrl ? 'Солих' : 'Видео оруулах'}
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                        <input 
+                                                            id={`video-upload-${index}`} 
+                                                            type="file" 
+                                                            accept="video/*" 
+                                                            className="hidden" 
+                                                            onChange={(e) => handleVideoUpload(e, index)} 
+                                                        />
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button 
+                                                                    type="button" 
+                                                                    variant="destructive" 
+                                                                    size="sm"
+                                                                    disabled={isUploading}
+                                                                    className="px-3"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle className="flex items-center gap-2">
+                                                                        <AlertCircle className="h-5 w-5 text-destructive" />
+                                                                        Та итгэлтэй байна уу?
+                                                                    </AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        Энэ видеог устгаснаар дахин сэргээх боломжгүй болно. Энэ үйлдлийг буцаах боломжгүй.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        onClick={() => remove(index)}
+                                                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                    >
+                                                                        Устгах
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                    <FormField control={form.control} name={`videos.${index}.url`} render={() => (<FormMessage />)} />
+                                                </div>
+
+                                                {/* Form Fields Section */}
+                                                <div className="space-y-5">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                                                            <Film className="h-4 w-4 text-purple-600" />
+                                                        </div>
+                                                        <FormLabel className="text-sm font-semibold">Мэдээлэл</FormLabel>
+                                                    </div>
+                                                    <FormField 
+                                                        control={form.control} 
+                                                        name={`videos.${index}.title`} 
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-sm font-medium">Гарчиг</FormLabel>
+                                                                <FormControl>
+                                                                    <Input 
+                                                                        placeholder="Жишээ: Компанийн танилцуулга" 
+                                                                        className="h-11 border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                        {...field} 
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )} 
+                                                    />
+                                                    <FormField 
+                                                        control={form.control} 
+                                                        name={`videos.${index}.description`} 
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-sm font-medium">Товч тайлбар</FormLabel>
+                                                                <FormControl>
+                                                                    <Textarea 
+                                                                        placeholder="Энэ видеонд юу гардаг вэ? Товч тайлбар бичнэ үү..." 
+                                                                        className="min-h-[120px] resize-none border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                        {...field} 
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                
+                                {/* Add Video Button */}
+                                <div className="flex justify-center pt-2">
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="lg"
+                                        className="h-12 px-6 border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all"
+                                        onClick={() => append({ title: '', description: '', url: '' })} 
+                                    >
+                                        <PlusCircle className="mr-2 h-5 w-5" />
+                                        Видео нэмэх
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
             </form>
         </Form>

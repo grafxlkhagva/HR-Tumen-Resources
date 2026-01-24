@@ -47,6 +47,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { generateNextPositionCode } from '@/lib/code-generator';
 
 interface PositionsManagementTabProps {
     department: Department;
@@ -129,11 +130,15 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
 
     const lookups = useMemo(() => {
         const departmentMap = allDepartments?.reduce((acc, d) => { acc[d.id] = d.name; return acc; }, {} as Record<string, string>) || { [department.id]: department.name };
+        const departmentColorMap = allDepartments?.reduce((acc, d) => {
+            if (d.color) acc[d.id] = d.color;
+            return acc;
+        }, {} as Record<string, string>) || {};
         const levelMap = levels?.reduce((acc, level) => { acc[level.id] = level.name; return acc; }, {} as Record<string, string>) || {};
         const empTypeMap = empTypes?.reduce((acc, type) => { acc[type.id] = type.name; return acc; }, {} as Record<string, string>) || {};
         const jobCategoryMap = jobCategories?.reduce((acc, cat) => { acc[cat.id] = `${cat.code} - ${cat.name}`; return acc; }, {} as Record<string, string>) || {};
         const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || department.typeName || 'Нэгж';
-        return { departmentMap, levelMap, empTypeMap, jobCategoryMap, typeName, departmentColor: department.color };
+        return { departmentMap, departmentColorMap, levelMap, empTypeMap, jobCategoryMap, typeName, departmentColor: department.color };
     }, [department, levels, empTypes, allDepartments, jobCategories, departmentTypes]);
 
     const validationChecklist = useMemo(() => {
@@ -201,32 +206,51 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
         }
     };
 
-    const handleDuplicatePosition = (pos: any) => {
-        if (!firestore) return;
+    const posCodeConfigRef = useMemoFirebase(
+        () => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        [firestore]
+    );
 
-        // Strip UI-specific fields that might have been passed from React Flow node data
+    const handleDuplicatePosition = async (pos: any) => {
+        if (!firestore || !posCodeConfigRef) return;
+
+        // Strip UI-specific fields; do not copy code — generate new unique one
         const {
             id,
             filled,
+            code: _code,
             onPositionClick,
             onAddChild,
             onDuplicate,
+            onAppoint,
             levelName,
             departmentColor,
+            assignedEmployee,
             ...clonedData
         } = pos;
 
-        const newPositionData = {
-            ...clonedData,
-            title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
-            filled: 0,
-            isActive: true,
-            isApproved: false,
-            createdAt: new Date().toISOString(),
-        };
+        const cleanData = Object.entries(clonedData).reduce((acc, [key, value]) => {
+            if (value !== undefined && typeof value !== 'function') acc[key] = value;
+            return acc;
+        }, {} as any);
 
-        addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
-        toast({ title: "Амжилттай хувиллаа" });
+        try {
+            const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
+            const newPositionData = {
+                ...cleanData,
+                code: newCode,
+                title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
+                filled: 0,
+                isActive: true,
+                isApproved: false,
+                createdAt: new Date().toISOString(),
+            };
+            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            toast({ title: "Амжилттай хувиллаа" });
+        } catch (e) {
+            console.error('Хуулбарлах алдаа:', e);
+            toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+        }
     };
 
     const handleApproveSelected = async () => {

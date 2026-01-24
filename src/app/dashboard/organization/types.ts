@@ -167,6 +167,10 @@ export type JobCategory = {
 export type CompanyProfile = {
     name: string;
     legalName?: string;
+    // CEO холболт
+    ceoDepartmentId?: string | null;
+    ceoPositionId?: string | null;
+    ceoEmployeeId?: string | null;
 }
 
 export type WorkSchedule = {

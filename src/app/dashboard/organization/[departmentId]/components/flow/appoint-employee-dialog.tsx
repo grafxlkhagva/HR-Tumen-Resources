@@ -35,6 +35,7 @@ interface AppointEmployeeDialogProps {
     onOpenChange: (open: boolean) => void;
     position: Position | null;
     initialEmployee?: Employee | null; // Урьдчилан сонгосон ажилтан (нүүр хуудаснаас чирэх үед)
+    onSuccess?: (employeeId: string) => void; // Томилолт амжилттай болсны дараа дуудагдах callback
 }
 
 export function AppointEmployeeDialog({
@@ -42,6 +43,7 @@ export function AppointEmployeeDialog({
     onOpenChange,
     position,
     initialEmployee,
+    onSuccess,
 }: AppointEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
     const { toast } = useToast();
@@ -395,6 +397,11 @@ export function AppointEmployeeDialog({
                 title: 'Томилгоо эхэллээ',
                 description: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''} ажилтныг "${position?.title || ''}" албан тушаалд томилох процесс эхэлж, баримт төлөвлөгдлөө.`,
             });
+
+            // Call onSuccess callback if provided
+            if (onSuccess && selectedEmployee?.id) {
+                onSuccess(selectedEmployee.id);
+            }
 
             onOpenChange(false);
         } catch (error: any) {
