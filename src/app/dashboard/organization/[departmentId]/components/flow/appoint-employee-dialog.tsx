@@ -12,7 +12,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+    Search, UserPlus, Loader2, GitBranch, ChevronRight, ChevronLeft, FileText, Check, X, Wand2, 
+    ExternalLink, Calendar as CalendarIcon, Clock, DollarSign, Zap, Gift, GraduationCap,
+    ArrowRight
+} from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
@@ -34,9 +40,43 @@ interface AppointEmployeeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     position: Position | null;
-    initialEmployee?: Employee | null; // Урьдчилан сонгосон ажилтан (нүүр хуудаснаас чирэх үед)
-    onSuccess?: (employeeId: string) => void; // Томилолт амжилттай болсны дараа дуудагдах callback
+    initialEmployee?: Employee | null;
+    onSuccess?: (employeeId: string) => void;
 }
+
+// Full position data fetched from Firestore
+interface FullPositionData extends Position {
+    salarySteps?: {
+        items: { name: string; value: number }[];
+        activeIndex: number;
+        currency: string;
+    };
+    incentives?: {
+        type: string;
+        description: string;
+        amount: number;
+        currency: string;
+        unit: string;
+        frequency?: string;
+    }[];
+    allowances?: {
+        type: string;
+        amount: number;
+        currency: string;
+        period: string;
+    }[];
+}
+
+// Wizard steps
+const WIZARD_STEPS = {
+    EMPLOYEE_SELECT: 1,
+    APPOINTMENT_TYPE: 2,
+    SALARY_STEP: 3,
+    INCENTIVES: 4,
+    ALLOWANCES: 5,
+    ONBOARDING: 6,
+    DOCUMENT_INPUTS: 7,
+};
 
 export function AppointEmployeeDialog({
     open,
@@ -48,16 +88,32 @@ export function AppointEmployeeDialog({
     const { firestore, user: firebaseUser } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
+    
+    // Fetch full position data from Firestore (position prop might be incomplete)
+    const fullPositionRef = React.useMemo(() => 
+        firestore && position?.id && open ? doc(firestore, 'positions', position.id) : null
+    , [firestore, position?.id, open]);
+    const { data: fullPosition, isLoading: isPositionLoading } = useDoc<FullPositionData>(fullPositionRef as any);
+    
+    // Use full position data if available, fallback to prop
+    const positionData = fullPosition || position;
+    
+    // Basic states
     const [search, setSearch] = React.useState('');
-    const [step, setStep] = React.useState(1);
+    const [step, setStep] = React.useState(WIZARD_STEPS.EMPLOYEE_SELECT);
     const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
-    const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
-    const [enableOnboarding, setEnableOnboarding] = React.useState(true);
     const [offboardingStatus, setOffboardingStatus] = React.useState<'checking' | 'active' | 'none'>('none');
 
-    // 1. Fetch unassigned employees
+    // Wizard selection states
+    const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
+    const [selectedSalaryStepIndex, setSelectedSalaryStepIndex] = React.useState<number>(0);
+    const [selectedIncentives, setSelectedIncentives] = React.useState<number[]>([]);
+    const [selectedAllowances, setSelectedAllowances] = React.useState<number[]>([]);
+    const [enableOnboarding, setEnableOnboarding] = React.useState<boolean | null>(null);
+    const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
+
+    // Fetch unassigned employees
     const employeesQuery = React.useMemo(() => {
         if (!firestore) return null;
         return query(
@@ -69,13 +125,13 @@ export function AppointEmployeeDialog({
 
     const { data: allEmployees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
 
-    // 2. Fetch System Appointment Action Config based on selection
+    // Fetch System Appointment Action Config
     const actionConfigRef = React.useMemo(() =>
         firestore && selectedActionId ? doc(firestore, 'organization_actions', selectedActionId) : null
         , [firestore, selectedActionId]);
     const { data: appointmentAction } = useDoc<any>(actionConfigRef);
 
-    // 3. Fetch Template if configured
+    // Fetch Template if configured
     const templateRef = React.useMemo(() =>
         firestore && appointmentAction?.templateId ? doc(firestore, 'er_templates', appointmentAction.templateId) : null
         , [firestore, appointmentAction?.templateId]);
@@ -93,7 +149,68 @@ export function AppointEmployeeDialog({
         );
     }, [assignableEmployees, search]);
 
-    // Initialize custom inputs when template takes effect
+    // Normalize salary steps (handle old format with 'values' array)
+    const normalizeSalarySteps = React.useCallback((pos: Position | FullPositionData | null) => {
+        if (!pos?.salarySteps) return [];
+        // New format with items array
+        if (pos.salarySteps.items && Array.isArray(pos.salarySteps.items)) {
+            return pos.salarySteps.items;
+        }
+        // Old format with values array
+        const oldValues = (pos.salarySteps as any)?.values;
+        if (oldValues && Array.isArray(oldValues)) {
+            return oldValues.map((v: number, i: number) => ({
+                name: `Шатлал ${i + 1}`,
+                value: v
+            }));
+        }
+        return [];
+    }, []);
+
+    // Get position data with normalization - use fullPosition from Firestore
+    const salarySteps = React.useMemo(() => normalizeSalarySteps(positionData), [positionData, normalizeSalarySteps]);
+    const incentives = positionData?.incentives || [];
+    const allowances = positionData?.allowances || [];
+
+    // Debug logging
+    React.useEffect(() => {
+        if (open) {
+            console.log('AppointDialog - Position prop:', {
+                id: position?.id,
+                title: position?.title,
+                hasSalarySteps: !!position?.salarySteps,
+                hasIncentives: !!position?.incentives,
+                hasAllowances: !!position?.allowances,
+            });
+            console.log('AppointDialog - Full Position (Firestore):', {
+                id: fullPosition?.id,
+                title: fullPosition?.title,
+                salarySteps: fullPosition?.salarySteps,
+                incentives: fullPosition?.incentives,
+                allowances: fullPosition?.allowances,
+                isLoading: isPositionLoading,
+            });
+            console.log('AppointDialog - Normalized data:', {
+                salarySteps,
+                incentives,
+                allowances,
+            });
+        }
+    }, [open, position, fullPosition, isPositionLoading, salarySteps, incentives, allowances]);
+    const hasOnboardingProgram = (positionData?.onboardingProgramIds?.length || 0) > 0;
+
+    // Calculate total steps based on position data
+    const getMaxSteps = () => {
+        let max = WIZARD_STEPS.APPOINTMENT_TYPE; // Always have appointment type
+        if (salarySteps.length > 0) max = WIZARD_STEPS.SALARY_STEP;
+        if (incentives.length > 0) max = WIZARD_STEPS.INCENTIVES;
+        if (allowances.length > 0) max = WIZARD_STEPS.ALLOWANCES;
+        max = WIZARD_STEPS.ONBOARDING; // Always have onboarding selection
+        if (templateData?.customInputs?.length) max = WIZARD_STEPS.DOCUMENT_INPUTS;
+        return max;
+    };
+
+    // Initialize custom inputs when template loads
     React.useEffect(() => {
         if (templateData?.customInputs) {
             const initialValues: Record<string, any> = {};
@@ -110,33 +227,26 @@ export function AppointEmployeeDialog({
     React.useEffect(() => {
         if (open && initialEmployee) {
             setSelectedEmployee(initialEmployee);
-            setStep(2); // Skip employee selection, go directly to action type selection
+            setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
         }
     }, [open, initialEmployee]);
 
-    // Check for active offboarding when employee is selected (for drag & drop from dashboard)
+    // Check for active offboarding
     React.useEffect(() => {
         const checkOffboarding = async () => {
-            // Only check when initialEmployee is provided (drag & drop scenario)
-            if (!firestore || !initialEmployee?.id || !open) {
-                return;
-            }
+            if (!firestore || !initialEmployee?.id || !open) return;
 
             setOffboardingStatus('checking');
             try {
                 const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', initialEmployee.id));
-                if (offboardingSnap.exists()) {
-                    const data = offboardingSnap.data();
-                    // Check if offboarding is still in progress (not completed)
-                    if (data.status === 'IN_PROGRESS') {
-                        setOffboardingStatus('active');
-                        toast({
-                            title: 'Анхааруулга: Offboarding идэвхтэй',
-                            description: `${initialEmployee.firstName} ${initialEmployee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна. Offboarding дуусмагц томилох боломжтой.`,
-                            variant: 'destructive',
-                        });
-                        return;
-                    }
+                if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+                    setOffboardingStatus('active');
+                    toast({
+                        title: 'Анхааруулга: Offboarding идэвхтэй',
+                        description: `${initialEmployee.firstName} ${initialEmployee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна.`,
+                        variant: 'destructive',
+                    });
+                    return;
                 }
                 setOffboardingStatus('none');
             } catch (error) {
@@ -144,54 +254,150 @@ export function AppointEmployeeDialog({
                 setOffboardingStatus('none');
             }
         };
-
         checkOffboarding();
     }, [firestore, initialEmployee?.id, open, toast]);
 
+    // Reset on close
     React.useEffect(() => {
         if (!open) {
-            setStep(1);
+            setStep(WIZARD_STEPS.EMPLOYEE_SELECT);
             setSelectedEmployee(null);
             setSelectedActionId(null);
+            setSelectedSalaryStepIndex(position?.salarySteps?.activeIndex || 0);
+            setSelectedIncentives([]);
+            setSelectedAllowances([]);
+            setEnableOnboarding(null);
             setSearch('');
             setCustomInputValues({});
-            setEnableOnboarding(true);
             setOffboardingStatus('none');
         }
-    }, [open]);
+    }, [open, position?.salarySteps?.activeIndex]);
+
+    // Initialize default salary step from position
+    React.useEffect(() => {
+        if (positionData?.salarySteps?.activeIndex !== undefined && salarySteps.length > 0) {
+            const activeIdx = Math.min(positionData.salarySteps.activeIndex, salarySteps.length - 1);
+            setSelectedSalaryStepIndex(activeIdx);
+        }
+    }, [positionData?.salarySteps?.activeIndex, salarySteps.length]);
 
     const handleEmployeeSelect = async (employee: Employee) => {
         if (!firestore) return;
         
-        // Check offboarding status before allowing selection
         try {
             const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', employee.id));
             if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
                 toast({
                     title: 'Анхааруулга: Offboarding идэвхтэй',
-                    description: `${employee.firstName} ${employee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна. Offboarding дуусмагц томилох боломжтой.`,
+                    description: `${employee.firstName} ${employee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна.`,
                     variant: 'destructive',
                 });
                 setOffboardingStatus('active');
-            } else {
-                setOffboardingStatus('none');
+                return;
             }
+            setOffboardingStatus('none');
         } catch (error) {
             console.error("Offboarding check error:", error);
             setOffboardingStatus('none');
         }
         
         setSelectedEmployee(employee);
-        setStep(2);
+        setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+    };
+
+    // Navigate to next step based on available data
+    const goToNextStep = (currentStep: number) => {
+        console.log('goToNextStep called:', {
+            currentStep,
+            salaryStepsLength: salarySteps.length,
+            incentivesLength: incentives.length,
+            allowancesLength: allowances.length,
+            salarySteps,
+            incentives,
+            allowances
+        });
+        
+        if (currentStep === WIZARD_STEPS.APPOINTMENT_TYPE) {
+            if (salarySteps.length > 0) {
+                console.log('Going to SALARY_STEP');
+                setStep(WIZARD_STEPS.SALARY_STEP);
+            } else if (incentives.length > 0) {
+                console.log('Going to INCENTIVES');
+                setStep(WIZARD_STEPS.INCENTIVES);
+            } else if (allowances.length > 0) {
+                console.log('Going to ALLOWANCES');
+                setStep(WIZARD_STEPS.ALLOWANCES);
+            } else {
+                console.log('Going to ONBOARDING');
+                setStep(WIZARD_STEPS.ONBOARDING);
+            }
+        } else if (currentStep === WIZARD_STEPS.SALARY_STEP) {
+            if (incentives.length > 0) {
+                setStep(WIZARD_STEPS.INCENTIVES);
+            } else if (allowances.length > 0) {
+                setStep(WIZARD_STEPS.ALLOWANCES);
+            } else {
+                setStep(WIZARD_STEPS.ONBOARDING);
+            }
+        } else if (currentStep === WIZARD_STEPS.INCENTIVES) {
+            if (allowances.length > 0) {
+                setStep(WIZARD_STEPS.ALLOWANCES);
+            } else {
+                setStep(WIZARD_STEPS.ONBOARDING);
+            }
+        } else if (currentStep === WIZARD_STEPS.ALLOWANCES) {
+            setStep(WIZARD_STEPS.ONBOARDING);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING) {
+            if (templateData?.customInputs?.length) {
+                setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
+            } else {
+                // No document inputs, submit directly
+                handleStartProcess();
+            }
+        }
+    };
+
+    // Navigate to previous step
+    const goToPreviousStep = (currentStep: number) => {
+        if (currentStep === WIZARD_STEPS.DOCUMENT_INPUTS) {
+            setStep(WIZARD_STEPS.ONBOARDING);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING) {
+            if (allowances.length > 0) {
+                setStep(WIZARD_STEPS.ALLOWANCES);
+            } else if (incentives.length > 0) {
+                setStep(WIZARD_STEPS.INCENTIVES);
+            } else if (salarySteps.length > 0) {
+                setStep(WIZARD_STEPS.SALARY_STEP);
+            } else {
+                setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+            }
+        } else if (currentStep === WIZARD_STEPS.ALLOWANCES) {
+            if (incentives.length > 0) {
+                setStep(WIZARD_STEPS.INCENTIVES);
+            } else if (salarySteps.length > 0) {
+                setStep(WIZARD_STEPS.SALARY_STEP);
+            } else {
+                setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+            }
+        } else if (currentStep === WIZARD_STEPS.INCENTIVES) {
+            if (salarySteps.length > 0) {
+                setStep(WIZARD_STEPS.SALARY_STEP);
+            } else {
+                setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+            }
+        } else if (currentStep === WIZARD_STEPS.SALARY_STEP) {
+            setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+        } else if (currentStep === WIZARD_STEPS.APPOINTMENT_TYPE) {
+            setStep(WIZARD_STEPS.EMPLOYEE_SELECT);
+        }
     };
 
     const handleStartProcess = async () => {
         if (!firestore || !position || !selectedEmployee || !firebaseUser) {
-            console.warn("Missing required data:", { firestore: !!firestore, position: !!position, selectedEmployee: !!selectedEmployee, firebaseUser: !!firebaseUser });
+            console.warn("Missing required data");
             return;
         }
 
-        // Validate critical IDs
         if (!selectedEmployee?.id || !position?.id) {
             toast({
                 title: 'Алдаа',
@@ -203,7 +409,7 @@ export function AppointEmployeeDialog({
 
         setIsSubmitting(true);
         try {
-            // Double-check offboarding status before proceeding
+            // Double-check offboarding status
             try {
                 const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', selectedEmployee.id));
                 if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
@@ -215,14 +421,13 @@ export function AppointEmployeeDialog({
                     setIsSubmitting(false);
                     return;
                 }
-            } catch (offboardingCheckError) {
-                console.warn("Offboarding check failed:", offboardingCheckError);
-                // Continue anyway, don't block the process
+            } catch (e) {
+                console.warn("Offboarding check failed:", e);
             }
 
             const batch = writeBatch(firestore);
 
-            // 1. Fetch required data for document replacement
+            // Fetch company profile
             let companyProfile = null;
             try {
                 const companySnap = await getDocs(collection(firestore, 'company_profile'));
@@ -231,6 +436,7 @@ export function AppointEmployeeDialog({
                 console.warn("Failed to fetch company profile:", e);
             }
 
+            // Fetch department
             let deptData = null;
             if (position.departmentId) {
                 try {
@@ -241,7 +447,12 @@ export function AppointEmployeeDialog({
                 }
             }
 
-            // 2. Generate Content if template exists
+            // Prepare selected compensation data
+            const selectedSalary = salarySteps[selectedSalaryStepIndex];
+            const selectedIncentivesList = selectedIncentives.map(i => incentives[i]);
+            const selectedAllowancesList = selectedAllowances.map(i => allowances[i]);
+
+            // Generate document content if template exists
             let content = '';
             if (templateData) {
                 try {
@@ -257,15 +468,20 @@ export function AppointEmployeeDialog({
                             day: format(new Date(), 'dd'),
                             user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
                         },
-                        customInputs: customInputValues || {}
+                        customInputs: customInputValues || {},
+                        // Add selected compensation data to template
+                        appointment: {
+                            salaryStep: selectedSalary,
+                            incentives: selectedIncentivesList,
+                            allowances: selectedAllowancesList,
+                        }
                     });
-                } catch (contentError) {
-                    console.error("Document content generation failed:", contentError);
-                    // Continue with empty content
+                } catch (e) {
+                    console.error("Document content generation failed:", e);
                     content = '';
                 }
 
-                // 3. Create er_document
+                // Create er_document
                 try {
                     const docRef = doc(collection(firestore, 'er_documents'));
                     batch.set(docRef, {
@@ -280,6 +496,17 @@ export function AppointEmployeeDialog({
                         version: 1,
                         printSettings: templateData?.printSettings || null,
                         customInputs: customInputValues || {},
+                        // Store appointment selections
+                        appointmentData: {
+                            actionId: selectedActionId,
+                            salaryStepIndex: selectedSalaryStepIndex,
+                            salaryStep: selectedSalary,
+                            incentiveIndices: selectedIncentives,
+                            incentives: selectedIncentivesList,
+                            allowanceIndices: selectedAllowances,
+                            allowances: selectedAllowancesList,
+                            enableOnboarding: enableOnboarding,
+                        },
                         metadata: {
                             employeeName: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''}`,
                             templateName: templateData?.name || '',
@@ -297,20 +524,17 @@ export function AppointEmployeeDialog({
                         createdAt: Timestamp.now(),
                         updatedAt: Timestamp.now()
                     });
-                } catch (docError) {
-                    console.error("ER document creation failed:", docError);
-                    // Don't fail the whole process if document creation fails
+                } catch (e) {
+                    console.error("ER document creation failed:", e);
                 }
             }
 
-            // 4. Conditional Onboarding Initialization
+            // Conditional Onboarding Initialization
             if (enableOnboarding) {
                 try {
-                    // Get Global Config
                     const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
                     const config = configSnap.exists() ? configSnap.data() : { stages: [] };
 
-                    // Get Position Config (using the position object already available in props)
                     let allowedTaskIds: string[] | null = null;
                     if (position.onboardingProgramIds && position.onboardingProgramIds.length > 0) {
                         allowedTaskIds = position.onboardingProgramIds;
@@ -337,27 +561,24 @@ export function AppointEmployeeDialog({
 
                     if (newStages.length > 0) {
                         const processRef = doc(firestore, 'onboarding_processes', selectedEmployee.id);
-                        // Use set with merge to handle re-employment scenarios (existing closed onboarding)
                         batch.set(processRef, {
                             id: selectedEmployee.id,
                             employeeId: selectedEmployee.id,
                             stages: newStages,
                             progress: 0,
                             status: 'IN_PROGRESS',
-                            // Clear any closed status from previous cycle
                             closedAt: null,
                             closedReason: null,
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString()
                         });
                     }
-                } catch (onboardingError) {
-                    console.error("Onboarding initialization failed:", onboardingError);
-                    // We don't block the whole appointment if onboarding fails to init
+                } catch (e) {
+                    console.error("Onboarding initialization failed:", e);
                 }
             }
 
-            // 5. Update Employee
+            // Update Employee with selected compensation
             try {
                 const empRef = doc(firestore, 'employees', selectedEmployee.id);
                 batch.update(empRef, {
@@ -366,39 +587,46 @@ export function AppointEmployeeDialog({
                     departmentId: position?.departmentId || null,
                     status: 'Томилогдож буй',
                     lifecycleStage: 'onboarding',
+                    // Store appointment compensation
+                    appointedCompensation: {
+                        salaryStepIndex: selectedSalaryStepIndex,
+                        salary: selectedSalary?.value || 0,
+                        salaryStepName: selectedSalary?.name || '',
+                        incentiveIndices: selectedIncentives,
+                        allowanceIndices: selectedAllowances,
+                    },
                     updatedAt: Timestamp.now()
                 });
-            } catch (empUpdateError) {
-                console.error("Employee update failed:", empUpdateError);
+            } catch (e) {
+                console.error("Employee update failed:", e);
                 throw new Error('Ажилтны мэдээллийг шинэчлэхэд алдаа гарлаа.');
             }
 
-            // 6. Update Position filled count
+            // Update Position filled count
             try {
                 const posRef = doc(firestore, 'positions', position.id);
                 batch.update(posRef, {
                     filled: increment(1),
                     updatedAt: Timestamp.now()
                 });
-            } catch (posUpdateError) {
-                console.error("Position update failed:", posUpdateError);
+            } catch (e) {
+                console.error("Position update failed:", e);
                 throw new Error('Ажлын байрны мэдээллийг шинэчлэхэд алдаа гарлаа.');
             }
 
-            // 7. Commit Batch
+            // Commit Batch
             try {
                 await batch.commit();
-            } catch (commitError) {
-                console.error("Batch commit failed:", commitError);
+            } catch (e) {
+                console.error("Batch commit failed:", e);
                 throw new Error('Мэдээллийг хадгалахад алдаа гарлаа.');
             }
 
             toast({
                 title: 'Томилгоо эхэллээ',
-                description: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''} ажилтныг "${position?.title || ''}" албан тушаалд томилох процесс эхэлж, баримт төлөвлөгдлөө.`,
+                description: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''} ажилтныг "${position?.title || ''}" албан тушаалд томилох процесс эхэллээ.`,
             });
 
-            // Call onSuccess callback if provided
             if (onSuccess && selectedEmployee?.id) {
                 onSuccess(selectedEmployee.id);
             }
@@ -416,331 +644,600 @@ export function AppointEmployeeDialog({
         }
     };
 
+    // Calculate current step progress
+    const getStepProgress = () => {
+        const steps = [];
+        steps.push({ id: 1, name: 'Ажилтан' });
+        steps.push({ id: 2, name: 'Төрөл' });
+        if (salarySteps.length > 0) steps.push({ id: 3, name: 'Цалин' });
+        if (incentives.length > 0) steps.push({ id: 4, name: 'Урамшуулал' });
+        if (allowances.length > 0) steps.push({ id: 5, name: 'Хангамж' });
+        steps.push({ id: 6, name: 'Onboarding' });
+        if (templateData?.customInputs?.length) steps.push({ id: 7, name: 'Баримт' });
+        return steps;
+    };
+
+    const stepProgress = getStepProgress();
+    const currentStepIndex = stepProgress.findIndex(s => s.id === step);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] h-[650px] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-none shadow-premium">
-                <DialogHeader className="p-8 pb-6 bg-gradient-to-br from-primary/5 to-background border-b shrink-0">
+            <DialogContent className="sm:max-w-[560px] h-[700px] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-none shadow-premium">
+                <DialogHeader className="p-6 pb-4 bg-gradient-to-br from-primary/5 to-background border-b shrink-0">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 rounded-xl bg-primary/10 text-primary">
                             <UserPlus className="h-5 w-5" />
                         </div>
-                        <DialogTitle className="text-xl font-bold">
-                            {step === 1 ? 'Ажилтан томилох' : 'Томилгооны тохиргоо'}
-                        </DialogTitle>
+                        <div>
+                            <DialogTitle className="text-lg font-bold">
+                                Ажилтан томилох
+                            </DialogTitle>
+                            <DialogDescription className="text-xs">
+                                <span className="font-semibold text-foreground">"{position?.title}"</span> ажлын байр
+                            </DialogDescription>
+                        </div>
                     </div>
-                    <DialogDescription className="text-sm">
-                        {step === 1 ? (
-                            <>
-                                <span className="font-bold text-foreground">"{position?.title}"</span> ажлын байранд томилох ажилтнаа сонгоно уу.
-                            </>
-                        ) : (
-                            <>
-                                <span className="font-bold text-foreground">{selectedEmployee?.firstName} {selectedEmployee?.lastName}</span> ажилтны томилгооны баримтыг бэлтгэж байна.
-                            </>
-                        )}
-                    </DialogDescription>
+                    
+                    {/* Step Progress Indicator */}
+                    {step > WIZARD_STEPS.EMPLOYEE_SELECT && (
+                        <div className="flex items-center gap-1 mt-3">
+                            {stepProgress.map((s, i) => (
+                                <React.Fragment key={s.id}>
+                                    <div className={cn(
+                                        "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all",
+                                        s.id === step 
+                                            ? "bg-primary text-primary-foreground" 
+                                            : s.id < step 
+                                                ? "bg-primary/20 text-primary"
+                                                : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {s.id < step ? (
+                                            <Check className="h-3 w-3" />
+                                        ) : (
+                                            <span>{i + 1}</span>
+                                        )}
+                                        <span className="hidden sm:inline">{s.name}</span>
+                                    </div>
+                                    {i < stepProgress.length - 1 && (
+                                        <div className={cn(
+                                            "h-0.5 w-3 rounded-full transition-all",
+                                            s.id < step ? "bg-primary" : "bg-muted"
+                                        )} />
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Debug: Show available data */}
+                    {step === WIZARD_STEPS.APPOINTMENT_TYPE && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            {isPositionLoading ? (
+                                <Badge variant="outline" className="text-[9px]">
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                    Ачаалж байна...
+                                </Badge>
+                            ) : (
+                                <>
+                                    <Badge variant={salarySteps.length > 0 ? "default" : "outline"} className="text-[9px]">
+                                        Цалин: {salarySteps.length}
+                                    </Badge>
+                                    <Badge variant={incentives.length > 0 ? "default" : "outline"} className="text-[9px]">
+                                        Урамшуулал: {incentives.length}
+                                    </Badge>
+                                    <Badge variant={allowances.length > 0 ? "default" : "outline"} className="text-[9px]">
+                                        Хангамж: {allowances.length}
+                                    </Badge>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </DialogHeader>
 
                 <div className="flex-1 flex flex-col overflow-hidden relative">
-                    {step === 1 ? (
+                    {/* Step 1: Employee Selection */}
+                    {step === WIZARD_STEPS.EMPLOYEE_SELECT && (
                         <>
-                            <div className="px-8 py-4 border-b bg-muted/20 shrink-0">
+                            <div className="px-6 py-3 border-b bg-muted/20 shrink-0">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         placeholder="Ажилтны нэр, кодоор хайх..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="pl-10 h-11 bg-background rounded-xl border-border focus-visible:ring-primary shadow-sm"
+                                        className="pl-10 h-10 bg-background rounded-xl"
                                     />
                                 </div>
                             </div>
                             <ScrollArea className="flex-1">
                                 <div className="p-4 space-y-2">
                                     {employeesLoading ? (
-                                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                        <div className="flex flex-col items-center justify-center py-16 gap-3">
                                             <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Ажилтны жагсаалт уншиж байна...</p>
+                                            <p className="text-xs text-muted-foreground">Ажилтны жагсаалт уншиж байна...</p>
                                         </div>
                                     ) : filteredEmployees.length > 0 ? (
                                         filteredEmployees.map((emp) => (
                                             <div
                                                 key={emp.id}
-                                                className="flex items-center justify-between p-4 rounded-2xl bg-background border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all group cursor-pointer"
+                                                className="flex items-center justify-between p-3 rounded-xl bg-background border hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
                                                 onClick={() => handleEmployeeSelect(emp)}
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-border/20">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
                                                         <AvatarImage src={emp.photoURL} />
                                                         <AvatarFallback className="bg-primary/5 text-primary font-bold">
                                                             {emp.firstName?.charAt(0)}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div>
-                                                        <div className="font-bold text-slate-900 group-hover:text-primary transition-colors">{emp.firstName} {emp.lastName}</div>
-                                                        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-2">
-                                                            <span className="bg-muted px-1.5 py-0.5 rounded">#{emp.employeeCode}</span>
-                                                            {emp.jobTitle && <span>{emp.jobTitle}</span>}
-                                                        </div>
+                                                        <div className="font-semibold text-sm">{emp.firstName} {emp.lastName}</div>
+                                                        <div className="text-[10px] text-muted-foreground">#{emp.employeeCode}</div>
                                                     </div>
                                                 </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-9 w-9 rounded-xl opacity-0 group-hover:opacity-100 transition-all bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                                >
-                                                    <ChevronRight className="h-5 w-5" />
-                                                </Button>
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="py-20 text-center space-y-4">
-                                            <div className="w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
-                                                <Search className="h-8 w-8 text-muted-foreground/30" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-900">Илэрц олдсонгүй</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Томилогдоогүй, идэвхтэй ажилтан олдсонгүй.</p>
-                                            </div>
+                                        <div className="py-16 text-center">
+                                            <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                                            <p className="text-sm font-medium">Илэрц олдсонгүй</p>
+                                            <p className="text-xs text-muted-foreground">Томилогдоогүй ажилтан олдсонгүй</p>
                                         </div>
                                     )}
                                 </div>
                             </ScrollArea>
                         </>
-                    ) : step === 2 ? (
+                    )}
+
+                    {/* Step 2: Appointment Type */}
+                    {step === WIZARD_STEPS.APPOINTMENT_TYPE && (
                         <ScrollArea className="flex-1">
-                            <div className="p-8 space-y-6">
-                                {/* Offboarding warning */}
+                            <div className="p-6 space-y-4">
+                                {/* Offboarding warnings */}
                                 {offboardingStatus === 'checking' && (
-                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3">
-                                        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                                        <span className="text-sm text-slate-600">Ажилтны төлөвийг шалгаж байна...</span>
+                                    <div className="p-3 rounded-xl bg-slate-50 border flex items-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span className="text-sm">Төлөв шалгаж байна...</span>
                                     </div>
                                 )}
                                 {offboardingStatus === 'active' && (
-                                    <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
-                                        <div className="p-2 rounded-lg bg-red-100">
-                                            <X className="h-5 w-5 text-red-600" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-bold text-red-800">Offboarding хөтөлбөр идэвхтэй байна</div>
-                                            <p className="text-sm text-red-600 mt-1">
-                                                Энэ ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байгаа тул томилох боломжгүй. 
-                                                Offboarding хөтөлбөр бүрэн дуусмагц томилох боломжтой болно.
-                                            </p>
+                                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+                                        <X className="h-4 w-4 text-red-600 mt-0.5" />
+                                        <div>
+                                            <div className="font-semibold text-red-800 text-sm">Offboarding идэвхтэй</div>
+                                            <p className="text-xs text-red-600">Томилох боломжгүй</p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="text-center space-y-2 mb-8">
-                                    <h3 className="text-lg font-bold text-slate-900">Томилгооны төрөл сонгох</h3>
-                                    <p className="text-sm text-muted-foreground">Тухайн ажилтанд тохирох томилгооны төрлийг сонгоно уу.</p>
+                                <div className="text-center mb-4">
+                                    <h3 className="font-bold">Томилгооны төрөл сонгох</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Сонголт дарахад автоматаар үргэлжилнэ</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4">
-                                    {[
-                                        { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', icon: UserPlus, color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
-                                        { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', icon: Clock, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-                                        { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', icon: GitBranch, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-                                    ].map((type) => (
+                                {[
+                                    { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', desc: 'Байнгын гэрээтэй', icon: UserPlus, color: 'bg-indigo-50 text-indigo-600' },
+                                    { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', desc: 'Туршилтын гэрээтэй', icon: Clock, color: 'bg-amber-50 text-amber-600' },
+                                    { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', desc: 'Дахин томилолт', icon: GitBranch, color: 'bg-emerald-50 text-emerald-600' },
+                                ].map((type) => (
+                                    <button
+                                        key={type.id}
+                                        onClick={() => {
+                                            setSelectedActionId(type.id);
+                                            goToNextStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+                                        }}
+                                        disabled={offboardingStatus === 'active' || offboardingStatus === 'checking'}
+                                        className={cn(
+                                            "w-full flex items-center gap-4 p-4 rounded-xl border-2 bg-white transition-all text-left group",
+                                            offboardingStatus !== 'none'
+                                                ? "opacity-50 cursor-not-allowed"
+                                                : "hover:border-primary hover:shadow-md"
+                                        )}
+                                    >
+                                        <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", type.color)}>
+                                            <type.icon className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-semibold">{type.name}</div>
+                                            <div className="text-xs text-muted-foreground">{type.desc}</div>
+                                        </div>
+                                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    </button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Step 3: Salary Step Selection */}
+                    {step === WIZARD_STEPS.SALARY_STEP && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 mb-2">
+                                        <DollarSign className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-bold">Цалингийн шатлал сонгох</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Сонголт дарахад автоматаар үргэлжилнэ</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {salarySteps.map((salaryStep, index) => (
                                         <button
-                                            key={type.id}
+                                            key={index}
                                             onClick={() => {
-                                                setSelectedActionId(type.id);
-                                                setStep(3);
+                                                setSelectedSalaryStepIndex(index);
+                                                goToNextStep(WIZARD_STEPS.SALARY_STEP);
                                             }}
-                                            disabled={offboardingStatus === 'active' || offboardingStatus === 'checking'}
                                             className={cn(
-                                                "flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 bg-white transition-all text-left group",
-                                                offboardingStatus === 'active' || offboardingStatus === 'checking'
-                                                    ? "opacity-50 cursor-not-allowed"
-                                                    : "hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-50"
+                                                "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left group",
+                                                positionData?.salarySteps?.activeIndex === index
+                                                    ? "border-emerald-300 bg-emerald-50"
+                                                    : "border-slate-200 bg-white hover:border-primary hover:shadow-md"
                                             )}
                                         >
-                                            <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", type.color)}>
-                                                <type.icon className="h-6 w-6" />
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm",
+                                                    positionData?.salarySteps?.activeIndex === index
+                                                        ? "bg-emerald-500 text-white"
+                                                        : "bg-slate-100 text-slate-600"
+                                                )}>
+                                                    {index + 1}
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold">{salaryStep.name}</div>
+                                                    {positionData?.salarySteps?.activeIndex === index && (
+                                                        <Badge variant="outline" className="text-[9px] h-4 border-emerald-300 text-emerald-600">
+                                                            Анхдагч
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-bold text-slate-900">{type.name}</div>
-                                                <div className="text-xs text-muted-foreground mt-0.5">Томилгооны баримт үүсгэгдэх болно</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-lg">{salaryStep.value.toLocaleString()}₮</span>
+                                                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                             </div>
-                                            <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         </ScrollArea>
-                    ) : (
+                    )}
+
+                    {/* Step 4: Incentives Selection */}
+                    {step === WIZARD_STEPS.INCENTIVES && (
                         <ScrollArea className="flex-1">
-                            <div className="p-8 space-y-6">
-                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-4">
-                                    <Avatar className="h-14 w-14 border-4 border-white shadow-sm">
-                                        <AvatarImage src={selectedEmployee?.photoURL} />
-                                        <AvatarFallback className="bg-primary/5 text-primary text-xl font-bold">
-                                            {selectedEmployee?.firstName?.charAt(0)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <div className="text-lg font-bold text-slate-900">{selectedEmployee?.firstName} {selectedEmployee?.lastName}</div>
-                                        <div className="text-xs text-muted-foreground font-medium flex items-center gap-2 mt-0.5">
-                                            <span className="bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100">#{selectedEmployee?.employeeCode}</span>
-                                            <span>{position?.title}</span>
-                                        </div>
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-amber-100 text-amber-600 mb-2">
+                                        <Zap className="h-5 w-5" />
                                     </div>
+                                    <h3 className="font-bold">Урамшуулал & Нэмэгдэл сонгох</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Олгохыг хүссэн урамшууллуудаа сонгоно уу</p>
                                 </div>
 
-                                {templateLoading ? (
-                                    <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                                ) : templateData ? (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                                        <div className="flex items-center gap-2 py-2 border-y border-dashed border-slate-200">
-                                            <FileText className="w-5 h-5 text-indigo-500" />
-                                            <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Ашиглах загвар</div>
-                                                <div className="text-sm font-bold text-slate-700">{templateData.name}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center justify-between">
-                                            <div className="space-y-0.5">
-                                                <Label className="text-sm font-bold text-indigo-900">Чиглүүлэх (Onboarding)</Label>
-                                                <p className="text-[10px] text-indigo-600 font-medium leading-none">Хөтөлбөрийг автоматаар эхлүүлэх</p>
-                                            </div>
-                                            <Switch
-                                                checked={enableOnboarding}
-                                                onCheckedChange={setEnableOnboarding}
-                                            />
-                                        </div>
-
-                                        {templateData.customInputs && templateData.customInputs.length > 0 && (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-2 text-indigo-600">
-                                                    <Wand2 className="h-4 w-4" />
-                                                    <label className="text-xs font-bold uppercase tracking-widest">Шаардлагатай мэдээллүүд</label>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {templateData.customInputs.map(input => (
-                                                        <div key={input.key} className="space-y-1.5">
-                                                            <Label className="text-xs font-bold text-slate-600 ml-1">
-                                                                {input.label} {input.required && <span className="text-rose-500">*</span>}
-                                                            </Label>
-                                                            {input.type === 'date' ? (
-                                                                <Popover>
-                                                                    <PopoverTrigger asChild>
-                                                                        <Button
-                                                                            variant={"outline"}
-                                                                            className={cn(
-                                                                                "h-11 w-full justify-start text-left font-medium rounded-xl border-slate-200",
-                                                                                !customInputValues[input.key] && "text-muted-foreground"
-                                                                            )}
-                                                                        >
-                                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                            {customInputValues[input.key] ? format(new Date(customInputValues[input.key]), "PPP", { locale: mn }) : <span>Огноо сонгох</span>}
-                                                                        </Button>
-                                                                    </PopoverTrigger>
-                                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                                        <Calendar
-                                                                            mode="single"
-                                                                            selected={customInputValues[input.key] ? new Date(customInputValues[input.key]) : undefined}
-                                                                            onSelect={(date) => setCustomInputValues(prev => ({ ...prev, [input.key]: date ? format(date, 'yyyy-MM-dd') : '' }))}
-                                                                            initialFocus
-                                                                        />
-                                                                    </PopoverContent>
-                                                                </Popover>
-                                                            ) : input.type === 'number' ? (
-                                                                <Input
-                                                                    type="number"
-                                                                    value={customInputValues[input.key] || ''}
-                                                                    onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
-                                                                    placeholder={input.description || `${input.label} оруулна уу...`}
-                                                                    className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
-                                                                />
-                                                            ) : input.type === 'boolean' ? (
-                                                                <div className="flex items-center space-x-2 h-11 px-4 bg-slate-50/50 rounded-xl border border-slate-100">
-                                                                    <Switch
-                                                                        checked={!!customInputValues[input.key]}
-                                                                        onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.key]: checked }))}
-                                                                    />
-                                                                    <span className="text-sm text-slate-500">{customInputValues[input.key] ? 'Тийм' : 'Үгүй'}</span>
-                                                                </div>
-                                                            ) : (
-                                                                <Input
-                                                                    value={customInputValues[input.key] || ''}
-                                                                    onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
-                                                                    placeholder={input.description || `${input.label} оруулна уу...`}
-                                                                    className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="p-6 rounded-2xl bg-red-50 border border-red-100 text-red-700 text-sm">
-                                        <p className="font-bold flex items-center gap-2 mb-1">
-                                            <X className="h-4 w-4" />
-                                            Томилгоо хийх боломжгүй
-                                        </p>
-                                        <p className="opacity-80 mb-3">Томилгооны баримтын загвар тохируулаагүй байна. <br />Доорх товчлуурыг ашиглан тохиргоог хийнэ үү.</p>
-                                        <Button
-                                            variant="outline"
-                                            className="h-9 px-4 rounded-lg bg-white border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 text-[10px] uppercase font-bold tracking-wider w-full gap-2"
-                                            onClick={() => window.open('/dashboard/organization/settings', '_blank')}
+                                <div className="space-y-2">
+                                    {incentives.map((inc, index) => (
+                                        <label
+                                            key={index}
+                                            className={cn(
+                                                "flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                                                selectedIncentives.includes(index)
+                                                    ? "border-amber-300 bg-amber-50"
+                                                    : "border-slate-200 bg-white hover:border-amber-200"
+                                            )}
                                         >
-                                            <ExternalLink className="h-3.5 w-3.5" />
-                                            Тохиргоо хийх
-                                        </Button>
+                                            <Checkbox
+                                                checked={selectedIncentives.includes(index)}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        setSelectedIncentives(prev => [...prev, index]);
+                                                    } else {
+                                                        setSelectedIncentives(prev => prev.filter(i => i !== index));
+                                                    }
+                                                }}
+                                                className="h-5 w-5"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-sm">{inc.type}</div>
+                                                {inc.description && (
+                                                    <p className="text-xs text-muted-foreground">{inc.description}</p>
+                                                )}
+                                            </div>
+                                            <div className="text-right">
+                                                <Badge variant="secondary" className="font-bold">
+                                                    {inc.unit === '₮' ? inc.amount.toLocaleString() : inc.amount}{inc.unit}
+                                                </Badge>
+                                                {inc.frequency && (
+                                                    <p className="text-[10px] text-muted-foreground mt-0.5">{inc.frequency}</p>
+                                                )}
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {incentives.length === 0 && (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        <p className="text-sm">Урамшуулал тохируулаагүй</p>
                                     </div>
                                 )}
                             </div>
                         </ScrollArea>
                     )}
 
-                    {isSubmitting && (
-                        <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-300">
-                            <div className="relative">
-                                <div className="h-24 w-24 rounded-full border-4 border-slate-100 border-t-primary animate-spin" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Loader2 className="h-8 w-8 text-primary/40" />
+                    {/* Step 5: Allowances Selection */}
+                    {step === WIZARD_STEPS.ALLOWANCES && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-violet-100 text-violet-600 mb-2">
+                                        <Gift className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-bold">Хангамж сонгох</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Олгохыг хүссэн хангамжуудаа сонгоно уу</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {allowances.map((all, index) => (
+                                        <label
+                                            key={index}
+                                            className={cn(
+                                                "flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                                                selectedAllowances.includes(index)
+                                                    ? "border-violet-300 bg-violet-50"
+                                                    : "border-slate-200 bg-white hover:border-violet-200"
+                                            )}
+                                        >
+                                            <Checkbox
+                                                checked={selectedAllowances.includes(index)}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        setSelectedAllowances(prev => [...prev, index]);
+                                                    } else {
+                                                        setSelectedAllowances(prev => prev.filter(i => i !== index));
+                                                    }
+                                                }}
+                                                className="h-5 w-5"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-sm">{all.type}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <Badge variant="secondary" className="font-bold">
+                                                    {all.amount.toLocaleString()}₮
+                                                </Badge>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                    {all.period === 'monthly' ? 'Сар бүр' : 
+                                                     all.period === 'yearly' ? 'Жил бүр' : 
+                                                     all.period === 'once' ? 'Нэг удаа' : all.period}
+                                                </p>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {allowances.length === 0 && (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Gift className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        <p className="text-sm">Хангамж тохируулаагүй</p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Step 6: Onboarding Selection */}
+                    {step === WIZARD_STEPS.ONBOARDING && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-blue-100 text-blue-600 mb-2">
+                                        <GraduationCap className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-bold">Чиглүүлэх хөтөлбөр (Onboarding)</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {hasOnboardingProgram 
+                                            ? 'Энэ ажлын байранд onboarding хөтөлбөр тохируулагдсан' 
+                                            : 'Onboarding хөтөлбөр тохируулаагүй'
+                                        }
+                                    </p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={() => {
+                                            setEnableOnboarding(true);
+                                            goToNextStep(WIZARD_STEPS.ONBOARDING);
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left group",
+                                            "border-slate-200 bg-white hover:border-blue-400 hover:shadow-md"
+                                        )}
+                                    >
+                                        <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                                            <Check className="h-6 w-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold">Тийм, эхлүүлэх</div>
+                                            <div className="text-xs text-muted-foreground">Onboarding хөтөлбөр автоматаар эхэлнэ</div>
+                                        </div>
+                                        <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setEnableOnboarding(false);
+                                            goToNextStep(WIZARD_STEPS.ONBOARDING);
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left group",
+                                            "border-slate-200 bg-white hover:border-slate-400 hover:shadow-md"
+                                        )}
+                                    >
+                                        <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+                                            <X className="h-6 w-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold">Үгүй, алгасах</div>
+                                            <div className="text-xs text-muted-foreground">Onboarding хөтөлбөргүйгээр томилно</div>
+                                        </div>
+                                        <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-slate-600 group-hover:translate-x-1 transition-all" />
+                                    </button>
                                 </div>
                             </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Step 7: Document Custom Inputs */}
+                    {step === WIZARD_STEPS.DOCUMENT_INPUTS && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 mb-2">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-bold">Баримтын мэдээлэл бөглөх</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Томилгооны баримтад шаардлагатай мэдээллүүд</p>
+                                </div>
+
+                                {templateLoading ? (
+                                    <div className="flex justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : templateData?.customInputs?.length ? (
+                                    <div className="space-y-4">
+                                        {templateData.customInputs.map(input => (
+                                            <div key={input.key} className="space-y-1.5">
+                                                <Label className="text-xs font-semibold">
+                                                    {input.label} {input.required && <span className="text-rose-500">*</span>}
+                                                </Label>
+                                                {input.type === 'date' ? (
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    "h-10 w-full justify-start text-left font-medium rounded-xl",
+                                                                    !customInputValues[input.key] && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                {customInputValues[input.key] 
+                                                                    ? format(new Date(customInputValues[input.key]), "PPP", { locale: mn }) 
+                                                                    : "Огноо сонгох"
+                                                                }
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={customInputValues[input.key] ? new Date(customInputValues[input.key]) : undefined}
+                                                                onSelect={(date) => setCustomInputValues(prev => ({ 
+                                                                    ...prev, 
+                                                                    [input.key]: date ? format(date, 'yyyy-MM-dd') : '' 
+                                                                }))}
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                ) : input.type === 'number' ? (
+                                                    <Input
+                                                        type="number"
+                                                        value={customInputValues[input.key] || ''}
+                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                        placeholder={input.description || `${input.label} оруулна уу`}
+                                                        className="h-10 rounded-xl"
+                                                    />
+                                                ) : input.type === 'boolean' ? (
+                                                    <div className="flex items-center space-x-2 h-10 px-4 bg-slate-50 rounded-xl border">
+                                                        <Switch
+                                                            checked={!!customInputValues[input.key]}
+                                                            onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.key]: checked }))}
+                                                        />
+                                                        <span className="text-sm">{customInputValues[input.key] ? 'Тийм' : 'Үгүй'}</span>
+                                                    </div>
+                                                ) : (
+                                                    <Input
+                                                        value={customInputValues[input.key] || ''}
+                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                        placeholder={input.description || `${input.label} оруулна уу`}
+                                                        className="h-10 rounded-xl"
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        <p className="text-sm">Нэмэлт мэдээлэл шаардлагагүй</p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Loading Overlay */}
+                    {isSubmitting && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
+                            <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-primary animate-spin" />
                             <div className="text-center">
-                                <p className="text-sm font-bold text-slate-900">Томилгоо хийж байна</p>
+                                <p className="font-bold">Томилгоо хийж байна</p>
                                 <p className="text-xs text-muted-foreground">Түр хүлээнэ үү...</p>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <DialogFooter className="p-6 border-t bg-slate-50/50 shrink-0">
-                    {step === 1 ? (
-                        <Button
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                            className="rounded-xl px-6 h-11 font-bold uppercase tracking-wider text-[10px]"
-                        >
+                <DialogFooter className="p-4 border-t bg-slate-50/50 shrink-0">
+                    {step === WIZARD_STEPS.EMPLOYEE_SELECT ? (
+                        <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl">
                             Болих
                         </Button>
+                    ) : step === WIZARD_STEPS.APPOINTMENT_TYPE || step === WIZARD_STEPS.SALARY_STEP || step === WIZARD_STEPS.ONBOARDING ? (
+                        // Single-choice steps - only back button
+                        <Button 
+                            variant="outline" 
+                            onClick={() => goToPreviousStep(step)} 
+                            className="rounded-xl"
+                            disabled={isSubmitting}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Буцах
+                        </Button>
                     ) : (
+                        // Multi-choice steps - back and continue buttons
                         <div className="flex w-full gap-3">
                             <Button
                                 variant="outline"
-                                onClick={() => setStep(step - 1)}
-                                className="flex-1 rounded-xl h-11 font-bold uppercase tracking-wider text-[10px]"
+                                onClick={() => goToPreviousStep(step)}
+                                className="flex-1 rounded-xl"
                                 disabled={isSubmitting}
                             >
+                                <ChevronLeft className="h-4 w-4 mr-1" />
                                 Буцах
                             </Button>
-                            <Button
-                                onClick={handleStartProcess}
-                                disabled={isSubmitting || !templateData || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
-                                className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-indigo-200"
-                            >
-                                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                                Томилгоо хийх үйлдэл эхлүүлэх
-                            </Button>
+                            {step === WIZARD_STEPS.DOCUMENT_INPUTS ? (
+                                <Button
+                                    onClick={handleStartProcess}
+                                    disabled={isSubmitting || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
+                                    className="flex-[2] bg-primary hover:bg-primary/90 rounded-xl"
+                                >
+                                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                                    Томилгоо эхлүүлэх
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => goToNextStep(step)}
+                                    className="flex-[2] rounded-xl"
+                                    disabled={isSubmitting}
+                                >
+                                    Үргэлжлүүлэх
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            )}
                         </div>
                     )}
                 </DialogFooter>
