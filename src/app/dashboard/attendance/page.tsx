@@ -534,7 +534,7 @@ function TimeReportTab() {
                                     mode="single"
                                     selected={month}
                                     onSelect={(day) => day && setMonth(day)}
-                                    captionLayout="dropdown-nav"
+                                    captionLayout="dropdown"
                                     fromYear={2020}
                                     toYear={new Date().getFullYear() + 1}
                                 />

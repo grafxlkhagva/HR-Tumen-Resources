@@ -1,18 +1,9 @@
-
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -33,22 +24,17 @@ import {
 import { Input } from '@/components/ui/input';
 import {
     useFirebase,
-    setDocumentNonBlocking,
-    useCollection,
     useMemoFirebase,
     useAuth,
     useDoc,
+    useUser,
     createUserWithSecondaryAuth,
 } from '@/firebase';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PageHeader } from '@/components/page-header';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { Employee } from '../data';
-
 
 const employeeSchema = z.object({
     firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
@@ -66,32 +52,6 @@ type EmployeeCodeConfig = {
     nextNumber: number;
 }
 
-
-function AddEmployeeFormSkeleton() {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-40" />
-                <Skeleton className="h-4 w-64" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Array.from({ length: 9 }).map((_, i) => (
-                        <div className="space-y-2" key={i}>
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-10 w-full" />
-                        </div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-10 w-28" />
-                    <Skeleton className="h-10 w-24" />
-                </div>
-            </CardContent>
-        </Card>
-    )
-}
-
 interface AddEmployeeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -101,9 +61,9 @@ export function AddEmployeeDialog({
     open,
     onOpenChange,
 }: AddEmployeeDialogProps) {
-    const router = useRouter();
-    const { firestore } = useFirebase();
+    const { firestore, firebaseApp } = useFirebase();
     const auth = useAuth();
+    const { user: currentUser } = useUser();
     const { toast } = useToast();
     const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
     const [photoFile, setPhotoFile] = React.useState<File | null>(null);
@@ -112,7 +72,8 @@ export function AddEmployeeDialog({
 
     const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]) as any;
     const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-
+    const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+    const { data: companyProfile } = useDoc<any>(companyProfileRef);
 
     const form = useForm<EmployeeFormValues>({
         resolver: zodResolver(employeeSchema),
@@ -151,9 +112,161 @@ export function AddEmployeeDialog({
         setPhotoPreview(URL.createObjectURL(file));
     };
 
+    // Email илгээх функц
+    const sendEmployeeCredentialsEmail = async (
+        employeeEmail: string,
+        employeeName: string,
+        loginEmail: string,
+        password: string,
+        employeeCode: string
+    ) => {
+        try {
+            // Админы мэдээлэл авах
+            let adminName = 'Админ';
+            if (currentUser) {
+                if (currentUser.displayName) {
+                    adminName = currentUser.displayName;
+                } else if (currentUser.email) {
+                    adminName = currentUser.email;
+                }
+                // Админы бүрэн мэдээлэл авах (employees collection-оос)
+                if (firestore && currentUser.uid) {
+                    try {
+                        const adminDocRef = doc(firestore, 'employees', currentUser.uid);
+                        const adminDoc = await getDoc(adminDocRef);
+                        if (adminDoc.exists()) {
+                            const adminData = adminDoc.data();
+                            adminName = `${adminData.firstName || ''} ${adminData.lastName || ''}`.trim() || adminName;
+                        }
+                    } catch (e) {
+                        console.warn('Админы мэдээлэл авах алдаа:', e);
+                    }
+                }
+            }
+
+            const companyName = companyProfile?.name || 'Байгууллага';
+            const appUrl = typeof window !== 'undefined' 
+                ? window.location.origin 
+                : (process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com');
+
+            const emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
+            
+            const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .credentials-box { background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .credential-item { margin: 15px 0; }
+        .label { font-weight: bold; color: #6b7280; font-size: 14px; }
+        .value { font-size: 18px; color: #111827; font-family: monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${companyName}</h1>
+            <p>Нэвтрэх мэдээлэл</p>
+        </div>
+        <div class="content">
+            <p>Сайн байна уу, <strong>${employeeName}</strong>,</p>
+            
+            <p>Таныг <strong>${companyName}</strong> байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.</p>
+            
+            <div class="credentials-box">
+                <div class="credential-item">
+                    <div class="label">Ажилтны код:</div>
+                    <div class="value">${employeeCode}</div>
+                </div>
+                <div class="credential-item">
+                    <div class="label">Нэвтрэх имэйл:</div>
+                    <div class="value">${loginEmail}</div>
+                </div>
+                <div class="credential-item">
+                    <div class="label">Нууц үг:</div>
+                    <div class="value">${password}</div>
+                </div>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Аюулгүй байдал:</strong> Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу. Нэвтрэх мэдээллээ нууц үгээр солихыг зөвлөж байна.
+            </div>
+            
+            <p>Системд нэвтрэх: <a href="${appUrl}/login">${appUrl}/login</a></p>
+            
+            <p>Асуулт байвал HR багтай холбогдоно уу.</p>
+            
+            <div class="footer">
+                <p>Энэ мэйл автоматаар илгээгдсэн. Хариу бичих шаардлагагүй.</p>
+                <p>Бүртгэсэн: ${adminName}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+            `;
+
+            const emailText = `
+${companyName} - Нэвтрэх мэдээлэл
+
+Сайн байна уу, ${employeeName},
+
+Таныг ${companyName} байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.
+
+Ажилтны код: ${employeeCode}
+Нэвтрэх имэйл: ${loginEmail}
+Нууц үг: ${password}
+
+⚠️ Аюулгүй байдал: Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу.
+
+Системд нэвтрэх: ${appUrl}/login
+
+Асуулт байвал HR багтай холбогдоно уу.
+
+Бүртгэсэн: ${adminName}
+            `.trim();
+
+            const response = await fetch('/api/email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    to: employeeEmail,
+                    subject: emailSubject,
+                    html: emailHtml,
+                    text: emailText,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                console.warn('[Email] Илгээхэд алдаа:', errorData);
+                // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй, зөвхөн warning log
+                return;
+            }
+            
+            const result = await response.json().catch(() => ({ status: 'unknown' }));
+            if (result.status === 'sent') {
+                console.log('[Email] Амжилттай илгээгдлээ:', employeeEmail);
+            } else if (result.status === 'simulated_success') {
+                console.warn('[Email] Simulation mode - бодит email илгээгдээгүй');
+            }
+        } catch (err: any) {
+            // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй
+            console.warn('[Email] Илгээхэд алдаа гарлаа:', err?.message || err);
+        }
+    };
 
     const handleSave = async (values: EmployeeFormValues) => {
-        if (!employeesCollection || !auth || !firestore) return;
+        if (!employeesCollection || !auth || !firestore || !firebaseApp) return;
 
         const originalUser = auth.currentUser;
         if (!originalUser) {
@@ -177,10 +290,16 @@ export function AddEmployeeDialog({
 
             let photoURL = '';
             if (photoFile) {
-                const storage = getStorage();
-                const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
-                await uploadBytes(storageRef, photoFile);
-                photoURL = await getDownloadURL(storageRef);
+                try {
+                    const storage = getStorage(firebaseApp);
+                    const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
+                    await uploadBytes(storageRef, photoFile);
+                    photoURL = await getDownloadURL(storageRef);
+                    console.log('[Photo] Зураг амжилттай хадгалагдлаа:', photoURL);
+                } catch (photoError: any) {
+                    console.warn('[Photo] Зураг хадгалахад алдаа:', photoError?.message || photoError);
+                    // Зураг хадгалахад алдаа гарвал үргэлжлүүлэх
+                }
             }
 
             const employeeData = {
@@ -204,9 +323,23 @@ export function AddEmployeeDialog({
             const employeeDocRef = doc(firestore, 'employees', newUser.uid);
             await setDoc(employeeDocRef, employeeData);
 
+            // Email илгээх - нэвтрэх мэдээлэл (алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй)
+            try {
+                await sendEmployeeCredentialsEmail(
+                    values.email,
+                    `${values.firstName} ${values.lastName}`,
+                    authEmail,
+                    values.phoneNumber,
+                    employeeCode
+                );
+            } catch (emailError: any) {
+                // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй
+                console.warn('[Email] Илгээхэд алдаа:', emailError?.message || emailError);
+            }
+
             toast({
                 title: 'Амжилттай хадгаллаа',
-                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}`,
+                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}.`,
             });
             
             // Form-ийг цэвэрлэх
@@ -216,14 +349,14 @@ export function AddEmployeeDialog({
             onOpenChange(false);
 
         } catch (error: any) {
-            console.error("Ажилтан нэмэхэд алдаа гарлаа: ", error);
+            console.warn("[handleSave] Ажилтан нэмэхэд алдаа гарлаа:", error?.message || error);
 
             let errorMessage = "Ажилтан үүсгэхэд алдаа гарлаа.";
-            if (error.code === 'auth/email-already-in-use') {
+            if (error?.code === 'auth/email-already-in-use') {
                 errorMessage = "Энэ имэйл хаягтай хэрэглэгч аль хэдийн бүртгэгдсэн байна.";
-            } else if (error.code === 'auth/weak-password') {
+            } else if (error?.code === 'auth/weak-password') {
                 errorMessage = "Нууц үг хэт богино байна. 6-аас дээш тэмдэгт оруулна уу.";
-            } else if (error.message) {
+            } else if (error?.message) {
                 errorMessage = error.message;
             }
 
@@ -292,32 +425,4 @@ export function AddEmployeeDialog({
             </DialogContent>
         </Dialog>
     )
-}
-
-export default function AddEmployeePage() {
-    const router = useRouter();
-
-    const handleClose = (open: boolean) => {
-        if (!open) {
-            router.back();
-        }
-    }
-
-    return (
-        <div className="py-6 flex flex-col gap-6">
-            <PageHeader
-                title="Шинэ ажилтан нэмэх"
-                description="Байгууллагын багт шинэ гишүүн нэмж, мэдээллийг нь бүртгэх"
-                showBackButton
-                backHref="/dashboard/employees"
-            />
-
-            <div className="mt-2">
-                <AddEmployeeDialog
-                    open={true}
-                    onOpenChange={handleClose}
-                />
-            </div>
-        </div>
-    );
 }

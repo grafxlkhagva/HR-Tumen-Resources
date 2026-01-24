@@ -40,13 +40,23 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { AppointEmployeeDialog } from './organization/[departmentId]/components/flow/appoint-employee-dialog';
 import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
+import { AddEmployeeDialog } from './employees/add-employee-dialog';
 import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
+
+// Widget system imports
+import { DashboardWidgetsBar, useDashboardWidgets, WidgetData } from './widgets';
 
 import {
     Department,
@@ -634,6 +644,7 @@ const OrganizationChart = () => {
     const [selectedPosition, setSelectedPosition] = useState<JobPosition | null>(null);
     const [isUnassignedDialogOpen, setIsUnassignedDialogOpen] = React.useState(false);
     const [selectedEmployeeForAppointment, setSelectedEmployeeForAppointment] = React.useState<Employee | null>(null);
+    const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
     const { toast } = useToast();
     const { firestore } = useFirebase();
@@ -680,6 +691,27 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: offboardingProcesses } = useCollection<any>(offboardingQuery as any);
 
+    // Open vacancies query (for KPI widget)
+    const vacanciesQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'vacancies'), where('status', '==', 'OPEN')) : null
+        , [firestore]);
+    const { data: openVacancies } = useCollection<any>(vacanciesQuery);
+
+    // Pending time-off requests query (for KPI widget)
+    const pendingTimeOffQuery = useMemoFirebase(() =>
+        firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Хүлээгдэж буй')) : null
+        , [firestore]);
+    const { data: pendingTimeOffRequests } = useCollection<any>(pendingTimeOffQuery);
+
+    // Dashboard widgets hook
+    const {
+        order: widgetOrder,
+        hidden: hiddenWidgets,
+        isLoaded: isWidgetsLoaded,
+        setOrder,
+        hideWidget,
+        showWidget
+    } = useDashboardWidgets();
 
     const onLeaveCount = useMemo(() => {
         if (!vacationRequests) return 0;
@@ -798,6 +830,51 @@ const OrganizationChart = () => {
         activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
         return activities.slice(0, 10);
     }, [attendanceData, employees]);
+
+    // Inactive employees count (moved before widgetData)
+    const inactiveEmployeesCount = (employees || []).filter(e => e.status !== 'Идэвхтэй').length;
+
+    // Prepare widget data for the dashboard widgets bar
+    const widgetData: WidgetData = useMemo(() => ({
+        // Employees widget
+        activeEmployeesCount,
+        onboardingCount: onboardingProcesses?.length || 0,
+        offboardingCount: offboardingProcesses?.length || 0,
+        
+        // Structure widget
+        departmentsCount: departments?.length || 0,
+        positionsCount: positions?.length || 0,
+        
+        // Attendance widget
+        presentCount: presentEmployees.size,
+        onLeaveCount: onLeaveEmployees.size,
+        
+        // Vacation widget
+        vacationCount: onLeaveCount,
+        
+        // Posts widget
+        postsCount: posts?.length || 0,
+        
+        // KPI widgets
+        newHiresCount: newHiresStats.count,
+        openVacanciesCount: openVacancies?.length || 0,
+        pendingTimeOffCount: pendingTimeOffRequests?.length || 0,
+        inactiveCount: inactiveEmployeesCount,
+    }), [
+        activeEmployeesCount,
+        onboardingProcesses,
+        offboardingProcesses,
+        departments,
+        positions,
+        presentEmployees.size,
+        onLeaveEmployees.size,
+        onLeaveCount,
+        posts,
+        newHiresStats.count,
+        openVacancies,
+        pendingTimeOffRequests,
+        inactiveEmployeesCount
+    ]);
 
 
 
@@ -957,237 +1034,18 @@ const OrganizationChart = () => {
         [nodes, toast]
     );
 
-    const inactiveEmployeesCount = (employees || []).filter(e => e.status !== 'Идэвхтэй').length;
-
     return (
         <div className="flex flex-col h-full">
-            {/* Stats Bar - 20% height, horizontal scroll */}
-            <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950">
-                <div className="h-full overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4 scrollbar-hide">
-                    <div className="flex gap-4 sm:gap-6 h-full min-w-max">
-                        {/* 1. Ажилчид - Statistics */}
-                        <Link href="/dashboard/employees" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ажилчид</div>
-                                        <Users className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    {isLoadingEmp ? (
-                                        <Skeleton className="h-20 w-full bg-slate-700" />
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {/* Total Active */}
-                                            <div className="flex items-center justify-between pb-2 border-b border-slate-700">
-                                                <div>
-                                                    <div className="text-3xl font-semibold text-white">{activeEmployeesCount}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нийт идэвхтэй</div>
-                                                </div>
-                                                <div className="h-10 w-px bg-slate-700" />
-                                            </div>
-                                            
-                                            {/* Onboarding & Offboarding */}
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <div className="text-2xl font-semibold text-emerald-400">{onboardingProcesses?.length || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Onboarding</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-2xl font-semibold text-amber-400">{offboardingProcesses?.length || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Offboarding</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 2. Бүтэц - Organization Structure */}
-                        <Link href="/dashboard/organization" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Бүтэц</div>
-                                        <Network className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    {isLoadingDepts || isLoadingPos ? (
-                                        <Skeleton className="h-20 w-full bg-slate-700" />
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {/* Departments & Positions */}
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <div className="text-2xl font-semibold text-indigo-400">{departments?.length || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нэгж</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-2xl font-semibold text-purple-400">{positions?.length || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Ажлын байр</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 3. Attendance */}
-                        <Link href="/dashboard/attendance" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Өнөөдрийн ирц</div>
-                                        <UserCheck className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    {isLoadingAttendance || isLoadingTimeOff ? (
-                                        <Skeleton className="h-10 w-32 bg-slate-700" />
-                                    ) : (
-                                        <div className="flex items-end gap-6">
-                                            <div>
-                                                <div className="text-3xl font-semibold text-white">{presentEmployees.size}</div>
-                                                <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Ажил дээрээ</div>
-                                            </div>
-                                            <div className="h-12 w-px bg-slate-700" />
-                                            <div>
-                                                <div className="text-3xl font-semibold text-white">{onLeaveEmployees.size}</div>
-                                                <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Чөлөөтэй</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 3. Vacation (New) */}
-                        <Link href="/dashboard/vacation" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ээлжийн амралт</div>
-                                        <Palmtree className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    {isLoadingTimeOff ? (
-                                        <Skeleton className="h-10 w-16 bg-slate-700" />
-                                    ) : (
-                                        <div>
-                                            <div className="text-4xl font-semibold text-amber-500 mb-1">{onLeaveCount}</div>
-                                            <div className="text-xs text-slate-400 font-medium">ажилтан амарч байна</div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 3. Posts */}
-                        <Link href="/dashboard/posts" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Мэдээлэл</div>
-                                        <Newspaper className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    {isLoadingPosts ? (
-                                        <Skeleton className="h-10 w-16 bg-slate-700" />
-                                    ) : (
-                                        <div>
-                                            <div className="text-4xl font-semibold text-white mb-1">{posts?.length || 0}</div>
-                                            <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 4c. Recruitment & Selection (New) */}
-                        <Link href="/dashboard/recruitment" className="flex-shrink-0">
-                            <Card className="h-full w-[280px] sm:w-[320px] bg-slate-900 border-slate-700 hover:bg-slate-800 transition-all duration-300 group overflow-hidden">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Бүрдүүлэлт</div>
-                                        <Handshake className="h-5 w-5 text-blue-400 group-hover:scale-110 transition-transform" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-bold text-white">Сонгон шалгаруулалт</div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Recruitment & Selection</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-
-                        {/* 5. Point Module */}
-                        <Link href="/dashboard/points" className="flex-shrink-0">
-                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full blur-2xl group-hover:from-yellow-500/30 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Пойнт Модул</div>
-                                        <Sparkles className="h-5 w-5 text-yellow-500" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-3xl font-semibold text-white">Points</div>
-                                            <Rocket className="w-5 h-5 text-orange-400" />
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-medium">Recognition System</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 8. Process Management (New) */}
-                        <Link href="/dashboard/employment-relations" className="flex-shrink-0">
-                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-3xl group-hover:from-blue-500/20 group-hover:to-indigo-500/20 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Employment Relations</div>
-                                        <Handshake className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-semibold text-white">Хөдөлмөрийн харилцаа</div>
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-medium">Гэрээ, протокол, баримт</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 9. Process Management */}
-                        <Link href="/dashboard/process" className="flex-shrink-0">
-                            <Card className="h-full w-[200px] sm:w-[240px] bg-slate-900 dark:bg-slate-800 border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] group">
-                                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                                    <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-full blur-3xl group-hover:from-pink-500/20 group-hover:to-rose-500/20 transition-all" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Process Management</div>
-                                        <Handshake className="h-5 w-5 text-pink-500 group-hover:scale-110 transition-transform" />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <div className="text-2xl font-semibold text-white">Процесс</div>
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                    </div>
-                </div>
-            </div>
+            {/* Draggable Stats Bar with Widgets */}
+            <DashboardWidgetsBar
+                order={widgetOrder}
+                hidden={hiddenWidgets}
+                onOrderChange={setOrder}
+                onHideWidget={hideWidget}
+                onShowWidget={showWidget}
+                data={widgetData}
+                isLoading={isStatsLoading || !isWidgetsLoaded}
+            />
 
             {/* Organization Chart - 80% height */}
             <div className="flex-1 relative w-full">
@@ -1205,24 +1063,57 @@ const OrganizationChart = () => {
                     </ReactFlow>
                 )}
                 <div className="absolute bottom-8 right-4 z-10 flex gap-2">
-                    <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
-                        <RotateCcw className="h-6 w-6" />
-                        <span className="sr-only">Байршлыг сэргээх</span>
-                    </Button>
-                    <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20">
-                        <Link href="/dashboard/calendar">
-                            <Calendar className="h-6 w-6 text-green-500" />
-                            <span className="sr-only">Календар</span>
-                        </Link>
-                    </Button>
-                    <Button asChild size="icon" className="rounded-full h-12 w-12 shadow-lg">
-                        <Link href="/dashboard/employees/add">
-                            <User className="h-6 w-6" />
-                            <span className="sr-only">Ажилтан нэмэх</span>
-                        </Link>
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
+                                    <RotateCcw className="h-6 w-6" />
+                                    <span className="sr-only">Байршлыг сэргээх</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Байршлыг сэргээх</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20">
+                                    <Link href="/dashboard/calendar">
+                                        <Calendar className="h-6 w-6 text-green-500" />
+                                        <span className="sr-only">Календар</span>
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Календар</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    size="icon" 
+                                    className="rounded-full h-12 w-12 shadow-lg"
+                                    onClick={() => setIsAddEmployeeDialogOpen(true)}
+                                >
+                                    <User className="h-6 w-6" />
+                                    <span className="sr-only">Ажилтан нэмэх</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Шинэ ажилтан нэмэх</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
             </div>
+            <AddEmployeeDialog 
+                open={isAddEmployeeDialogOpen} 
+                onOpenChange={setIsAddEmployeeDialogOpen} 
+            />
             <UnassignedEmployeesDialog
                 open={isUnassignedDialogOpen}
                 onOpenChange={setIsUnassignedDialogOpen}

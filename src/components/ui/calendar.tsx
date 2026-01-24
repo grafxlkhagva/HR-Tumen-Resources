@@ -23,7 +23,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "hidden",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -51,7 +51,11 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
-        caption_dropdowns: "flex justify-center gap-1",
+        caption_dropdowns: "flex flex-row items-center justify-center gap-2",
+        dropdown: "flex items-center",
+        dropdown_month: "relative",
+        dropdown_year: "relative",
+        vhidden: "hidden",
         ...classNames,
       }}
       components={{
@@ -59,7 +63,6 @@ function Calendar({
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
         Dropdown: (props) => {
           const { value, onChange, children, ...rest } = props;
-          const selected = React.Children.toArray(children).find((child: any) => child.props.value === value) as React.ReactElement<any>;
 
           const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             const changeEvent = {
@@ -69,20 +72,18 @@ function Calendar({
           };
 
           return (
-            <div className="relative inline-flex items-center">
-              <select
-                className="h-8 w-fit appearance-none rounded-md bg-transparent p-0 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer px-2"
-                value={value}
-                onChange={handleChange}
-                {...rest}
-              >
-                {children}
-              </select>
-            </div>
+            <select
+              className="h-9 appearance-none rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+              value={value}
+              onChange={handleChange}
+              {...rest}
+            >
+              {children}
+            </select>
           );
         }
       }}
-      captionLayout="dropdown-buttons"
+      captionLayout="dropdown"
       fromYear={1900}
       toYear={2100}
       {...props}

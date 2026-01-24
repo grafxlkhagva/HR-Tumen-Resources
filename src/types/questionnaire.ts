@@ -13,6 +13,7 @@ export const generalInfoSchema = z.object({
     birthDate: z.date({ required_error: "Төрсөн огноо сонгоно уу." }).nullable(),
     gender: z.string().min(1, "Хүйс сонгоно уу."),
     idCardNumber: z.string().optional(),
+    insuranceTypeCode: z.string().optional(),
     hasDisability: z.boolean().default(false).optional(),
     disabilityPercentage: z.string().optional(),
     disabilityDate: z.date().optional().nullable(),

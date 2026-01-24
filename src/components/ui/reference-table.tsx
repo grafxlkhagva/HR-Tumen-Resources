@@ -43,7 +43,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Pencil, PlusCircle, Trash2, Loader2 } from 'lucide-react';
+import { Pencil, PlusCircle, Trash2, Loader2, Search, ChevronRight, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
   useFirebase,
@@ -55,6 +55,7 @@ import {
 import { collection, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 
 export interface ReferenceItem {
@@ -79,6 +80,8 @@ interface ReferenceTableProps {
   dialogComponent?: React.ComponentType<any>;
   hideAddButton?: boolean;
   onEdit?: (item: ReferenceItem) => void;
+  maxVisibleItems?: number;
+  compact?: boolean;
 }
 
 export function ReferenceTable({
@@ -91,9 +94,13 @@ export function ReferenceTable({
   dialogComponent: DialogComponent,
   hideAddButton = false,
   onEdit,
+  maxVisibleItems = 5,
+  compact = true,
 }: ReferenceTableProps) {
   const [open, setOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReferenceItem | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [showAllModal, setShowAllModal] = React.useState(false);
 
   const { firestore } = useFirebase();
   const collectionRef = useMemoFirebase(
@@ -121,81 +128,178 @@ export function ReferenceTable({
     deleteDocumentNonBlocking(docRef);
   };
 
+  // Filter items by search
+  const filteredItems = React.useMemo(() => {
+    if (!itemData) return [];
+    if (!searchQuery.trim()) return itemData;
+    const query = searchQuery.toLowerCase();
+    return itemData.filter(item => 
+      columns.some(col => {
+        const value = item[col.key];
+        return value && String(value).toLowerCase().includes(query);
+      })
+    );
+  }, [itemData, searchQuery, columns]);
+
+  // Items to display (limited or all)
+  const displayItems = compact ? filteredItems.slice(0, maxVisibleItems) : filteredItems;
+  const hasMore = filteredItems.length > maxVisibleItems;
+  const totalCount = itemData?.length || 0;
+
+  const TableContent = ({ items, inModal = false }: { items: ReferenceItem[]; inModal?: boolean }) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {columns.map((col) => (
+            <TableHead key={col.key} className="text-xs">{col.header}</TableHead>
+          ))}
+          <TableHead className="w-[80px] text-right text-xs">Үйлдэл</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((item) => (
+          <TableRow key={item.id} className="group">
+            {columns.map((col) => (
+              <TableCell key={col.key} className="py-2 text-sm">
+                {col.render ? col.render(item[col.key], item) : item[col.key]}
+              </TableCell>
+            ))}
+            <TableCell className="text-right py-2">
+              <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { handleEdit(item); if (inModal) setShowAllModal(false); }}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{item[columns[0].key]}"-г бүрмөсөн устгана.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(item)}>Устгах</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+        {items.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={columns.length + 1} className="h-16 text-center text-sm text-muted-foreground">
+              {searchQuery ? 'Хайлтад тохирох илэрц олдсонгүй' : 'Бүртгэл байхгүй'}
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <>
-      {!hideAddButton && (
-        <div className="flex justify-end mb-4">
-          <Button size="sm" onClick={handleAddNew}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Шинээр нэмэх
-          </Button>
-        </div>
-      )}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((col) => (
-                <TableHead key={col.key}>{col.header}</TableHead>
-              ))}
-              <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  {columns.map((col) => (
-                    <TableCell key={col.key}><Skeleton className="h-5 w-24" /></TableCell>
-                  ))}
-                  <TableCell className="text-right">
-                    <Skeleton className="h-8 w-[68px] ml-auto" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            {!isLoading && itemData?.map((item) => (
-              <TableRow key={item.id}>
-                {columns.map((col) => (
-                  <TableCell key={col.key}>
-                    {col.render ? col.render(item[col.key], item) : item[col.key]}
-                  </TableCell>
-                ))}
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{item[columns[0].key]}"-г лавлах сангаас бүрмөсөн устгах болно.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(item)}>Тийм</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!isLoading && (!itemData || itemData.length === 0) && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="h-24 text-center">
-                  Бүртгэл байхгүй.
-                </TableCell>
-              </TableRow>
+      {/* Header with search and add button */}
+      <div className="flex items-center gap-2 mb-3">
+        {totalCount > 5 && (
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Хайх..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        )}
+        {!hideAddButton && (
+          <Button size="sm" onClick={handleAddNew} className={cn("h-8 shrink-0", totalCount <= 5 && "ml-auto")}>
+            <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+            Нэмэх
+          </Button>
+        )}
       </div>
+
+      {/* Table */}
+      <div className="rounded-lg border overflow-hidden">
+        {isLoading ? (
+          <div className="divide-y">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 p-3">
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-7 w-16" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <TableContent items={displayItems} />
+        )}
+      </div>
+
+      {/* Show more button */}
+      {!isLoading && hasMore && compact && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 h-8 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setShowAllModal(true)}
+        >
+          Бүгдийг харах ({filteredItems.length})
+          <ChevronRight className="h-3.5 w-3.5 ml-1" />
+        </Button>
+      )}
+
+      {/* View All Modal */}
+      <Dialog open={showAllModal} onOpenChange={setShowAllModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription>
+              Нийт {totalCount} бүртгэл
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 py-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Хайх..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {!hideAddButton && (
+              <Button size="sm" onClick={() => { handleAddNew(); setShowAllModal(false); }}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Нэмэх
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="rounded-lg border">
+              <TableContent items={filteredItems} inModal />
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit/Add Dialog */}
       {DialogComponent ? (
         <DialogComponent open={open} onOpenChange={setOpen} editingItem={editingItem} />
       ) : (

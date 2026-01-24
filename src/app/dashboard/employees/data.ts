@@ -21,6 +21,9 @@ export type Employee = {
   vacationConfig?: {
     baseDays: number;
   };
+  /** Нэвтрэх эрх идэвхгүй бол энэ талбар true. */
+  loginDisabled?: boolean;
+  role?: 'admin' | 'employee';
 };
 
 export const employees: Employee[] = [];

@@ -10,6 +10,7 @@ import { type Employee } from '../data';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import {
     ArrowLeft,
     Calendar,
@@ -26,7 +27,11 @@ import {
     Activity,
     ClipboardCheck,
     LogOut,
-    Shield
+    Shield,
+    Settings,
+    Check,
+    X,
+    Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,6 +42,8 @@ import { OnboardingTabContent } from './onboarding-tab-content';
 import { OffboardingTabContent } from './offboarding-tab-content';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { MakeAdminDialog } from './make-admin-dialog';
+import { SystemSettingsTabContent } from './system-settings-tab-content';
+import { CVTabContent } from './cv-tab-content';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -472,7 +479,70 @@ export default function EmployeeProfilePage() {
     const { toast } = useToast();
     const { user } = useUser();
     const [showAdminDialog, setShowAdminDialog] = React.useState(false);
+    
+    // Inline editing state
+    const [isEditing, setIsEditing] = React.useState(false);
+    const [isSaving, setIsSaving] = React.useState(false);
+    const [editForm, setEditForm] = React.useState({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        email: ''
+    });
 
+    // Start editing - populate form with current values
+    const handleStartEdit = React.useCallback((emp: Employee) => {
+        setEditForm({
+            firstName: emp.firstName || '',
+            lastName: emp.lastName || '',
+            phoneNumber: emp.phoneNumber || '',
+            email: emp.email || ''
+        });
+        setIsEditing(true);
+    }, []);
+
+    // Cancel editing
+    const handleCancelEdit = React.useCallback(() => {
+        setIsEditing(false);
+        setEditForm({ firstName: '', lastName: '', phoneNumber: '', email: '' });
+    }, []);
+
+    // Save changes
+    const handleSaveEdit = React.useCallback(async () => {
+        if (!firestore || !employeeId) return;
+        
+        // Validation
+        if (!editForm.firstName.trim()) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Нэр хоосон байж болохгүй' });
+            return;
+        }
+        if (!editForm.lastName.trim()) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Овог хоосон байж болохгүй' });
+            return;
+        }
+        if (!editForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Имэйл хаяг буруу байна' });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const empRef = doc(firestore, 'employees', employeeId);
+            await updateDocumentNonBlocking(empRef, {
+                firstName: editForm.firstName.trim(),
+                lastName: editForm.lastName.trim(),
+                phoneNumber: editForm.phoneNumber.trim(),
+                email: editForm.email.trim()
+            });
+            toast({ title: 'Амжилттай', description: 'Мэдээлэл шинэчлэгдлээ' });
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Error updating employee:', error);
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Мэдээлэл хадгалахад алдаа гарлаа' });
+        } finally {
+            setIsSaving(false);
+        }
+    }, [firestore, employeeId, editForm, toast]);
 
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
@@ -561,6 +631,13 @@ export default function EmployeeProfilePage() {
     }, [offboardingProcess]);
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
+
+    const currentUserEmployeeRef = useMemoFirebase(
+        ({ firestore, user }) => (firestore && user ? doc(firestore, 'employees', user.uid) : null),
+        [user?.uid]
+    );
+    const { data: currentUserEmployee } = useDoc<Employee>(currentUserEmployeeRef as any);
+    const currentUserRole = currentUserEmployee?.role;
 
     const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule || isLoadingDocs || isLoadingOrgActions || isLoadingOnboarding || isLoadingOffboarding;
 
@@ -770,12 +847,6 @@ export default function EmployeeProfilePage() {
                                     Life Cycle
                                 </Link>
                             </Button>
-                            <Button size="sm" className="h-8" asChild>
-                                <Link href={`/dashboard/employees/${employeeId}/edit`}>
-                                    <Edit className="h-3.5 w-3.5 mr-1.5" />
-                                    Засах
-                                </Link>
-                            </Button>
                         </div>
                     </div>
                 </div>
@@ -802,24 +873,110 @@ export default function EmployeeProfilePage() {
                     <div className="bg-white rounded-xl border overflow-hidden">
                         <div className="h-20 bg-gradient-to-br from-primary to-indigo-600 relative">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.2),transparent)]" />
+                            {/* Edit button */}
+                            {!isEditing && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute top-2 right-2 h-7 w-7 bg-white/20 hover:bg-white/30 text-white"
+                                    onClick={() => handleStartEdit(employee)}
+                                >
+                                    <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                            )}
                         </div>
                         <div className="px-4 pb-4 -mt-10 text-center">
                             <div className="flex justify-center mb-3">
                                 <AvatarWithProgress employee={employee} size={80} onboardingProgress={onboardingProgress} />
                             </div>
-                            <h2 className="text-base font-semibold text-slate-800">{fullName}</h2>
-                            <p className="text-xs text-slate-500 mb-3">{employee.jobTitle || 'Албан тушаал'}</p>
                             
-                            <div className="space-y-2 text-xs">
-                                <div className="flex items-center justify-center gap-2 text-slate-600">
-                                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>{employee.phoneNumber || '-'}</span>
+                            {isEditing ? (
+                                // Editing mode
+                                <div className="space-y-3 text-left">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-[10px] font-medium text-slate-500 uppercase">Овог</label>
+                                            <Input 
+                                                value={editForm.lastName}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                                                className="h-8 text-sm"
+                                                placeholder="Овог"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-medium text-slate-500 uppercase">Нэр</label>
+                                            <Input 
+                                                value={editForm.firstName}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                                                className="h-8 text-sm"
+                                                placeholder="Нэр"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-medium text-slate-500 uppercase">Утас</label>
+                                        <Input 
+                                            value={editForm.phoneNumber}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                            className="h-8 text-sm"
+                                            placeholder="+976 9911..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</label>
+                                        <Input 
+                                            type="email"
+                                            value={editForm.email}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                                            className="h-8 text-sm"
+                                            placeholder="email@example.com"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2 pt-2">
+                                        <Button 
+                                            size="sm" 
+                                            className="flex-1 h-8"
+                                            onClick={handleSaveEdit}
+                                            disabled={isSaving}
+                                        >
+                                            {isSaving ? (
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <Check className="h-3.5 w-3.5 mr-1" />
+                                                    Хадгалах
+                                                </>
+                                            )}
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-8"
+                                            onClick={handleCancelEdit}
+                                            disabled={isSaving}
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center gap-2 text-slate-600">
-                                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="truncate">{employee.email}</span>
-                                </div>
-                            </div>
+                            ) : (
+                                // View mode
+                                <>
+                                    <h2 className="text-base font-semibold text-slate-800">{fullName}</h2>
+                                    <p className="text-xs text-slate-500 mb-3">{employee.jobTitle || 'Албан тушаал'}</p>
+                                    
+                                    <div className="space-y-2 text-xs">
+                                        <div className="flex items-center justify-center gap-2 text-slate-600">
+                                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                            <span>{employee.phoneNumber || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-2 text-slate-600">
+                                            <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                            <span className="truncate">{employee.email}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -1003,6 +1160,20 @@ export default function EmployeeProfilePage() {
                                 >
                                     Амралт
                                 </TabsTrigger>
+                                <TabsTrigger
+                                    value="cv"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
+                                >
+                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                    CV
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="system-settings"
+                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
+                                >
+                                    <Settings className="h-3.5 w-3.5 mr-1.5" />
+                                    Системийн тохиргоо
+                                </TabsTrigger>
                             </TabsList>
                         </div>
 
@@ -1030,6 +1201,16 @@ export default function EmployeeProfilePage() {
                                 <OffboardingTabContent employeeId={employeeId || ''} employee={employee} />
                             </TabsContent>
                         )}
+                        <TabsContent value="cv" className="mt-0 focus-visible:outline-none">
+                            <CVTabContent employee={employee} />
+                        </TabsContent>
+                        <TabsContent value="system-settings" className="mt-0 focus-visible:outline-none">
+                            <SystemSettingsTabContent
+                                employee={employee}
+                                currentUserId={user?.uid ?? ''}
+                                currentUserRole={currentUserRole}
+                            />
+                        </TabsContent>
                     </Tabs>
                 </div>
             </div>

@@ -35,7 +35,9 @@ import {
     CheckCircle2,
     FileText,
     ChevronRight,
-    Info
+    Info,
+    Sparkles,
+    Upload
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -59,6 +61,8 @@ import {
     workExperienceHistorySchema,
 } from '@/types/questionnaire';
 import { Employee, ReferenceItem } from '@/types';
+import { INSURANCE_TYPES } from '@/data/insurance-types';
+import { CVUploadDialog } from './cv-upload-dialog';
 
 const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>): number => {
     if (!data) return 0;
@@ -249,7 +253,7 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
                                     </FormControl>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1960} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
+                                    <Calendar mode="single" captionLayout="dropdown" fromYear={1960} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
                                 </PopoverContent>
                             </Popover>
                             <FormMessage />
@@ -270,12 +274,43 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
                     )} />
                     <FormField control={form.control} name="idCardNumber" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs text-slate-500">Иргэний үнэмлэхний дугаар</FormLabel>
-                            <FormControl><Input placeholder="ТТД" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                            <FormLabel className="text-xs text-slate-500">ТТД (Татвар төлөгчийн дугаар)</FormLabel>
+                            <FormControl><Input placeholder="Татвар төлөгчийн дугаар" {...field} value={field.value || ''} className="h-10" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
                 </div>
+            </FieldGroup>
+
+            {/* Insurance Type */}
+            <FieldGroup>
+                <SectionTitle icon={Info}>НДШТ даатгуулагчийн төрөл</SectionTitle>
+                <FormField control={form.control} name="insuranceTypeCode" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-xs text-slate-500">Даатгуулагчийн төрөл сонгох</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                                <SelectTrigger className="h-10">
+                                    <SelectValue placeholder="НДШТ төрөл сонгоно уу" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="max-h-[300px]">
+                                {INSURANCE_TYPES.map((type) => (
+                                    <SelectItem key={type.code} value={type.code}>
+                                        <span className="font-mono text-blue-600 mr-2">{type.code}</span>
+                                        <span className="text-sm">{type.name}</span>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {field.value && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {INSURANCE_TYPES.find(t => t.code === field.value)?.name}
+                            </p>
+                        )}
+                        <FormMessage />
+                    </FormItem>
+                )} />
             </FieldGroup>
 
             {/* Disability */}
@@ -308,7 +343,7 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
                                         </FormControl>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                        <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                     </PopoverContent>
                                 </Popover>
                                 <FormMessage />
@@ -629,7 +664,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -648,7 +683,7 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -817,7 +852,7 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -836,7 +871,7 @@ function TrainingForm({ form, isSubmitting }: { form: any, isSubmitting: boolean
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -977,7 +1012,7 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -996,7 +1031,7 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" captionLayout="dropdown-nav" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar mode="single" captionLayout="dropdown" fromYear={1980} toYear={new Date().getFullYear()} selected={field.value} onSelect={field.onChange} initialFocus />
                                         </PopoverContent>
                                     </Popover>
                                     <FormMessage />
@@ -1036,7 +1071,9 @@ export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = React.useState('general');
+    const [isCVDialogOpen, setIsCVDialogOpen] = React.useState(false);
 
     const employeeDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null), [firestore, employeeId]);
     const questionnaireDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null), [firestore, employeeId]);
@@ -1056,7 +1093,7 @@ export default function QuestionnairePage() {
 
     const defaultValues = React.useMemo(() => {
         const baseValues: Partial<FullQuestionnaireValues> = {
-            lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '',
+            lastName: '', firstName: '', registrationNumber: '', birthDate: null, gender: '', idCardNumber: '', insuranceTypeCode: '',
             hasDisability: false, disabilityPercentage: '', disabilityDate: null, hasDriversLicense: false, driverLicenseCategories: [],
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
             emergencyContacts: [], education: [], educationNotApplicable: false,
@@ -1071,6 +1108,92 @@ export default function QuestionnairePage() {
     const isLoading = isLoadingEmployee || isLoadingQuestionnaire;
     const completionPercent = Math.round(employeeData?.questionnaireCompletion || 0);
     const fullName = employeeData ? `${employeeData.lastName || ''} ${employeeData.firstName || ''}`.trim() : '';
+
+    // Handle CV data extraction
+    const handleCVDataExtracted = React.useCallback(async (cvData: any) => {
+        if (!questionnaireDocRef || !employeeDocRef) return;
+
+        try {
+            // Transform dates from string to Date objects
+            const transformedData: any = { ...cvData };
+            
+            if (cvData.birthDate) {
+                transformedData.birthDate = new Date(cvData.birthDate);
+            }
+            
+            // Transform education dates
+            if (cvData.education?.length) {
+                transformedData.education = cvData.education.map((edu: any) => ({
+                    ...edu,
+                    entryDate: edu.entryDate ? new Date(edu.entryDate) : null,
+                    gradDate: edu.gradDate ? new Date(edu.gradDate) : null,
+                    isCurrent: false,
+                }));
+            }
+            
+            // Transform training dates
+            if (cvData.trainings?.length) {
+                transformedData.trainings = cvData.trainings.map((t: any) => ({
+                    ...t,
+                    startDate: t.startDate ? new Date(t.startDate) : null,
+                    endDate: t.endDate ? new Date(t.endDate) : null,
+                }));
+            }
+            
+            // Transform experience dates
+            if (cvData.experiences?.length) {
+                transformedData.experiences = cvData.experiences.map((exp: any) => ({
+                    ...exp,
+                    startDate: exp.startDate ? new Date(exp.startDate) : null,
+                    endDate: exp.endDate ? new Date(exp.endDate) : null,
+                }));
+            }
+
+            // Merge with existing data (don't overwrite existing values with empty ones)
+            const currentData = questionnaireData || {};
+            const mergedData: any = { ...currentData };
+            
+            for (const [key, value] of Object.entries(transformedData)) {
+                if (value !== undefined && value !== null && value !== '') {
+                    // For arrays, merge if current is empty or append
+                    if (Array.isArray(value) && value.length > 0) {
+                        const currentArray = mergedData[key] || [];
+                        if (currentArray.length === 0) {
+                            mergedData[key] = value;
+                        }
+                        // If current array has data, we don't overwrite
+                    } else {
+                        // For non-arrays, only set if current is empty
+                        if (!mergedData[key]) {
+                            mergedData[key] = value;
+                        }
+                    }
+                }
+            }
+
+            // Save to Firebase
+            await setDocumentNonBlocking(questionnaireDocRef, mergedData, { merge: true });
+            
+            // Update completion percentage
+            const newCompletion = calculateCompletionPercentage(mergedData);
+            await updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
+
+            toast({
+                title: 'Амжилттай!',
+                description: 'CV-ийн мэдээлэл анкетэд хадгалагдлаа. Хуудсыг refresh хийж шалгана уу.',
+            });
+
+            // Refresh the page to show updated data
+            window.location.reload();
+        } catch (error) {
+            console.error('Error saving CV data:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Мэдээлэл хадгалахад алдаа гарлаа',
+            });
+        }
+    }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast]);
 
     if (isLoading) {
         return (
@@ -1118,8 +1241,18 @@ export default function QuestionnairePage() {
                             </div>
                         </div>
                         
-                        {/* Progress */}
+                        {/* AI CV Upload & Progress */}
                         <div className="flex items-center gap-3 shrink-0">
+                            {/* AI CV Upload Button */}
+                            <Button
+                                onClick={() => setIsCVDialogOpen(true)}
+                                className="h-9 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/25"
+                            >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                <span className="hidden sm:inline">AI CV Уншигч</span>
+                                <span className="sm:hidden">AI</span>
+                            </Button>
+                            
                             <div className="text-right hidden sm:block">
                                 <p className="text-xs text-muted-foreground">Гүйцэтгэл</p>
                                 <p className={cn(
@@ -1150,7 +1283,7 @@ export default function QuestionnairePage() {
 
             {/* Content */}
             <div className="flex-1 overflow-auto">
-                <div className="max-w-5xl mx-auto p-6">
+                <div className="p-6 md:p-8">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         {/* Tab Navigation */}
                         <div className="bg-white rounded-xl border mb-6 p-1.5 overflow-x-auto no-scrollbar">
@@ -1206,6 +1339,13 @@ export default function QuestionnairePage() {
                     </Tabs>
                 </div>
             </div>
+
+            {/* AI CV Upload Dialog */}
+            <CVUploadDialog
+                open={isCVDialogOpen}
+                onOpenChange={setIsCVDialogOpen}
+                onDataExtracted={handleCVDataExtracted}
+            />
         </div>
     );
 }

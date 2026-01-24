@@ -13,7 +13,8 @@ import {
     Files,
     Zap,
     LogOut,
-    ChevronLeft
+    ChevronLeft,
+    Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -46,6 +47,11 @@ const settingsNavItems = [
         title: "Анкет",
         href: "/dashboard/settings/questionnaire",
         icon: FileText,
+    },
+    {
+        title: "НДШТ лавлах",
+        href: "/dashboard/settings/insurance-types",
+        icon: Shield,
     },
     {
         title: "Баримт бичиг",
