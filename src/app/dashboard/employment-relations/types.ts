@@ -30,6 +30,18 @@ export interface DocumentHeader {
     // Байрлал: Огноо зүүн талд, гарчиг голд, дугаар баруун талд
 }
 
+// Дугаарлалтын тохиргоо - Unique, Human-readable, Auto-generated, Immutable, Traceable
+export interface NumberingConfig {
+    includePrefix?: boolean;      // Үсгэн код оруулах (жнь: ГЭР)
+    includeYear?: boolean;        // Он оруулах (жнь: 2026)
+    includeMonth?: boolean;       // Сар оруулах (жнь: 01)
+    includeDay?: boolean;         // Өдөр оруулах (жнь: 15)
+    separator?: string;           // Тусгаарлагч тэмдэгт (жнь: "-", "/", ".")
+    numberPadding?: number;       // Дугаарын урт (жнь: 4 = 0001)
+    startNumber?: number;         // Эхлэх дугаар (жнь: 1)
+    resetPeriod?: 'never' | 'yearly' | 'monthly' | 'daily';  // Дугаар шинэчлэх үе
+}
+
 export interface ERDocumentType {
     id: string;
     name: string;
@@ -37,9 +49,12 @@ export interface ERDocumentType {
     prefix: string;           // Үсгэн код (жнь: "ГЭР", "ТШЛ", "ЧӨЛ")
     description?: string;
     workflowId?: string;
-    currentNumber?: number;   // Одоогийн дугаарлалт (жил бүр шинээр эхэлнэ)
+    currentNumber?: number;   // Одоогийн дугаарлалт
     lastNumberYear?: number;  // Сүүлд дугаар олгосон жил
+    lastNumberMonth?: number; // Сүүлд дугаар олгосон сар
+    lastNumberDay?: number;   // Сүүлд дугаар олгосон өдөр
     header?: DocumentHeader;  // Толгойн тохиргоо
+    numberingConfig?: NumberingConfig;  // Дугаарлалтын тохиргоо
     createdAt?: any;
     updatedAt?: any;
 }

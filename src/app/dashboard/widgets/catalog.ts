@@ -25,7 +25,6 @@ export type WidgetId =
     | 'recruitment' 
     | 'points' 
     | 'er' 
-    | 'process'
     | 'newHires'
     | 'openVacancies'
     | 'pendingTimeOff'
@@ -44,7 +43,7 @@ export interface WidgetConfig {
     category: 'core' | 'kpi';
 }
 
-// Default order for widgets (initial 9 cards)
+// Default order for widgets (initial 8 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
     'employees',
     'structure',
@@ -53,8 +52,7 @@ export const DEFAULT_ORDER: WidgetId[] = [
     'posts',
     'recruitment',
     'points',
-    'er',
-    'process'
+    'er'
 ];
 
 // Widget catalog with all available widgets
@@ -135,16 +133,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         label: 'Хөдөлмөрийн харилцаа',
         description: 'Гэрээ, протокол, баримт',
         href: '/dashboard/employment-relations',
-        size: 'compact',
-        icon: Handshake,
-        requiredData: [],
-        category: 'core'
-    },
-    process: {
-        id: 'process',
-        label: 'Процесс',
-        description: 'Шат дамжлага, урсгал',
-        href: '/dashboard/process',
         size: 'compact',
         icon: Handshake,
         requiredData: [],

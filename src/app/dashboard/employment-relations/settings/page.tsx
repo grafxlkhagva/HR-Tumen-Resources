@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
 import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getDoc } from "firebase/firestore";
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,8 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit } from 'lucide-react';
 import { generateDocCode } from '../utils';
-import { DocumentHeader } from '../types';
+import { DocumentHeader, NumberingConfig } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ERDocumentTypeReferenceItem = ReferenceItem & {
     name: string;
@@ -26,6 +27,7 @@ type ERDocumentTypeReferenceItem = ReferenceItem & {
     lastNumberYear?: number;
     isMandatory?: boolean;
     header?: DocumentHeader;
+    numberingConfig?: NumberingConfig;
 };
 
 const DEFAULT_HEADER: DocumentHeader = {
@@ -36,6 +38,45 @@ const DEFAULT_HEADER: DocumentHeader = {
     showDate: true,
     showNumber: true,
 };
+
+const DEFAULT_NUMBERING: NumberingConfig = {
+    includePrefix: true,
+    includeYear: true,
+    includeMonth: false,
+    includeDay: false,
+    separator: '-',
+    numberPadding: 4,
+    startNumber: 1,
+    resetPeriod: 'yearly',
+};
+
+// Generate preview document number based on config
+function generatePreviewNumber(prefix: string, config: NumberingConfig, sequence: number = 1): string {
+    const parts: string[] = [];
+    const now = new Date();
+    const sep = config.separator || '-';
+    
+    if (config.includePrefix && prefix) {
+        parts.push(prefix);
+    }
+    
+    if (config.includeYear) {
+        parts.push(now.getFullYear().toString());
+    }
+    
+    if (config.includeMonth) {
+        parts.push(String(now.getMonth() + 1).padStart(2, '0'));
+    }
+    
+    if (config.includeDay) {
+        parts.push(String(now.getDate()).padStart(2, '0'));
+    }
+    
+    const padding = config.numberPadding || 4;
+    parts.push(String(sequence).padStart(padding, '0'));
+    
+    return parts.join(sep);
+}
 
 // Санал болгох үсгэн кодууд
 const SUGGESTED_PREFIXES = [
@@ -54,6 +95,18 @@ export default function ERDocumentTypesSettingsPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingItem, setEditingItem] = React.useState<ERDocumentTypeReferenceItem | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [companyProfile, setCompanyProfile] = React.useState<any>(null);
+
+    // Fetch company profile for logo
+    React.useEffect(() => {
+        if (!firestore) return;
+        const profileRef = doc(firestore, 'company', 'profile');
+        getDoc(profileRef).then(snap => {
+            if (snap.exists()) {
+                setCompanyProfile(snap.data());
+            }
+        });
+    }, [firestore]);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -62,6 +115,7 @@ export default function ERDocumentTypesSettingsPage() {
         category: '',
         isMandatory: false,
         header: { ...DEFAULT_HEADER } as DocumentHeader,
+        numberingConfig: { ...DEFAULT_NUMBERING } as NumberingConfig,
     });
 
     const documentTypesQuery = useMemoFirebase(
@@ -80,6 +134,7 @@ export default function ERDocumentTypesSettingsPage() {
                     category: editingItem.category || '',
                     isMandatory: editingItem.isMandatory || false,
                     header: editingItem.header || { ...DEFAULT_HEADER },
+                    numberingConfig: editingItem.numberingConfig || { ...DEFAULT_NUMBERING },
                 });
             } else {
                 setFormData({
@@ -88,6 +143,7 @@ export default function ERDocumentTypesSettingsPage() {
                     category: '',
                     isMandatory: false,
                     header: { ...DEFAULT_HEADER },
+                    numberingConfig: { ...DEFAULT_NUMBERING },
                 });
             }
         }
@@ -111,6 +167,7 @@ export default function ERDocumentTypesSettingsPage() {
             category: formData.category || null,
             isMandatory: formData.isMandatory,
             header: formData.header,
+            numberingConfig: formData.numberingConfig,
             updatedAt: new Date(),
         };
 
@@ -119,11 +176,14 @@ export default function ERDocumentTypesSettingsPage() {
                 const docRef = doc(firestore, 'er_process_document_types', editingItem.id);
                 await updateDocumentNonBlocking(docRef, data);
             } else {
+                const startNumber = formData.numberingConfig?.startNumber || 1;
                 const colRef = collection(firestore, 'er_process_document_types');
                 await addDocumentNonBlocking(colRef, {
                     ...data,
-                    currentNumber: 0,
+                    currentNumber: startNumber - 1, // Will be incremented to startNumber on first use
                     lastNumberYear: new Date().getFullYear(),
+                    lastNumberMonth: new Date().getMonth() + 1,
+                    lastNumberDay: new Date().getDate(),
                     createdAt: new Date(),
                 });
             }
@@ -136,10 +196,10 @@ export default function ERDocumentTypesSettingsPage() {
 
     // Жишээ дугаар харуулах
     const exampleDocNumber = React.useMemo(() => {
-        if (!formData.prefix) return null;
-        const year = new Date().getFullYear();
-        return generateDocCode(formData.prefix.toUpperCase(), year, 1);
-    }, [formData.prefix]);
+        if (!formData.prefix && formData.numberingConfig?.includePrefix) return null;
+        const startNum = formData.numberingConfig?.startNumber || 1;
+        return generatePreviewNumber(formData.prefix.toUpperCase(), formData.numberingConfig || DEFAULT_NUMBERING, startNum);
+    }, [formData.prefix, formData.numberingConfig]);
 
     const docTypeColumns = [
         {
@@ -267,9 +327,10 @@ export default function ERDocumentTypesSettingsPage() {
                         </DialogHeader>
 
                         <Tabs defaultValue="basic" className="mt-4">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="basic">Үндсэн мэдээлэл</TabsTrigger>
-                                <TabsTrigger value="header">Толгой тохиргоо</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="basic">Үндсэн</TabsTrigger>
+                                <TabsTrigger value="numbering">Дугаарлалт</TabsTrigger>
+                                <TabsTrigger value="header">Толгой</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="basic" className="space-y-4 mt-4">
@@ -375,6 +436,183 @@ export default function ERDocumentTypesSettingsPage() {
                                 </div>
                             </TabsContent>
 
+                            <TabsContent value="numbering" className="space-y-4 mt-4">
+                                {/* Дугаарлалтын формат урьдчилсан харагдац */}
+                                <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                                    <div className="text-xs text-muted-foreground mb-2">Дугаарын формат:</div>
+                                    <code className="text-xl font-mono font-bold text-primary">
+                                        {exampleDocNumber || 'ГЭР-2026-0001'}
+                                    </code>
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                        Дараагийн дугаар: {generatePreviewNumber(formData.prefix, formData.numberingConfig || DEFAULT_NUMBERING, 2)}
+                                    </div>
+                                </div>
+
+                                {/* Үсгэн код оруулах */}
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <Label className="cursor-pointer">Үсгэн код оруулах</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Дугаарын эхэнд {formData.prefix || 'ГЭР'} гэх мэт үсэг оруулах
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={formData.numberingConfig?.includePrefix ?? true}
+                                        onCheckedChange={(c) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, includePrefix: c } 
+                                        }))}
+                                    />
+                                </div>
+
+                                {/* Он оруулах */}
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <Label className="cursor-pointer">Он оруулах</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Жнь: 2026
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={formData.numberingConfig?.includeYear ?? true}
+                                        onCheckedChange={(c) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, includeYear: c } 
+                                        }))}
+                                    />
+                                </div>
+
+                                {/* Сар оруулах */}
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <Label className="cursor-pointer">Сар оруулах</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Жнь: 01, 02, ... 12
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={formData.numberingConfig?.includeMonth ?? false}
+                                        onCheckedChange={(c) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, includeMonth: c } 
+                                        }))}
+                                    />
+                                </div>
+
+                                {/* Өдөр оруулах */}
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <Label className="cursor-pointer">Өдөр оруулах</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Жнь: 01, 02, ... 31
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={formData.numberingConfig?.includeDay ?? false}
+                                        onCheckedChange={(c) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, includeDay: c } 
+                                        }))}
+                                    />
+                                </div>
+
+                                {/* Тусгаарлагч тэмдэгт */}
+                                <div className="space-y-2">
+                                    <Label>Тусгаарлагч тэмдэгт</Label>
+                                    <Select
+                                        value={formData.numberingConfig?.separator || '-'}
+                                        onValueChange={(v) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, separator: v } 
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="-">Зураас (-)</SelectItem>
+                                            <SelectItem value="/">Налуу зураас (/)</SelectItem>
+                                            <SelectItem value=".">Цэг (.)</SelectItem>
+                                            <SelectItem value="_">Доогуур зураас (_)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Дугаарын урт */}
+                                <div className="space-y-2">
+                                    <Label>Дугаарын урт (тэгээр дүүргэх)</Label>
+                                    <Select
+                                        value={String(formData.numberingConfig?.numberPadding || 4)}
+                                        onValueChange={(v) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, numberPadding: parseInt(v) } 
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="2">2 орон (01, 02, ...)</SelectItem>
+                                            <SelectItem value="3">3 орон (001, 002, ...)</SelectItem>
+                                            <SelectItem value="4">4 орон (0001, 0002, ...)</SelectItem>
+                                            <SelectItem value="5">5 орон (00001, 00002, ...)</SelectItem>
+                                            <SelectItem value="6">6 орон (000001, 000002, ...)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Эхлэх дугаар */}
+                                <div className="space-y-2">
+                                    <Label>Эхлэх дугаар</Label>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        value={formData.numberingConfig?.startNumber || 1}
+                                        onChange={(e) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, startNumber: parseInt(e.target.value) || 1 } 
+                                        }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Дугаарлалт эхлэх утга (ихэвчлэн 1)
+                                    </p>
+                                </div>
+
+                                {/* Дугаар шинэчлэх үе */}
+                                <div className="space-y-2">
+                                    <Label>Дугаар шинээр эхлэх үе</Label>
+                                    <Select
+                                        value={formData.numberingConfig?.resetPeriod || 'yearly'}
+                                        onValueChange={(v) => setFormData(prev => ({ 
+                                            ...prev, 
+                                            numberingConfig: { ...prev.numberingConfig, resetPeriod: v as any } 
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="yearly">Жил бүр (Шинэ жил бүр 0001-ээс)</SelectItem>
+                                            <SelectItem value="monthly">Сар бүр (Шинэ сар бүр 0001-ээс)</SelectItem>
+                                            <SelectItem value="daily">Өдөр бүр (Өдөр бүр 0001-ээс)</SelectItem>
+                                            <SelectItem value="never">Хэзээ ч үгүй (Үргэлжлүүлэн дугаарлана)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Тайлбар */}
+                                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+                                    <div className="font-medium mb-1">💡 Дугаарлалтын шаардлага:</div>
+                                    <ul className="list-disc list-inside space-y-0.5">
+                                        <li><strong>Давхцахгүй</strong> - Системд ижил дугаар байхгүй</li>
+                                        <li><strong>Уншигдахуйц</strong> - Хүн унших, ялгах боломжтой</li>
+                                        <li><strong>Автомат</strong> - Систем автоматаар үүсгэнэ</li>
+                                        <li><strong>Засах боломжгүй</strong> - Үүссэн дугаар өөрчлөгдөхгүй</li>
+                                        <li><strong>Аудит хийх боломжтой</strong> - Хэзээ, хэн үүсгэснийг хянах</li>
+                                    </ul>
+                                </div>
+                            </TabsContent>
+
                             <TabsContent value="header" className="space-y-4 mt-4">
                                 {/* Толгойн гарчиг */}
                                 <div className="space-y-2">
@@ -474,34 +712,44 @@ export default function ERDocumentTypesSettingsPage() {
                                 <div className="rounded-lg border bg-slate-50 p-4">
                                     <p className="text-xs text-muted-foreground mb-3">Толгойн урьдчилсан харагдац:</p>
                                     <div className="bg-white border rounded-lg p-4 text-xs">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="text-left">
-                                                {formData.header?.showDate && (
-                                                    <div className="text-muted-foreground">
-                                                        {formData.header?.cityName || 'Улаанбаатар'}
-                                                    </div>
-                                                )}
-                                                {formData.header?.showDate && (
-                                                    <div>______ он __ сар __ өдөр</div>
-                                                )}
-                                            </div>
-                                            <div className="text-center flex-1">
-                                                {formData.header?.showLogo && (
-                                                    <div className="w-10 h-10 bg-slate-200 rounded mx-auto mb-1 flex items-center justify-center text-[8px] text-slate-400">
+                                        {/* Дээд хэсэг: Лого + Байгууллагын нэр (голд) */}
+                                        <div className="text-center mb-4">
+                                            {formData.header?.showLogo && (
+                                                companyProfile?.logoUrl ? (
+                                                    <img 
+                                                        src={companyProfile.logoUrl} 
+                                                        alt="Logo" 
+                                                        className="w-12 h-12 object-contain mx-auto mb-2"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 bg-slate-200 rounded mx-auto mb-2 flex items-center justify-center text-[8px] text-slate-400">
                                                         ЛОГО
                                                     </div>
+                                                )
+                                            )}
+                                            <div className="font-bold uppercase">
+                                                {formData.header?.title || companyProfile?.name || 'БАЙГУУЛЛАГЫН НЭР'}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Доод хэсэг: Огноо | Дугаар | Хот */}
+                                        <div className="flex justify-between items-center text-[11px] pt-2 border-t border-dashed">
+                                            <div className="text-left">
+                                                {formData.header?.showDate && (
+                                                    <div className="italic text-muted-foreground">
+                                                        2026 оны __ сарын __ өдөр
+                                                    </div>
                                                 )}
-                                                <div className="font-bold">
-                                                    {formData.header?.title || 'БАЙГУУЛЛАГЫН НЭР'}
-                                                </div>
+                                            </div>
+                                            <div className="text-center">
+                                                {formData.header?.showNumber && (
+                                                    <div className="font-mono">
+                                                        № {exampleDocNumber || 'ГЭР-2026-0001'}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="text-right">
-                                                {formData.header?.showNumber && (
-                                                    <>
-                                                        <div className="text-muted-foreground">Дугаар:</div>
-                                                        <div className="font-mono">{exampleDocNumber || 'ГЭР-2026-0001'}</div>
-                                                    </>
-                                                )}
+                                                <div>{formData.header?.cityName || 'Улаанбаатар'} хот</div>
                                             </div>
                                         </div>
                                     </div>

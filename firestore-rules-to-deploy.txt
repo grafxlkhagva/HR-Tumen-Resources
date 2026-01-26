@@ -143,19 +143,6 @@ service cloud.firestore {
        allow write: if isAdmin();
     }
 
-    // --- Employment Relations Module Rules ---
-    match /relation_templates/{templateId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /relation_instances/{instanceId} {
-      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employeeId);
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employeeId);
-      allow delete: if isAdmin();
-    }
-    
     // Onboarding-related collections are managed by admins
     match /newHires/{hireId} {
         allow read, write: if isAdmin();

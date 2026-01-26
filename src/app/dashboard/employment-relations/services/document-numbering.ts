@@ -1,6 +1,77 @@
 import { Firestore, doc, getDoc, runTransaction } from 'firebase/firestore';
-import { generateDocCode, calculateNextDocNumber } from '../utils';
-import { ERDocumentType } from '../types';
+import { ERDocumentType, NumberingConfig } from '../types';
+
+const DEFAULT_NUMBERING_CONFIG: NumberingConfig = {
+    includePrefix: true,
+    includeYear: true,
+    includeMonth: false,
+    includeDay: false,
+    separator: '-',
+    numberPadding: 4,
+    startNumber: 1,
+    resetPeriod: 'yearly',
+};
+
+/**
+ * Дугаарлалтын тохиргоогоор дугаар үүсгэх
+ */
+function generateDocumentNumber(
+    prefix: string,
+    config: NumberingConfig,
+    sequence: number,
+    date: Date = new Date()
+): string {
+    const parts: string[] = [];
+    const sep = config.separator || '-';
+    
+    if (config.includePrefix && prefix) {
+        parts.push(prefix);
+    }
+    
+    if (config.includeYear) {
+        parts.push(date.getFullYear().toString());
+    }
+    
+    if (config.includeMonth) {
+        parts.push(String(date.getMonth() + 1).padStart(2, '0'));
+    }
+    
+    if (config.includeDay) {
+        parts.push(String(date.getDate()).padStart(2, '0'));
+    }
+    
+    const padding = config.numberPadding || 4;
+    parts.push(String(sequence).padStart(padding, '0'));
+    
+    return parts.join(sep);
+}
+
+/**
+ * Дугаар шинэчлэгдэх эсэхийг шалгах
+ */
+function shouldResetCounter(
+    config: NumberingConfig,
+    lastYear?: number,
+    lastMonth?: number,
+    lastDay?: number
+): boolean {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+    
+    switch (config.resetPeriod) {
+        case 'yearly':
+            return lastYear !== currentYear;
+        case 'monthly':
+            return lastYear !== currentYear || lastMonth !== currentMonth;
+        case 'daily':
+            return lastYear !== currentYear || lastMonth !== currentMonth || lastDay !== currentDay;
+        case 'never':
+        default:
+            return false;
+    }
+}
 
 /**
  * Дараагийн баримтын дугаарыг авах (атомик үйлдэл)
@@ -24,25 +95,47 @@ export async function getNextDocumentNumber(
         }
         
         const docTypeData = docTypeSnap.data() as ERDocumentType;
+        const config = docTypeData.numberingConfig || DEFAULT_NUMBERING_CONFIG;
         
-        if (!docTypeData.prefix) {
+        if (config.includePrefix && !docTypeData.prefix) {
             throw new Error('Баримтын төрлийн үсгэн код (prefix) тохируулаагүй байна');
         }
         
-        const { nextNumber, currentYear } = calculateNextDocNumber(
-            docTypeData.currentNumber || 0,
-            docTypeData.lastNumberYear || 0
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+        
+        // Дугаар шинэчлэгдэх эсэхийг шалгах
+        const shouldReset = shouldResetCounter(
+            config,
+            docTypeData.lastNumberYear,
+            docTypeData.lastNumberMonth,
+            docTypeData.lastNumberDay
         );
+        
+        let nextNumber: number;
+        if (shouldReset) {
+            nextNumber = config.startNumber || 1;
+        } else {
+            nextNumber = (docTypeData.currentNumber || 0) + 1;
+            // Хэрэв currentNumber нь startNumber-ээс бага бол startNumber ашиглах
+            if (nextNumber < (config.startNumber || 1)) {
+                nextNumber = config.startNumber || 1;
+            }
+        }
         
         // Counter-ийг шинэчлэх
         transaction.update(docTypeRef, {
             currentNumber: nextNumber,
             lastNumberYear: currentYear,
+            lastNumberMonth: currentMonth,
+            lastNumberDay: currentDay,
             updatedAt: new Date()
         });
         
         // Дугаар үүсгэх
-        return generateDocCode(docTypeData.prefix, currentYear, nextNumber);
+        return generateDocumentNumber(docTypeData.prefix, config, nextNumber, now);
     });
 }
 
@@ -80,14 +173,35 @@ export async function previewNextDocumentNumber(
 ): Promise<string | null> {
     const docType = await getDocumentType(firestore, documentTypeId);
     
-    if (!docType || !docType.prefix) {
+    if (!docType) {
         return null;
     }
     
-    const { nextNumber, currentYear } = calculateNextDocNumber(
-        docType.currentNumber || 0,
-        docType.lastNumberYear || 0
+    const config = docType.numberingConfig || DEFAULT_NUMBERING_CONFIG;
+    
+    if (config.includePrefix && !docType.prefix) {
+        return null;
+    }
+    
+    const now = new Date();
+    
+    // Дугаар шинэчлэгдэх эсэхийг шалгах
+    const shouldReset = shouldResetCounter(
+        config,
+        docType.lastNumberYear,
+        docType.lastNumberMonth,
+        docType.lastNumberDay
     );
     
-    return generateDocCode(docType.prefix, currentYear, nextNumber);
+    let nextNumber: number;
+    if (shouldReset) {
+        nextNumber = config.startNumber || 1;
+    } else {
+        nextNumber = (docType.currentNumber || 0) + 1;
+        if (nextNumber < (config.startNumber || 1)) {
+            nextNumber = config.startNumber || 1;
+        }
+    }
+    
+    return generateDocumentNumber(docType.prefix, config, nextNumber, now);
 }

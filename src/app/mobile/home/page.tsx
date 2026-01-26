@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, CheckSquare, ChevronRight, Star, Trophy } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -539,71 +539,6 @@ function QuickActions() {
     );
 }
 
-function MyTasksWidget() {
-    const { employeeProfile } = useEmployeeProfile();
-    const { firestore } = useFirebase();
-    const router = useRouter();
-
-    const instancesQuery = useMemoFirebase(() =>
-        (firestore && employeeProfile?.id) ? query(
-            collection(firestore, 'relation_instances'),
-            where('status', '==', 'active'),
-            where('employeeId', '==', employeeProfile.id),
-            limit(5)
-        ) : null
-        , [firestore, employeeProfile?.id]);
-
-    const { data: instances, isLoading } = useCollection<any>(instancesQuery);
-
-    // Count total pending tasks
-    const taskStats = React.useMemo(() => {
-        if (!instances) return { total: 0, completed: 0, pending: 0 };
-
-        let total = 0;
-        let completed = 0;
-
-        instances.forEach(instance => {
-            const nodes = instance.nodes || instance.snapshot?.nodes;
-            if (!nodes || !Array.isArray(nodes)) return;
-
-            const currentNode = nodes.find((n: any) => n.id === instance.currentStageId);
-            if (currentNode?.data?.checklist) {
-                total += currentNode.data.checklist.length;
-                completed += currentNode.data.completedChecklistItems?.length || 0;
-            }
-        });
-
-        return { total, completed, pending: total - completed };
-    }, [instances]);
-
-    if (isLoading || !instances || instances.length === 0) return null;
-
-    return (
-        <div className="px-5">
-            <Card
-                className="rounded-2xl border-0 shadow-[0_2px_8px_rgba(0,0,0,0.04)] bg-white overflow-hidden group cursor-pointer transition-all active:scale-[0.98] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-                onClick={() => router.push('/mobile/tasks')}
-            >
-                <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-xl bg-purple-50 flex items-center justify-center">
-                            <CheckSquare className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-semibold text-slate-900">Миний даалгавар</p>
-                            <p className="text-xs text-slate-500">
-                                <span className="font-bold text-purple-600">{taskStats.pending}</span> хүлээгдэж буй
-                            </p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
-
-
 // Time-based greeting helper
 function getGreeting(): string {
     const hour = new Date().getHours();
@@ -688,9 +623,6 @@ export default function MobileHomePage() {
             </header>
 
             <main className="space-y-6 pt-5 animate-in fade-in-30 slide-in-from-bottom-5">
-                {/* My Tasks Card */}
-                <MyTasksWidget />
-
                 {/* Attendance Card */}
                 <AttendanceStatusWidget />
 

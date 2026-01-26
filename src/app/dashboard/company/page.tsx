@@ -1419,7 +1419,7 @@ export default function CompanyPage() {
                                     {ceoEmployee ? (
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-16 w-16 rounded-xl border-2 border-amber-200 shadow-lg">
-                                                <AvatarImage src={ceoEmployee.avatarUrl} className="object-cover" />
+                                                <AvatarImage src={ceoEmployee.photoURL} className="object-cover" />
                                                 <AvatarFallback className="rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 text-lg font-semibold">
                                                     {ceoEmployee.firstName?.[0]}{ceoEmployee.lastName?.[0]}
                                                 </AvatarFallback>
