@@ -12,14 +12,13 @@ import {
 } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, Timestamp, DocumentReference } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Popover,
     PopoverContent,
@@ -29,29 +28,27 @@ import {
     ChevronLeft,
     Calendar,
     Users,
-    CheckCircle2,
     Clock,
-    AlertCircle,
-    Target,
     ListTodo,
     MessageCircle,
     Send,
     AtSign,
     Loader2,
-    MoreHorizontal,
     Circle,
     CheckCircle,
+    Info,
+    ChevronDown,
+    ChevronUp,
+    Plus,
 } from 'lucide-react';
-import { format, parseISO, isPast } from 'date-fns';
-import { mn } from 'date-fns/locale';
+import { CreateTaskSheet } from '../components';
+import { format, parseISO, isPast, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
     Project,
     Task,
     ProjectMessage,
     PROJECT_STATUS_LABELS,
-    TASK_STATUS_LABELS,
-    TASK_STATUS_COLORS,
     TaskStatus,
 } from '@/types/project';
 import { Employee } from '@/types';
@@ -62,7 +59,12 @@ export default function MobileProjectDetailPage() {
     const projectId = params.id as string;
     const { firestore, user } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
-    const [activeTab, setActiveTab] = React.useState('tasks');
+    
+    // UI States
+    const [isInfoExpanded, setIsInfoExpanded] = React.useState(false);
+    const [isChatExpanded, setIsChatExpanded] = React.useState(true);
+    const [taskFilter, setTaskFilter] = React.useState<'all' | 'mine'>('all');
+    const [showCreateTask, setShowCreateTask] = React.useState(false);
 
     // Chat state
     const [message, setMessage] = React.useState('');
@@ -71,7 +73,7 @@ export default function MobileProjectDetailPage() {
     const [mentionSearch, setMentionSearch] = React.useState('');
     const [mentions, setMentions] = React.useState<string[]>([]);
     const [cursorPosition, setCursorPosition] = React.useState(0);
-    const scrollRef = React.useRef<HTMLDivElement>(null);
+    const chatScrollRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     // Fetch project
@@ -105,7 +107,7 @@ export default function MobileProjectDetailPage() {
             : null,
         [firestore, projectId]
     );
-    const { data: messages, isLoading: isMessagesLoading } = useCollection<ProjectMessage>(messagesQuery);
+    const { data: messages } = useCollection<ProjectMessage>(messagesQuery);
 
     // Fetch all employees
     const employeesQuery = useMemoFirebase(
@@ -125,6 +127,17 @@ export default function MobileProjectDetailPage() {
         return employees.filter(e => e.id && project.teamMemberIds.includes(e.id));
     }, [project?.teamMemberIds, employees]);
 
+    // Filter tasks
+    const filteredTasks = React.useMemo(() => {
+        if (!tasks) return [];
+        if (taskFilter === 'mine' && user) {
+            return tasks.filter(t => 
+                t.assigneeIds?.includes(user.uid) || t.ownerId === user.uid
+            );
+        }
+        return tasks;
+    }, [tasks, taskFilter, user]);
+
     // Task stats
     const taskStats = React.useMemo(() => {
         if (!tasks) return { total: 0, todo: 0, inProgress: 0, done: 0 };
@@ -136,17 +149,27 @@ export default function MobileProjectDetailPage() {
         };
     }, [tasks]);
 
+    // My tasks count
+    const myTasksCount = React.useMemo(() => {
+        if (!tasks || !user) return 0;
+        return tasks.filter(t => 
+            t.assigneeIds?.includes(user.uid) || t.ownerId === user.uid
+        ).length;
+    }, [tasks, user]);
+
     const progressPercent = taskStats.total > 0 ? Math.round((taskStats.done / taskStats.total) * 100) : 0;
 
     // Auto-scroll chat
     React.useEffect(() => {
-        if (scrollRef.current && activeTab === 'chat') {
-            const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollElement) {
-                scrollElement.scrollTop = scrollElement.scrollHeight;
-            }
+        if (chatScrollRef.current && isChatExpanded) {
+            setTimeout(() => {
+                const scrollElement = chatScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+                if (scrollElement) {
+                    scrollElement.scrollTop = scrollElement.scrollHeight;
+                }
+            }, 100);
         }
-    }, [messages, activeTab]);
+    }, [messages, isChatExpanded]);
 
     // Filter team members for mention
     const filteredMembers = React.useMemo(() => {
@@ -221,19 +244,16 @@ export default function MobileProjectDetailPage() {
 
         setIsSending(true);
         try {
-            const messageData = {
-                projectId,
-                content: message.trim(),
-                senderId: user.uid,
-                mentions,
-                createdAt: Timestamp.now(),
-            };
-
             await addDocumentNonBlocking(
                 collection(firestore, 'projects', projectId, 'messages'),
-                messageData
+                {
+                    projectId,
+                    content: message.trim(),
+                    senderId: user.uid,
+                    mentions,
+                    createdAt: Timestamp.now(),
+                }
             );
-
             setMessage('');
             setMentions([]);
         } catch (error) {
@@ -254,11 +274,7 @@ export default function MobileProjectDetailPage() {
         const parts = content.split(/(@\S+)/g);
         return parts.map((part, index) => {
             if (part.startsWith('@')) {
-                return (
-                    <span key={index} className="text-indigo-600 font-medium">
-                        {part}
-                    </span>
-                );
+                return <span key={index} className="text-indigo-600 font-medium">{part}</span>;
             }
             return part;
         });
@@ -292,11 +308,11 @@ export default function MobileProjectDetailPage() {
 
     if (isProjectLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 p-5 space-y-4">
-                <Skeleton className="h-12 w-full rounded-xl" />
-                <Skeleton className="h-40 w-full rounded-2xl" />
-                <Skeleton className="h-32 w-full rounded-2xl" />
-                <Skeleton className="h-32 w-full rounded-2xl" />
+            <div className="min-h-screen bg-slate-50 p-4 space-y-3">
+                <Skeleton className="h-10 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
             </div>
         );
     }
@@ -311,413 +327,393 @@ export default function MobileProjectDetailPage() {
 
     const owner = employeeMap.get(project.ownerId);
     const statusStyle = getStatusStyle(project.status);
+    const daysLeft = differenceInDays(parseISO(project.endDate), new Date());
+    const isOverdue = isPast(parseISO(project.endDate)) && !['COMPLETED', 'ARCHIVED'].includes(project.status);
+
+    // Calculate chat section height
+    const chatHeight = isChatExpanded ? 'h-[280px]' : 'h-[52px]';
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
+        <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
-            <div className="bg-white/90 backdrop-blur-xl px-5 py-4 border-b border-slate-100 sticky top-0 z-50 shadow-sm">
+            <div className="bg-white/95 backdrop-blur-xl px-4 py-3 border-b border-slate-100 sticky top-0 z-50 shrink-0">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full h-10 w-10 shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full h-9 w-9 shrink-0">
                         <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-base font-bold text-slate-900 truncate">{project.name}</h1>
+                        <h1 className="text-base font-bold text-slate-900 truncate leading-tight">{project.name}</h1>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <Badge className={cn(
-                                "text-[9px] font-semibold border-0 px-2 py-0",
-                                statusStyle.bg,
-                                statusStyle.text
-                            )}>
+                            <Badge className={cn("text-[9px] font-semibold border-0 px-1.5 py-0", statusStyle.bg, statusStyle.text)}>
                                 {PROJECT_STATUS_LABELS[project.status] || project.status}
                             </Badge>
-                            <span className="text-[10px] text-slate-400">
-                                {format(parseISO(project.endDate), 'yyyy.MM.dd')} хүртэл
-                            </span>
+                            {isOverdue ? (
+                                <span className="text-[10px] text-red-500 font-medium">Хугацаа хэтэрсэн</span>
+                            ) : daysLeft <= 7 && daysLeft >= 0 ? (
+                                <span className="text-[10px] text-amber-600 font-medium">{daysLeft} хоног үлдсэн</span>
+                            ) : (
+                                <span className="text-[10px] text-slate-400">{format(parseISO(project.endDate), 'MM.dd')} хүртэл</span>
+                            )}
                         </div>
+                    </div>
+                    <div className="flex -space-x-2">
+                        {teamMembers.slice(0, 3).map((m) => (
+                            <Avatar key={m.id} className="h-7 w-7 ring-2 ring-white">
+                                <AvatarImage src={m.photoURL} />
+                                <AvatarFallback className="text-[9px] bg-slate-100">{m.firstName?.[0]}</AvatarFallback>
+                            </Avatar>
+                        ))}
+                        {teamMembers.length > 3 && (
+                            <div className="h-7 w-7 rounded-full bg-slate-100 ring-2 ring-white flex items-center justify-center">
+                                <span className="text-[9px] font-semibold text-slate-500">+{teamMembers.length - 3}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="bg-white px-5 pt-3 border-b sticky top-[72px] z-40">
-                    <TabsList className="w-full bg-slate-100/80 p-1 rounded-xl h-11">
-                        <TabsTrigger value="tasks" className="flex-1 rounded-lg text-[11px] font-semibold gap-1.5">
-                            <ListTodo className="w-3.5 h-3.5" />
-                            Таскууд
-                            {taskStats.total > 0 && (
-                                <span className="ml-1 text-[9px] bg-slate-200 text-slate-600 px-1.5 rounded-full">
-                                    {taskStats.total}
-                                </span>
-                            )}
-                        </TabsTrigger>
-                        <TabsTrigger value="chat" className="flex-1 rounded-lg text-[11px] font-semibold gap-1.5">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            Чат
-                            {messages && messages.length > 0 && (
-                                <span className="ml-1 text-[9px] bg-slate-200 text-slate-600 px-1.5 rounded-full">
-                                    {messages.length}
-                                </span>
-                            )}
-                        </TabsTrigger>
-                        <TabsTrigger value="info" className="flex-1 rounded-lg text-[11px] font-semibold gap-1.5">
-                            <Users className="w-3.5 h-3.5" />
-                            Мэдээлэл
-                        </TabsTrigger>
-                    </TabsList>
-                </div>
-
-                {/* Tasks Tab */}
-                <TabsContent value="tasks" className="p-5 space-y-4 animate-in fade-in outline-none">
-                    {/* Progress Card */}
-                    <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-white overflow-hidden">
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-200">Явц</p>
-                                    <p className="text-3xl font-bold">{progressPercent}%</p>
+            {/* Main Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-3 pb-2">
+                    {/* Progress Card - Compact */}
+                    <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white overflow-hidden">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-11 w-11 rounded-xl bg-white/20 flex items-center justify-center">
+                                        <span className="text-lg font-bold">{progressPercent}%</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-lg font-bold">{taskStats.done}/{taskStats.total}</p>
+                                        <p className="text-[10px] text-indigo-200">таск дууссан</p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-bold">{taskStats.done}/{taskStats.total}</p>
-                                    <p className="text-[10px] text-indigo-200">дууссан</p>
+                                <div className="flex gap-4 text-center">
+                                    <div>
+                                        <p className="text-base font-bold">{taskStats.todo}</p>
+                                        <p className="text-[9px] text-indigo-200">Хийх</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-base font-bold text-amber-300">{taskStats.inProgress}</p>
+                                        <p className="text-[9px] text-indigo-200">Явагдаж</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-white rounded-full transition-all duration-500"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Task Stats */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-                            <div className="text-lg font-bold text-slate-600">{taskStats.todo}</div>
-                            <div className="text-[9px] font-semibold text-slate-400 uppercase">Хийх</div>
-                        </div>
-                        <div className="bg-amber-50 rounded-xl p-3 text-center shadow-sm">
-                            <div className="text-lg font-bold text-amber-600">{taskStats.inProgress}</div>
-                            <div className="text-[9px] font-semibold text-amber-600 uppercase">Явагдаж буй</div>
-                        </div>
-                        <div className="bg-emerald-50 rounded-xl p-3 text-center shadow-sm">
-                            <div className="text-lg font-bold text-emerald-600">{taskStats.done}</div>
-                            <div className="text-[9px] font-semibold text-emerald-600 uppercase">Дууссан</div>
-                        </div>
-                    </div>
+                    {/* Project Info - Collapsible */}
+                    <Card className="rounded-xl border-0 shadow-sm overflow-hidden">
+                        <button 
+                            className="w-full px-3 py-2.5 flex items-center justify-between bg-white"
+                            onClick={() => setIsInfoExpanded(!isInfoExpanded)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Info className="h-4 w-4 text-slate-400" />
+                                <span className="text-sm font-medium text-slate-700">Төслийн мэдээлэл</span>
+                            </div>
+                            {isInfoExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                        </button>
+                        {isInfoExpanded && (
+                            <div className="px-3 pb-3 space-y-3 border-t border-slate-50 bg-slate-50/50 animate-in slide-in-from-top-1">
+                                <div className="pt-3">
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Зорилго</p>
+                                    <p className="text-sm text-slate-700">{project.goal}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Хүлээгдэж буй үр дүн</p>
+                                    <p className="text-sm text-slate-700">{project.expectedOutcome}</p>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div>
+                                        <p className="text-[10px] text-slate-400">Эхлэх</p>
+                                        <p className="text-sm font-medium text-slate-700">{format(parseISO(project.startDate), 'yyyy.MM.dd')}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400">Дуусах</p>
+                                        <p className="text-sm font-medium text-slate-700">{format(parseISO(project.endDate), 'yyyy.MM.dd')}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase mb-2">Эзэн & Баг</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {teamMembers.map((m) => (
+                                            <div key={m.id} className={cn(
+                                                "flex items-center gap-1.5 bg-white rounded-full pl-1 pr-2 py-0.5 shadow-sm",
+                                                m.id === project.ownerId && "ring-1 ring-indigo-200"
+                                            )}>
+                                                <Avatar className="h-5 w-5">
+                                                    <AvatarImage src={m.photoURL} />
+                                                    <AvatarFallback className="text-[8px]">{m.firstName?.[0]}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-[10px] font-medium text-slate-700">{m.firstName}</span>
+                                                {m.id === project.ownerId && <span className="text-[8px] text-indigo-600">★</span>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
 
-                    {/* Tasks List */}
+                    {/* Tasks Section */}
                     <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1.5">
+                                <ListTodo className="h-4 w-4 text-slate-500" />
+                                <span className="text-sm font-semibold text-slate-900">Таскууд</span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full bg-indigo-100 hover:bg-indigo-200"
+                                    onClick={() => setShowCreateTask(true)}
+                                >
+                                    <Plus className="h-3.5 w-3.5 text-indigo-600" />
+                                </Button>
+                            </div>
+                            <div className="flex bg-slate-100 rounded-lg p-0.5">
+                                <button
+                                    onClick={() => setTaskFilter('all')}
+                                    className={cn(
+                                        "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+                                        taskFilter === 'all' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                                    )}
+                                >
+                                    Бүгд ({taskStats.total})
+                                </button>
+                                <button
+                                    onClick={() => setTaskFilter('mine')}
+                                    className={cn(
+                                        "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+                                        taskFilter === 'mine' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                                    )}
+                                >
+                                    Миний ({myTasksCount})
+                                </button>
+                            </div>
+                        </div>
+
                         {isTasksLoading ? (
-                            [1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
-                        ) : !tasks || tasks.length === 0 ? (
+                            <div className="space-y-2">
+                                {[1, 2].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+                            </div>
+                        ) : filteredTasks.length === 0 ? (
                             <Card className="rounded-xl border-2 border-dashed border-slate-200 bg-white/50">
-                                <CardContent className="py-10 text-center">
-                                    <ListTodo className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                                    <p className="text-sm text-slate-400">Таск байхгүй</p>
+                                <CardContent className="py-6 text-center">
+                                    <ListTodo className="w-6 h-6 text-slate-200 mx-auto mb-1" />
+                                    <p className="text-xs text-slate-400">
+                                        {taskFilter === 'mine' ? 'Танд хуваарилагдсан таск байхгүй' : 'Таск байхгүй'}
+                                    </p>
                                 </CardContent>
                             </Card>
                         ) : (
-                            tasks.map((task) => {
-                                const isOverdue = isPast(parseISO(task.dueDate)) && task.status !== 'DONE';
-                                const assignees = task.assigneeIds?.map(id => employeeMap.get(id)).filter(Boolean) || [];
-
-                                return (
-                                    <Card key={task.id} className="rounded-xl border-0 shadow-sm bg-white">
-                                        <CardContent className="p-4">
-                                            <div className="flex items-start gap-3">
-                                                {/* Status Toggle */}
-                                                <button
-                                                    onClick={() => handleTaskStatusChange(
-                                                        task,
-                                                        task.status === 'DONE' ? 'TODO' : task.status === 'TODO' ? 'IN_PROGRESS' : 'DONE'
-                                                    )}
-                                                    className="mt-0.5 shrink-0"
-                                                >
-                                                    {task.status === 'DONE' ? (
-                                                        <CheckCircle className="w-5 h-5 text-emerald-500" />
-                                                    ) : task.status === 'IN_PROGRESS' ? (
-                                                        <Clock className="w-5 h-5 text-amber-500" />
-                                                    ) : (
-                                                        <Circle className="w-5 h-5 text-slate-300" />
-                                                    )}
-                                                </button>
-
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={cn(
-                                                        "text-sm font-medium mb-1",
-                                                        task.status === 'DONE' ? "text-slate-400 line-through" : "text-slate-900"
-                                                    )}>
-                                                        {task.title}
-                                                    </p>
-
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <Badge className={cn(
-                                                            "text-[9px] font-semibold border-0",
-                                                            TASK_STATUS_COLORS[task.status]
-                                                        )}>
-                                                            {TASK_STATUS_LABELS[task.status]}
-                                                        </Badge>
-
-                                                        <span className={cn(
-                                                            "text-[10px]",
-                                                            isOverdue ? "text-red-500 font-semibold" : "text-slate-400"
-                                                        )}>
-                                                            {format(parseISO(task.dueDate), 'MM/dd')}
-                                                            {isOverdue && " (хэтэрсэн)"}
-                                                        </span>
-
-                                                        {/* Assignees */}
-                                                        {assignees.length > 0 && (
-                                                            <div className="flex -space-x-1.5">
-                                                                {assignees.slice(0, 2).map((emp) => (
-                                                                    <Avatar key={emp!.id} className="h-5 w-5 ring-1 ring-white">
-                                                                        <AvatarImage src={emp!.photoURL} />
-                                                                        <AvatarFallback className="text-[7px]">
-                                                                            {emp!.firstName?.[0]}
-                                                                        </AvatarFallback>
-                                                                    </Avatar>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })
-                        )}
-                    </div>
-                </TabsContent>
-
-                {/* Chat Tab */}
-                <TabsContent value="chat" className="outline-none h-[calc(100vh-200px)] flex flex-col">
-                    <ScrollArea ref={scrollRef} className="flex-1 px-5 py-4">
-                        {isMessagesLoading ? (
-                            <div className="flex items-center justify-center h-full">
-                                <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-                            </div>
-                        ) : messages && messages.length > 0 ? (
-                            <div className="space-y-4">
-                                {messages.map((msg) => {
-                                    const sender = employeeMap.get(msg.senderId);
-                                    const isCurrentUser = user?.uid === msg.senderId;
+                            <div className="space-y-1.5">
+                                {filteredTasks.map((task) => {
+                                    const isTaskOverdue = isPast(parseISO(task.dueDate)) && task.status !== 'DONE';
+                                    const assignees = task.assigneeIds?.map(id => employeeMap.get(id)).filter(Boolean) || [];
+                                    const isMyTask = user && (task.assigneeIds?.includes(user.uid) || task.ownerId === user.uid);
 
                                     return (
-                                        <div
-                                            key={msg.id}
-                                            className={cn(
-                                                "flex gap-2",
-                                                isCurrentUser && "flex-row-reverse"
-                                            )}
-                                        >
-                                            <Avatar className="h-8 w-8 shrink-0">
-                                                <AvatarImage src={sender?.photoURL} />
-                                                <AvatarFallback className="text-[10px] bg-indigo-100 text-indigo-600">
-                                                    {sender?.firstName?.[0]}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className={cn("max-w-[75%]", isCurrentUser && "text-right")}>
-                                                <div className={cn(
-                                                    "flex items-center gap-1.5 mb-1",
-                                                    isCurrentUser && "flex-row-reverse"
-                                                )}>
-                                                    <span className="text-[11px] font-semibold text-slate-700">
-                                                        {sender?.firstName}
-                                                    </span>
-                                                    <span className="text-[9px] text-slate-400">
-                                                        {formatTime(msg.createdAt)}
-                                                    </span>
+                                        <Card key={task.id} className={cn(
+                                            "rounded-xl border-0 shadow-sm bg-white active:scale-[0.99] transition-transform",
+                                            isMyTask && "ring-1 ring-indigo-100"
+                                        )}>
+                                            <CardContent className="p-3">
+                                                <div className="flex items-start gap-2.5">
+                                                    <button
+                                                        onClick={() => handleTaskStatusChange(
+                                                            task,
+                                                            task.status === 'DONE' ? 'TODO' : task.status === 'TODO' ? 'IN_PROGRESS' : 'DONE'
+                                                        )}
+                                                        className="mt-0.5 shrink-0 active:scale-90 transition-transform"
+                                                    >
+                                                        {task.status === 'DONE' ? (
+                                                            <CheckCircle className="w-5 h-5 text-emerald-500" />
+                                                        ) : task.status === 'IN_PROGRESS' ? (
+                                                            <Clock className="w-5 h-5 text-amber-500" />
+                                                        ) : (
+                                                            <Circle className="w-5 h-5 text-slate-300" />
+                                                        )}
+                                                    </button>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={cn(
+                                                            "text-sm font-medium leading-tight",
+                                                            task.status === 'DONE' ? "text-slate-400 line-through" : "text-slate-900"
+                                                        )}>
+                                                            {task.title}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className={cn(
+                                                                "text-[10px] font-medium",
+                                                                isTaskOverdue ? "text-red-500" : "text-slate-400"
+                                                            )}>
+                                                                {format(parseISO(task.dueDate), 'MM/dd')}
+                                                            </span>
+                                                            {assignees.length > 0 && (
+                                                                <div className="flex -space-x-1">
+                                                                    {assignees.slice(0, 2).map((emp) => (
+                                                                        <Avatar key={emp!.id} className="h-4 w-4 ring-1 ring-white">
+                                                                            <AvatarImage src={emp!.photoURL} />
+                                                                            <AvatarFallback className="text-[6px]">{emp!.firstName?.[0]}</AvatarFallback>
+                                                                        </Avatar>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {isMyTask && <Badge className="text-[8px] px-1 py-0 bg-indigo-100 text-indigo-600 border-0">Миний</Badge>}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className={cn(
-                                                    "inline-block px-3 py-2 rounded-2xl text-sm",
-                                                    isCurrentUser
-                                                        ? "bg-indigo-600 text-white rounded-tr-sm"
-                                                        : "bg-white shadow-sm rounded-tl-sm text-slate-700"
-                                                )}>
-                                                    {formatMessageContent(msg.content)}
-                                                </div>
-                                            </div>
-                                        </div>
+                                            </CardContent>
+                                        </Card>
                                     );
                                 })}
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center py-20">
-                                <MessageCircle className="h-12 w-12 text-slate-200 mb-2" />
-                                <p className="text-sm text-slate-400">Мессеж байхгүй</p>
-                                <p className="text-xs text-slate-300">Багтайгаа харилцаж эхлээрэй</p>
-                            </div>
                         )}
-                    </ScrollArea>
-
-                    {/* Message Input */}
-                    <div className="p-4 bg-white border-t">
-                        <div className="flex items-center gap-2">
-                            <Popover open={mentionOpen} onOpenChange={setMentionOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-10 w-10 shrink-0 rounded-full"
-                                        onClick={() => {
-                                            setMessage(message + '@');
-                                            setMentionOpen(true);
-                                            inputRef.current?.focus();
-                                        }}
-                                    >
-                                        <AtSign className="h-4 w-4" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                    className="w-[200px] p-2 rounded-xl"
-                                    align="start"
-                                    onOpenAutoFocus={(e) => e.preventDefault()}
-                                >
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] text-slate-400 px-2 pb-1">Гишүүн сонгох</p>
-                                        {filteredMembers.length > 0 ? (
-                                            filteredMembers.map((member) => (
-                                                <button
-                                                    key={member.id}
-                                                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-slate-100 text-left"
-                                                    onClick={() => handleMentionSelect(member)}
-                                                >
-                                                    <Avatar className="h-6 w-6">
-                                                        <AvatarImage src={member.photoURL} />
-                                                        <AvatarFallback className="text-[9px]">
-                                                            {member.firstName?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="text-sm truncate">{member.firstName}</span>
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <p className="text-xs text-slate-400 px-2 py-2">Олдсонгүй</p>
-                                        )}
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-
-                            <Input
-                                ref={inputRef}
-                                value={message}
-                                onChange={handleInputChange}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Мессеж бичих..."
-                                className="flex-1 h-10 rounded-full border-slate-200"
-                                disabled={isSending}
-                            />
-
-                            <Button
-                                size="icon"
-                                className="h-10 w-10 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700"
-                                onClick={handleSend}
-                                disabled={isSending || !message.trim()}
-                            >
-                                {isSending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Send className="h-4 w-4" />
-                                )}
-                            </Button>
-                        </div>
                     </div>
-                </TabsContent>
+                </div>
+            </div>
 
-                {/* Info Tab */}
-                <TabsContent value="info" className="p-5 space-y-4 animate-in fade-in outline-none">
-                    {/* Goal & Outcome */}
-                    <Card className="rounded-2xl border-0 shadow-sm">
-                        <CardContent className="p-5 space-y-4">
-                            <div>
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Зорилго</p>
-                                <p className="text-sm text-slate-700">{project.goal}</p>
-                            </div>
-                            <div className="pt-4 border-t border-slate-100">
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Хүлээгдэж буй үр дүн</p>
-                                <p className="text-sm text-slate-700">{project.expectedOutcome}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+            {/* Chat Section - Fixed at Bottom */}
+            <div className={cn(
+                "bg-white border-t border-slate-200 transition-all duration-300 shrink-0",
+                chatHeight
+            )}>
+                {/* Chat Header */}
+                <button 
+                    className="w-full px-4 py-3 flex items-center justify-between border-b border-slate-100"
+                    onClick={() => setIsChatExpanded(!isChatExpanded)}
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <MessageCircle className="h-3.5 w-3.5 text-indigo-600" />
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900">Чат</span>
+                        {messages && messages.length > 0 && (
+                            <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">
+                                {messages.length}
+                            </span>
+                        )}
+                    </div>
+                    {isChatExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronUp className="h-4 w-4 text-slate-400" />}
+                </button>
 
-                    {/* Dates */}
-                    <Card className="rounded-2xl border-0 shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center gap-3 mb-4">
-                                <Calendar className="w-5 h-5 text-slate-400" />
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Хугацаа</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-[10px] text-slate-400 mb-0.5">Эхлэх</p>
-                                    <p className="text-sm font-semibold text-slate-700">
-                                        {format(parseISO(project.startDate), 'yyyy.MM.dd')}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-slate-400 mb-0.5">Дуусах</p>
-                                    <p className="text-sm font-semibold text-slate-700">
-                                        {format(parseISO(project.endDate), 'yyyy.MM.dd')}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                {isChatExpanded && (
+                    <>
+                        {/* Messages */}
+                        <ScrollArea ref={chatScrollRef} className="h-[168px]">
+                            <div className="px-4 py-2 space-y-3">
+                                {messages && messages.length > 0 ? (
+                                    messages.map((msg) => {
+                                        const sender = employeeMap.get(msg.senderId);
+                                        const isCurrentUser = user?.uid === msg.senderId;
 
-                    {/* Owner */}
-                    <Card className="rounded-2xl border-0 shadow-sm">
-                        <CardContent className="p-5">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Эзэн</p>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={owner?.photoURL} />
-                                    <AvatarFallback>{owner?.firstName?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="text-sm font-semibold text-slate-900">
-                                        {owner?.firstName} {owner?.lastName}
-                                    </p>
-                                    <p className="text-xs text-slate-400">{owner?.jobTitle}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Team Members */}
-                    <Card className="rounded-2xl border-0 shadow-sm">
-                        <CardContent className="p-5">
-                            <div className="flex items-center gap-3 mb-4">
-                                <Users className="w-5 h-5 text-slate-400" />
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                                    Багийн гишүүд ({teamMembers.length})
-                                </p>
-                            </div>
-                            <div className="space-y-3">
-                                {teamMembers.map((member) => (
-                                    <div key={member.id} className="flex items-center gap-3">
-                                        <Avatar className="h-9 w-9">
-                                            <AvatarImage src={member.photoURL} />
-                                            <AvatarFallback className="text-xs">{member.firstName?.[0]}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-slate-900 truncate">
-                                                {member.firstName} {member.lastName}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400 truncate">{member.jobTitle}</p>
-                                        </div>
-                                        {member.id === project.ownerId && (
-                                            <Badge className="text-[8px] bg-indigo-100 text-indigo-600 border-0">Эзэн</Badge>
-                                        )}
+                                        return (
+                                            <div key={msg.id} className={cn("flex gap-2", isCurrentUser && "flex-row-reverse")}>
+                                                <Avatar className="h-6 w-6 shrink-0">
+                                                    <AvatarImage src={sender?.photoURL} />
+                                                    <AvatarFallback className="text-[8px] bg-indigo-100 text-indigo-600">
+                                                        {sender?.firstName?.[0]}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className={cn("max-w-[75%]", isCurrentUser && "text-right")}>
+                                                    <div className={cn("flex items-center gap-1 mb-0.5", isCurrentUser && "flex-row-reverse")}>
+                                                        <span className="text-[10px] font-medium text-slate-600">{sender?.firstName}</span>
+                                                        <span className="text-[8px] text-slate-400">{formatTime(msg.createdAt)}</span>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "inline-block px-2.5 py-1.5 rounded-xl text-[13px]",
+                                                        isCurrentUser
+                                                            ? "bg-indigo-600 text-white rounded-tr-sm"
+                                                            : "bg-slate-100 rounded-tl-sm text-slate-700"
+                                                    )}>
+                                                        {formatMessageContent(msg.content)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                                        <MessageCircle className="h-8 w-8 text-slate-200 mb-1" />
+                                        <p className="text-xs text-slate-400">Мессеж байхгүй</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                        </ScrollArea>
+
+                        {/* Message Input */}
+                        <div className="px-3 py-2 border-t border-slate-100 bg-slate-50">
+                            <div className="flex items-center gap-2">
+                                <Popover open={mentionOpen} onOpenChange={setMentionOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 shrink-0 rounded-full"
+                                            onClick={() => {
+                                                setMessage(message + '@');
+                                                setMentionOpen(true);
+                                                inputRef.current?.focus();
+                                            }}
+                                        >
+                                            <AtSign className="h-4 w-4" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[180px] p-2 rounded-xl" align="start" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                        <div className="space-y-1 max-h-[150px] overflow-y-auto">
+                                            {filteredMembers.length > 0 ? (
+                                                filteredMembers.map((member) => (
+                                                    <button
+                                                        key={member.id}
+                                                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-slate-100 text-left"
+                                                        onClick={() => handleMentionSelect(member)}
+                                                    >
+                                                        <Avatar className="h-5 w-5">
+                                                            <AvatarImage src={member.photoURL} />
+                                                            <AvatarFallback className="text-[8px]">{member.firstName?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        <span className="text-xs truncate">{member.firstName}</span>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-slate-400 px-2 py-2">Олдсонгүй</p>
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                <Input
+                                    ref={inputRef}
+                                    value={message}
+                                    onChange={handleInputChange}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Мессеж..."
+                                    className="flex-1 h-8 text-sm rounded-full border-slate-200 bg-white"
+                                    disabled={isSending}
+                                />
+
+                                <Button
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700"
+                                    onClick={handleSend}
+                                    disabled={isSending || !message.trim()}
+                                >
+                                    {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                </Button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Create Task Sheet */}
+            <CreateTaskSheet
+                open={showCreateTask}
+                onOpenChange={setShowCreateTask}
+                projectId={projectId}
+                teamMembers={teamMembers}
+            />
         </div>
     );
 }

@@ -23,17 +23,20 @@ import {
     ChevronRight,
     Target,
     ListTodo,
+    Plus,
 } from 'lucide-react';
 import { format, parseISO, isPast, differenceInDays } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Project, Task, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 import { Employee } from '@/types';
+import { CreateProjectSheet } from './components';
 
 export default function MobileProjectsPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
+    const [showCreateProject, setShowCreateProject] = React.useState(false);
 
     // Debug: log employee profile
     React.useEffect(() => {
@@ -126,9 +129,13 @@ export default function MobileProjectsPage() {
                         </p>
                     </div>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                    <FolderKanban className="h-5 w-5 text-indigo-600" />
-                </div>
+                <Button 
+                    onClick={() => setShowCreateProject(true)}
+                    className="h-10 w-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700"
+                    size="icon"
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
             </div>
 
             <main className="p-5 space-y-5 animate-in fade-in slide-in-from-bottom-3">
@@ -265,6 +272,12 @@ export default function MobileProjectsPage() {
                     )}
                 </div>
             </main>
+
+            {/* Create Project Sheet */}
+            <CreateProjectSheet 
+                open={showCreateProject} 
+                onOpenChange={setShowCreateProject} 
+            />
         </div>
     );
 }
