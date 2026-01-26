@@ -9,7 +9,7 @@ import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, FileText, Download } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import type { CompanyPolicy } from '@/app/dashboard/company/policies/types';
 
 function PageSkeleton() {
@@ -67,12 +67,7 @@ function DocumentViewer({ policy }: { policy: CompanyPolicy }) {
         <div className="h-[60vh] flex flex-col items-center justify-center rounded-md border bg-muted">
             <FileText className="h-16 w-16 text-muted-foreground" />
             <p className="mt-4 text-muted-foreground">Урьдчилан харах боломжгүй файл.</p>
-            <Button asChild className="mt-4">
-                <a href={policy.documentUrl} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Баримт татах
-                </a>
-            </Button>
+            <p className="text-sm text-muted-foreground mt-2">Зөвхөн PDF болон зургийн файлыг харуулах боломжтой.</p>
         </div>
     );
 }

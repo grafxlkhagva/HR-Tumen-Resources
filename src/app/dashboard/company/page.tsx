@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
-import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle, History } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -699,7 +699,7 @@ export default function CompanyPage() {
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <Link href="/dashboard/company/mission" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
                             <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
@@ -741,6 +741,17 @@ export default function CompanyPage() {
                                 <div>
                                     <p className="text-sm font-medium">Журам</p>
                                     <p className="text-xs text-muted-foreground">{policies?.length || 0} журам</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/company/history" className="bg-white rounded-xl border p-4 hover:border-primary/50 hover:shadow-sm transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                                    <History className="h-5 w-5 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Түүх</p>
+                                    <p className="text-xs text-muted-foreground">Үйл явдлууд</p>
                                 </div>
                             </div>
                         </Link>

@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Users, Bell, Search, Sparkles, Palmtree, ScrollText, CheckSquare, ChevronRight } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, CheckSquare, ChevronRight, Star, Trophy } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -62,21 +62,21 @@ function ReactionIcon({ type, className }: { type: ReactionType, className?: str
 
 function PostSkeleton() {
     return (
-        <Card className="overflow-hidden rounded-3xl shadow-sm border-0 bg-white mb-6">
-            <CardHeader className="flex flex-row items-center gap-3 pb-3">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24" />
+        <Card className="overflow-hidden rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-0 bg-white mb-4">
+            <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="space-y-1.5">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-2.5 w-20" />
                 </div>
             </CardHeader>
-            <CardContent className="space-y-3 pb-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="aspect-video w-full rounded-2xl" />
+            <CardContent className="space-y-2 p-4 pt-0">
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-4/5" />
+                <Skeleton className="aspect-video w-full rounded-xl" />
             </CardContent>
-            <CardFooter className="pt-0">
-                <Skeleton className="h-8 w-24 rounded-full" />
+            <CardFooter className="p-4 pt-0">
+                <Skeleton className="h-8 w-20 rounded-lg" />
             </CardFooter>
         </Card>
     )
@@ -130,7 +130,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
     return (
-        <Card className="overflow-hidden rounded-3xl shadow-sm border border-slate-100 bg-white mb-6 animate-in fade-in slide-in-from-bottom-3">
+        <Card className="overflow-hidden rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-0 bg-white mb-4 animate-in fade-in slide-in-from-bottom-2">
             <Dialog open={isReactionsOpen} onOpenChange={setIsReactionsOpen}>
                 <DialogContent className="rounded-2xl w-[90vw]">
                     <DialogHeader>
@@ -153,20 +153,20 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                 </DialogContent>
             </Dialog>
 
-            <CardHeader className="flex flex-row items-center gap-3 p-4 pb-3">
-                <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+            <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
+                <Avatar className="h-9 w-9 shadow-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
                         {post.authorName.charAt(0)}
                     </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
                     <span className="text-sm font-semibold text-slate-900">{post.authorName}</span>
-                    <span className="text-[10px] text-muted-foreground">{format(postDate, 'yyyy.MM.dd HH:mm')}</span>
+                    <span className="text-[10px] text-slate-400">{format(postDate, 'yyyy.MM.dd HH:mm')}</span>
                 </div>
             </CardHeader>
 
-            <CardContent className="p-4 pt-0 space-y-3">
-                <h3 className="text-base font-semibold text-slate-800 leading-tight">{post.title}</h3>
+            <CardContent className="p-4 pt-0 space-y-2">
+                <h3 className="text-sm font-semibold text-slate-800 leading-snug">{post.title}</h3>
                 <div
                     className={cn("text-sm text-slate-600 leading-relaxed", !isExpanded && "line-clamp-3")}
                     dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
@@ -178,12 +178,12 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                 )}
 
                 {post.imageUrls && post.imageUrls.length > 0 && (
-                    <div className="rounded-2xl overflow-hidden mt-2 shadow-sm border border-slate-100">
+                    <div className="rounded-xl overflow-hidden mt-2">
                         <Carousel className="w-full">
                             <CarouselContent>
                                 {post.imageUrls.map((url, index) => (
                                     <CarouselItem key={index}>
-                                        <div className="relative aspect-video w-full bg-slate-50">
+                                        <div className="relative aspect-video w-full bg-slate-100">
                                             <Image src={url} alt="Post" fill className="object-cover" />
                                         </div>
                                     </CarouselItem>
@@ -194,36 +194,36 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
                 )}
             </CardContent>
 
-            <CardFooter className="p-4 pt-0 flex flex-col items-start gap-4">
+            <CardFooter className="p-4 pt-2 flex flex-col items-start gap-3">
                 {totalReactions > 0 && (
-                    <button onClick={showReactions} className="flex items-center gap-2 px-2 py-1">
-                        <div className="flex -space-x-2">
+                    <button onClick={showReactions} className="flex items-center gap-2">
+                        <div className="flex -space-x-1.5">
                             {(Object.keys(reactionCounts) as ReactionType[]).map(r => (
                                 <div key={r} className="ring-2 ring-white rounded-full">
                                     <ReactionIcon type={r} />
                                 </div>
                             ))}
                         </div>
-                        <span className="text-[10px] font-medium text-slate-500">{totalReactions}</span>
+                        <span className="text-[11px] font-medium text-slate-500">{totalReactions}</span>
                     </button>
                 )}
 
-                <div className="flex w-full items-center justify-between border-t border-slate-100 pt-3">
+                <div className="flex w-full items-center justify-between border-t border-slate-50 pt-3">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl", userReaction && "text-primary")}>
-                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-5 w-5" />}
+                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl h-9", userReaction && "text-primary")}>
+                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-4 w-4" />}
                                 <span className="text-xs">Таалагдлаа</span>
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-2 rounded-full flex gap-2" align="start">
-                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-125"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
-                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-125"><Heart className="h-6 w-6 text-red-500" /></button>
-                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-2xl">🤗</button>
+                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-110"><ThumbsUp className="h-5 w-5 text-blue-500" /></button>
+                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-110"><Heart className="h-5 w-5 text-red-500" /></button>
+                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-xl transition-transform hover:scale-110">🤗</button>
                         </PopoverContent>
                     </Popover>
-                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
-                        <MessageSquare className="h-5 w-5" />
+                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-400 h-9">
+                        <MessageSquare className="h-4 w-4" />
                         <span className="text-xs">Сэтгэгдэл</span>
                     </Button>
                 </div>
@@ -295,7 +295,7 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
     const receiverNames = receivers.map(r => `${r?.lastName?.[0]}. ${r?.firstName}`).join(', ');
 
     return (
-        <Card className="overflow-hidden rounded-3xl shadow-sm border border-slate-100 bg-white mb-6 animate-in fade-in slide-in-from-bottom-3">
+        <Card className="overflow-hidden rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border-0 bg-white mb-4 animate-in fade-in slide-in-from-bottom-2">
             <Dialog open={isReactionsOpen} onOpenChange={setIsReactionsOpen}>
                 <DialogContent className="rounded-2xl w-[90vw]">
                     <DialogHeader>
@@ -318,68 +318,68 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
                 </DialogContent>
             </Dialog>
 
-            <CardHeader className="flex flex-row items-center justify-between p-4 pb-3">
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
                 <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                    <Avatar className="h-9 w-9 shadow-sm">
                         <AvatarImage src={sender.photoURL} />
-                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
                             {sender.firstName?.[0]}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
                         <div className="flex items-center gap-1 text-sm font-semibold">
                             <span className="text-slate-900">{sender.firstName}</span>
-                            <span className="text-primary mx-0.5">➜</span>
+                            <span className="text-primary mx-0.5">→</span>
                             <span className="text-slate-900 line-clamp-1">{receiverNames}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(postDate, { addSuffix: true, locale: mn })}</span>
+                        <span className="text-[10px] text-slate-400">{formatDistanceToNow(postDate, { addSuffix: true, locale: mn })}</span>
                     </div>
                 </div>
-                <Badge variant="secondary" className="font-semibold text-xs text-primary bg-primary/10">
+                <Badge variant="secondary" className="font-semibold text-xs text-amber-600 bg-amber-50 border-0">
                     +{post.pointAmount} ⭐
                 </Badge>
             </CardHeader>
 
-            <CardContent className="p-4 pt-0 space-y-3">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border inline-flex uppercase tracking-tighter"
-                    style={{ borderColor: valueData?.color || '#eee', color: valueData?.color || '#666', backgroundColor: `${valueData?.color}10` }}>
+            <CardContent className="p-4 pt-0 space-y-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold inline-flex uppercase tracking-tight"
+                    style={{ color: valueData?.color || '#666', backgroundColor: `${valueData?.color}10` }}>
                     <span>{valueData?.emoji}</span> {valueData?.title}
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed italic">
+                <p className="text-sm text-slate-600 leading-relaxed">
                     "{post.message}"
                 </p>
             </CardContent>
 
-            <CardFooter className="p-4 pt-0 flex flex-col items-start gap-4">
+            <CardFooter className="p-4 pt-2 flex flex-col items-start gap-3">
                 {totalReactions > 0 && (
-                    <button onClick={showReactions} className="flex items-center gap-2 px-2 py-1">
-                        <div className="flex -space-x-2">
+                    <button onClick={showReactions} className="flex items-center gap-2">
+                        <div className="flex -space-x-1.5">
                             {(Object.keys(reactionCounts) as ReactionType[]).map(r => (
                                 <div key={r} className="ring-2 ring-white rounded-full">
                                     <ReactionIcon type={r} />
                                 </div>
                             ))}
                         </div>
-                        <span className="text-[10px] font-medium text-slate-500">{totalReactions}</span>
+                        <span className="text-[11px] font-medium text-slate-500">{totalReactions}</span>
                     </button>
                 )}
 
-                <div className="flex w-full items-center justify-between border-t border-slate-100 pt-3">
+                <div className="flex w-full items-center justify-between border-t border-slate-50 pt-3">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl", userReaction && "text-primary")}>
-                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-5 w-5" />}
+                            <Button variant="ghost" size="sm" className={cn("flex-1 gap-2 rounded-xl h-9", userReaction && "text-primary")}>
+                                {userReaction ? <ReactionIcon type={userReaction} /> : <ThumbsUp className="h-4 w-4" />}
                                 <span className="text-xs">Таалагдлаа</span>
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-2 rounded-full flex gap-2" align="start">
-                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-125"><ThumbsUp className="h-6 w-6 text-blue-500" /></button>
-                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-125"><Heart className="h-6 w-6 text-red-500" /></button>
-                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-2xl">🤗</button>
+                            <button onClick={() => handleReaction('like')} className="p-2 hover:bg-blue-50 rounded-full transition-transform hover:scale-110"><ThumbsUp className="h-5 w-5 text-blue-500" /></button>
+                            <button onClick={() => handleReaction('love')} className="p-2 hover:bg-red-50 rounded-full transition-transform hover:scale-110"><Heart className="h-5 w-5 text-red-500" /></button>
+                            <button onClick={() => handleReaction('care')} className="p-2 hover:bg-amber-50 rounded-full text-xl transition-transform hover:scale-110">🤗</button>
                         </PopoverContent>
                     </Popover>
-                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
-                        <MessageSquare className="h-5 w-5" />
+                    <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-400 h-9">
+                        <MessageSquare className="h-4 w-4" />
                         <span className="text-xs">Сэтгэгдэл</span>
                     </Button>
                 </div>
@@ -395,9 +395,9 @@ function EmployeeCarousel() {
 
     if (isLoading) {
         return (
-            <div className="flex gap-4 overflow-hidden px-6 pb-6">
-                {[1, 2, 3, 4].map(i => (
-                    <Skeleton key={i} className="h-16 w-16 rounded-2xl shrink-0" />
+            <div className="flex gap-3 overflow-hidden px-5 pb-4">
+                {[1, 2, 3, 4, 5].map(i => (
+                    <Skeleton key={i} className="h-14 w-14 rounded-xl shrink-0" />
                 ))}
             </div>
         )
@@ -406,22 +406,22 @@ function EmployeeCarousel() {
     if (!employees || employees.length === 0) return null;
 
     return (
-        <div className="w-full overflow-x-auto pb-6 px-6 -mx-0 scrollbar-hide">
-            <div className="flex gap-4 w-max">
+        <div className="w-full overflow-x-auto pb-4 px-5 scrollbar-hide">
+            <div className="flex gap-3 w-max">
                 {employees.map((employee) => (
                     <Link href={`/mobile/employees/${employee.id}`} key={employee.id} className="group relative">
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-1.5">
                             <div className="relative">
-                                <Avatar className="w-16 h-16 rounded-2xl border-2 border-white shadow-sm group-hover:shadow-md transition-all group-hover:scale-105 ring-2 ring-transparent group-hover:ring-primary/20">
+                                <Avatar className="w-14 h-14 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.06)] group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all group-active:scale-95">
                                     <AvatarImage src={employee.photoURL} alt={employee.firstName} className="object-cover" />
-                                    <AvatarFallback className="rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-semibold">
+                                    <AvatarFallback className="rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 font-semibold text-sm">
                                         {employee.firstName?.charAt(0)}
                                     </AvatarFallback>
                                 </Avatar>
-                                {/* Online indicator placeholder - can be real later */}
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />
+                                {/* Online indicator */}
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
                             </div>
-                            <span className="text-[11px] font-medium text-slate-600 max-w-[64px] truncate text-center group-hover:text-primary transition-colors">
+                            <span className="text-[11px] font-medium text-slate-500 max-w-[56px] truncate text-center">
                                 {employee.firstName}
                             </span>
                         </div>
@@ -466,45 +466,45 @@ function AttendanceStatusWidget() {
         return `${hours}ц ${mins}м`;
     }, [todayRecord, currentTime]);
 
-    if (isLoading) return <Skeleton className="h-32 w-full rounded-3xl" />;
+    if (isLoading) return <div className="px-5"><Skeleton className="h-28 w-full rounded-2xl" /></div>;
 
     return (
-        <div className="px-6">
-            <Card className="rounded-3xl border-0 shadow-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white overflow-hidden relative group cursor-pointer transition-transform active:scale-[0.98]" onClick={() => router.push('/mobile/attendance')}>
+        <div className="px-5">
+            <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(99,102,241,0.15)] bg-gradient-to-br from-indigo-600 to-violet-600 text-white overflow-hidden relative group cursor-pointer transition-all active:scale-[0.98]" onClick={() => router.push('/mobile/attendance')}>
                 {/* Decorative shapes */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
 
-                <CardContent className="p-5 relative z-10 flex items-center justify-between">
+                <CardContent className="p-4 relative z-10 flex items-center justify-between">
                     <div>
-                        <div className="flex items-center gap-2 mb-1 opacity-90">
-                            <Clock className="w-4 h-4" />
-                            <span className="text-xs font-semibold tracking-wide uppercase">Өнөөдрийн ирц</span>
+                        <div className="flex items-center gap-1.5 mb-1 opacity-80">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-semibold tracking-wide uppercase">Өнөөдрийн ирц</span>
                         </div>
 
-                        <div className="flex items-baseline gap-2 mb-2">
+                        <div className="flex items-baseline gap-2 mb-1.5">
                             {todayRecord ? (
-                                <span className="text-3xl font-semibold tracking-tight">
+                                <span className="text-2xl font-bold tracking-tight">
                                     {todayRecord.checkInTime ? format(new Date(todayRecord.checkInTime), 'HH:mm') : '--:--'}
                                 </span>
                             ) : (
-                                <span className="text-2xl font-semibold opacity-90">Бүртгэлгүй</span>
+                                <span className="text-xl font-semibold opacity-90">Бүртгэлгүй</span>
                             )}
                         </div>
 
                         {durationText ? (
-                            <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm">
-                                ⏱ {durationText}
-                            </Badge>
+                            <span className="text-xs font-medium text-white/80">
+                                ⏱ {durationText} ажилласан
+                            </span>
                         ) : (
-                            <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm">
-                                Та бүртгүүлээгүй байна
-                            </Badge>
+                            <span className="text-xs font-medium text-white/80">
+                                Ирц бүртгүүлэх бол дарна уу
+                            </span>
                         )}
                     </div>
 
-                    <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
-                        {isCheckedIn ? <CheckCircle className="w-6 h-6 text-white animate-pulse" /> : <ArrowRight className="w-6 h-6 text-white" />}
+                    <div className="h-11 w-11 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                        {isCheckedIn ? <CheckCircle className="w-5 h-5 text-white" /> : <ArrowRight className="w-5 h-5 text-white" />}
                     </div>
                 </CardContent>
             </Card>
@@ -518,21 +518,23 @@ function QuickActions() {
     const router = useRouter();
 
     const actions = [
-        { label: 'Амралт', icon: Palmtree, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => router.push('/mobile/vacation') },
-        { label: 'Чиглүүлэг', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/mentoring') },
-        { label: 'Бодлого, журам', icon: ScrollText, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => router.push('/mobile/company/policies') },
+        { label: 'Ирц', icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/attendance') },
+        { label: 'Амралт', icon: Palmtree, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => router.push('/mobile/vacation') },
+        { label: 'Оноо', icon: Star, color: 'text-amber-500', bg: 'bg-amber-50', onClick: () => router.push('/mobile/points') },
     ];
 
     return (
-        <div className="px-6 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {actions.map((action, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform min-w-[3.5rem]" onClick={action.onClick}>
-                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-sm group-hover:shadow-md border border-slate-100 bg-white", action.color)}>
-                        <action.icon className="w-6 h-6" />
+        <div className="px-5">
+            <div className="grid grid-cols-3 gap-4">
+                {actions.map((action, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform" onClick={action.onClick}>
+                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-[0_2px_8px_rgba(0,0,0,0.04)] bg-white", action.color)}>
+                            <action.icon className="w-6 h-6" />
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-500 text-center">{action.label}</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-600 text-center whitespace-nowrap">{action.label}</span>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }
@@ -577,43 +579,38 @@ function MyTasksWidget() {
     if (isLoading || !instances || instances.length === 0) return null;
 
     return (
-        <div className="px-6">
+        <div className="px-5">
             <Card
-                className="rounded-3xl border-0 shadow-lg bg-gradient-to-br from-purple-600 to-pink-600 text-white overflow-hidden relative group cursor-pointer transition-transform active:scale-[0.98]"
+                className="rounded-2xl border-0 shadow-[0_2px_8px_rgba(0,0,0,0.04)] bg-white overflow-hidden group cursor-pointer transition-all active:scale-[0.98] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
                 onClick={() => router.push('/mobile/tasks')}
             >
-                {/* Decorative shapes */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-
-                <CardContent className="p-5 relative z-10 flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1 opacity-90">
-                            <CheckSquare className="w-4 h-4" />
-                            <span className="text-xs font-semibold tracking-wide uppercase">Миний даалгавар</span>
+                <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-xl bg-purple-50 flex items-center justify-center">
+                            <CheckSquare className="w-5 h-5 text-purple-600" />
                         </div>
-
-                        <div className="flex items-baseline gap-2 mb-2">
-                            <span className="text-3xl font-semibold tracking-tight">
-                                {taskStats.pending}
-                            </span>
-                            <span className="text-sm opacity-90">хүлээгдэж буй</span>
+                        <div>
+                            <p className="text-sm font-semibold text-slate-900">Миний даалгавар</p>
+                            <p className="text-xs text-slate-500">
+                                <span className="font-bold text-purple-600">{taskStats.pending}</span> хүлээгдэж буй
+                            </p>
                         </div>
-
-                        <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm">
-                            📋 {instances.length} процесс идэвхтэй
-                        </Badge>
                     </div>
-
-                    <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
-                        <ChevronRight className="w-6 h-6 text-white" />
-                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
                 </CardContent>
             </Card>
         </div>
     );
 }
 
+
+// Time-based greeting helper
+function getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Өглөөний мэнд';
+    if (hour < 18) return 'Өдрийн мэнд';
+    return 'Оройн мэнд';
+}
 
 export default function MobileHomePage() {
     const { firestore } = useFirebase();
@@ -651,41 +648,46 @@ export default function MobileHomePage() {
         useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore])
     );
 
+    // Format today's date in Mongolian
+    const todayFormatted = format(new Date(), 'M сарын d, EEEE', { locale: mn });
+
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20 font-sans">
-            {/* Sticky Header with Blur */}
-            <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="relative h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-md">
-                        <div className="h-full w-full bg-white rounded-[10px] flex items-center justify-center overflow-hidden">
-                            {companyProfile?.logoUrl ? (
-                                <Image src={companyProfile.logoUrl} alt="Logo" fill className="object-contain p-1" />
-                            ) : (
-                                <span className="font-semibold text-indigo-600 text-xs">HR</span>
-                            )}
+            {/* Sticky Header with Blur - iOS Style */}
+            <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-100 px-5 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="relative h-11 w-11 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-[0_2px_8px_rgba(99,102,241,0.25)]">
+                            <div className="h-full w-full bg-white rounded-[14px] flex items-center justify-center overflow-hidden">
+                                {companyProfile?.logoUrl ? (
+                                    <Image src={companyProfile.logoUrl} alt="Logo" fill className="object-contain p-1.5" />
+                                ) : (
+                                    <span className="font-bold text-indigo-600 text-sm">HR</span>
+                                )}
+                            </div>
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-bold text-slate-900 leading-tight">
+                                {employeeProfile ? `${getGreeting()}, ${employeeProfile.firstName}` : getGreeting()}
+                            </h1>
+                            <p className="text-xs font-medium text-slate-400 mt-0.5 capitalize">
+                                {todayFormatted}
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <h1 className="text-sm font-semibold text-slate-900 leading-none mb-1">
-                            {companyProfile?.name || 'HR System'}
-                        </h1>
-                        <p className="text-xs font-medium text-slate-500">
-                            {employeeProfile ? `👋 Сайн уу, ${employeeProfile.firstName}` : 'Тавтай морилно уу'}
-                        </p>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" className="rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 h-10 w-10 transition-colors">
+                            <Search className="h-[18px] w-[18px]" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 h-10 w-10 relative transition-colors">
+                            <Bell className="h-[18px] w-[18px]" />
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                        </Button>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 h-9 w-9">
-                        <Search className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 h-9 w-9 relative">
-                        <Bell className="h-4 w-4" />
-                        <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-                    </Button>
                 </div>
             </header>
 
-            <main className="space-y-8 pt-6 animate-in fade-in-30 slide-in-from-bottom-5">
+            <main className="space-y-6 pt-5 animate-in fade-in-30 slide-in-from-bottom-5">
                 {/* My Tasks Card */}
                 <MyTasksWidget />
 
@@ -699,33 +701,33 @@ export default function MobileHomePage() {
 
                 {/* Team Section */}
                 <div className="space-y-3">
-                    <div className="px-6 flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-slate-800">Хамт олон</h2>
-                        <Link href="/mobile/employees" className="text-xs font-semibold text-primary hover:underline">Бүгд &rarr;</Link>
+                    <div className="px-5 flex items-center justify-between">
+                        <h2 className="text-base font-semibold text-slate-900">Хамт олон</h2>
+                        <Link href="/mobile/employees" className="text-sm font-medium text-primary">Бүгд</Link>
                     </div>
                     <EmployeeCarousel />
                 </div>
 
                 {/* Social Creation Bar */}
-                <div className="px-6">
-                    <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-slate-100 flex flex-col gap-4">
+                <div className="px-5">
+                    <div className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col gap-3">
                         <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
+                            <Avatar className="h-9 w-9">
                                 <AvatarImage src={employeeProfile?.photoURL} />
-                                <AvatarFallback>{employeeProfile?.firstName?.[0]}</AvatarFallback>
+                                <AvatarFallback className="bg-slate-100 text-slate-600 text-sm">{employeeProfile?.firstName?.[0]}</AvatarFallback>
                             </Avatar>
-                            <div className="flex-1 bg-slate-50 rounded-2xl px-4 py-2 text-sm text-slate-400 font-medium">
+                            <div className="flex-1 bg-slate-50 rounded-xl px-4 py-2.5 text-sm text-slate-400 font-medium">
                                 Таны бодол...
                             </div>
                         </div>
                         <div className="flex items-center gap-2 border-t border-slate-50 pt-3">
                             <GivePointsDialog triggerButton={
-                                <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-primary bg-primary/5 hover:bg-primary/10">
+                                <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-primary bg-primary/5 hover:bg-primary/10 h-9">
                                     <Sparkles className="w-4 h-4" />
                                     <span className="text-xs font-semibold">Талархал</span>
                                 </Button>
                             } />
-                            <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500">
+                            <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500 h-9">
                                 <MessageSquare className="w-4 h-4" />
                                 <span className="text-xs font-semibold">Мэдээ</span>
                             </Button>
@@ -734,18 +736,18 @@ export default function MobileHomePage() {
                 </div>
 
                 {/* News Feed */}
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold text-slate-800 px-6">Шинэ мэдээ</h2>
+                <div className="space-y-3">
+                    <h2 className="text-base font-semibold text-slate-900 px-5">Шинэ мэдээ</h2>
 
                     {isLoading && (
-                        <div className="px-6">
+                        <div className="px-5">
                             <PostSkeleton />
                             <PostSkeleton />
                         </div>
                     )}
 
                     {!isLoading && unifiedFeed.length > 0 && (
-                        <div className="px-6 pb-6">
+                        <div className="px-5 pb-4">
                             {unifiedFeed.map(item => (
                                 item.feedType === 'post' ? (
                                     <PostCard key={item.id} post={item as Post} userId={employeeProfile?.id || null} />
@@ -757,13 +759,13 @@ export default function MobileHomePage() {
                     )}
 
                     {!isLoading && unifiedFeed.length === 0 && (
-                        <div className="px-6">
-                            <Card className="bg-slate-50 border-dashed border-2 border-slate-200 p-12 text-center rounded-3xl">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <MessageSquare className="w-8 h-8 text-slate-400" />
+                        <div className="px-5">
+                            <Card className="bg-slate-50/50 border-dashed border-2 border-slate-200 p-10 text-center rounded-2xl">
+                                <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <MessageSquare className="w-6 h-6 text-slate-400" />
                                 </div>
-                                <h3 className="text-slate-900 font-semibold">Одоогоор мэдээ алга</h3>
-                                <p className="text-slate-500 text-sm mt-1">Шинэ мэдээлэл орохоор энд харагдах болно.</p>
+                                <h3 className="text-slate-900 font-semibold text-sm">Одоогоор мэдээ алга</h3>
+                                <p className="text-slate-500 text-xs mt-1">Шинэ мэдээлэл орохоор энд харагдах болно.</p>
                             </Card>
                         </div>
                     )}
