@@ -284,5 +284,45 @@ service cloud.firestore {
         allow write: if isAdmin();
     }
 
+    // --- Projects Module Rules ---
+    
+    // Projects - All signed-in users can read projects, admins can write
+    // Project owners and assigned employees can also update
+    match /projects/{projectId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && (
+            isAdmin() ||
+            request.auth.uid == resource.data.ownerId ||
+            request.auth.uid == resource.data.createdBy
+        );
+        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.createdBy);
+    }
+    
+    // Tasks subcollection under projects
+    match /projects/{projectId}/tasks/{taskId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && (
+            isAdmin() ||
+            request.auth.uid == resource.data.ownerId ||
+            request.auth.uid in resource.data.get('assigneeIds', [])
+        );
+        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
+    }
+
+    // Messages subcollection under projects (Project Chat)
+    match /projects/{projectId}/messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && request.auth.uid == resource.data.senderId;
+        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
+    }
+    
+    // Collection Group rules for tasks (for dashboard queries)
+    match /{path=**}/tasks/{taskId} {
+        allow read: if isSignedIn();
+    }
+
   }
 }

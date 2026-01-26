@@ -703,6 +703,32 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: pendingTimeOffRequests } = useCollection<any>(pendingTimeOffQuery);
 
+    // Projects query (for projects widget)
+    const projectsQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
+        , [firestore]);
+    const { data: activeProjects } = useCollection<any>(projectsQuery);
+
+    // All tasks query for overdue count (using collectionGroup)
+    const allTasksQuery = useMemoFirebase(() =>
+        firestore ? collectionGroup(firestore, 'tasks') : null
+        , [firestore]);
+    const { data: allTasks } = useCollection<any>(allTasksQuery);
+
+    // Calculate overdue tasks
+    const overdueTasksCount = useMemo(() => {
+        if (!allTasks) return 0;
+        const today = new Date();
+        return allTasks.filter((task: any) => {
+            if (task.status === 'DONE') return false;
+            try {
+                return parseISO(task.dueDate) < today;
+            } catch {
+                return false;
+            }
+        }).length;
+    }, [allTasks]);
+
     // Dashboard widgets hook
     const {
         order: widgetOrder,
@@ -836,6 +862,10 @@ const OrganizationChart = () => {
 
     // Prepare widget data for the dashboard widgets bar
     const widgetData: WidgetData = useMemo(() => ({
+        // Projects widget
+        activeProjectsCount: activeProjects?.length || 0,
+        overdueTasksCount,
+        
         // Employees widget
         activeEmployeesCount,
         onboardingCount: onboardingProcesses?.length || 0,
@@ -861,6 +891,8 @@ const OrganizationChart = () => {
         pendingTimeOffCount: pendingTimeOffRequests?.length || 0,
         inactiveCount: inactiveEmployeesCount,
     }), [
+        activeProjects,
+        overdueTasksCount,
         activeEmployeesCount,
         onboardingProcesses,
         offboardingProcesses,

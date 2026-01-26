@@ -13,6 +13,10 @@ import { cn } from '@/lib/utils';
 import { WidgetId, getWidgetConfig } from './catalog';
 
 export interface WidgetData {
+    // Projects widget
+    activeProjectsCount?: number;
+    overdueTasksCount?: number;
+    
     // Employees widget
     activeEmployeesCount?: number;
     onboardingCount?: number;
@@ -80,6 +84,23 @@ export function DashboardWidgetCard({
         }
 
         switch (id) {
+            case 'projects':
+                return (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                            <div>
+                                <div className="text-3xl font-semibold text-white">{data.activeProjectsCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Идэвхтэй төсөл</div>
+                            </div>
+                            <div className="h-10 w-px bg-slate-700" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
+                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Хугацаа хэтэрсэн таск</div>
+                        </div>
+                    </div>
+                );
+
             case 'employees':
                 return (
                     <div className="space-y-3">
@@ -231,6 +252,8 @@ export function DashboardWidgetCard({
     // Get gradient colors for decorative backgrounds
     const getGradientClasses = () => {
         switch (id) {
+            case 'projects':
+                return 'bg-gradient-to-br from-violet-500/10 to-purple-500/10';
             case 'recruitment':
                 return 'bg-blue-500/10';
             case 'points':
@@ -307,6 +330,7 @@ export function DashboardWidgetCard({
                         )}
                         <Icon className={cn(
                             "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
+                            id === 'projects' && "text-violet-400",
                             id === 'points' && "text-yellow-500",
                             id === 'recruitment' && "text-blue-400",
                             id === 'er' && "text-blue-500",

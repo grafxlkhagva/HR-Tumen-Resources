@@ -104,6 +104,7 @@ export function PageHeader({
       'points': 'Оноо',
       'videos': 'Видео',
       'mission': 'Эрхэм зорилго',
+      'projects': 'Төслүүд',
     };
 
     let currentPath = '';

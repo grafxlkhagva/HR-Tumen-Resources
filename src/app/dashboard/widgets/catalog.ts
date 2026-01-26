@@ -13,10 +13,12 @@ import {
     Briefcase,
     Clock,
     UserMinus,
+    FolderKanban,
     LucideIcon
 } from 'lucide-react';
 
 export type WidgetId = 
+    | 'projects'
     | 'employees' 
     | 'structure' 
     | 'attendance' 
@@ -43,8 +45,9 @@ export interface WidgetConfig {
     category: 'core' | 'kpi';
 }
 
-// Default order for widgets (initial 8 cards)
+// Default order for widgets (initial 9 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
+    'projects',
     'employees',
     'structure',
     'attendance',
@@ -58,6 +61,16 @@ export const DEFAULT_ORDER: WidgetId[] = [
 // Widget catalog with all available widgets
 export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
     // Core widgets (default 9)
+    projects: {
+        id: 'projects',
+        label: 'Төслүүд',
+        description: 'Идэвхтэй төслүүд болон таскууд',
+        href: '/dashboard/projects',
+        size: 'normal',
+        icon: FolderKanban,
+        requiredData: ['projects'],
+        category: 'core'
+    },
     employees: {
         id: 'employees',
         label: 'Ажилчид',
