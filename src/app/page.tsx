@@ -13,6 +13,8 @@ export default function Home() {
   const router = useRouter();
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
+  const [isNavigating, setIsNavigating] = React.useState(false);
+  const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
   const companyProfileRef = useMemoFirebase(
@@ -22,74 +24,75 @@ export default function Home() {
   const { data: companyProfile } = useDoc(companyProfileRef);
 
   React.useEffect(() => {
-    console.log('[Home] Effect triggered - isUserLoading:', isUserLoading, 'user:', user ? 'logged in' : 'not logged in');
+    // Prevent multiple checks
+    if (hasCheckedRole.current || isCheckingRole || isNavigating) return;
 
     if (isUserLoading) {
-      console.log('[Home] Still loading user auth state...');
       return; // Wait until user status is resolved
     }
 
     if (!user) {
-      console.log('[Home] No user found, redirecting to /login');
       router.replace('/login');
       return;
     }
 
     // User is logged in, fetch their role and redirect
     const checkUserRoleAndRedirect = async () => {
-      if (isCheckingRole) return;
-      
-      console.log('[Home] User logged in, checking role...');
       if (!firestore) {
-        console.warn('[Home] Firestore not available yet');
         return;
       }
       
+      hasCheckedRole.current = true;
       setIsCheckingRole(true);
+      
       const userDocRef = doc(firestore, 'employees', user.uid);
       
       try {
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('[Home] User role:', userData.role);
           
           if (userData.role === 'admin') {
             // Admin user - show role choice dialog
-            console.log('[Home] Admin user detected, showing role choice');
             setShowRoleChoice(true);
-            setIsCheckingRole(false);
           } else {
             // Regular employee - redirect directly
-            console.log('[Home] Redirecting to /mobile/home');
+            setIsNavigating(true);
             router.replace('/mobile/home');
           }
         } else {
-          // Fallback if doc doesn't exist, maybe redirect to login
-          console.error("[Home] User document not found for UID:", user.uid);
+          // Fallback if doc doesn't exist
           router.replace('/login');
         }
       } catch (error) {
-        console.error("[Home] Error fetching user role, redirecting to login", error);
+        console.error("[Home] Error fetching user role", error);
         router.replace('/login');
+      } finally {
+        setIsCheckingRole(false);
       }
     };
 
     checkUserRoleAndRedirect();
 
-  }, [isUserLoading, user, router, firestore, isCheckingRole]);
+  }, [isUserLoading, user, router, firestore, isCheckingRole, isNavigating]);
 
-  const handleChooseAdmin = () => {
-    console.log('[Home] User chose admin mode, redirecting to /dashboard');
-    setShowRoleChoice(false);
+  const handleChooseAdmin = React.useCallback(() => {
+    setIsNavigating(true);
     router.replace('/dashboard');
-  };
+  }, [router]);
 
-  const handleChooseEmployee = () => {
-    console.log('[Home] User chose employee mode, redirecting to /mobile/home');
-    setShowRoleChoice(false);
+  const handleChooseEmployee = React.useCallback(() => {
+    setIsNavigating(true);
     router.replace('/mobile/home');
-  };
+  }, [router]);
+
+  // Don't close dialog from outside - only via button clicks
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    // Only allow opening, not closing from outside
+    if (open) {
+      setShowRoleChoice(true);
+    }
+  }, []);
 
   return (
     <div className="flex h-screen items-center justify-center bg-background">
@@ -99,7 +102,7 @@ export default function Home() {
       
       <RoleChoiceDialog
         open={showRoleChoice}
-        onOpenChange={setShowRoleChoice}
+        onOpenChange={handleOpenChange}
         onChooseAdmin={handleChooseAdmin}
         onChooseEmployee={handleChooseEmployee}
         companyName={companyProfile?.name}

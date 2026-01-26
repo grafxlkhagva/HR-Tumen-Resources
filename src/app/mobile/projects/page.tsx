@@ -35,18 +35,45 @@ export default function MobileProjectsPage() {
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
 
+    // Debug: log employee profile
+    React.useEffect(() => {
+        if (employeeProfile) {
+            console.log('[MobileProjects] Employee ID:', employeeProfile.id);
+        }
+    }, [employeeProfile]);
+
     // Fetch projects where user is a team member
+    // Note: array-contains with orderBy requires composite index, so we sort client-side
     const projectsQuery = useMemoFirebase(
         () => employeeProfile?.id && firestore
             ? query(
                 collection(firestore, 'projects'),
-                where('teamMemberIds', 'array-contains', employeeProfile.id),
-                orderBy('updatedAt', 'desc')
+                where('teamMemberIds', 'array-contains', employeeProfile.id)
             )
             : null,
         [firestore, employeeProfile?.id]
     );
-    const { data: projects, isLoading: isProjectsLoading } = useCollection<Project>(projectsQuery);
+    const { data: rawProjects, isLoading: isProjectsLoading, error: projectsError } = useCollection<Project>(projectsQuery);
+
+    // Debug: log query results
+    React.useEffect(() => {
+        console.log('[MobileProjects] Raw projects:', rawProjects?.length || 0, 'Error:', projectsError);
+        if (rawProjects) {
+            rawProjects.forEach(p => {
+                console.log('[MobileProjects] Project:', p.name, 'teamMemberIds:', p.teamMemberIds);
+            });
+        }
+    }, [rawProjects, projectsError]);
+    
+    // Sort projects by updatedAt client-side
+    const projects = React.useMemo(() => {
+        if (!rawProjects) return null;
+        return [...rawProjects].sort((a, b) => {
+            const dateA = a.updatedAt?.toDate?.() || new Date(0);
+            const dateB = b.updatedAt?.toDate?.() || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        });
+    }, [rawProjects]);
 
     // Fetch all employees for display
     const employeesQuery = useMemoFirebase(
