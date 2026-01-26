@@ -113,13 +113,13 @@ export function AppointEmployeeDialog({
     const [enableOnboarding, setEnableOnboarding] = React.useState<boolean | null>(null);
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
 
-    // Fetch unassigned employees
+    // Fetch all active employees (filter for unassigned on client-side)
+    // Note: Firestore doesn't support OR queries, so we fetch active employees and filter
     const employeesQuery = React.useMemo(() => {
         if (!firestore) return null;
         return query(
             collection(firestore, 'employees'),
-            where('status', '==', 'Идэвхтэй'),
-            where('positionId', '==', null)
+            where('status', '==', 'Идэвхтэй')
         );
     }, [firestore]);
 
@@ -139,7 +139,8 @@ export function AppointEmployeeDialog({
 
     const assignableEmployees = React.useMemo(() => {
         if (!allEmployees) return [];
-        return allEmployees.filter(emp => !emp.positionId);
+        // Filter employees without a position (null, undefined, or empty string)
+        return allEmployees.filter(emp => !emp.positionId || emp.positionId === '');
     }, [allEmployees]);
 
     const filteredEmployees = React.useMemo(() => {

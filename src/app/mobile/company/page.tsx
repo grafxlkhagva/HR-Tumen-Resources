@@ -32,7 +32,6 @@ import {
 // Types
 import { CoreValue } from '@/types/points';
 import { CompanyHistoryEvent } from '@/types/company-history';
-import { query, orderBy, where } from 'firebase/firestore';
 
 const videoSchema = z.object({
     title: z.string(),
@@ -95,11 +94,7 @@ export default function MobileCompanyPage() {
         [firestore]
     );
     const historyQuery = useMemoFirebase(
-        () => firestore ? query(
-            collection(firestore, 'companyHistory'),
-            where('isActive', '==', true),
-            orderBy('startDate', 'asc')
-        ) : null,
+        () => firestore ? collection(firestore, 'companyHistory') : null,
         [firestore]
     );
 
@@ -484,7 +479,7 @@ export default function MobileCompanyPage() {
                 </div>
 
                 {/* History Timeline Section */}
-                {historyEvents && historyEvents.length > 0 && (
+                {historyEvents && historyEvents.filter(e => e.isActive !== false).length > 0 && (
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 px-1">
                             <History className="h-5 w-5 text-amber-600" />
@@ -498,6 +493,7 @@ export default function MobileCompanyPage() {
                             {/* Timeline Events */}
                             <div className="space-y-6">
                                 {historyEvents
+                                    .filter(e => e.isActive !== false)
                                     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                                     .map((event, index) => {
                                         const year = event.startDate ? new Date(event.startDate).getFullYear() : '';

@@ -16,9 +16,10 @@ import { formatDateTime, getStatusConfig } from './utils';
 import { useToast } from '@/hooks/use-toast';
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileCheck, Clock, FileWarning, Archive, Activity, FileCode, List } from 'lucide-react';
+import { FileCheck, Clock, FileWarning, Archive, Activity, FileCode, List, TableIcon } from 'lucide-react';
 import { TemplatesTab } from './components/templates-tab';
 import { DocumentPipeline } from './components/document-pipeline';
+import { OrdersTab } from './components/orders-tab';
 
 export default function DocumentListPage() {
     const { toast } = useToast();
@@ -66,15 +67,11 @@ export default function DocumentListPage() {
                     showBackButton={true}
                     backHref="/dashboard"
                     actions={
-                        <div className="flex gap-2">
-
-                            <Button asChild className="bg-primary hover:bg-primary/90 shadow-sm">
-                                <Link href="/dashboard/employment-relations/create">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Шинэ документ
-                                </Link>
-                            </Button>
-                        </div>
+                        <Button asChild size="icon" className="bg-primary hover:bg-primary/90 shadow-sm h-9 w-9">
+                            <Link href="/dashboard/employment-relations/create" title="Шинэ документ">
+                                <Plus className="h-5 w-5" />
+                            </Link>
+                        </Button>
                     }
                 />
 
@@ -83,7 +80,10 @@ export default function DocumentListPage() {
                 <Tabs defaultValue="er" className="space-y-6">
                     <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full md:w-auto inline-flex">
                         <TabsTrigger value="er" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            <Activity className="h-4 w-4" /> Хөдөлмөрийн харилцаа
+                            <Activity className="h-4 w-4" /> Процесс
+                        </TabsTrigger>
+                        <TabsTrigger value="orders" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                            <TableIcon className="h-4 w-4" /> Тушаал бүртгэл
                         </TabsTrigger>
                         <TabsTrigger value="templates" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                             <FileCode className="h-4 w-4" /> Загварууд
@@ -122,6 +122,14 @@ export default function DocumentListPage() {
                             documents={filteredDocuments}
                             isLoading={isLoading}
                             docTypeMap={docTypeMap}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="orders">
+                        <OrdersTab 
+                            documents={documents || []} 
+                            docTypes={docTypes || []} 
+                            isLoading={isLoading} 
                         />
                     </TabsContent>
 

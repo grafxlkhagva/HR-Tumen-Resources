@@ -28,9 +28,50 @@ export function formatDateTime(date: any): string {
     return format(d, 'yyyy-MM-dd HH:mm', { locale: mn });
 }
 
-export function generateDocCode(typeCode: string, number: number): string {
-    const year = new Date().getFullYear().toString(); // Use full year 2025
-    return `${typeCode}-${year}/${String(number).padStart(4, '0')}`;
+/**
+ * Баримтын дугаар үүсгэх
+ * Формат: PREFIX-YYYY-NNNN (жнь: ГЭР-2026-0001)
+ * 
+ * @param prefix - Баримтын төрлийн үсгэн код (жнь: "ГЭР", "ТШЛ")
+ * @param year - Он (жнь: 2026)
+ * @param sequence - Дэс дугаар (жнь: 1)
+ * @returns Форматлагдсан дугаар (жнь: "ГЭР-2026-0001")
+ */
+export function generateDocCode(prefix: string, year: number, sequence: number): string {
+    return `${prefix}-${year}-${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * Баримтын дугаараас мэдээлэл задлах
+ * @param docCode - Баримтын дугаар (жнь: "ГЭР-2026-0001")
+ * @returns { prefix, year, sequence } эсвэл null
+ */
+export function parseDocCode(docCode: string): { prefix: string; year: number; sequence: number } | null {
+    const match = docCode.match(/^([А-ЯӨҮа-яөү]+)-(\d{4})-(\d+)$/);
+    if (!match) return null;
+    return {
+        prefix: match[1],
+        year: parseInt(match[2], 10),
+        sequence: parseInt(match[3], 10)
+    };
+}
+
+/**
+ * Дараагийн баримтын дугаарыг тооцоолох
+ * @param currentNumber - Одоогийн дугаар
+ * @param lastYear - Сүүлд дугаар олгосон жил
+ * @returns { nextNumber, currentYear }
+ */
+export function calculateNextDocNumber(currentNumber: number = 0, lastYear: number = 0): { nextNumber: number; currentYear: number } {
+    const currentYear = new Date().getFullYear();
+    
+    // Жил солигдсон бол 1-ээс эхэлнэ
+    if (lastYear !== currentYear) {
+        return { nextNumber: 1, currentYear };
+    }
+    
+    // Үргэлжлүүлэн дугаарлах
+    return { nextNumber: currentNumber + 1, currentYear };
 }
 
 // Helper to resolve deep paths like "position.compensation.salaryRange.min"

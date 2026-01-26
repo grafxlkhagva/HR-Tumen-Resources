@@ -311,12 +311,12 @@ ${companyName} - Нэвтрэх мэдээлэл
                 email: values.email,
                 status: 'Идэвхтэй',
                 phoneNumber: values.phoneNumber,
-                departmentId: '',
-                positionId: '',
+                departmentId: null,
+                positionId: null,
                 hireDate: new Date().toISOString(),
-                jobTitle: '',
+                jobTitle: null,
                 photoURL: photoURL,
-                lifecycleStage: 'onboarding',
+                lifecycleStage: 'recruitment',
             };
 
             // Create employee document

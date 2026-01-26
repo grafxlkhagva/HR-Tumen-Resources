@@ -80,10 +80,11 @@ export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSel
             <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                    placeholder="Талбар хайх..."
+                    placeholder="Талбар хайх... (Ctrl+Shift+V)"
                     className="pl-8 h-9 text-xs"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
+                    data-variable-search="true"
                 />
             </div>
 

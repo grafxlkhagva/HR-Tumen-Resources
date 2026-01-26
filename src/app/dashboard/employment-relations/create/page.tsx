@@ -6,6 +6,7 @@ import { collection, query, where, Timestamp, doc, getDocs, getDoc, addDoc } fro
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
 import { generateDocumentContent } from '../utils';
+import { getNextDocumentNumber, previewNextDocumentNumber } from '../services/document-numbering';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,6 +116,15 @@ export default function CreateDocumentPage() {
         }
 
         try {
+            // Автомат дугаар авах (атомик үйлдэл)
+            let documentNumber: string | undefined;
+            try {
+                documentNumber = await getNextDocumentNumber(firestore, selectedType);
+            } catch (numError) {
+                console.warn('Document numbering error:', numError);
+                // Дугаарлалт тохируулаагүй бол үргэлжлүүлнэ
+            }
+
             // Fetch full data for replacement
             const empDoc = await getDoc(doc(firestore, 'employees', selectedEmployee.id));
             const deptData = departments?.find(d => d.id === selectedDepartment);
@@ -131,12 +141,14 @@ export default function CreateDocumentPage() {
                     year: format(new Date(), 'yyyy'),
                     month: format(new Date(), 'MM'),
                     day: format(new Date(), 'dd'),
-                    user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
+                    user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
+                    documentNumber: documentNumber || '' // Баримтын дугаар
                 },
                 customInputs: customInputValues
             });
 
             const newDoc: Partial<ERDocument> = {
+                documentNumber,
                 documentTypeId: selectedType,
                 templateId: selectedTemplate,
                 employeeId: selectedEmployee.id,
@@ -152,21 +164,27 @@ export default function CreateDocumentPage() {
                     employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
                     templateName: selectedTemplateData?.name,
                     departmentName: deptData?.name,
-                    positionName: posData?.title
+                    positionName: posData?.title,
+                    documentNumber
                 },
                 history: [{
                     stepId: 'CREATE',
                     action: 'CREATE',
                     actorId: firebaseUser?.uid || 'SYSTEM',
                     timestamp: Timestamp.now(),
-                    comment: 'Баримт төлөвлөж эхлэв'
+                    comment: documentNumber ? `Баримт үүсгэв: ${documentNumber}` : 'Баримт төлөвлөж эхлэв'
                 }],
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
 
             const docRef = await addDoc(collection(firestore, 'er_documents'), newDoc);
-            toast({ title: "Амжилттай", description: "Баримт үүслээ. Төлөвлөх хэсэг рүү шилжиж байна." });
+            toast({ 
+                title: "Амжилттай", 
+                description: documentNumber 
+                    ? `Баримт ${documentNumber} үүслээ` 
+                    : "Баримт үүслээ. Төлөвлөх хэсэг рүү шилжиж байна."
+            });
             router.push(`/dashboard/employment-relations/${docRef.id}`);
 
         } catch (error) {

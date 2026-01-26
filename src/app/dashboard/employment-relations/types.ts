@@ -20,12 +20,26 @@ export interface PrintSettings {
     documentTitle?: string;
 }
 
+export interface DocumentHeader {
+    title?: string;           // Толгойн гарчиг (байгууллагын нэр)
+    showLogo?: boolean;       // Лого харуулах эсэх
+    logoPosition?: 'left' | 'center' | 'right';  // Логоны байрлал
+    cityName?: string;        // Хотын нэр (жнь: "Улаанбаатар")
+    showDate?: boolean;       // Огноо харуулах эсэх
+    showNumber?: boolean;     // Дугаар харуулах эсэх
+    // Байрлал: Огноо зүүн талд, гарчиг голд, дугаар баруун талд
+}
+
 export interface ERDocumentType {
     id: string;
     name: string;
     code: string;
+    prefix: string;           // Үсгэн код (жнь: "ГЭР", "ТШЛ", "ЧӨЛ")
     description?: string;
     workflowId?: string;
+    currentNumber?: number;   // Одоогийн дугаарлалт (жил бүр шинээр эхэлнэ)
+    lastNumberYear?: number;  // Сүүлд дугаар олгосон жил
+    header?: DocumentHeader;  // Толгойн тохиргоо
     createdAt?: any;
     updatedAt?: any;
 }
@@ -39,6 +53,7 @@ export interface ERTemplate {
     version: number;
     isActive: boolean;
     isDeletable?: boolean;
+    includeHeader?: boolean;     // Толгой хэсэг оруулах эсэх
     printSettings?: PrintSettings;
     customInputs?: {
         key: string;
@@ -75,6 +90,7 @@ export interface ERWorkflow {
 
 export interface ERDocument {
     id: string;
+    documentNumber?: string;  // Автомат дугаар (жнь: "ГЭР-2026-0001")
     documentTypeId: string;
     templateId: string;
     employeeId: string;
