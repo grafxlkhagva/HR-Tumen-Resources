@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 
 interface PositionNodeData extends PositionType {
     levelName?: string;
-    departmentColor?: string;
+    departmentColor?: string; // Color inherited from department
     assignedEmployee?: {
         id: string;
         firstName: string;
@@ -43,7 +43,7 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         onAppoint
     } = data;
 
-    // Robust color logic - ensures background color is applied correctly
+    // Use department color for position card
     const backgroundColor = departmentColor && departmentColor !== '' ? departmentColor : '#ffffff';
     const isColored = backgroundColor.toLowerCase() !== '#ffffff' && backgroundColor.toLowerCase() !== 'white';
     const isAppointing = assignedEmployee?.status === 'Томилогдож буй';

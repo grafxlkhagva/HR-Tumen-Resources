@@ -92,7 +92,7 @@ interface JobPositionNodeData {
     label: string;
     title: string;
     department: string;
-    departmentColor?: string;
+    departmentColor?: string; // Color inherited from department
     filled: number;
     employees: Employee[];
     workScheduleName?: string;
@@ -259,7 +259,9 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
 
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
     const employee = data.employees[0];
-    const isDarkBg = data.departmentColor ? isColorDark(data.departmentColor) : false;
+    // Use department color for position card
+    const cardColor = data.departmentColor || '#1e293b';
+    const isDarkBg = cardColor ? isColorDark(cardColor) : false;
     const hasEmployee = !!employee;
 
     return (
@@ -273,7 +275,7 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                     "hover:shadow-2xl hover:-translate-y-1",
                     isDarkBg ? "text-white" : "text-slate-800"
                 )}
-                style={{ backgroundColor: data.departmentColor || '#1e293b' }}
+                style={{ backgroundColor: cardColor }}
             >
                 {/* Glassmorphism overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
@@ -971,7 +973,7 @@ const OrganizationChart = () => {
                     label: pos.title,
                     title: pos.title,
                     department: department?.name || 'Unknown',
-                    departmentColor: department?.color,
+                    departmentColor: department?.color, // Color inherited from department
                     filled: posToEmployeeMap.get(pos.id)?.length || 0,
                     employees: assignedEmployees,
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
