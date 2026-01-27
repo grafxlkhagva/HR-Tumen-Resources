@@ -343,10 +343,15 @@ export default function MobileProjectDetailPage() {
                     </Button>
                     <div className="flex-1 min-w-0">
                         <h1 className="text-base font-bold text-slate-900 truncate leading-tight">{project.name}</h1>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <Badge className={cn("text-[9px] font-semibold border-0 px-1.5 py-0", statusStyle.bg, statusStyle.text)}>
                                 {PROJECT_STATUS_LABELS[project.status] || project.status}
                             </Badge>
+                            {project.type === 'onboarding' && (
+                                <Badge className="text-[8px] px-1.5 py-0 bg-violet-100 text-violet-700 border-0">
+                                    Onboarding
+                                </Badge>
+                            )}
                             {isOverdue ? (
                                 <span className="text-[10px] text-red-500 font-medium">Хугацаа хэтэрсэн</span>
                             ) : daysLeft <= 7 && daysLeft >= 0 ? (

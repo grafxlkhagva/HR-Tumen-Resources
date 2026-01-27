@@ -24,6 +24,7 @@ import {
     Target,
     ListTodo,
     Plus,
+    GraduationCap,
 } from 'lucide-react';
 import { format, parseISO, isPast, differenceInDays } from 'date-fns';
 import { mn } from 'date-fns/locale';
@@ -92,11 +93,12 @@ export default function MobileProjectsPage() {
 
     // Stats
     const stats = React.useMemo(() => {
-        if (!projects) return { total: 0, active: 0, completed: 0 };
+        if (!projects) return { total: 0, active: 0, completed: 0, onboarding: 0 };
         return {
             total: projects.length,
             active: projects.filter(p => ['ACTIVE', 'IN_PROGRESS', 'DRAFT', 'PLANNING'].includes(p.status)).length,
             completed: projects.filter(p => p.status === 'COMPLETED').length,
+            onboarding: projects.filter(p => p.type === 'onboarding').length,
         };
     }, [projects]);
 
@@ -140,25 +142,33 @@ export default function MobileProjectsPage() {
 
             <main className="p-5 space-y-5 animate-in fade-in slide-in-from-bottom-3">
                 {/* Stats Cards */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-2">
                     <Card className="rounded-2xl border-0 shadow-sm bg-white">
-                        <CardContent className="p-4 text-center">
-                            <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-                            <div className="text-[10px] font-semibold text-slate-400 uppercase">Нийт</div>
+                        <CardContent className="p-3 text-center">
+                            <div className="text-xl font-bold text-slate-900">{stats.total}</div>
+                            <div className="text-[9px] font-semibold text-slate-400 uppercase">Нийт</div>
                         </CardContent>
                     </Card>
                     <Card className="rounded-2xl border-0 shadow-sm bg-emerald-50">
-                        <CardContent className="p-4 text-center">
-                            <div className="text-2xl font-bold text-emerald-600">{stats.active}</div>
-                            <div className="text-[10px] font-semibold text-emerald-600 uppercase">Идэвхтэй</div>
+                        <CardContent className="p-3 text-center">
+                            <div className="text-xl font-bold text-emerald-600">{stats.active}</div>
+                            <div className="text-[9px] font-semibold text-emerald-600 uppercase">Идэвхтэй</div>
                         </CardContent>
                     </Card>
                     <Card className="rounded-2xl border-0 shadow-sm bg-blue-50">
-                        <CardContent className="p-4 text-center">
-                            <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
-                            <div className="text-[10px] font-semibold text-blue-600 uppercase">Дууссан</div>
+                        <CardContent className="p-3 text-center">
+                            <div className="text-xl font-bold text-blue-600">{stats.completed}</div>
+                            <div className="text-[9px] font-semibold text-blue-600 uppercase">Дууссан</div>
                         </CardContent>
                     </Card>
+                    {stats.onboarding > 0 && (
+                        <Card className="rounded-2xl border-0 shadow-sm bg-violet-50">
+                            <CardContent className="p-3 text-center">
+                                <div className="text-xl font-bold text-violet-600">{stats.onboarding}</div>
+                                <div className="text-[9px] font-semibold text-violet-600 uppercase">Onboard</div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Projects List */}
@@ -193,9 +203,17 @@ export default function MobileProjectsPage() {
                                             {/* Header */}
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="flex-1 min-w-0">
-                                                    <h3 className="text-base font-semibold text-slate-900 truncate mb-1">
-                                                        {project.name}
-                                                    </h3>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="text-base font-semibold text-slate-900 truncate">
+                                                            {project.name}
+                                                        </h3>
+                                                        {project.type === 'onboarding' && (
+                                                            <Badge className="shrink-0 text-[8px] px-1.5 py-0 h-4 bg-violet-100 text-violet-700 border-0">
+                                                                <GraduationCap className="w-2.5 h-2.5 mr-0.5" />
+                                                                Onboard
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-slate-400 line-clamp-1">
                                                         {project.goal}
                                                     </p>

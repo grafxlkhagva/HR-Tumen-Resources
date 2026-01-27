@@ -24,6 +24,9 @@ export type Priority =
   | 'HIGH' 
   | 'URGENT';
 
+// Project Type
+export type ProjectType = 'general' | 'onboarding';
+
 // Project interface
 export interface Project {
   id: string;
@@ -39,6 +42,13 @@ export interface Project {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;         // Employee ID who created the project
+  
+  // Onboarding-specific fields (optional)
+  type?: ProjectType;                // Төслийн төрөл (general | onboarding)
+  onboardingGroupId?: string;        // Onboarding бүлгийн ID (4 төслийг холбоно)
+  onboardingStageId?: string;        // Үе шатны ID (pre-onboarding, orientation, etc.)
+  onboardingEmployeeId?: string;     // Onboarding хийж буй ажилтны ID
+  stageOrder?: number;               // Үе шатны дараалал (1-4)
 }
 
 // Task interface
@@ -54,6 +64,9 @@ export interface Task {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   completedAt?: Timestamp;  // When the task was marked as DONE
+  
+  // Onboarding-specific fields (optional)
+  policyId?: string;        // Холбогдох бодлогын ID (onboarding таскуудад)
 }
 
 // Project Chat Message interface

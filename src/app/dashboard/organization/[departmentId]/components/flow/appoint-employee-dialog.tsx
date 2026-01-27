@@ -23,6 +23,8 @@ import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import { createOnboardingProjects, OnboardingStage } from '@/lib/onboarding-project-creator';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
@@ -86,6 +88,7 @@ export function AppointEmployeeDialog({
     onSuccess,
 }: AppointEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
+    const { employeeProfile: currentUserProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const router = useRouter();
     
@@ -182,6 +185,7 @@ export function AppointEmployeeDialog({
                 hasSalarySteps: !!position?.salarySteps,
                 hasIncentives: !!position?.incentives,
                 hasAllowances: !!position?.allowances,
+                onboardingProgramIds: position?.onboardingProgramIds,
             });
             console.log('AppointDialog - Full Position (Firestore):', {
                 id: fullPosition?.id,
@@ -189,7 +193,11 @@ export function AppointEmployeeDialog({
                 salarySteps: fullPosition?.salarySteps,
                 incentives: fullPosition?.incentives,
                 allowances: fullPosition?.allowances,
+                onboardingProgramIds: fullPosition?.onboardingProgramIds,
                 isLoading: isPositionLoading,
+            });
+            console.log('AppointDialog - positionData (merged):', {
+                onboardingProgramIds: positionData?.onboardingProgramIds,
             });
             console.log('AppointDialog - Normalized data:', {
                 salarySteps,
@@ -197,7 +205,7 @@ export function AppointEmployeeDialog({
                 allowances,
             });
         }
-    }, [open, position, fullPosition, isPositionLoading, salarySteps, incentives, allowances]);
+    }, [open, position, fullPosition, positionData, isPositionLoading, salarySteps, incentives, allowances]);
     const hasOnboardingProgram = (positionData?.onboardingProgramIds?.length || 0) > 0;
 
     // Calculate total steps based on position data
@@ -530,54 +538,7 @@ export function AppointEmployeeDialog({
                 }
             }
 
-            // Conditional Onboarding Initialization
-            if (enableOnboarding) {
-                try {
-                    const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
-                    const config = configSnap.exists() ? configSnap.data() : { stages: [] };
-
-                    let allowedTaskIds: string[] | null = null;
-                    if (position.onboardingProgramIds && position.onboardingProgramIds.length > 0) {
-                        allowedTaskIds = position.onboardingProgramIds;
-                    }
-
-                    const newStages: any[] = (config.stages || []).map((s: any) => {
-                        const stageTasks = (s.tasks || []).filter((t: any) =>
-                            allowedTaskIds ? allowedTaskIds.includes(t.id) : true
-                        );
-
-                        return {
-                            id: s.id,
-                            title: s.title,
-                            completed: false,
-                            progress: 0,
-                            tasks: stageTasks.map((t: any) => ({
-                                id: t.id,
-                                title: t.title,
-                                description: t.description,
-                                completed: false
-                            }))
-                        };
-                    }).filter((s: any) => s.tasks.length > 0);
-
-                    if (newStages.length > 0) {
-                        const processRef = doc(firestore, 'onboarding_processes', selectedEmployee.id);
-                        batch.set(processRef, {
-                            id: selectedEmployee.id,
-                            employeeId: selectedEmployee.id,
-                            stages: newStages,
-                            progress: 0,
-                            status: 'IN_PROGRESS',
-                            closedAt: null,
-                            closedReason: null,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                        });
-                    }
-                } catch (e) {
-                    console.error("Onboarding initialization failed:", e);
-                }
-            }
+            // Note: Onboarding projects will be created after batch commit
 
             // Update Employee with selected compensation
             try {
@@ -621,6 +582,48 @@ export function AppointEmployeeDialog({
             } catch (e) {
                 console.error("Batch commit failed:", e);
                 throw new Error('Мэдээллийг хадгалахад алдаа гарлаа.');
+            }
+
+            // Create Onboarding Projects (after batch commit succeeds)
+            if (enableOnboarding) {
+                try {
+                    const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
+                    const config = configSnap.exists() ? configSnap.data() : { stages: [] };
+                    const onboardingStages = (config.stages || []) as OnboardingStage[];
+
+                    if (onboardingStages.length > 0) {
+                        const employeeName = `${selectedEmployee.firstName || ''} ${selectedEmployee.lastName || ''}`.trim();
+                        const appointerId = currentUserProfile?.id || firebaseUser?.uid || '';
+                        const startDate = format(new Date(), 'yyyy-MM-dd');
+
+                        console.log('[Appoint] Creating onboarding projects...');
+                        console.log('[Appoint] Position:', positionData?.title);
+                        console.log('[Appoint] Position onboardingProgramIds (from positionData):', positionData?.onboardingProgramIds);
+                        console.log('[Appoint] Position onboardingProgramIds (from prop):', position?.onboardingProgramIds);
+                        console.log('[Appoint] Onboarding stages from config:', onboardingStages.length);
+
+                        const result = await createOnboardingProjects({
+                            firestore,
+                            employeeId: selectedEmployee.id,
+                            employeeName: employeeName || 'Шинэ ажилтан',
+                            mentorId: undefined, // TODO: Add mentor selection if needed
+                            appointerId,
+                            onboardingConfig: onboardingStages,
+                            positionOnboardingIds: positionData?.onboardingProgramIds,
+                            startDate,
+                        });
+
+                        console.log(`[Appoint] Created ${result.projectIds.length} onboarding projects with ${result.taskCount} tasks`);
+                    }
+                } catch (e) {
+                    console.error("Onboarding projects creation failed:", e);
+                    // Don't throw error - appointment was successful, just onboarding projects failed
+                    toast({
+                        title: 'Анхааруулга',
+                        description: 'Onboarding төслүүд үүсгэхэд алдаа гарлаа. Гараар нэмнэ үү.',
+                        variant: 'destructive'
+                    });
+                }
             }
 
             toast({

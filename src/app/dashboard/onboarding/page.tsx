@@ -17,34 +17,84 @@ import {
     Clock,
     AlertCircle,
     UserCircle2,
-    Briefcase
+    Briefcase,
+    FolderKanban,
+    Target,
+    Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, collectionGroup, getDocs } from 'firebase/firestore';
 import { Employee, Department } from '@/types';
+import { Project, Task, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Stage order for display
+const STAGE_ORDER = ['pre-onboarding', 'orientation', 'integration', 'productivity'];
+const STAGE_LABELS: Record<string, string> = {
+    'pre-onboarding': 'Бэлтгэл',
+    'orientation': 'Танилцах',
+    'integration': 'Уусах',
+    'productivity': 'Бүтээмж',
+};
+
+interface OnboardingGroup {
+    groupId: string;
+    employeeId: string;
+    employee: Employee | null;
+    projects: Project[];
+    overallProgress: number;
+    taskStats: { total: number; completed: number };
+}
 
 export default function OnboardingDashboardPage() {
     const { firestore } = useFirebase();
     const [searchTerm, setSearchTerm] = useState('');
+    const [taskCounts, setTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
 
     // Fetch Departments for mapping
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
     const { data: departments } = useCollection<Department>(departmentsQuery as any);
 
-    // Fetch Employees (Active and Appointing)
+    // Fetch all employees
     const employeesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй'])) : null
         , [firestore]);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery as any);
 
-    // Fetch Onboarding Processes
-    const onboardingQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'onboarding_processes') : null
+    // Fetch Onboarding Projects (type === 'onboarding')
+    const onboardingProjectsQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'projects'), where('type', '==', 'onboarding')) : null
         , [firestore]);
-    const { data: onboardingProcesses, isLoading: isLoadingOnboarding } = useCollection<any>(onboardingQuery as any);
+    const { data: onboardingProjects, isLoading: isLoadingProjects } = useCollection<Project>(onboardingProjectsQuery as any);
+
+    // Fetch tasks for all onboarding projects to calculate progress
+    React.useEffect(() => {
+        async function fetchTaskCounts() {
+            if (!firestore || !onboardingProjects || onboardingProjects.length === 0) return;
+            
+            const counts: Record<string, { total: number; completed: number }> = {};
+            
+            for (const project of onboardingProjects) {
+                try {
+                    const tasksSnap = await getDocs(collection(firestore, 'projects', project.id, 'tasks'));
+                    const tasks = tasksSnap.docs.map(d => d.data() as Task);
+                    counts[project.id] = {
+                        total: tasks.length,
+                        completed: tasks.filter(t => t.status === 'DONE').length,
+                    };
+                } catch (e) {
+                    console.error(`Failed to fetch tasks for project ${project.id}:`, e);
+                    counts[project.id] = { total: 0, completed: 0 };
+                }
+            }
+            
+            setTaskCounts(counts);
+        }
+        
+        fetchTaskCounts();
+    }, [firestore, onboardingProjects]);
 
     const departmentMap = useMemo(() => {
         const map = new Map<string, string>();
@@ -52,26 +102,74 @@ export default function OnboardingDashboardPage() {
         return map;
     }, [departments]);
 
-
-    const onboardingDataMap = useMemo(() => {
-        const map = new Map<string, any>();
-        onboardingProcesses?.forEach(p => map.set(p.id, p));
+    const employeeMap = useMemo(() => {
+        const map = new Map<string, Employee>();
+        employees?.forEach(e => map.set(e.id, e));
         return map;
-    }, [onboardingProcesses]);
+    }, [employees]);
 
-    const filteredEmployees = useMemo(() => {
-        if (!employees || !onboardingDataMap) return [];
-        return employees.filter(emp => {
-            // Only show employees who have an onboarding process
-            if (!onboardingDataMap.has(emp.id)) return false;
+    // Group projects by onboardingGroupId
+    const onboardingGroups = useMemo(() => {
+        if (!onboardingProjects) return [];
 
-            const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+        const groupMap = new Map<string, OnboardingGroup>();
+
+        for (const project of onboardingProjects) {
+            const groupId = project.onboardingGroupId;
+            const employeeId = project.onboardingEmployeeId;
+            
+            if (!groupId || !employeeId) continue;
+
+            if (!groupMap.has(groupId)) {
+                groupMap.set(groupId, {
+                    groupId,
+                    employeeId,
+                    employee: employeeMap.get(employeeId) || null,
+                    projects: [],
+                    overallProgress: 0,
+                    taskStats: { total: 0, completed: 0 },
+                });
+            }
+
+            const group = groupMap.get(groupId)!;
+            group.projects.push(project);
+        }
+
+        // Calculate progress for each group
+        for (const group of groupMap.values()) {
+            // Sort projects by stageOrder
+            group.projects.sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
+
+            // Calculate total task stats
+            let totalTasks = 0;
+            let completedTasks = 0;
+            for (const project of group.projects) {
+                const counts = taskCounts[project.id];
+                if (counts) {
+                    totalTasks += counts.total;
+                    completedTasks += counts.completed;
+                }
+            }
+            group.taskStats = { total: totalTasks, completed: completedTasks };
+            group.overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        }
+
+        return Array.from(groupMap.values());
+    }, [onboardingProjects, employeeMap, taskCounts]);
+
+    // Filter by search term
+    const filteredGroups = useMemo(() => {
+        if (!searchTerm) return onboardingGroups;
+        
+        return onboardingGroups.filter(group => {
+            if (!group.employee) return false;
+            const fullName = `${group.employee.firstName} ${group.employee.lastName}`.toLowerCase();
             return fullName.includes(searchTerm.toLowerCase()) ||
-                (emp.jobTitle?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+                (group.employee.jobTitle?.toLowerCase() || '').includes(searchTerm.toLowerCase());
         });
-    }, [employees, searchTerm, onboardingDataMap]);
+    }, [onboardingGroups, searchTerm]);
 
-    if (isLoadingEmployees || isLoadingOnboarding) {
+    if (isLoadingEmployees || isLoadingProjects) {
         return (
             <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
                 <Skeleton className="h-20 w-full" />
@@ -86,7 +184,7 @@ export default function OnboardingDashboardPage() {
         <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
             <PageHeader
                 title="Чиглүүлэх (Onboarding)"
-                description="Ажилчдын дасан зохицох үйл явцыг хянах"
+                description="Ажилчдын дасан зохицох үйл явцыг хянах - Төслийн систем"
                 actions={
                     <Button asChild variant="outline" className="bg-white hover:bg-slate-50 border-slate-200">
                         <Link href="/dashboard/onboarding/settings">
@@ -96,6 +194,58 @@ export default function OnboardingDashboardPage() {
                     </Button>
                 }
             />
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="border-none shadow-sm bg-white">
+                    <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                            <Users className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-slate-900">{onboardingGroups.length}</p>
+                            <p className="text-xs text-slate-500">Нийт onboarding</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-white">
+                    <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-slate-900">
+                                {onboardingGroups.filter(g => g.overallProgress < 100).length}
+                            </p>
+                            <p className="text-xs text-slate-500">Идэвхтэй</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-white">
+                    <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-slate-900">
+                                {onboardingGroups.filter(g => g.overallProgress === 100).length}
+                            </p>
+                            <p className="text-xs text-slate-500">Дууссан</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-white">
+                    <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                            <FolderKanban className="h-5 w-5 text-violet-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-slate-900">{onboardingProjects?.length || 0}</p>
+                            <p className="text-xs text-slate-500">Нийт төсөл</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Filters & Search */}
             <div className="flex flex-col sm:flex-row gap-4">
@@ -115,18 +265,20 @@ export default function OnboardingDashboardPage() {
 
             {/* Employee List */}
             <div className="grid gap-4">
-                {filteredEmployees.length === 0 ? (
+                {filteredGroups.length === 0 ? (
                     <Card className="border-none shadow-sm py-12 text-center text-slate-400">
                         <UserCircle2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        Ажилтан олдсонгүй.
+                        {onboardingGroups.length === 0 
+                            ? 'Onboarding хөтөлбөртэй ажилтан олдсонгүй.'
+                            : 'Хайлтад тохирсон ажилтан олдсонгүй.'}
                     </Card>
                 ) : (
-                    filteredEmployees.map(emp => {
-                        const process = onboardingDataMap.get(emp.id);
-                        const overallProgress = process?.progress || 0;
+                    filteredGroups.map(group => {
+                        const emp = group.employee;
+                        if (!emp) return null;
 
                         return (
-                            <Card key={emp.id} className="group border-none shadow-sm hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-900">
+                            <Card key={group.groupId} className="group border-none shadow-sm hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-900">
                                 <CardContent className="p-0">
                                     <div className="flex flex-col lg:flex-row lg:items-center">
                                         {/* Employee Info */}
@@ -134,7 +286,7 @@ export default function OnboardingDashboardPage() {
                                             <Avatar className="h-12 w-12 ring-2 ring-white shadow-sm">
                                                 <AvatarImage src={emp.photoURL} />
                                                 <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">
-                                                    {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
+                                                    {emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0">
@@ -143,7 +295,7 @@ export default function OnboardingDashboardPage() {
                                                     <Briefcase className="h-3 w-3" /> {emp.jobTitle}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">
-                                                    {departmentMap.get(emp.departmentId)}
+                                                    {departmentMap.get(emp.departmentId || '')}
                                                 </p>
                                             </div>
                                         </div>
@@ -151,33 +303,45 @@ export default function OnboardingDashboardPage() {
                                         {/* Progress Visualization */}
                                         <div className="p-5 flex-1 space-y-4">
                                             <div className="flex justify-between items-end mb-1">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Нийт явц</span>
-                                                <span className="text-sm font-black text-indigo-600">{overallProgress}%</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Нийт явц</span>
+                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                                                        {group.taskStats.completed}/{group.taskStats.total} таск
+                                                    </Badge>
+                                                </div>
+                                                <span className="text-sm font-black text-indigo-600">{group.overallProgress}%</span>
                                             </div>
-                                            <Progress value={overallProgress} className="h-2 bg-slate-100 rounded-full" />
+                                            <Progress value={group.overallProgress} className="h-2 bg-slate-100 rounded-full" />
 
                                             {/* 4 Stages Preview */}
                                             <div className="grid grid-cols-4 gap-2">
-                                                {['Бэлтгэл', 'Танилцах', 'Уусах', 'Бүтээмж'].map((stage, i) => {
-                                                    const stageProgress = process?.stages?.[i]?.progress || 0;
+                                                {STAGE_ORDER.map((stageId, i) => {
+                                                    const project = group.projects.find(p => p.onboardingStageId === stageId);
+                                                    const projectTaskCounts = project ? taskCounts[project.id] : null;
+                                                    const stageProgress = projectTaskCounts && projectTaskCounts.total > 0
+                                                        ? Math.round((projectTaskCounts.completed / projectTaskCounts.total) * 100)
+                                                        : 0;
                                                     const isCompleted = stageProgress === 100;
-                                                    const isActive = overallProgress > 0 && !isCompleted && (i === 0 || (process?.stages?.[i - 1]?.progress === 100));
+                                                    const isActive = project?.status === 'ACTIVE';
 
                                                     return (
-                                                        <div key={stage} className="space-y-1.5">
+                                                        <div key={stageId} className="space-y-1.5">
                                                             <div className="flex h-1 gap-0.5 rounded-full overflow-hidden bg-slate-100">
-                                                                <div className={cn(
-                                                                    "h-full transition-all duration-500",
-                                                                    isCompleted ? "bg-emerald-500 w-full" :
-                                                                        isActive ? "bg-indigo-500 animate-pulse w-[40%]" : "bg-slate-200 w-0"
-                                                                )} />
+                                                                <div 
+                                                                    className={cn(
+                                                                        "h-full transition-all duration-500",
+                                                                        isCompleted ? "bg-emerald-500" :
+                                                                            isActive ? "bg-indigo-500" : "bg-slate-200"
+                                                                    )} 
+                                                                    style={{ width: `${stageProgress}%` }}
+                                                                />
                                                             </div>
                                                             <span className={cn(
                                                                 "text-[9px] font-bold uppercase truncate block",
                                                                 isCompleted ? "text-emerald-600" :
                                                                     isActive ? "text-indigo-600" : "text-slate-400"
                                                             )}>
-                                                                {stage}
+                                                                {STAGE_LABELS[stageId]}
                                                             </span>
                                                         </div>
                                                     );
@@ -186,13 +350,15 @@ export default function OnboardingDashboardPage() {
                                         </div>
 
                                         {/* Action */}
-                                        <div className="p-5 flex items-center justify-end lg:pr-8">
-                                            <Button asChild variant="ghost" size="sm" className="rounded-full hover:bg-indigo-50 group/btn">
-                                                <Link href={`/dashboard/onboarding/${emp.id}`}>
-                                                    <span className="mr-2 text-xs font-bold text-slate-500 group-hover/btn:text-indigo-600">Дэлгэрэнгүй</span>
-                                                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover/btn:text-indigo-400 transition-transform group-hover/btn:translate-x-1" />
-                                                </Link>
-                                            </Button>
+                                        <div className="p-5 flex items-center justify-end lg:pr-8 gap-2">
+                                            {group.projects.length > 0 && (
+                                                <Button asChild variant="ghost" size="sm" className="rounded-full hover:bg-indigo-50 group/btn">
+                                                    <Link href={`/dashboard/projects/${group.projects[0].id}`}>
+                                                        <span className="mr-2 text-xs font-bold text-slate-500 group-hover/btn:text-indigo-600">Төсөл харах</span>
+                                                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover/btn:text-indigo-400 transition-transform group-hover/btn:translate-x-1" />
+                                                    </Link>
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
