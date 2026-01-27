@@ -14,7 +14,7 @@
 
 ### 2. Локал env тохируулах
 
-Шинэ төслийн утгуудыг **`.env.local`** дээр тохируулна (формат нь `vercel-env-import.txt`-тай ижил):
+Шинэ төслийн утгуудыг **`.env.local`** дээр тохируулна:
 
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY="<шинэ apiKey>"

@@ -32,9 +32,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, History, ArrowLeft } from 'lucide-react';
+import { Loader2, Save, History, ArrowLeft, Hash, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InvitationEmailTemplateSection } from './invitation-email-template-section';
 
 const employeeCodeSchema = z
   .object({
@@ -232,37 +234,56 @@ export default function EmployeeCodeSettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-2xl font-bold tracking-tight text-slate-800">Кодчлол</h2>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          Системийн хэмжээнд ашиглагдах дугаарлалт, кодчлолын тохиргоог эндээс удирдана.
+          Системийн хэмжээнд ашиглагдах дугаарлалт, кодчлолын тохиргоо болон урилга мэйлын загварыг эндээс удирдана.
         </p>
       </div>
 
-      <Card className="shadow-premium border-slate-200/60">
-        <CardHeader>
-          <CardTitle>Ажилтны кодчлол</CardTitle>
-          <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: EMP0001</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <ConfigCardSkeleton />
-          ) : (
-            <EmployeeCodeConfigForm initialData={initialData} />
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="code" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="code" className="flex items-center gap-2">
+            <Hash className="h-4 w-4" />
+            Кодчлол
+          </TabsTrigger>
+          <TabsTrigger value="invitation-email" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Системийн урилга мэйл
+          </TabsTrigger>
+        </TabsList>
 
-      <Card className="shadow-premium border-slate-200/60">
-        <CardHeader>
-          <CardTitle>Ажлын байрны кодчлол</CardTitle>
-          <CardDescription>Ажлын байрны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: POS0001</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PositionCodeConfigSection />
-        </CardContent>
-      </Card>
+        <TabsContent value="code" className="space-y-6 mt-6">
+          <Card className="shadow-premium border-slate-200/60">
+            <CardHeader>
+              <CardTitle>Ажилтны кодчлол</CardTitle>
+              <CardDescription>Байгууллагын ажилтны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: EMP0001</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <ConfigCardSkeleton />
+              ) : (
+                <EmployeeCodeConfigForm initialData={initialData} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-premium border-slate-200/60">
+            <CardHeader>
+              <CardTitle>Ажлын байрны кодчлол</CardTitle>
+              <CardDescription>Ажлын байрны кодыг хэрхэн үүсгэхийг тохируулах. Жишээ: POS0001</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PositionCodeConfigSection />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invitation-email" className="mt-6">
+          <InvitationEmailTemplateSection />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

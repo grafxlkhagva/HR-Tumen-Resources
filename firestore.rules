@@ -1,9 +1,11 @@
 rules_version = '2';
+// Teal HR — Firestore аюулгүй байдлын дүрмүүд.
+// Roles болон collection-уудын эрхийн тайлбар: docs/FIRESTORE_ROLES.md
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
+
+    // ─── Туслах функцууд ─────────────────────────────────────────────────
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
@@ -23,9 +25,21 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Allow everyone to read employees for context-heavy pages like Dashboard/Offboarding
+    // Анхны админ бүртгэх: signup нээлттэй үед employees тоолох боломжтой
+    // Документ: system/signup_config { open: true|false }
+    match /system/signup_config {
+      allow read: if true;
+      allow create: if !exists(/databases/$(database)/documents/system/signup_config);
+      allow update, delete: if isAdmin();
+    }
+
+    // employees: нэвтэрсэн эсвэл signup нээлттэй үед унших (анхны админ шалгах).
+    // Консолд "Error loading documents" гарах нь хэвийн: консол request.auth илгээдэггүй тул isSignedIn()=false.
+    // Дэлгэрэнгүй: docs/FIRESTORE_ROLES.md хэсэг 5.
     match /employees/{employeeId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() ||
+        (exists(/databases/$(database)/documents/system/signup_config) &&
+         get(/databases/$(database)/documents/system/signup_config).data.get('open', false) == true);
       allow create: if isSignedIn();
       allow update: if isOwner(employeeId) || isAdmin();
     }
@@ -35,10 +49,14 @@ service cloud.firestore {
        allow read, write: if isOwner(employeeId) || isAdmin();
     }
 
-    // Explicitly allow collection group queries for offboarding_processes
+    // Onboarding / Offboarding процессууд
+    match /onboarding_processes/{processId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
     match /{path=**}/offboarding_processes/{docId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /employees/{employeeId}/point_profile/{docId} {
@@ -143,9 +161,32 @@ service cloud.firestore {
        allow write: if isAdmin();
     }
 
-    // Onboarding-related collections are managed by admins
     match /newHires/{hireId} {
-        allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
+    }
+
+    // Байгууллагын үйлдлүүд (organization actions)
+    match /organization_actions/{actionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Тохиргоо (settings/onboarding гэх мэт)
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Компанийн түүхэн үйл явдлууд
+    match /companyHistory/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // company_profile (хэрэв тусгаар collection ашигласан бол)
+    match /company_profile/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Attendance records can be created by the user, but likely only read by admins or managers
@@ -189,12 +230,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Workflows - Admin only
     match /er_workflows/{workflowId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
+    // ER процессын баримтын төрлүүд (employment-relations settings)
+    match /er_process_document_types/{typeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // Documents - Complex rules based on status and role
     match /er_documents/{documentId} {
       // Read access:

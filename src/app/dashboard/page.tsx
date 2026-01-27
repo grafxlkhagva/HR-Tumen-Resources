@@ -1096,11 +1096,11 @@ const OrganizationChart = () => {
                         <Controls />
                     </ReactFlow>
                 )}
-                <div className="absolute bottom-8 right-4 z-10 flex gap-2">
+                <div className="absolute bottom-8 right-4 z-10 flex items-center gap-3 flex-shrink-0">
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg">
+                                <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg flex-shrink-0">
                                     <RotateCcw className="h-6 w-6" />
                                     <span className="sr-only">Байршлыг сэргээх</span>
                                 </Button>
@@ -1113,7 +1113,7 @@ const OrganizationChart = () => {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20">
+                                <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20 flex-shrink-0">
                                     <Link href="/dashboard/calendar">
                                         <Calendar className="h-6 w-6 text-green-500" />
                                         <span className="sr-only">Календар</span>
@@ -1130,7 +1130,7 @@ const OrganizationChart = () => {
                             <TooltipTrigger asChild>
                                 <Button 
                                     size="icon" 
-                                    className="rounded-full h-12 w-12 shadow-lg"
+                                    className="rounded-full h-12 w-12 shadow-lg flex-shrink-0"
                                     onClick={() => setIsAddEmployeeDialogOpen(true)}
                                 >
                                     <User className="h-6 w-6" />

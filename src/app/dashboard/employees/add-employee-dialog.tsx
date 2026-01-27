@@ -57,6 +57,63 @@ interface AddEmployeeDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+function buildDefaultInvitationHtml(v: Record<string, string>): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .credentials-box { background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .credential-item { margin: 15px 0; }
+        .label { font-weight: bold; color: #6b7280; font-size: 14px; }
+        .value { font-size: 18px; color: #111827; font-family: monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${v.companyName}</h1>
+            <p>Нэвтрэх мэдээлэл</p>
+        </div>
+        <div class="content">
+            <p>Сайн байна уу, <strong>${v.employeeName}</strong>,</p>
+            <p>Таныг <strong>${v.companyName}</strong> байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.</p>
+            <div class="credentials-box">
+                <div class="credential-item"><div class="label">Ажилтны код:</div><div class="value">${v.employeeCode}</div></div>
+                <div class="credential-item"><div class="label">Нэвтрэх имэйл:</div><div class="value">${v.loginEmail}</div></div>
+                <div class="credential-item"><div class="label">Нууц үг:</div><div class="value">${v.password}</div></div>
+            </div>
+            <div class="warning"><strong>⚠️ Аюулгүй байдал:</strong> Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу.</div>
+            <p>Системд нэвтрэх: <a href="${v.appUrl}/login">${v.appUrl}/login</a></p>
+            <p>Асуулт байвал HR багтай холбогдоно уу.</p>
+            <div class="footer"><p>Энэ мэйл автоматаар илгээгдсэн.</p><p>Бүртгэсэн: ${v.adminName}</p></div>
+        </div>
+    </div>
+</body>
+</html>
+    `.trim();
+}
+
+function buildDefaultInvitationText(v: Record<string, string>): string {
+    return [
+        `${v.companyName} - Нэвтрэх мэдээлэл`,
+        `Сайн байна уу, ${v.employeeName},`,
+        `Таныг ${v.companyName} байгууллагын HR системд бүртгэлээ.`,
+        `Ажилтны код: ${v.employeeCode}`,
+        `Нэвтрэх имэйл: ${v.loginEmail}`,
+        `Нууц үг: ${v.password}`,
+        `Системд нэвтрэх: ${v.appUrl}/login`,
+        `Бүртгэсэн: ${v.adminName}`,
+    ].join('\n\n');
+}
+
 export function AddEmployeeDialog({
     open,
     onOpenChange,
@@ -149,89 +206,50 @@ export function AddEmployeeDialog({
                 ? window.location.origin 
                 : (process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com');
 
-            const emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
-            
-            const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-        .credentials-box { background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .credential-item { margin: 15px 0; }
-        .label { font-weight: bold; color: #6b7280; font-size: 14px; }
-        .value { font-size: 18px; color: #111827; font-family: monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
-        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>${companyName}</h1>
-            <p>Нэвтрэх мэдээлэл</p>
-        </div>
-        <div class="content">
-            <p>Сайн байна уу, <strong>${employeeName}</strong>,</p>
-            
-            <p>Таныг <strong>${companyName}</strong> байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.</p>
-            
-            <div class="credentials-box">
-                <div class="credential-item">
-                    <div class="label">Ажилтны код:</div>
-                    <div class="value">${employeeCode}</div>
-                </div>
-                <div class="credential-item">
-                    <div class="label">Нэвтрэх имэйл:</div>
-                    <div class="value">${loginEmail}</div>
-                </div>
-                <div class="credential-item">
-                    <div class="label">Нууц үг:</div>
-                    <div class="value">${password}</div>
-                </div>
-            </div>
-            
-            <div class="warning">
-                <strong>⚠️ Аюулгүй байдал:</strong> Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу. Нэвтрэх мэдээллээ нууц үгээр солихыг зөвлөж байна.
-            </div>
-            
-            <p>Системд нэвтрэх: <a href="${appUrl}/login">${appUrl}/login</a></p>
-            
-            <p>Асуулт байвал HR багтай холбогдоно уу.</p>
-            
-            <div class="footer">
-                <p>Энэ мэйл автоматаар илгээгдсэн. Хариу бичих шаардлагагүй.</p>
-                <p>Бүртгэсэн: ${adminName}</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-            `;
+            const vars: Record<string, string> = {
+                companyName,
+                employeeName,
+                employeeCode,
+                loginEmail,
+                password,
+                appUrl,
+                adminName,
+            };
+            const replacePlaceholders = (s: string) =>
+                Object.entries(vars).reduce((t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v), s);
 
-            const emailText = `
-${companyName} - Нэвтрэх мэдээлэл
+            let emailSubject: string;
+            let emailHtml: string;
+            let emailText: string;
 
-Сайн байна уу, ${employeeName},
-
-Таныг ${companyName} байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.
-
-Ажилтны код: ${employeeCode}
-Нэвтрэх имэйл: ${loginEmail}
-Нууц үг: ${password}
-
-⚠️ Аюулгүй байдал: Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу.
-
-Системд нэвтрэх: ${appUrl}/login
-
-Асуулт байвал HR багтай холбогдоно уу.
-
-Бүртгэсэн: ${adminName}
-            `.trim();
+            if (firestore) {
+                const templateRef = doc(firestore, 'company', 'invitationEmailTemplate');
+                const templateSnap = await getDoc(templateRef);
+                if (templateSnap.exists()) {
+                    const t = templateSnap.data();
+                    if (t?.subject && t?.htmlBody) {
+                        emailSubject = replacePlaceholders(t.subject as string);
+                        emailHtml = replacePlaceholders(t.htmlBody as string);
+                        emailText = [
+                            `${companyName} - Нэвтрэх мэдээлэл`,
+                            `Сайн байна уу, ${employeeName},`,
+                            emailHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500),
+                        ].join('\n\n');
+                    } else {
+                        emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
+                        emailHtml = buildDefaultInvitationHtml(vars);
+                        emailText = buildDefaultInvitationText(vars);
+                    }
+                } else {
+                    emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
+                    emailHtml = buildDefaultInvitationHtml(vars);
+                    emailText = buildDefaultInvitationText(vars);
+                }
+            } else {
+                emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
+                emailHtml = buildDefaultInvitationHtml(vars);
+                emailText = buildDefaultInvitationText(vars);
+            }
 
             const response = await fetch('/api/email', {
                 method: 'POST',

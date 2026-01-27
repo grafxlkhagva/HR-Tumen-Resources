@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserNav } from '@/components/user-nav';
+import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 
 interface CompanyProfile {
   name?: string;
@@ -89,6 +90,9 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
       <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
         {children}
       </main>
+
+      {/* Нэвтрүүлэлтийн хөтөч — support хэлбэртэй */}
+      <ImplementationGuideWidget />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Firebase config from env. Set NEXT_PUBLIC_FIREBASE_* in .env.local (see vercel-env-import.txt).
+ * Firebase config from env. Set NEXT_PUBLIC_FIREBASE_* in .env.local.
  * Fallbacks use hr-tumenresources.
  */
 const env = typeof process !== 'undefined' ? process.env : ({} as NodeJS.ProcessEnv);

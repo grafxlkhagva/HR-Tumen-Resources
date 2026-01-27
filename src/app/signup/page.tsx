@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignUp, useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, initiateEmailSignUp, useFirebase } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Logo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getCountFromServer, collection } from 'firebase/firestore';
+import { doc, getCountFromServer, collection, getDoc, setDoc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -31,15 +31,33 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      // Check if any user (admin) already exists
       if (!firestore) {
         setError('Firestore-н тохиргоо хийгдээгүй байна.');
         setIsLoading(false);
         return;
       }
+
+      // Signup нээлттэй эсэхийг шалгах: system/signup_config { open: true }
+      const signupConfigRef = doc(firestore, 'system', 'signup_config');
+      let configSnap = await getDoc(signupConfigRef);
+      if (!configSnap.exists()) {
+        await setDoc(signupConfigRef, { open: true });
+        configSnap = await getDoc(signupConfigRef);
+      }
+      if (!configSnap.exists() || !configSnap.data()?.open) {
+        setError('Одоогоор админ бүртгэл хаалттай байна.');
+        toast({
+          variant: 'destructive',
+          title: 'Бүртгэл хаалттай',
+          description: 'Админ бүртгэл нээгдээгүй байна.',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Анхны админ эсэхийг шалгах (employees тоо)
       const usersCollection = collection(firestore, 'employees');
       const snapshot = await getCountFromServer(usersCollection);
-      
       if (snapshot.data().count > 0) {
         setError('Админ хэрэглэгч бүртгэгдсэн байна. Нэвтрэх хэсэг рүү шилжинэ үү.');
         toast({
@@ -51,7 +69,6 @@ export default function SignupPage() {
         return;
       }
 
-      // If no admin, proceed with creating the first one
       initiateEmailSignUp(auth, email, password);
 
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -59,7 +76,7 @@ export default function SignupPage() {
           const userData = {
             id: user.uid,
             email: user.email,
-            role: 'admin', // Assign admin role
+            role: 'admin',
             firstName: 'Admin',
             lastName: 'User',
             jobTitle: 'Системийн Админ',
@@ -67,9 +84,15 @@ export default function SignupPage() {
             hireDate: new Date().toISOString(),
           };
           const userDocRef = doc(firestore, 'employees', user.uid);
-          
-          setDocumentNonBlocking(userDocRef, userData, { merge: true });
-          
+          await setDoc(userDocRef, userData, { merge: true });
+
+          // Анхны админ бүртгэгдсэн тул signup хаах (isAdmin() одоо true болно)
+          try {
+            await setDoc(doc(firestore, 'system', 'signup_config'), { open: false }, { merge: true });
+          } catch (_) {
+            // Алдаа гарвал админ Firebase Console-оос signup_config засна
+          }
+
           toast({
             title: 'Амжилттай бүртгүүллээ',
             description: 'Та одоо нэвтэрч орно уу.',

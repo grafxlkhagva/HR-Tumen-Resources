@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Building, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getDoc, doc, getDocs, collection, query, where, limit } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 
@@ -51,18 +51,19 @@ export default function LoginPage() {
     setError(null);
 
     const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
-    const identifierTrimmed = identifier.trim();
 
     try {
-      // Check loginDisabled before attempting sign-in
-      const employeesRef = collection(firestore, 'employees');
-      const empQuery = isEmail(identifierTrimmed)
-        ? query(employeesRef, where('email', '==', identifierTrimmed), limit(1))
-        : query(employeesRef, where('employeeCode', '==', identifierTrimmed), limit(1));
-      const empSnap = await getDocs(empQuery);
-      const employeeDoc = empSnap.docs[0];
-      const employee = employeeDoc?.data() as { loginDisabled?: boolean } | undefined;
+      // Эхлээд нэвтрүүлнэ — employees унших эрх нэвтэрсний дараа л байдаг
+      const { signInWithEmailAndPassword, signOut } = await import('firebase/auth');
+      const uc = await signInWithEmailAndPassword(auth, email, password);
+      const uid = uc.user.uid;
+
+      // Нэвтэрсний дараа loginDisabled шалгана
+      const employeeRef = doc(firestore, 'employees', uid);
+      const empSnap = await getDoc(employeeRef);
+      const employee = empSnap.data() as { loginDisabled?: boolean } | undefined;
       if (employee?.loginDisabled === true) {
+        await signOut(auth);
         setIsLoading(false);
         const errorMessage = 'Нэвтрэх эрх идэвхгүй болсон байна.';
         setError(errorMessage);
@@ -74,15 +75,11 @@ export default function LoginPage() {
         return;
       }
 
-      const { signInWithEmailAndPassword } = await import('firebase/auth');
-      await signInWithEmailAndPassword(auth, email, password);
-
       toast({
         title: 'Амжилттай нэвтэрлээ',
         description: 'Хуудас руу шилжиж байна.',
       });
 
-      // Redirect to home page, which will handle role-based redirection
       router.replace('/');
 
     } catch (err: any) {
