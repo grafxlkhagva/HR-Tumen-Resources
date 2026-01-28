@@ -1,0 +1,44 @@
+'use client';
+
+import React from 'react';
+import { useFirebase, useCollection } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import { PageHeader } from '@/components/page-header';
+import { TemplatesTab } from '../components/templates-tab';
+import type { ERDocumentType } from '../types';
+
+export default function TemplatesManagementPage() {
+  const { firestore } = useFirebase();
+
+  const docTypesQuery = React.useMemo(
+    () => (firestore ? collection(firestore, 'er_process_document_types') : null),
+    [firestore]
+  );
+
+  const { data: docTypes, isLoading } = useCollection<ERDocumentType>(docTypesQuery);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-100px)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-slate-50/50">
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
+        <PageHeader
+          title="Загварын удирдлага"
+          description="Гэрээ, тушаал, албан бичиг баримтын загваруудыг удирдах"
+          showBackButton={true}
+          backHref="/dashboard/employment-relations"
+        />
+
+        <TemplatesTab docTypes={docTypes || []} />
+      </div>
+    </div>
+  );
+}
+

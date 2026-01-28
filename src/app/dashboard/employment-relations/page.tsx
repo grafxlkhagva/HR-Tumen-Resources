@@ -2,30 +2,23 @@
 
 import React, { useState } from 'react';
 import { useCollection, useFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
-import { ERDocument, ERDocumentType, DocumentStatus, DOCUMENT_STATUSES } from './types';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { ERDocument, ERDocumentType } from './types';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, FileText, Calendar, User } from 'lucide-react';
+import { Plus, Search, Activity, FileCode, TableIcon } from 'lucide-react';
 import Link from 'next/link';
-import { formatDateTime, getStatusConfig } from './utils';
-import { useToast } from '@/hooks/use-toast';
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileCheck, Clock, FileWarning, Archive, Activity, FileCode, List, TableIcon } from 'lucide-react';
-import { TemplatesTab } from './components/templates-tab';
 import { DocumentPipeline } from './components/document-pipeline';
 import { OrdersTab } from './components/orders-tab';
 
 export default function DocumentListPage() {
-    const { toast } = useToast();
     const { firestore } = useFirebase();
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<string>('all');
 
     const documentsQuery = React.useMemo(() =>
@@ -67,11 +60,19 @@ export default function DocumentListPage() {
                     showBackButton={true}
                     backHref="/dashboard"
                     actions={
-                        <Button asChild size="icon" className="bg-primary hover:bg-primary/90 shadow-sm h-9 w-9">
-                            <Link href="/dashboard/employment-relations/create" title="Шинэ документ">
-                                <Plus className="h-5 w-5" />
-                            </Link>
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" asChild className="bg-white hover:bg-slate-50 shadow-sm">
+                                <Link href="/dashboard/employment-relations/templates" title="Загварын удирдлага">
+                                    <FileCode className="h-4 w-4 mr-2" />
+                                    Загварууд
+                                </Link>
+                            </Button>
+                            <Button asChild size="icon" className="bg-primary hover:bg-primary/90 shadow-sm h-9 w-9">
+                                <Link href="/dashboard/employment-relations/create" title="Шинэ документ">
+                                    <Plus className="h-5 w-5" />
+                                </Link>
+                            </Button>
+                        </div>
                     }
                 />
 
@@ -84,9 +85,6 @@ export default function DocumentListPage() {
                         </TabsTrigger>
                         <TabsTrigger value="orders" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                             <TableIcon className="h-4 w-4" /> Тушаал бүртгэл
-                        </TabsTrigger>
-                        <TabsTrigger value="templates" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            <FileCode className="h-4 w-4" /> Загварууд
                         </TabsTrigger>
                     </TabsList>
 
@@ -131,10 +129,6 @@ export default function DocumentListPage() {
                             docTypes={docTypes || []} 
                             isLoading={isLoading} 
                         />
-                    </TabsContent>
-
-                    <TabsContent value="templates">
-                        <TemplatesTab docTypes={docTypes || []} />
                     </TabsContent>
                 </Tabs>
             </div>
