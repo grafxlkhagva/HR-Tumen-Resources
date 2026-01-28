@@ -25,7 +25,7 @@ export type Priority =
   | 'URGENT';
 
 // Project Type
-export type ProjectType = 'general' | 'onboarding';
+export type ProjectType = 'general' | 'onboarding' | 'offboarding' | 'position_preparation';
 
 // Project interface
 export interface Project {
@@ -49,6 +49,16 @@ export interface Project {
   onboardingStageId?: string;        // Үе шатны ID (pre-onboarding, orientation, etc.)
   onboardingEmployeeId?: string;     // Onboarding хийж буй ажилтны ID
   stageOrder?: number;               // Үе шатны дараалал (1-4)
+
+  // Offboarding-specific fields (optional)
+  offboardingGroupId?: string;       // Offboarding бүлгийн ID (4 төслийг холбоно)
+  offboardingStageId?: string;       // Үе шатны ID (exit-initiation, etc.)
+  offboardingEmployeeId?: string;    // Offboarding хийж буй ажилтны ID
+
+  // Position preparation-specific fields (optional)
+  positionPreparationGroupId?: string;     // Ажлын байр бэлтгэх бүлгийн ID (олон үе шатны төслүүдийг холбоно)
+  positionPreparationStageId?: string;     // Үе шатны ID (workspace, access, etc.)
+  positionPreparationPositionId?: string;  // Аль ажлын байранд зориулсан бэлтгэл вэ
 }
 
 // Task interface

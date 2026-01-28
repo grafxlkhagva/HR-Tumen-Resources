@@ -15,7 +15,8 @@ export interface Position {
     id: string;
     title: string;
     departmentId: string;
-    reportsTo?: string;
+    reportsToId?: string; // Standardized direct manager position id
+    reportsTo?: string;   // Compatibility (legacy field)
     levelId?: string;
     employmentTypeId?: string;
     jobCategoryId?: string;

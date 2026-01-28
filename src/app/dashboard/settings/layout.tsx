@@ -11,8 +11,6 @@ import {
     GraduationCap,
     MapPin,
     Files,
-    Zap,
-    LogOut,
     ChevronLeft,
     Shield
 } from 'lucide-react';
@@ -58,25 +56,12 @@ const settingsNavItems = [
         href: "/dashboard/settings/documents",
         icon: Files,
     },
-    {
-        title: "Onboarding",
-        href: "/dashboard/settings/onboarding",
-        icon: Zap,
-    },
-    {
-        title: "Offboarding",
-        href: "/dashboard/settings/offboarding",
-        icon: LogOut,
-    }
+    // Onboarding/Offboarding settings pages are moved to their own modules
+    // (see /dashboard/onboarding/settings and /dashboard/offboarding/settings)
 ];
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
     const pathname = usePathname();
-    const isOnboardingDetail = pathname.match(/\/dashboard\/settings\/onboarding\/[^/]+/);
-
-    if (isOnboardingDetail) {
-        return <>{children}</>;
-    }
 
     return (
         <div className="flex flex-col h-full">

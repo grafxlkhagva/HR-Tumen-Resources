@@ -24,17 +24,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { createOnboardingProjects, OnboardingStage } from '@/lib/onboarding-project-creator';
+import { createOnboardingProjects, OnboardingStage, OnboardingStageTaskPlan } from '@/lib/onboarding-project-creator';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
 import { generateDocumentContent } from '../../../../employment-relations/utils';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { mn } from 'date-fns/locale';
 
@@ -77,7 +78,26 @@ const WIZARD_STEPS = {
     INCENTIVES: 4,
     ALLOWANCES: 5,
     ONBOARDING: 6,
-    DOCUMENT_INPUTS: 7,
+    ONBOARDING_PRE: 7,
+    ONBOARDING_ORIENTATION: 8,
+    ONBOARDING_INTEGRATION: 9,
+    ONBOARDING_PRODUCTIVITY: 10,
+    DOCUMENT_INPUTS: 11,
+};
+
+type OnboardingStageId = 'pre-onboarding' | 'orientation' | 'integration' | 'productivity';
+const ONBOARDING_STAGE_ORDER: OnboardingStageId[] = ['pre-onboarding', 'orientation', 'integration', 'productivity'];
+const ONBOARDING_STAGE_TITLES: Record<OnboardingStageId, string> = {
+    'pre-onboarding': 'Урьдчилсан бэлтгэл үе',
+    orientation: 'Дасан зохицох, танилцах үе',
+    integration: 'Ажлын үүрэгт уусах үе',
+    productivity: 'Тогтворжилт, бүтээмжийн үе',
+};
+const ONBOARDING_STAGE_DUE_OFFSETS: Record<OnboardingStageId, number> = {
+    'pre-onboarding': 7,
+    orientation: 30,
+    integration: 60,
+    productivity: 90,
 };
 
 export function AppointEmployeeDialog({
@@ -114,7 +134,37 @@ export function AppointEmployeeDialog({
     const [selectedIncentives, setSelectedIncentives] = React.useState<number[]>([]);
     const [selectedAllowances, setSelectedAllowances] = React.useState<number[]>([]);
     const [enableOnboarding, setEnableOnboarding] = React.useState<boolean | null>(null);
+    const [onboardingTaskPlan, setOnboardingTaskPlan] = React.useState<Record<string, Record<string, { selected: boolean; dueDate?: string; ownerId?: string }>>>({});
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
+
+    const onboardingConfigRef = React.useMemo(() =>
+        firestore && open ? doc(firestore, 'settings', 'onboarding') : null
+        , [firestore, open]);
+    const { data: onboardingConfig } = useDoc<any>(onboardingConfigRef as any);
+    const onboardingStages = React.useMemo(() => ((onboardingConfig?.stages || []) as OnboardingStage[]), [onboardingConfig]);
+
+    const hasActiveOffboarding = React.useCallback(async (empId: string) => {
+        if (!firestore || !empId) return false;
+        try {
+            const snap = await getDocs(query(
+                collection(firestore, 'projects'),
+                where('type', '==', 'offboarding'),
+                where('offboardingEmployeeId', '==', empId)
+            ));
+            return !snap.empty;
+        } catch (e) {
+            console.warn('Offboarding projects check failed:', e);
+            return false;
+        }
+    }, [firestore]);
+
+    const isValidDateString = React.useCallback((val?: string) => !!val && /^\d{4}-\d{2}-\d{2}$/.test(val), []);
+    const getDefaultDueDateForStage = React.useCallback((stageId: OnboardingStageId) => {
+        const start = new Date();
+        return format(addDays(start, ONBOARDING_STAGE_DUE_OFFSETS[stageId] ?? 30), 'yyyy-MM-dd');
+    }, []);
+
+    const getStageConfig = React.useCallback((stageId: OnboardingStageId) => onboardingStages.find(s => s.id === stageId), [onboardingStages]);
 
     // Fetch all active employees (filter for unassigned on client-side)
     // Note: Firestore doesn't support OR queries, so we fetch active employees and filter
@@ -207,7 +257,6 @@ export function AppointEmployeeDialog({
                 hasSalarySteps: !!position?.salarySteps,
                 hasIncentives: !!position?.incentives,
                 hasAllowances: !!position?.allowances,
-                onboardingProgramIds: position?.onboardingProgramIds,
             });
             console.log('AppointDialog - Full Position (Firestore):', {
                 id: fullPosition?.id,
@@ -215,11 +264,7 @@ export function AppointEmployeeDialog({
                 salarySteps: fullPosition?.salarySteps,
                 incentives: fullPosition?.incentives,
                 allowances: fullPosition?.allowances,
-                onboardingProgramIds: fullPosition?.onboardingProgramIds,
                 isLoading: isPositionLoading,
-            });
-            console.log('AppointDialog - positionData (merged):', {
-                onboardingProgramIds: positionData?.onboardingProgramIds,
             });
             console.log('AppointDialog - Normalized data:', {
                 salarySteps,
@@ -228,7 +273,6 @@ export function AppointEmployeeDialog({
             });
         }
     }, [open, position, fullPosition, positionData, isPositionLoading, salarySteps, incentives, allowances]);
-    const hasOnboardingProgram = (positionData?.onboardingProgramIds?.length || 0) > 0;
 
     // Calculate total steps based on position data
     const getMaxSteps = () => {
@@ -237,6 +281,7 @@ export function AppointEmployeeDialog({
         if (incentives.length > 0) max = WIZARD_STEPS.INCENTIVES;
         if (allowances.length > 0) max = WIZARD_STEPS.ALLOWANCES;
         max = WIZARD_STEPS.ONBOARDING; // Always have onboarding selection
+        if (enableOnboarding) max = WIZARD_STEPS.ONBOARDING_PRODUCTIVITY;
         if (templateData?.customInputs?.length) max = WIZARD_STEPS.DOCUMENT_INPUTS;
         return max;
     };
@@ -269,8 +314,8 @@ export function AppointEmployeeDialog({
 
             setOffboardingStatus('checking');
             try {
-                const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', initialEmployee.id));
-                if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+                const active = await hasActiveOffboarding(initialEmployee.id);
+                if (active) {
                     setOffboardingStatus('active');
                     toast({
                         title: 'Анхааруулга: Offboarding идэвхтэй',
@@ -286,7 +331,7 @@ export function AppointEmployeeDialog({
             }
         };
         checkOffboarding();
-    }, [firestore, initialEmployee?.id, open, toast]);
+    }, [firestore, initialEmployee?.id, open, toast, hasActiveOffboarding]);
 
     // Reset on close
     React.useEffect(() => {
@@ -298,6 +343,7 @@ export function AppointEmployeeDialog({
             setSelectedIncentives([]);
             setSelectedAllowances([]);
             setEnableOnboarding(null);
+            setOnboardingTaskPlan({});
             setSearch('');
             setCustomInputValues({});
             setOffboardingStatus('none');
@@ -316,8 +362,8 @@ export function AppointEmployeeDialog({
         if (!firestore) return;
         
         try {
-            const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', employee.id));
-            if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+            const active = await hasActiveOffboarding(employee.id);
+            if (active) {
                 toast({
                     title: 'Анхааруулга: Offboarding идэвхтэй',
                     description: `${employee.firstName} ${employee.lastName} ажилтанд ажилаас чөлөөлөх хөтөлбөр явагдаж байна.`,
@@ -379,10 +425,25 @@ export function AppointEmployeeDialog({
         } else if (currentStep === WIZARD_STEPS.ALLOWANCES) {
             setStep(WIZARD_STEPS.ONBOARDING);
         } else if (currentStep === WIZARD_STEPS.ONBOARDING) {
+            if (enableOnboarding === true) {
+                setStep(WIZARD_STEPS.ONBOARDING_PRE);
+                return;
+            }
             if (templateData?.customInputs?.length) {
                 setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
             } else {
-                // No document inputs, submit directly
+                handleStartProcess();
+            }
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_PRE) {
+            setStep(WIZARD_STEPS.ONBOARDING_ORIENTATION);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_ORIENTATION) {
+            setStep(WIZARD_STEPS.ONBOARDING_INTEGRATION);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_INTEGRATION) {
+            setStep(WIZARD_STEPS.ONBOARDING_PRODUCTIVITY);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_PRODUCTIVITY) {
+            if (templateData?.customInputs?.length) {
+                setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
+            } else {
                 handleStartProcess();
             }
         }
@@ -391,6 +452,18 @@ export function AppointEmployeeDialog({
     // Navigate to previous step
     const goToPreviousStep = (currentStep: number) => {
         if (currentStep === WIZARD_STEPS.DOCUMENT_INPUTS) {
+            if (enableOnboarding) {
+                setStep(WIZARD_STEPS.ONBOARDING_PRODUCTIVITY);
+            } else {
+                setStep(WIZARD_STEPS.ONBOARDING);
+            }
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_PRODUCTIVITY) {
+            setStep(WIZARD_STEPS.ONBOARDING_INTEGRATION);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_INTEGRATION) {
+            setStep(WIZARD_STEPS.ONBOARDING_ORIENTATION);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_ORIENTATION) {
+            setStep(WIZARD_STEPS.ONBOARDING_PRE);
+        } else if (currentStep === WIZARD_STEPS.ONBOARDING_PRE) {
             setStep(WIZARD_STEPS.ONBOARDING);
         } else if (currentStep === WIZARD_STEPS.ONBOARDING) {
             if (allowances.length > 0) {
@@ -454,8 +527,8 @@ export function AppointEmployeeDialog({
 
             // Double-check offboarding status
             try {
-                const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', selectedEmployee.id));
-                if (offboardingSnap.exists() && offboardingSnap.data()?.status === 'IN_PROGRESS') {
+                const active = await hasActiveOffboarding(selectedEmployee.id);
+                if (active) {
                     toast({
                         title: 'Томилох боломжгүй',
                         description: 'Тухайн ажилтанд offboarding хөтөлбөр идэвхтэй байгаа тул томилох боломжгүй.',
@@ -630,11 +703,24 @@ export function AppointEmployeeDialog({
                         const appointerId = currentUserProfile?.id || firebaseUser?.uid || '';
                         const startDate = format(new Date(), 'yyyy-MM-dd');
 
-                        console.log('[Appoint] Creating onboarding projects...');
-                        console.log('[Appoint] Position:', positionData?.title);
-                        console.log('[Appoint] Position onboardingProgramIds (from positionData):', positionData?.onboardingProgramIds);
-                        console.log('[Appoint] Position onboardingProgramIds (from prop):', position?.onboardingProgramIds);
-                        console.log('[Appoint] Onboarding stages from config:', onboardingStages.length);
+                        // Build task plan from wizard selections (4 stages)
+                        const taskPlan: OnboardingStageTaskPlan[] = ONBOARDING_STAGE_ORDER.map((sid) => {
+                            const stageMap = onboardingTaskPlan[sid] || {};
+                            const tasks = Object.entries(stageMap)
+                                .filter(([, p]) => p?.selected)
+                                .map(([templateTaskId, p]) => ({
+                                    templateTaskId,
+                                    dueDate: String(p.dueDate || ''),
+                                    ownerId: String(p.ownerId || ''),
+                                }))
+                                .filter(t => isValidDateString(t.dueDate) && !!t.ownerId);
+                            return { stageId: sid, tasks };
+                        });
+
+                        const totalSelected = taskPlan.reduce((acc, s) => acc + (s.tasks?.length || 0), 0);
+                        if (totalSelected === 0) {
+                            throw new Error('Onboarding таск сонгоогүй байна. Onboarding-ийг сонгосон бол дор хаяж 1 таск сонгоно уу.');
+                        }
 
                         const result = await createOnboardingProjects({
                             firestore,
@@ -643,8 +729,11 @@ export function AppointEmployeeDialog({
                             mentorId: undefined, // TODO: Add mentor selection if needed
                             appointerId,
                             onboardingConfig: onboardingStages,
-                            positionOnboardingIds: positionData?.onboardingProgramIds,
+                            // Position дээр onboarding тохируулах логик цаашид ашиглахгүй
+                            positionOnboardingIds: undefined,
                             startDate,
+                            taskPlan,
+                            alwaysCreateAllStages: true,
                         });
 
                         console.log(`[Appoint] Created ${result.projectIds.length} onboarding projects with ${result.taskCount} tasks`);
@@ -690,8 +779,14 @@ export function AppointEmployeeDialog({
         if (salarySteps.length > 0) steps.push({ id: 3, name: 'Цалин' });
         if (incentives.length > 0) steps.push({ id: 4, name: 'Урамшуулал' });
         if (allowances.length > 0) steps.push({ id: 5, name: 'Хангамж' });
-        steps.push({ id: 6, name: 'Onboarding' });
-        if (templateData?.customInputs?.length) steps.push({ id: 7, name: 'Баримт' });
+        steps.push({ id: WIZARD_STEPS.ONBOARDING, name: 'Onboarding' });
+        if (enableOnboarding) {
+            steps.push({ id: WIZARD_STEPS.ONBOARDING_PRE, name: 'Бэлтгэл' });
+            steps.push({ id: WIZARD_STEPS.ONBOARDING_ORIENTATION, name: 'Танилцах' });
+            steps.push({ id: WIZARD_STEPS.ONBOARDING_INTEGRATION, name: 'Уусах' });
+            steps.push({ id: WIZARD_STEPS.ONBOARDING_PRODUCTIVITY, name: 'Бүтээмж' });
+        }
+        if (templateData?.customInputs?.length) steps.push({ id: WIZARD_STEPS.DOCUMENT_INPUTS, name: 'Баримт' });
         return steps;
     };
 
@@ -1076,10 +1171,7 @@ export function AppointEmployeeDialog({
                                     </div>
                                     <h3 className="font-bold">Чиглүүлэх хөтөлбөр (Onboarding)</h3>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        {hasOnboardingProgram 
-                                            ? 'Энэ ажлын байранд onboarding хөтөлбөр тохируулагдсан' 
-                                            : 'Onboarding хөтөлбөр тохируулаагүй'
-                                        }
+                                        Тийм гэж сонговол дараагийн алхмуудаар таск сонгож (хугацаа/хариуцагч) onboarding төслүүд үүсгэнэ.
                                     </p>
                                 </div>
 
@@ -1087,7 +1179,8 @@ export function AppointEmployeeDialog({
                                     <button
                                         onClick={() => {
                                             setEnableOnboarding(true);
-                                            goToNextStep(WIZARD_STEPS.ONBOARDING);
+                                            // IMPORTANT: setState is async, so jump directly to onboarding planning step
+                                            setStep(WIZARD_STEPS.ONBOARDING_PRE);
                                         }}
                                         className={cn(
                                             "w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left group",
@@ -1107,7 +1200,12 @@ export function AppointEmployeeDialog({
                                     <button
                                         onClick={() => {
                                             setEnableOnboarding(false);
-                                            goToNextStep(WIZARD_STEPS.ONBOARDING);
+                                            // Skip onboarding planning steps
+                                            if (templateData?.customInputs?.length) {
+                                                setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
+                                            } else {
+                                                handleStartProcess();
+                                            }
                                         }}
                                         className={cn(
                                             "w-full flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left group",
@@ -1124,6 +1222,192 @@ export function AppointEmployeeDialog({
                                         <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-slate-600 group-hover:translate-x-1 transition-all" />
                                     </button>
                                 </div>
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Step 7-10: Onboarding task planning (4 stages) */}
+                    {(step === WIZARD_STEPS.ONBOARDING_PRE ||
+                        step === WIZARD_STEPS.ONBOARDING_ORIENTATION ||
+                        step === WIZARD_STEPS.ONBOARDING_INTEGRATION ||
+                        step === WIZARD_STEPS.ONBOARDING_PRODUCTIVITY) && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-5">
+                                {(() => {
+                                    const stageId: OnboardingStageId =
+                                        step === WIZARD_STEPS.ONBOARDING_PRE
+                                            ? 'pre-onboarding'
+                                            : step === WIZARD_STEPS.ONBOARDING_ORIENTATION
+                                            ? 'orientation'
+                                            : step === WIZARD_STEPS.ONBOARDING_INTEGRATION
+                                            ? 'integration'
+                                            : 'productivity';
+
+                                    const stage = getStageConfig(stageId);
+                                    const tasks = stage?.tasks || [];
+                                    const stagePlan = onboardingTaskPlan[stageId] || {};
+
+                                    return (
+                                        <>
+                                            <div className="text-center">
+                                                <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 mb-2">
+                                                    <GraduationCap className="h-5 w-5" />
+                                                </div>
+                                                <h3 className="font-bold">{ONBOARDING_STAGE_TITLES[stageId]}</h3>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Сонгосон таск: <span className="font-bold">{Object.values(stagePlan).filter(p => p?.selected).length}</span>
+                                                </p>
+                                            </div>
+
+                                            {!stage ? (
+                                                <div className="p-4 rounded-xl border bg-slate-50 text-slate-700 text-sm">
+                                                    Onboarding тохиргоо олдсонгүй. `/dashboard/onboarding/settings` дээр тохируулна уу.
+                                                </div>
+                                            ) : tasks.length === 0 ? (
+                                                <div className="p-4 rounded-xl border bg-slate-50 text-slate-700 text-sm">
+                                                    Энэ үе шатанд таск тохируулаагүй байна.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {tasks.map((t: any, idx: number) => {
+                                                        const plan = stagePlan[t.id] || { selected: false };
+                                                        const selected = !!plan.selected;
+                                                        const dueDate = plan.dueDate;
+                                                        const ownerId = plan.ownerId;
+
+                                                        return (
+                                                            <div
+                                                                key={t.id}
+                                                                className={cn(
+                                                                    'rounded-2xl border p-4 transition-all',
+                                                                    selected ? 'border-indigo-200 bg-indigo-50/40' : 'border-slate-200 bg-white'
+                                                                )}
+                                                            >
+                                                                <div className="flex items-start gap-3">
+                                                                    <Checkbox
+                                                                        checked={selected}
+                                                                        onCheckedChange={(val) => {
+                                                                            const checked = !!val;
+                                                                            setOnboardingTaskPlan(prev => {
+                                                                                const prevStage = prev[stageId] || {};
+                                                                                const existing = prevStage[t.id] || { selected: false };
+                                                                                const nextStage = {
+                                                                                    ...prevStage,
+                                                                                    [t.id]: {
+                                                                                        ...existing,
+                                                                                        selected: checked,
+                                                                                        dueDate: checked && !isValidDateString(existing.dueDate)
+                                                                                            ? getDefaultDueDateForStage(stageId)
+                                                                                            : existing.dueDate,
+                                                                                        ownerId: checked && !existing.ownerId
+                                                                                            ? (currentUserProfile?.id || undefined)
+                                                                                            : existing.ownerId,
+                                                                                    }
+                                                                                };
+                                                                                return { ...prev, [stageId]: nextStage };
+                                                                            });
+                                                                        }}
+                                                                        className="mt-0.5"
+                                                                    />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xs font-bold text-slate-400">{idx + 1}.</span>
+                                                                            <div className="font-semibold text-sm text-slate-800 truncate">{t.title}</div>
+                                                                            {selected && (
+                                                                                <Badge variant="secondary" className="text-[10px]">
+                                                                                    Сонгосон
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                        {t.description ? (
+                                                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
+                                                                        ) : null}
+
+                                                                        {selected ? (
+                                                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                                <div className="space-y-1.5">
+                                                                                    <Label className="text-xs font-semibold">Хугацаа</Label>
+                                                                                    <Popover>
+                                                                                        <PopoverTrigger asChild>
+                                                                                            <Button
+                                                                                                variant="outline"
+                                                                                                className={cn(
+                                                                                                    'h-10 w-full justify-start text-left font-medium rounded-xl bg-white',
+                                                                                                    !dueDate && 'text-muted-foreground'
+                                                                                                )}
+                                                                                            >
+                                                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                                                {dueDate ? format(new Date(dueDate), 'PPP', { locale: mn }) : 'Огноо сонгох'}
+                                                                                            </Button>
+                                                                                        </PopoverTrigger>
+                                                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                                                            <Calendar
+                                                                                                mode="single"
+                                                                                                selected={dueDate ? new Date(dueDate) : undefined}
+                                                                                                onSelect={(date) => {
+                                                                                                    setOnboardingTaskPlan(prev => ({
+                                                                                                        ...prev,
+                                                                                                        [stageId]: {
+                                                                                                            ...(prev[stageId] || {}),
+                                                                                                            [t.id]: {
+                                                                                                                ...((prev[stageId] || {})[t.id] || { selected: true }),
+                                                                                                                selected: true,
+                                                                                                                dueDate: date ? format(date, 'yyyy-MM-dd') : undefined,
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }));
+                                                                                                }}
+                                                                                                initialFocus
+                                                                                            />
+                                                                                        </PopoverContent>
+                                                                                    </Popover>
+                                                                                </div>
+
+                                                                                <div className="space-y-1.5">
+                                                                                    <Label className="text-xs font-semibold">Хариуцагч</Label>
+                                                                                    <Select
+                                                                                        value={ownerId || ''}
+                                                                                        onValueChange={(val) => {
+                                                                                            setOnboardingTaskPlan(prev => ({
+                                                                                                ...prev,
+                                                                                                [stageId]: {
+                                                                                                    ...(prev[stageId] || {}),
+                                                                                                    [t.id]: {
+                                                                                                        ...((prev[stageId] || {})[t.id] || { selected: true }),
+                                                                                                        selected: true,
+                                                                                                        ownerId: val || undefined,
+                                                                                                    }
+                                                                                                }
+                                                                                            }));
+                                                                                        }}
+                                                                                    >
+                                                                                        <SelectTrigger className="h-10 rounded-xl bg-white">
+                                                                                            <SelectValue placeholder="Хариуцагч сонгох..." />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            {(allEmployees || []).map((emp) => {
+                                                                                                const label = `${emp.lastName || ''} ${emp.firstName || ''}`.trim() || emp.email || emp.id;
+                                                                                                return (
+                                                                                                    <SelectItem key={emp.id} value={emp.id}>
+                                                                                                        {label}
+                                                                                                    </SelectItem>
+                                                                                                );
+                                                                                            })}
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : null}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </ScrollArea>
                     )}

@@ -326,6 +326,26 @@ export default function DocumentDetailPage({ params }: PageProps) {
                 updatedAt: Timestamp.now()
             });
 
+            // If this is a release document, finalize employee lifecycle -> alumni (idempotent)
+            try {
+                const actionId = String((document as any)?.metadata?.actionId || '');
+                if (firestore && document?.employeeId && actionId.startsWith('release_')) {
+                    const ci: any = document?.customInputs || {};
+                    const terminationDate =
+                        (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
+                        (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
+
+                    await updateDoc(doc(firestore, 'employees', document.employeeId), {
+                        status: 'Ажлаас гарсан',
+                        lifecycleStage: 'alumni',
+                        ...(terminationDate ? { terminationDate } : {}),
+                        updatedAt: Timestamp.now()
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to finalize employee after approval:', e);
+            }
+
             // Log activity
             const { addDoc } = await import('firebase/firestore');
             await addDoc(collection(firestore!, `er_documents/${id}/activity`), {

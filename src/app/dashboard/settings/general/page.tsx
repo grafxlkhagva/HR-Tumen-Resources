@@ -74,7 +74,7 @@ export default function GeneralSettingsPage() {
             icon: Activity,
             title: "Дасан зохицох хөтөлбөр",
             description: "Шинэ ажилтны дадлагын үеийн үе шат, даалгавруудыг тохируулах.",
-            href: "/dashboard/settings/onboarding"
+            href: "/dashboard/onboarding/settings"
         }
     ];
     

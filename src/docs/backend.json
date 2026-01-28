@@ -519,7 +519,6 @@
         "title": { "type": "string", "description": "Албан тушаалын нэр." },
         "departmentId": { "type": "string", "description": "Энэ албан тушаал харьяалагдах хэлтсийн танигч. (Хамаарал: Department 1:N Position)" },
         "workScheduleId": { "type": "string", "description": "Энэ албан тушаалын ажлын цагийн хуваарь. (Хамаарал: WorkSchedule 1:N Position)" },
-        "onboardingProgramIds": { "type": "array", "items": { "type": "string" }, "description": "Энэ албан тушаалд томилогдоход автоматаар оноогдох дасан зохицох хөтөлбөрүүд." },
         "reportsTo": { "type": "string", "description": "Энэ албан тушаалын шууд удирдах албан тушаалын танигч. (Хамаарал: Position 1:N Position)" },
         "levelId": { "type": "string", "description": "Албан тушаалын зэрэглэлийн танигч. (Хамаарал: PositionLevel 1:N Position)" },
         "employmentTypeId": { "type": "string", "description": "Ажил эрхлэлтийн төрлийн танигч. (Хамаарал: EmploymentType 1:N Position)" },

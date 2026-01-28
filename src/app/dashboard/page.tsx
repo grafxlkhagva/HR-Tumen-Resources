@@ -531,9 +531,10 @@ function calculateLayout(positions: JobPosition[]) {
     const positionMap = new Map(positions.map((p) => [p.id, p]));
     const childrenMap = new Map<string, string[]>();
     positions.forEach((p) => {
-        if (p.reportsTo) {
-            if (!childrenMap.has(p.reportsTo)) childrenMap.set(p.reportsTo, []);
-            childrenMap.get(p.reportsTo)!.push(p.id);
+        const managerId = (p as any).reportsToId || (p as any).reportsTo;
+        if (managerId) {
+            if (!childrenMap.has(managerId)) childrenMap.set(managerId, []);
+            childrenMap.get(managerId)!.push(p.id);
         }
     });
 
@@ -577,7 +578,7 @@ function calculateLayout(positions: JobPosition[]) {
         });
     }
 
-    const rootNodes = positions.filter((p) => !p.reportsTo);
+    const rootNodes = positions.filter((p) => !((p as any).reportsToId || (p as any).reportsTo));
     rootNodes.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
     let currentX = 0;
@@ -684,9 +685,9 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
 
-    // Offboarding processes query
+    // Offboarding (project-based) query
     const offboardingQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'offboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
+        firestore ? query(collection(firestore, 'projects'), where('type', '==', 'offboarding')) : null
         , [firestore]);
     const { data: offboardingProcesses } = useCollection<any>(offboardingQuery as any);
 
@@ -816,7 +817,7 @@ const OrganizationChart = () => {
 
         const empMap = new Map((employees as Employee[]).map(e => [e.id, e]));
         const ongoing = offboardingProcesses.map((process: any) => {
-            const emp = empMap.get(process.employeeId || process.id);
+            const emp = empMap.get(process.offboardingEmployeeId || process.employeeId || process.id);
             return {
                 ...process,
                 employee: emp
@@ -979,10 +980,11 @@ const OrganizationChart = () => {
             };
             newNodes.push(node);
 
-            if (pos.reportsTo && approvedPositions.some(p => p.id === pos.reportsTo)) {
+            const managerId = (pos as any).reportsToId || (pos as any).reportsTo;
+            if (managerId && approvedPositions.some(p => p.id === managerId)) {
                 newEdges.push({
-                    id: `e-${pos.reportsTo}-${pos.id}`,
-                    source: pos.reportsTo,
+                    id: `e-${managerId}-${pos.id}`,
+                    source: managerId,
                     target: pos.id,
                     type: 'smoothstep',
                     animated: true,

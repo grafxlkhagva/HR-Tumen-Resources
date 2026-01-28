@@ -16,7 +16,7 @@ import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X,
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment, setDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
@@ -29,6 +29,20 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { mn } from 'date-fns/locale';
 import { Switch } from '@/components/ui/switch';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import {
+    createOffboardingProjects,
+    OffboardingStage,
+    OffboardingStageTaskPlan,
+} from '@/lib/offboarding-project-creator';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ReleaseEmployeeDialogProps {
     open: boolean;
@@ -46,10 +60,13 @@ export function ReleaseEmployeeDialog({
     const { firestore, user: firebaseUser } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
+    const { employeeProfile: currentUserProfile } = useEmployeeProfile();
     const [step, setStep] = React.useState(1);
     const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
+    const [enableOffboarding, setEnableOffboarding] = React.useState(false);
+    const [taskPlanByStage, setTaskPlanByStage] = React.useState<Record<string, Record<string, { selected: boolean; dueDate?: string; ownerId?: string }>>>({});
 
     // Reset state on open
     React.useEffect(() => {
@@ -57,6 +74,8 @@ export function ReleaseEmployeeDialog({
             setStep(1);
             setSelectedActionId(null);
             setCustomInputValues({});
+            setEnableOffboarding(false);
+            setTaskPlanByStage({});
         }
     }, [open]);
 
@@ -71,6 +90,106 @@ export function ReleaseEmployeeDialog({
         firestore && actionConfig?.templateId ? doc(firestore, 'er_templates', actionConfig.templateId) : null
         , [firestore, actionConfig?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
+
+    const employeesQuery = React.useMemo(() =>
+        firestore
+            ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй'))
+            : null
+        , [firestore]);
+    const { data: employees } = useCollection<Employee>(employeesQuery as any);
+
+    const offboardingProjectsQuery = React.useMemo(() => {
+        if (!firestore || !employee?.id) return null;
+        return query(
+            collection(firestore, 'projects'),
+            where('type', '==', 'offboarding'),
+            where('offboardingEmployeeId', '==', employee.id),
+        );
+    }, [firestore, employee?.id]);
+    const { data: existingOffboardingProjects } = useCollection<any>(offboardingProjectsQuery as any);
+
+    const offboardingConfigRef = React.useMemo(() => {
+        if (!firestore) return null;
+        return doc(firestore, 'settings', 'offboarding');
+    }, [firestore]);
+    const { data: offboardingConfig } = useDoc<any>(offboardingConfigRef as any);
+
+    const offboardingStages = React.useMemo(() => {
+        return (offboardingConfig?.stages || []) as OffboardingStage[];
+    }, [offboardingConfig]);
+
+    const stageCount = offboardingStages.length || 4;
+    const stageForStep = React.useMemo(() => {
+        // step 3 => stage index 0
+        const idx = step - 3;
+        if (idx < 0) return null;
+        return offboardingStages[idx] || null;
+    }, [step, offboardingStages]);
+
+    const getReleaseStartDate = React.useCallback((customInputsPayload: Record<string, any>) => {
+        const raw = customInputsPayload['releaseDate'] || customInputsPayload['Ажлаас чөлөөлөх огноо'] || null;
+        if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        return format(new Date(), 'yyyy-MM-dd');
+    }, []);
+
+    const isValidDateString = React.useCallback((val?: string) => {
+        return !!val && /^\d{4}-\d{2}-\d{2}$/.test(val);
+    }, []);
+
+    const getDefaultDueDateForIndex = React.useCallback((startDateStr: string, idx: number) => {
+        const offsets = [7, 14, 21, 30];
+        const off = offsets[idx] ?? 30;
+        const base = new Date(startDateStr);
+        base.setDate(base.getDate() + off);
+        return format(base, 'yyyy-MM-dd');
+    }, []);
+
+    const setTaskSelected = React.useCallback((stageId: string, taskId: string, selected: boolean, stageIdx: number, startDateStr: string) => {
+        setTaskPlanByStage((prev) => {
+            const stagePlan = { ...(prev[stageId] || {}) };
+            const cur = stagePlan[taskId] || { selected: false };
+            const initiatorId = currentUserProfile?.id || firebaseUser?.uid || '';
+            stagePlan[taskId] = {
+                ...cur,
+                selected,
+                dueDate: selected ? (cur.dueDate || getDefaultDueDateForIndex(startDateStr, stageIdx)) : cur.dueDate,
+                ownerId: selected ? (cur.ownerId || initiatorId) : cur.ownerId,
+            };
+            return { ...prev, [stageId]: stagePlan };
+        });
+    }, [currentUserProfile?.id, firebaseUser?.uid, getDefaultDueDateForIndex]);
+
+    const setTaskDueDate = React.useCallback((stageId: string, taskId: string, dueDate: string) => {
+        setTaskPlanByStage((prev) => {
+            const stagePlan = { ...(prev[stageId] || {}) };
+            const cur = stagePlan[taskId] || { selected: true };
+            stagePlan[taskId] = { ...cur, dueDate };
+            return { ...prev, [stageId]: stagePlan };
+        });
+    }, []);
+
+    const setTaskOwner = React.useCallback((stageId: string, taskId: string, ownerId: string) => {
+        setTaskPlanByStage((prev) => {
+            const stagePlan = { ...(prev[stageId] || {}) };
+            const cur = stagePlan[taskId] || { selected: true };
+            stagePlan[taskId] = { ...cur, ownerId };
+            return { ...prev, [stageId]: stagePlan };
+        });
+    }, []);
+
+    const buildOffboardingOverrides = React.useCallback((): OffboardingStageTaskPlan[] => {
+        return (offboardingStages || []).map((stage) => {
+            const stagePlan = taskPlanByStage[stage.id] || {};
+            const tasks = Object.entries(stagePlan)
+                .filter(([, p]) => p.selected)
+                .map(([templateTaskId, p]) => ({
+                    templateTaskId,
+                    dueDate: p.dueDate!,
+                    ownerId: p.ownerId!,
+                }));
+            return { stageId: stage.id, tasks };
+        });
+    }, [offboardingStages, taskPlanByStage]);
 
     // Normalize customInputs to guarantee unique keys in UI/state, even if template contains duplicates.
     const normalizedCustomInputs = React.useMemo(() => {
@@ -107,7 +226,7 @@ export function ReleaseEmployeeDialog({
         setCustomInputValues({});
     }, [normalizedCustomInputs]);
 
-    const handleRelease = async () => {
+    const handleRelease = async (opts?: { createOffboarding?: boolean }) => {
         if (!firestore || !employee || !position || !firebaseUser) return;
 
         setIsSubmitting(true);
@@ -205,80 +324,49 @@ export function ReleaseEmployeeDialog({
 
             await batch.commit();
 
-            // 4. Close/Freeze Onboarding Process if exists (employee is leaving, no point continuing onboarding)
-            try {
-                const onboardingSnap = await getDoc(doc(firestore, 'onboarding_processes', employee.id));
-                if (onboardingSnap.exists()) {
-                    const onboardingData = onboardingSnap.data();
-                    // Mark onboarding as CLOSED (frozen at current progress)
-                    await setDoc(doc(firestore, 'onboarding_processes', employee.id), {
-                        ...onboardingData,
-                        status: 'CLOSED',
-                        closedAt: new Date().toISOString(),
-                        closedReason: 'offboarding_started',
-                        updatedAt: new Date().toISOString()
+            const shouldCreateOffboarding = !!opts?.createOffboarding;
+            let createdProjectId: string | null = null;
+            if (shouldCreateOffboarding) {
+                if (!offboardingStages?.length) {
+                        toast({
+                            title: 'Offboarding тохиргоо хоосон байна',
+                            description: 'Эхлээд /dashboard/offboarding/settings дээр таскуудаа тохируулна уу.',
+                            variant: 'destructive',
+                        });
+                } else if ((existingOffboardingProjects || []).length > 0) {
+                    toast({
+                        title: 'Offboarding аль хэдийн үүссэн байна',
+                        description: 'Энэ ажилтанд offboarding төслүүд өмнө нь үүссэн байна.',
+                        variant: 'destructive',
                     });
-                }
-            } catch (onboardingCloseError) {
-                console.error("Onboarding close error:", onboardingCloseError);
-            }
-
-            // 5. Create Offboarding Process (outside batch to get config first)
-            try {
-                const configSnap = await getDoc(doc(firestore, 'settings', 'offboarding'));
-                const config = configSnap.exists() ? configSnap.data() : { stages: [] };
-
-                // Get position-specific offboarding task IDs (if configured)
-                // Use optional chaining and nullish coalescing for safety
-                const positionOffboardingTaskIds: string[] = (position as any)?.offboardingProgramIds ?? [];
-
-                const newStages = (config.stages || []).map((s: any) => ({
-                    id: s.id,
-                    title: s.title,
-                    icon: s.icon,
-                    completed: false,
-                    progress: 0,
-                    tasks: (s.tasks || [])
-                        // If position has specific tasks configured, filter by them; otherwise include all
-                        .filter((t: any) => positionOffboardingTaskIds.length === 0 || positionOffboardingTaskIds.includes(t.id))
-                        .map((t: any) => ({
-                            id: t.id,
-                            title: t.title,
-                            description: t.description,
-                            completed: false,
-                            policyId: t.policyId
-                        }))
-                })).filter((s: any) => s.tasks.length > 0);
-
-                if (newStages.length > 0) {
-                    const offboardingProcess = {
-                        id: employee.id,
+                } else {
+                    const initiatorId = currentUserProfile?.id || firebaseUser?.uid || '';
+                    const employeeName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'Ажилтан';
+                    const startDate = getReleaseStartDate(customInputsPayload);
+                    const result = await createOffboardingProjects({
+                        firestore,
                         employeeId: employee.id,
-                        positionId: position?.id || null,
-                        positionTitle: position?.title || null,
-                        stages: newStages,
-                        progress: 0,
-                        status: 'IN_PROGRESS',
-                        reason: selectedActionId,
-                        lastWorkingDate: customInputValues['releaseDate'] || customInputValues['Ажлаас чөлөөлөх огноо'] || null,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    };
-
-                    await setDoc(doc(firestore, 'offboarding_processes', employee.id), offboardingProcess);
+                        employeeName,
+                        initiatorId,
+                        offboardingConfig: offboardingStages,
+                        startDate,
+                        taskPlan: buildOffboardingOverrides(),
+                        alwaysCreateAllStages: true,
+                    });
+                    createdProjectId = result.projectIds?.[0] || null;
                 }
-            } catch (offboardingError) {
-                console.error("Offboarding process creation error:", offboardingError);
-                // Don't fail the whole operation if offboarding process creation fails
             }
 
             toast({
                 title: "Ажилтан чөлөөлөгдлөө",
-                description: templateData 
-                    ? "Offboarding хөтөлбөр үүсгэгдлээ. Холбогдох баримтын ноорог үүсгэгдсэн."
-                    : "Offboarding хөтөлбөр үүсгэгдлээ."
+                description: templateData
+                    ? (shouldCreateOffboarding ? "Баримтын ноорог + Offboarding төслүүд үүслээ." : "Баримтын ноорог үүсгэгдсэн.")
+                    : (shouldCreateOffboarding ? "Offboarding төслүүд үүслээ." : "Чөлөөлөх үйлдэл амжилттай.")
             });
             onOpenChange(false);
+            if (createdProjectId) {
+                router.push(`/dashboard/projects/${createdProjectId}`);
+            }
         } catch (e: any) {
             console.error("Release error:", e);
             toast({ variant: 'destructive', title: 'Алдаа гарлаа', description: e.message });
@@ -292,6 +380,116 @@ export function ReleaseEmployeeDialog({
         { id: 'release_employee', name: 'Ажилтны санаачилгаар бүрэн чөлөөлөх', icon: UserX, color: 'bg-amber-50 text-amber-600 border-amber-100' },
         { id: 'release_temporary', name: 'Түр чөлөөлөх', icon: Clock, color: 'bg-blue-50 text-blue-600 border-blue-100' },
     ];
+
+    const canProceedCustomInputs = React.useMemo(() => {
+        return !normalizedCustomInputs.some((i: any) => i.required && !customInputValues[i.__normalizedKey]);
+    }, [normalizedCustomInputs, customInputValues]);
+
+    const startDateForPlanning = React.useMemo(() => {
+        const base = (customInputValues?.['releaseDate'] || customInputValues?.['Ажлаас чөлөөлөх огноо']) as string | undefined;
+        if (typeof base === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(base)) return base;
+        return format(new Date(), 'yyyy-MM-dd');
+    }, [customInputValues]);
+
+    const canGoNextOffboardingStage = React.useMemo(() => {
+        if (step < 3) return true;
+        const stageIdx = step - 3;
+        const stage = offboardingStages[stageIdx];
+        if (!stage) return true;
+        const stagePlan = taskPlanByStage[stage.id] || {};
+        const selected = Object.entries(stagePlan).filter(([, p]) => p.selected);
+        return selected.every(([, p]) => isValidDateString(p.dueDate) && !!p.ownerId);
+    }, [step, offboardingStages, taskPlanByStage, isValidDateString]);
+
+    const renderOffboardingStageStep = (stage: OffboardingStage, stageIdx: number) => {
+        const stagePlan = taskPlanByStage[stage.id] || {};
+        return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="text-center space-y-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-amber-700">
+                        <span className="text-[10px] font-black uppercase tracking-widest">Offboarding {stageIdx + 1}/{stageCount}</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">{stage.title}</h3>
+                    <p className="text-sm text-muted-foreground">{stage.description}</p>
+                </div>
+
+                <div className="space-y-3">
+                    {(stage.tasks || []).length === 0 ? (
+                        <div className="p-6 rounded-2xl bg-amber-50/40 border border-amber-100 text-amber-800 text-sm font-medium">
+                            Энэ үе шатанд тохируулсан таск алга байна. Дараагийн алхам руу шууд үргэлжлүүлж болно.
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {stage.tasks.map((t) => {
+                                const plan = stagePlan[t.id] || { selected: false };
+                                return (
+                                    <div key={t.id} className={cn("p-4 rounded-2xl border-2 bg-white transition-all", plan.selected ? "border-amber-200 shadow-sm" : "border-slate-100")}>
+                                        <div className="flex items-start gap-3">
+                                            <Checkbox
+                                                checked={!!plan.selected}
+                                                onCheckedChange={(checked) => setTaskSelected(stage.id, t.id, !!checked, stageIdx, startDateForPlanning)}
+                                                className="mt-1"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-slate-900">{t.title}</div>
+                                                {t.description && <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>}
+                                            </div>
+                                        </div>
+
+                                        {plan.selected && (
+                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Дуусах огноо</Label>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    "h-10 w-full justify-start text-left font-medium rounded-xl border-slate-200",
+                                                                    !plan.dueDate && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                {plan.dueDate ? format(new Date(plan.dueDate), 'PPP', { locale: mn }) : <span>Огноо сонгох</span>}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={plan.dueDate ? new Date(plan.dueDate) : undefined}
+                                                                onSelect={(date) => setTaskDueDate(stage.id, t.id, date ? format(date, 'yyyy-MM-dd') : '')}
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Хариуцагч</Label>
+                                                    <Select value={plan.ownerId || ''} onValueChange={(val) => setTaskOwner(stage.id, t.id, val)}>
+                                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
+                                                            <SelectValue placeholder="Хариуцагч сонгох" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {(employees || []).map((e) => (
+                                                                <SelectItem key={e.id} value={e.id}>
+                                                                    {e.firstName} {e.lastName}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -361,7 +559,9 @@ export function ReleaseEmployeeDialog({
                                         </div>
                                     </div>
 
-                                    {templateLoading ? (
+                                    {step >= 3 && enableOffboarding && stageForStep ? (
+                                        renderOffboardingStageStep(stageForStep, step - 3)
+                                    ) : templateLoading ? (
                                         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                                     ) : templateData ? (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -459,6 +659,34 @@ export function ReleaseEmployeeDialog({
                                             </Button>
                                         </div>
                                     )}
+
+                                    {step === 2 && (
+                                        <div className="mt-6 p-5 rounded-2xl border-2 border-slate-100 bg-white space-y-4">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900">Offboarding хөтөлбөр эхлүүлэх үү?</div>
+                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                        Тийм гэж сонговол 4 үе шатны таскуудыг (огноо + хариуцагч) тохируулж байж төслүүд үүснэ.
+                                                    </div>
+                                                </div>
+                                                <Switch
+                                                    checked={enableOffboarding}
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked && (existingOffboardingProjects || []).length > 0) {
+                                                            toast({
+                                                                title: 'Offboarding аль хэдийн үүссэн байна',
+                                                                description: 'Энэ ажилтанд offboarding төслүүд өмнө нь үүссэн байна.',
+                                                                variant: 'destructive',
+                                                            });
+                                                            setEnableOffboarding(false);
+                                                            return;
+                                                        }
+                                                        setEnableOffboarding(checked);
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </ScrollArea>
                         )}
@@ -487,19 +715,52 @@ export function ReleaseEmployeeDialog({
                             <div className="flex w-full gap-3">
                                 <Button
                                     variant="outline"
-                                    onClick={() => setStep(1)}
+                                    onClick={() => {
+                                        if (step === 2) return setStep(1);
+                                        if (step >= 3) return setStep(step - 1);
+                                        setStep(1);
+                                    }}
                                     className="flex-1 rounded-xl h-11 font-bold uppercase tracking-wider text-[10px]"
                                     disabled={isSubmitting}
                                 >
                                     Буцах
                                 </Button>
                                 <Button
-                                    onClick={handleRelease}
-                                    disabled={isSubmitting || normalizedCustomInputs.some((i: any) => i.required && !customInputValues[i.__normalizedKey])}
+                                    onClick={() => {
+                                        if (step === 2) {
+                                            if (!canProceedCustomInputs) return;
+                                            if (enableOffboarding) {
+                                                if (!offboardingStages?.length) {
+                                                    toast({
+                                                        title: 'Offboarding тохиргоо хоосон байна',
+                                                        description: 'Эхлээд /dashboard/offboarding/settings дээр таскуудаа тохируулна уу.',
+                                                        variant: 'destructive',
+                                                    });
+                                                    return;
+                                                }
+                                                return setStep(3);
+                                            }
+                                            return handleRelease({ createOffboarding: false });
+                                        }
+
+                                        if (step >= 3) {
+                                            if (!canGoNextOffboardingStage) return;
+                                            const isLast = step === (2 + stageCount);
+                                            if (isLast) return handleRelease({ createOffboarding: true });
+                                            return setStep(step + 1);
+                                        }
+                                    }}
+                                    disabled={
+                                        isSubmitting ||
+                                        (step === 2 && !canProceedCustomInputs) ||
+                                        (step >= 3 && !canGoNextOffboardingStage)
+                                    }
                                     className="flex-[2] bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-rose-200"
                                 >
                                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                                    Чөлөөлөх үйлдэл баталгаажуулах
+                                    {step === 2
+                                        ? (enableOffboarding ? 'Offboarding тохируулах' : 'Чөлөөлөх үйлдэл баталгаажуулах')
+                                        : (step === (2 + stageCount) ? 'Чөлөөлөх + Offboarding үүсгэх' : 'Дараах')}
                                 </Button>
                             </div>
                         )}

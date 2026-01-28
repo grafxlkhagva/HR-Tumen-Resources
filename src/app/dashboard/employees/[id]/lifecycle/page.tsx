@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
-import { useFirebase, useDoc } from '@/firebase';
-import { doc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, arrayUnion, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { Employee } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,7 @@ import {
 import Link from 'next/link';
 import { updateDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import type { Project, Task } from '@/types/project';
 
 // Define the stages with their metadata and hex colors for the gradient
 const STAGES = [
@@ -149,6 +150,185 @@ export default function EmployeeLifecyclePage() {
     const activeStage = STAGES[activeIndex];
     const { toast } = useToast();
 
+    const lastDeparture = React.useMemo(() => {
+        const history = (employee as any)?.employmentHistory as any[] | undefined;
+        if (!Array.isArray(history) || history.length === 0) return null;
+        const departures = history.filter((h) => h?.type === 'departure');
+        if (departures.length === 0) return null;
+        return departures[departures.length - 1] ?? null;
+    }, [employee]);
+
+    const onboardingProjectsQuery = useMemoFirebase(() => {
+        if (!firestore || !employeeId) return null;
+        return query(
+            collection(firestore, 'projects'),
+            where('type', '==', 'onboarding'),
+            where('onboardingEmployeeId', '==', employeeId),
+        );
+    }, [firestore, employeeId]);
+    const { data: onboardingProjects } = useCollection<Project>(onboardingProjectsQuery as any);
+
+    const offboardingProjectsQuery = useMemoFirebase(() => {
+        if (!firestore || !employeeId) return null;
+        return query(
+            collection(firestore, 'projects'),
+            where('type', '==', 'offboarding'),
+            where('offboardingEmployeeId', '==', employeeId),
+        );
+    }, [firestore, employeeId]);
+    const { data: offboardingProjects } = useCollection<Project>(offboardingProjectsQuery as any);
+
+    const [onboardingTaskSummary, setOnboardingTaskSummary] = React.useState<{
+        total: number;
+        done: number;
+        startedAt: Date | null;
+        firstProjectId: string | null;
+    } | null>(null);
+
+    const [offboardingTaskSummary, setOffboardingTaskSummary] = React.useState<{
+        total: number;
+        done: number;
+        startedAt: Date | null;
+        firstProjectId: string | null;
+    } | null>(null);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        const run = async () => {
+            if (!firestore) return;
+            if (!onboardingProjects) {
+                if (!cancelled) setOnboardingTaskSummary(null);
+                return;
+            }
+            if (onboardingProjects.length === 0) {
+                if (!cancelled) setOnboardingTaskSummary(null);
+                return;
+            }
+
+            const sorted = [...onboardingProjects].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
+            const startedAt = sorted
+                .map((p) => (p as any)?.createdAt?.toDate?.() as Date | undefined)
+                .filter(Boolean)
+                .sort((a, b) => (a as Date).getTime() - (b as Date).getTime())[0] ?? null;
+
+            let total = 0;
+            let done = 0;
+            for (const p of sorted) {
+                const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                tasksSnap.forEach((d) => {
+                    const t = d.data() as Task;
+                    total += 1;
+                    if (t.status === 'DONE') done += 1;
+                });
+            }
+
+            if (!cancelled) {
+                setOnboardingTaskSummary({
+                    total,
+                    done,
+                    startedAt,
+                    firstProjectId: sorted[0]?.id || null,
+                });
+            }
+        };
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [firestore, onboardingProjects]);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        const run = async () => {
+            if (!firestore) return;
+            if (!offboardingProjects) {
+                if (!cancelled) setOffboardingTaskSummary(null);
+                return;
+            }
+            if (offboardingProjects.length === 0) {
+                if (!cancelled) setOffboardingTaskSummary(null);
+                return;
+            }
+
+            const sorted = [...offboardingProjects].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
+            const startedAt = sorted
+                .map((p) => (p as any)?.createdAt?.toDate?.() as Date | undefined)
+                .filter(Boolean)
+                .sort((a, b) => (a as Date).getTime() - (b as Date).getTime())[0] ?? null;
+
+            let total = 0;
+            let done = 0;
+            for (const p of sorted) {
+                const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                tasksSnap.forEach((d) => {
+                    const t = d.data() as Task;
+                    total += 1;
+                    if (t.status === 'DONE') done += 1;
+                });
+            }
+
+            if (!cancelled) {
+                setOffboardingTaskSummary({
+                    total,
+                    done,
+                    startedAt,
+                    firstProjectId: sorted[0]?.id || null,
+                });
+            }
+        };
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [firestore, offboardingProjects]);
+
+    const deleteEmployeeProjects = React.useCallback(async (params: {
+        type: 'onboarding' | 'offboarding';
+        employeeField: 'onboardingEmployeeId' | 'offboardingEmployeeId';
+    }) => {
+        if (!firestore || !employeeId) return;
+
+        const q = query(
+            collection(firestore, 'projects'),
+            where('type', '==', params.type),
+            where(params.employeeField, '==', employeeId),
+        );
+
+        const projectsSnap = await getDocs(q);
+        const projectDocs = projectsSnap.docs;
+        if (projectDocs.length === 0) return;
+
+        const deletes: Array<{ projectId: string; taskDocIds: string[] }> = [];
+        for (const pDoc of projectDocs) {
+            const projectId = pDoc.id;
+            const tasksSnap = await getDocs(collection(firestore, 'projects', projectId, 'tasks'));
+            deletes.push({ projectId, taskDocIds: tasksSnap.docs.map((d) => d.id) });
+        }
+
+        // Firestore batch limit is 500. Keep some buffer.
+        let batch = writeBatch(firestore);
+        let ops = 0;
+        const commitIfNeeded = async () => {
+            if (ops === 0) return;
+            await batch.commit();
+            batch = writeBatch(firestore);
+            ops = 0;
+        };
+
+        for (const item of deletes) {
+            for (const taskId of item.taskDocIds) {
+                batch.delete(doc(firestore, 'projects', item.projectId, 'tasks', taskId));
+                ops += 1;
+                if (ops >= 450) await commitIfNeeded();
+            }
+            batch.delete(doc(firestore, 'projects', item.projectId));
+            ops += 1;
+            if (ops >= 450) await commitIfNeeded();
+        }
+
+        await commitIfNeeded();
+    }, [firestore, employeeId]);
+
     const handleMoveToStage = async (stageId: string) => {
         if (!firestore || !employeeId) return;
         try {
@@ -179,10 +359,10 @@ export default function EmployeeLifecyclePage() {
             const historyEntry = {
                 type: 'rehire',
                 date: new Date().toISOString(),
-                previousAlumniDate: offboarding?.updatedAt || offboarding?.lastWorkingDate || null,
+                previousAlumniDate: lastDeparture?.lastWorkingDate || lastDeparture?.date || null,
                 previousPosition: employee.jobTitle || null,
                 previousDepartmentId: employee.departmentId || null,
-                offboardingReason: offboarding?.reason || null,
+                offboardingReason: lastDeparture?.reason || null,
                 note: `${new Date().getFullYear()} онд дахин ажилд авсан`
             };
 
@@ -199,18 +379,12 @@ export default function EmployeeLifecyclePage() {
                 lastRehireDate: new Date().toISOString()
             });
 
-            // 2. Delete old offboarding process
             try {
-                await deleteDoc(doc(firestore, 'offboarding_processes', employeeId));
+                // 2. Delete old offboarding/onboarding projects (project-based)
+                await deleteEmployeeProjects({ type: 'offboarding', employeeField: 'offboardingEmployeeId' });
+                await deleteEmployeeProjects({ type: 'onboarding', employeeField: 'onboardingEmployeeId' });
             } catch (e) {
-                console.warn("Failed to delete offboarding process:", e);
-            }
-
-            // 3. Delete old onboarding process (if any closed one exists)
-            try {
-                await deleteDoc(doc(firestore, 'onboarding_processes', employeeId));
-            } catch (e) {
-                console.warn("Failed to delete onboarding process:", e);
+                console.warn("Failed to delete lifecycle projects:", e);
             }
 
             toast({
@@ -243,17 +417,15 @@ export default function EmployeeLifecyclePage() {
         return false;
     }, [employee?.lifecycleStage, employee?.hireDate]);
 
-    // Load Onboarding data
-    const onboardingRef = React.useMemo(() =>
-        firestore && employeeId ? doc(firestore, 'onboarding_processes', employeeId) : null,
-        [firestore, employeeId]);
-    const { data: onboarding, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingRef as any);
+    const onboardingProgressPct = React.useMemo(() => {
+        if (!onboardingTaskSummary || onboardingTaskSummary.total === 0) return 0;
+        return Math.round((onboardingTaskSummary.done / onboardingTaskSummary.total) * 100);
+    }, [onboardingTaskSummary]);
 
-    // Load Offboarding data
-    const offboardingRef = React.useMemo(() =>
-        firestore && employeeId ? doc(firestore, 'offboarding_processes', employeeId) : null,
-        [firestore, employeeId]);
-    const { data: offboarding } = useDoc<any>(offboardingRef as any);
+    const offboardingProgressPct = React.useMemo(() => {
+        if (!offboardingTaskSummary || offboardingTaskSummary.total === 0) return 0;
+        return Math.round((offboardingTaskSummary.done / offboardingTaskSummary.total) * 100);
+    }, [offboardingTaskSummary]);
 
     // --- Logic for Segmented Circle ---
     const totalStages = STAGES.length;
@@ -446,46 +618,37 @@ export default function EmployeeLifecyclePage() {
                         </p>
 
                         <div className="pt-8">
-                            {activeStage.id === 'onboarding' && onboarding ? (
+                            {activeStage.id === 'onboarding' && onboardingTaskSummary ? (
                                 <div className="space-y-8 w-full max-w-2xl mx-auto">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 text-left">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Эхэлсэн огноо</p>
                                             <p className="text-lg font-black text-slate-800">
-                                                {onboarding.createdAt ? new Date(onboarding.createdAt).toLocaleDateString() : 'Тодорхойгүй'}
+                                                {onboardingTaskSummary.startedAt ? onboardingTaskSummary.startedAt.toLocaleDateString() : 'Тодорхойгүй'}
                                             </p>
                                         </div>
                                         <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 text-left">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Нийт явц</p>
-                                            <p className="text-lg font-black text-emerald-600">{onboarding.progress || 0}%</p>
+                                            <p className="text-lg font-black text-emerald-600">{onboardingProgressPct}%</p>
                                         </div>
                                     </div>
 
                                     <div className="space-y-3">
                                         <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-left ml-2">Үе шатуудын түүх</h4>
                                         <div className="space-y-2">
-                                            {onboarding.stages?.map((s: any, i: number) => (
-                                                <div key={s.id} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 shadow-sm group hover:border-emerald-200 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={cn(
-                                                            "h-10 w-10 rounded-xl flex items-center justify-center font-bold",
-                                                            s.completed ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"
-                                                        )}>
-                                                            {i + 1}
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <p className="font-bold text-slate-800">{s.title}</p>
-                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{s.progress}% гүйцэтгэлтэй</p>
-                                                        </div>
+                                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-slate-800">Нийт таск</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">
+                                                            {onboardingTaskSummary.done}/{onboardingTaskSummary.total} дууссан
+                                                        </p>
                                                     </div>
-                                                    {s.completedAt && (
-                                                        <div className="text-right">
-                                                            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mb-1">Дууссан</p>
-                                                            <p className="text-xs font-black text-slate-600">{new Date(s.completedAt).toLocaleDateString()}</p>
-                                                        </div>
-                                                    )}
+                                                    <Badge variant="outline" className="border-emerald-200 text-emerald-700">
+                                                        {onboardingProjects?.length || 0} төсөл
+                                                    </Badge>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -496,37 +659,37 @@ export default function EmployeeLifecyclePage() {
                                         </Link>
                                     </Button>
                                 </div>
-                            ) : activeStage.id === 'offboarding' && offboarding ? (
+                            ) : activeStage.id === 'offboarding' && offboardingTaskSummary ? (
                                 <div className="space-y-8 w-full max-w-2xl mx-auto">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100 text-left">
                                             <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Эхэлсэн огноо</p>
                                             <p className="text-lg font-black text-slate-800">
-                                                {offboarding.createdAt ? new Date(offboarding.createdAt).toLocaleDateString() : 'Тодорхойгүй'}
+                                                {offboardingTaskSummary.startedAt ? offboardingTaskSummary.startedAt.toLocaleDateString() : 'Тодорхойгүй'}
                                             </p>
                                         </div>
                                         <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100 text-left">
                                             <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Нийт явц</p>
-                                            <p className="text-lg font-black text-amber-600">{offboarding.progress || 0}%</p>
+                                            <p className="text-lg font-black text-amber-600">{offboardingProgressPct}%</p>
                                         </div>
                                     </div>
 
-                                    {offboarding.reason && (
+                                    {lastDeparture?.reason && (
                                         <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 text-left">
                                             <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Чөлөөлөлтийн шалтгаан</p>
                                             <p className="text-base font-bold text-slate-800">
-                                                {offboarding.reason === 'release_company' && 'Компанийн санаачилгаар'}
-                                                {offboarding.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
-                                                {offboarding.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
+                                                {lastDeparture.reason === 'release_company' && 'Компанийн санаачилгаар'}
+                                                {lastDeparture.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
+                                                {lastDeparture.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
                                             </p>
                                         </div>
                                     )}
 
-                                    {offboarding.lastWorkingDate && (
+                                    {lastDeparture?.lastWorkingDate && (
                                         <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 text-left">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Сүүлийн ажлын өдөр</p>
                                             <p className="text-lg font-black text-slate-800">
-                                                {new Date(offboarding.lastWorkingDate).toLocaleDateString()}
+                                                {new Date(lastDeparture.lastWorkingDate).toLocaleDateString()}
                                             </p>
                                         </div>
                                     )}
@@ -534,28 +697,19 @@ export default function EmployeeLifecyclePage() {
                                     <div className="space-y-3">
                                         <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-left ml-2">Үе шатуудын явц</h4>
                                         <div className="space-y-2">
-                                            {offboarding.stages?.map((s: any, i: number) => (
-                                                <div key={s.id} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 shadow-sm group hover:border-amber-200 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={cn(
-                                                            "h-10 w-10 rounded-xl flex items-center justify-center font-bold",
-                                                            s.completed ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400"
-                                                        )}>
-                                                            {i + 1}
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <p className="font-bold text-slate-800">{s.title}</p>
-                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{s.progress || 0}% гүйцэтгэлтэй</p>
-                                                        </div>
+                                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-slate-800">Нийт таск</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">
+                                                            {offboardingTaskSummary.done}/{offboardingTaskSummary.total} дууссан
+                                                        </p>
                                                     </div>
-                                                    {s.completed && (
-                                                        <div className="text-right">
-                                                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-1">Дууссан</p>
-                                                            <Check className="h-5 w-5 text-amber-500 ml-auto" />
-                                                        </div>
-                                                    )}
+                                                    <Badge variant="outline" className="border-amber-200 text-amber-700">
+                                                        {offboardingProjects?.length || 0} төсөл
+                                                    </Badge>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -577,23 +731,23 @@ export default function EmployeeLifecyclePage() {
                                         <p className="text-sm font-medium text-slate-500 leading-relaxed mb-2">
                                             Энэ ажилтан байгууллагаас гарсан бөгөөд төгсөгчийн бүртгэлд орсон байна.
                                         </p>
-                                        {offboarding?.reason && (
+                                        {lastDeparture?.reason && (
                                             <Badge variant="outline" className="mt-2 border-slate-300 text-slate-600">
-                                                {offboarding.reason === 'release_company' && 'Компанийн санаачилгаар'}
-                                                {offboarding.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
-                                                {offboarding.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
+                                                {lastDeparture.reason === 'release_company' && 'Компанийн санаачилгаар'}
+                                                {lastDeparture.reason === 'release_employee' && 'Ажилтны санаачилгаар'}
+                                                {lastDeparture.reason === 'release_temporary' && 'Түр чөлөөлөлт'}
                                             </Badge>
                                         )}
                                     </div>
 
                                     {/* Offboarding completion info */}
-                                    {offboarding && (
+                                    {lastDeparture && (
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="p-5 rounded-2xl bg-white border border-slate-100 text-left">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ажилаас гарсан огноо</p>
                                                 <p className="text-base font-black text-slate-800">
-                                                    {offboarding.lastWorkingDate ? new Date(offboarding.lastWorkingDate).toLocaleDateString() : 
-                                                     offboarding.updatedAt ? new Date(offboarding.updatedAt).toLocaleDateString() : 'Тодорхойгүй'}
+                                                    {lastDeparture.lastWorkingDate ? new Date(lastDeparture.lastWorkingDate).toLocaleDateString() : 
+                                                     lastDeparture.date ? new Date(lastDeparture.date).toLocaleDateString() : 'Тодорхойгүй'}
                                                 </p>
                                             </div>
                                             <div className="p-5 rounded-2xl bg-white border border-slate-100 text-left">

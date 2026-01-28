@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     Settings,
+    Plus,
     Search,
     Filter,
     ChevronRight,
@@ -29,6 +30,7 @@ import { Employee, Department } from '@/types';
 import { Project, Task, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StartOnboardingWizardDialog } from '@/app/dashboard/onboarding/components/start-onboarding-wizard-dialog';
 
 // Stage order for display
 const STAGE_ORDER = ['pre-onboarding', 'orientation', 'integration', 'productivity'];
@@ -52,6 +54,7 @@ export default function OnboardingDashboardPage() {
     const { firestore } = useFirebase();
     const [searchTerm, setSearchTerm] = useState('');
     const [taskCounts, setTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
+    const [startWizardOpen, setStartWizardOpen] = useState(false);
 
     // Fetch Departments for mapping
     const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
@@ -186,14 +189,22 @@ export default function OnboardingDashboardPage() {
                 title="Чиглүүлэх (Onboarding)"
                 description="Ажилчдын дасан зохицох үйл явцыг хянах - Төслийн систем"
                 actions={
-                    <Button asChild variant="outline" className="bg-white hover:bg-slate-50 border-slate-200">
-                        <Link href="/dashboard/onboarding/settings">
-                            <Settings className="h-4 w-4 mr-2" />
-                            Тохиргоо
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={() => setStartWizardOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Шинэ хөтөлбөр эхлүүлэх
+                        </Button>
+                        <Button asChild variant="outline" className="bg-white hover:bg-slate-50 border-slate-200">
+                            <Link href="/dashboard/onboarding/settings">
+                                <Settings className="h-4 w-4 mr-2" />
+                                Тохиргоо
+                            </Link>
+                        </Button>
+                    </div>
                 }
             />
+
+            <StartOnboardingWizardDialog open={startWizardOpen} onOpenChange={setStartWizardOpen} />
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, useState, useMemo } from 'react';
+import React, { use, useEffect, useRef, useState, useMemo } from 'react';
 import { PageHeader } from '@/components/page-header';
 import {
     useFirebase,
@@ -77,8 +77,8 @@ import { PositionOverview } from './components/position-overview';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
-import { PositionOnboarding } from './components/position-onboarding';
-import { PositionOffboarding } from './components/position-offboarding';
+import { StartPositionPreparationWizardDialog } from './components/start-position-preparation-wizard-dialog';
+import type { Project, Task } from '@/types/project';
 
 export default function PositionDetailPage({ params }: { params: Promise<{ positionId: string }> }) {
     const { positionId } = use(params);
@@ -101,6 +101,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [isDocStatusOpen, setIsDocStatusOpen] = useState(false);
     const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
+    const [isPrepWizardOpen, setIsPrepWizardOpen] = useState(false);
 
     // Data Fetching
     const positionRef = useMemoFirebase(() => (firestore ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
@@ -140,6 +141,83 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     }, [firestore, assignedEmployee, positionId]);
     const { data: appointmentDocs } = useCollection<ERDocument>(docQuery);
     const appointmentDoc = appointmentDocs?.[0];
+
+    // Position preparation projects (before appointment)
+    const prepProjectsQuery = useMemoFirebase(() => {
+        if (!firestore || !positionId) return null;
+        return query(
+            collection(firestore, 'projects'),
+            where('type', '==', 'position_preparation'),
+            where('positionPreparationPositionId', '==', positionId)
+        );
+    }, [firestore, positionId]);
+    const { data: prepProjects } = useCollection<Project>(prepProjectsQuery as any);
+    const [prepTaskSummary, setPrepTaskSummary] = useState<{ total: number; done: number; projectId: string | null } | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const run = async () => {
+            if (!firestore) return;
+            if (!prepProjects || prepProjects.length === 0) {
+                if (!cancelled) setPrepTaskSummary(null);
+                return;
+            }
+            const sorted = [...prepProjects].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
+            let total = 0;
+            let done = 0;
+            const p = sorted[0];
+            const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+            tasksSnap.forEach((d) => {
+                const t = d.data() as Task;
+                total += 1;
+                if (t.status === 'DONE') done += 1;
+            });
+            if (!cancelled) {
+                setPrepTaskSummary({ total, done, projectId: p?.id || null });
+            }
+        };
+        run();
+        return () => { cancelled = true; };
+    }, [firestore, prepProjects]);
+
+    const prepProgressPct = useMemo(() => {
+        if (!prepTaskSummary || prepTaskSummary.total === 0) return 0;
+        return Math.round((prepTaskSummary.done / prepTaskSummary.total) * 100);
+    }, [prepTaskSummary]);
+
+    const isPrepCompleted = useMemo(() => {
+        if (!prepProjects || prepProjects.length === 0) return false;
+        const allProjectsCompleted = prepProjects.every((p) => p.status === 'COMPLETED');
+        if (allProjectsCompleted) return true;
+        if (!prepTaskSummary) return false;
+        return prepTaskSummary.total === 0 ? true : prepTaskSummary.done === prepTaskSummary.total;
+    }, [prepProjects, prepTaskSummary]);
+
+    // Auto-confirm appointment when ER doc is approved/signed
+    const didAutoConfirmRef = useRef(false);
+    useEffect(() => {
+        if (!firestore || !assignedEmployee) return;
+        if (didAutoConfirmRef.current) return;
+        if (assignedEmployee.status !== 'Томилогдож буй') return;
+        if (!appointmentDoc || !['APPROVED', 'SIGNED'].includes(appointmentDoc.status)) return;
+
+        didAutoConfirmRef.current = true;
+        setIsActionLoading(true);
+        (async () => {
+            try {
+                await writeBatch(firestore)
+                    .update(doc(firestore, 'employees', assignedEmployee.id), { status: 'Идэвхтэй' })
+                    .commit();
+                toast({ title: "Томилгоо автоматаар баталгаажлаа" });
+            } catch (e) {
+                console.error(e);
+                didAutoConfirmRef.current = false;
+                toast({ variant: 'destructive', title: 'Алдаа', description: 'Томилгоог автоматаар баталгаажуулахад алдаа гарлаа.' });
+            } finally {
+                setIsActionLoading(false);
+            }
+        })();
+    }, [firestore, assignedEmployee, appointmentDoc, toast]);
 
     const validationChecklist = useMemo(() => {
         if (!position) return { hasBasicInfo: false, hasReporting: false, hasAttributes: false, hasSettings: false, isComplete: false };
@@ -483,13 +561,33 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                 <div className="flex-1">
                                     <h3 className="font-semibold text-slate-700">Ажилтан томилогдоогүй</h3>
                                     <p className="text-sm text-muted-foreground">
-                                        {!position.isApproved ? "Эхлээд ажлын байрыг батлана уу" : "Энэ ажлын байр одоогоор сул байна"}
+                                        {!position.isApproved
+                                            ? "Эхлээд ажлын байрыг батлана уу"
+                                            : isPrepCompleted
+                                                ? "Бэлтгэл дууссан. Одоо ажилтан томилж болно."
+                                                : (prepProjects && prepProjects.length > 0)
+                                                    ? `Бэлтгэл үргэлжилж байна • ${prepProgressPct}%`
+                                                    : "Эхлээд ажлын байрыг бэлтгэнэ."}
                                     </p>
                                 </div>
                                 {position.isApproved && (
-                                    <Button onClick={() => setIsAppointDialogOpen(true)} className="gap-2">
-                                        <UserPlus className="w-4 h-4" /> Томилох
-                                    </Button>
+                                    isPrepCompleted ? (
+                                        <Button onClick={() => setIsAppointDialogOpen(true)} className="gap-2">
+                                            <UserPlus className="w-4 h-4" /> Томилох
+                                        </Button>
+                                    ) : (prepProjects && prepProjects.length > 0 && prepTaskSummary?.projectId) ? (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => router.push(`/dashboard/projects/${prepTaskSummary.projectId}`)}
+                                            className="gap-2"
+                                        >
+                                            <Briefcase className="w-4 h-4" /> Бэлтгэл үргэлжлүүлэх
+                                        </Button>
+                                    ) : (
+                                        <Button onClick={() => setIsPrepWizardOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                                            <Briefcase className="w-4 h-4" /> Ажлын байр бэлтгэх
+                                        </Button>
+                                    )
                                 )}
                             </>
                         )}
@@ -506,8 +604,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     { value: 'competency', label: 'АБТ' },
                                     { value: 'compensation', label: 'Цалин' },
                                     { value: 'benefits', label: 'Хангамж' },
-                                    { value: 'onboarding', label: 'Onboarding' },
-                                    { value: 'offboarding', label: 'Offboarding' },
                                     { value: 'history', label: 'Түүх' },
                                 ].map(tab => (
                                     <TabsTrigger
@@ -545,14 +641,6 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
 
                             <TabsContent value="benefits" className="mt-0">
                                 <PositionBenefits position={position} />
-                            </TabsContent>
-
-                            <TabsContent value="onboarding" className="mt-0">
-                                <PositionOnboarding position={position} />
-                            </TabsContent>
-
-                            <TabsContent value="offboarding" className="mt-0">
-                                <PositionOffboarding position={position} />
                             </TabsContent>
 
                             <TabsContent value="history" className="mt-0">
@@ -733,6 +821,12 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
 
             <AppointEmployeeDialog open={isAppointDialogOpen} onOpenChange={setIsAppointDialogOpen} position={position} />
             <ReleaseEmployeeDialog open={isReleaseDialogOpen} onOpenChange={setIsReleaseDialogOpen} employee={assignedEmployee} position={position} />
+            <StartPositionPreparationWizardDialog
+                open={isPrepWizardOpen}
+                onOpenChange={setIsPrepWizardOpen}
+                positionId={positionId}
+                positionTitle={position.title}
+            />
         </div>
     );
 }

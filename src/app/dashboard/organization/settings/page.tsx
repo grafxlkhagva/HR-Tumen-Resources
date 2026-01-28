@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Briefcase, FileText, Layers, Tag, Zap } from 'lucide-react';
 import { LookupManagement } from './components/lookup-management';
 import { OrganizationActionSettings } from './components/organization-action-settings';
+import { PositionPreparationSettings } from './components/position-preparation-settings';
 
 export default function OrganizationSettingsPage() {
     return (
@@ -38,6 +39,10 @@ export default function OrganizationSettingsPage() {
                         <TabsTrigger value="actions" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
                             <Zap className="w-4 h-4" />
                             Үйлдэл
+                        </TabsTrigger>
+                        <TabsTrigger value="position-prep" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
+                            <Briefcase className="w-4 h-4" />
+                            Ажлын байр бэлтгэх
                         </TabsTrigger>
                     </TabsList>
 
@@ -116,6 +121,10 @@ export default function OrganizationSettingsPage() {
                                     label: 'ажлын байр'
                                 }}
                             />
+                        </TabsContent>
+
+                        <TabsContent value="position-prep" className="space-y-4 focus-visible:outline-none">
+                            <PositionPreparationSettings />
                         </TabsContent>
                     </div>
                 </Tabs>

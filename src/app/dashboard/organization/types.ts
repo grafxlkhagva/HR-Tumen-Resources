@@ -47,8 +47,6 @@ export type Position = {
     hasPointBudget?: boolean;
     yearlyPointBudget?: number;
     remainingPointBudget?: number;
-    onboardingProgramIds?: string[];
-    offboardingProgramIds?: string[];
     isApproved?: boolean;
     approvedAt?: string;
     approvedBy?: string;

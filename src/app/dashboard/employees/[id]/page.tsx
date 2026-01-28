@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ import { CVTabContent } from './cv-tab-content';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Project, Task } from '@/types/project';
 
 
 type Department = {
@@ -634,12 +635,17 @@ export default function EmployeeProfilePage() {
     );
     const { data: onboardingProcess, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingProcessRef as any);
 
-    // Fetch offboarding process for this employee
-    const offboardingProcessRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'offboarding_processes', employeeId) : null),
-        [firestore, employeeId]
-    );
-    const { data: offboardingProcess, isLoading: isLoadingOffboarding } = useDoc<any>(offboardingProcessRef as any);
+    // Fetch offboarding projects for this employee (project-based)
+    const offboardingProjectsQuery = useMemoFirebase(() => {
+        if (!firestore || !employeeId) return null;
+        return query(
+            collection(firestore, 'projects'),
+            where('type', '==', 'offboarding'),
+            where('offboardingEmployeeId', '==', employeeId)
+        );
+    }, [firestore, employeeId]);
+    const { data: offboardingProjects, isLoading: isLoadingOffboarding } = useCollection<Project>(offboardingProjectsQuery as any);
+    const [offboardingTaskCounts, setOffboardingTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
 
     // Calculate onboarding progress
     const onboardingProgress = React.useMemo(() => {
@@ -656,20 +662,32 @@ export default function EmployeeProfilePage() {
         return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     }, [onboardingProcess]);
 
-    // Calculate offboarding progress
-    const offboardingProgress = React.useMemo(() => {
-        if (!offboardingProcess?.stages) return 0;
-        const stages = offboardingProcess.stages;
-        let totalTasks = 0;
-        let completedTasks = 0;
-        stages.forEach((stage: any) => {
-            if (stage.tasks) {
-                totalTasks += stage.tasks.length;
-                completedTasks += stage.tasks.filter((t: any) => t.completed).length;
+    React.useEffect(() => {
+        async function fetchOffboardingCounts() {
+            if (!firestore || !offboardingProjects || offboardingProjects.length === 0) return;
+            const counts: Record<string, { total: number; completed: number }> = {};
+            for (const p of offboardingProjects) {
+                const snap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                const tasks = snap.docs.map(d => d.data() as Task);
+                counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
             }
+            setOffboardingTaskCounts(counts);
+        }
+        fetchOffboardingCounts();
+    }, [firestore, offboardingProjects]);
+
+    const offboardingProgress = React.useMemo(() => {
+        const ps = offboardingProjects || [];
+        let total = 0;
+        let done = 0;
+        ps.forEach(p => {
+            const c = offboardingTaskCounts[p.id];
+            if (!c) return;
+            total += c.total;
+            done += c.completed;
         });
-        return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    }, [offboardingProcess]);
+        return total > 0 ? Math.round((done / total) * 100) : 0;
+    }, [offboardingProjects, offboardingTaskCounts]);
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
 
@@ -1127,8 +1145,8 @@ export default function EmployeeProfilePage() {
                         </Button>
                     </div>
 
-                    {/* Offboarding Progress - Only show if process exists */}
-                    {offboardingProcess && (
+                    {/* Offboarding Progress - Only show if projects exist */}
+                    {(offboardingProjects && offboardingProjects.length > 0) && (
                         <div className="bg-white rounded-xl border p-4 ring-2 ring-amber-100">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-xs font-semibold text-amber-600 uppercase">Offboarding</h3>
@@ -1176,7 +1194,7 @@ export default function EmployeeProfilePage() {
                                 >
                                     Onboarding
                                 </TabsTrigger>
-                                {offboardingProcess && (
+                                {(offboardingProjects && offboardingProjects.length > 0) && (
                                     <TabsTrigger
                                         value="offboarding"
                                         className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700"
@@ -1238,7 +1256,7 @@ export default function EmployeeProfilePage() {
                         <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
                             <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
                         </TabsContent>
-                        {offboardingProcess && (
+                        {(offboardingProjects && offboardingProjects.length > 0) && (
                             <TabsContent value="offboarding" className="mt-0 focus-visible:outline-none">
                                 <OffboardingTabContent employeeId={employeeId || ''} employee={employee} />
                             </TabsContent>
