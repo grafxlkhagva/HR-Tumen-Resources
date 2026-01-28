@@ -150,8 +150,8 @@ export function ReferenceTable({
     <Table>
       <TableHeader>
         <TableRow>
-          {columns.map((col) => (
-            <TableHead key={col.key} className="text-xs">{col.header}</TableHead>
+          {columns.map((col, colIndex) => (
+            <TableHead key={`${col.key}-${colIndex}`} className="text-xs">{col.header}</TableHead>
           ))}
           <TableHead className="w-[80px] text-right text-xs">Үйлдэл</TableHead>
         </TableRow>
@@ -159,8 +159,8 @@ export function ReferenceTable({
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.id} className="group">
-            {columns.map((col) => (
-              <TableCell key={col.key} className="py-2 text-sm">
+            {columns.map((col, colIndex) => (
+              <TableCell key={`${col.key}-${colIndex}`} className="py-2 text-sm">
                 {col.render ? col.render(item[col.key], item) : item[col.key]}
               </TableCell>
             ))}
@@ -437,7 +437,7 @@ function ReferenceItemDialog({
               <div className="grid gap-4 py-4 pr-4">
                 {columns.filter(c => !c.render || c.forceFormInput).map(col => (
                   <FormField
-                    key={col.key}
+                    key={`field-${col.key}`}
                     control={form.control}
                     name={col.key}
                     render={({ field }) => (

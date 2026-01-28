@@ -140,6 +140,28 @@ export function AppointEmployeeDialog({
         , [firestore, appointmentAction?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
 
+    // Normalize customInputs to guarantee unique keys in UI/state, even if template contains duplicates.
+    const normalizedCustomInputs = React.useMemo(() => {
+        const inputs = templateData?.customInputs || [];
+        const counts = new Map<string, number>();
+        return inputs.map((input: any, index: number) => {
+            const baseKey = String(input?.key || '').trim();
+            const prev = counts.get(baseKey) ?? 0;
+            counts.set(baseKey, prev + 1);
+
+            const normalizedKey = baseKey
+                ? (prev === 0 ? baseKey : `${baseKey}__${prev + 1}`)
+                : `__input_${index}`;
+
+            return {
+                ...input,
+                __baseKey: baseKey,
+                __normalizedKey: normalizedKey,
+                __index: index,
+            };
+        });
+    }, [templateData]);
+
     const assignableEmployees = React.useMemo(() => {
         if (!allEmployees) return [];
         // Filter employees without a position (null, undefined, or empty string)
@@ -221,16 +243,16 @@ export function AppointEmployeeDialog({
 
     // Initialize custom inputs when template loads
     React.useEffect(() => {
-        if (templateData?.customInputs) {
+        if (normalizedCustomInputs.length > 0) {
             const initialValues: Record<string, any> = {};
-            templateData.customInputs.forEach(input => {
-                initialValues[input.key] = '';
+            normalizedCustomInputs.forEach((input: any) => {
+                initialValues[input.__normalizedKey] = '';
             });
             setCustomInputValues(initialValues);
-        } else {
-            setCustomInputValues({});
+            return;
         }
-    }, [templateData]);
+        setCustomInputValues({});
+    }, [normalizedCustomInputs]);
 
     // Handle initial employee from dashboard drag & drop
     React.useEffect(() => {
@@ -418,6 +440,18 @@ export function AppointEmployeeDialog({
 
         setIsSubmitting(true);
         try {
+            // Build customInputs payload with unique keys (and keep the first occurrence of base keys for compatibility)
+            const customInputsPayload: Record<string, any> = {};
+            normalizedCustomInputs.forEach((input: any) => {
+                const normalizedKey = input.__normalizedKey as string;
+                const baseKey = input.__baseKey as string;
+                const val = customInputValues?.[normalizedKey] ?? '';
+                customInputsPayload[normalizedKey] = val;
+                if (baseKey && customInputsPayload[baseKey] === undefined) {
+                    customInputsPayload[baseKey] = val;
+                }
+            });
+
             // Double-check offboarding status
             try {
                 const offboardingSnap = await getDoc(doc(firestore, 'offboarding_processes', selectedEmployee.id));
@@ -477,7 +511,7 @@ export function AppointEmployeeDialog({
                             day: format(new Date(), 'dd'),
                             user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
                         },
-                        customInputs: customInputValues || {},
+                        customInputs: customInputsPayload,
                         // Add selected compensation data to template
                         appointment: {
                             salaryStep: selectedSalary,
@@ -504,7 +538,7 @@ export function AppointEmployeeDialog({
                         content: content,
                         version: 1,
                         printSettings: templateData?.printSettings || null,
-                        customInputs: customInputValues || {},
+                        customInputs: customInputsPayload,
                         // Store appointment selections
                         appointmentData: {
                             actionId: selectedActionId,
@@ -1110,10 +1144,10 @@ export function AppointEmployeeDialog({
                                     <div className="flex justify-center py-8">
                                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                     </div>
-                                ) : templateData?.customInputs?.length ? (
+                    ) : normalizedCustomInputs.length ? (
                                     <div className="space-y-4">
-                                        {templateData.customInputs.map(input => (
-                                            <div key={input.key} className="space-y-1.5">
+                            {normalizedCustomInputs.map((input: any) => (
+                                <div key={input.__normalizedKey} className="space-y-1.5">
                                                 <Label className="text-xs font-semibold">
                                                     {input.label} {input.required && <span className="text-rose-500">*</span>}
                                                 </Label>
@@ -1124,12 +1158,12 @@ export function AppointEmployeeDialog({
                                                                 variant="outline"
                                                                 className={cn(
                                                                     "h-10 w-full justify-start text-left font-medium rounded-xl",
-                                                                    !customInputValues[input.key] && "text-muted-foreground"
+                                                        !customInputValues[input.__normalizedKey] && "text-muted-foreground"
                                                                 )}
                                                             >
                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                {customInputValues[input.key] 
-                                                                    ? format(new Date(customInputValues[input.key]), "PPP", { locale: mn }) 
+                                                    {customInputValues[input.__normalizedKey]
+                                                        ? format(new Date(customInputValues[input.__normalizedKey]), "PPP", { locale: mn })
                                                                     : "Огноо сонгох"
                                                                 }
                                                             </Button>
@@ -1137,10 +1171,10 @@ export function AppointEmployeeDialog({
                                                         <PopoverContent className="w-auto p-0" align="start">
                                                             <Calendar
                                                                 mode="single"
-                                                                selected={customInputValues[input.key] ? new Date(customInputValues[input.key]) : undefined}
-                                                                onSelect={(date) => setCustomInputValues(prev => ({ 
-                                                                    ...prev, 
-                                                                    [input.key]: date ? format(date, 'yyyy-MM-dd') : '' 
+                                                    selected={customInputValues[input.__normalizedKey] ? new Date(customInputValues[input.__normalizedKey]) : undefined}
+                                                    onSelect={(date) => setCustomInputValues(prev => ({
+                                                        ...prev,
+                                                        [input.__normalizedKey]: date ? format(date, 'yyyy-MM-dd') : ''
                                                                 }))}
                                                                 initialFocus
                                                             />
@@ -1149,23 +1183,23 @@ export function AppointEmployeeDialog({
                                                 ) : input.type === 'number' ? (
                                                     <Input
                                                         type="number"
-                                                        value={customInputValues[input.key] || ''}
-                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                            value={customInputValues[input.__normalizedKey] || ''}
+                                            onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
                                                         placeholder={input.description || `${input.label} оруулна уу`}
                                                         className="h-10 rounded-xl"
                                                     />
                                                 ) : input.type === 'boolean' ? (
                                                     <div className="flex items-center space-x-2 h-10 px-4 bg-slate-50 rounded-xl border">
                                                         <Switch
-                                                            checked={!!customInputValues[input.key]}
-                                                            onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.key]: checked }))}
+                                                checked={!!customInputValues[input.__normalizedKey]}
+                                                onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: checked }))}
                                                         />
-                                                        <span className="text-sm">{customInputValues[input.key] ? 'Тийм' : 'Үгүй'}</span>
+                                            <span className="text-sm">{customInputValues[input.__normalizedKey] ? 'Тийм' : 'Үгүй'}</span>
                                                     </div>
                                                 ) : (
                                                     <Input
-                                                        value={customInputValues[input.key] || ''}
-                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                            value={customInputValues[input.__normalizedKey] || ''}
+                                            onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
                                                         placeholder={input.description || `${input.label} оруулна уу`}
                                                         className="h-10 rounded-xl"
                                                     />
@@ -1226,7 +1260,7 @@ export function AppointEmployeeDialog({
                             {step === WIZARD_STEPS.DOCUMENT_INPUTS ? (
                                 <Button
                                     onClick={handleStartProcess}
-                                    disabled={isSubmitting || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
+                                    disabled={isSubmitting || normalizedCustomInputs.some((i: any) => i.required && !customInputValues[i.__normalizedKey])}
                                     className="flex-[2] bg-primary hover:bg-primary/90 rounded-xl"
                                 >
                                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

@@ -97,9 +97,9 @@ export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSel
                                 Талбар олдсонгүй
                             </div>
                         ) : (
-                            filteredFields.map((field) => (
+                            filteredFields.map((field, fieldIndex) => (
                                 <button
-                                    key={field.key}
+                                    key={`${field.key}-${fieldIndex}`}
                                     onClick={() => handleSelect(field.key)}
                                     className="w-full text-left group flex flex-col gap-1 rounded-md p-2 hover:bg-white hover:shadow-sm hover:border-slate-200 border border-transparent transition-all"
                                 >

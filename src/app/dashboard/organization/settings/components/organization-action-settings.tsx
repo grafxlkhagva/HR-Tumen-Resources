@@ -202,8 +202,8 @@ export function OrganizationActionSettings() {
                                                                                     <SelectValue placeholder="Талбар сонгох" />
                                                                                 </SelectTrigger>
                                                                                 <SelectContent>
-                                                                                    {dateInputs.map(input => (
-                                                                                        <SelectItem key={input.key} value={input.key}>
+                                                                                    {dateInputs.map((input, idx) => (
+                                                                                        <SelectItem key={`${input.key}-${input.order ?? idx}`} value={input.key}>
                                                                                             {input.label}
                                                                                         </SelectItem>
                                                                                     ))}

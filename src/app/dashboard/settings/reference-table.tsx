@@ -118,8 +118,8 @@ export function ReferenceTable({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((col) => (
-                <TableHead key={col.key}>{col.header}</TableHead>
+              {columns.map((col, colIndex) => (
+                <TableHead key={`${col.key}-${colIndex}`}>{col.header}</TableHead>
               ))}
               <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
             </TableRow>
@@ -128,8 +128,8 @@ export function ReferenceTable({
             {isLoading &&
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  {columns.map((col) => (
-                     <TableCell key={col.key}><Skeleton className="h-5 w-24" /></TableCell>
+                  {columns.map((col, colIndex) => (
+                     <TableCell key={`${col.key}-${colIndex}`}><Skeleton className="h-5 w-24" /></TableCell>
                   ))}
                   <TableCell className="text-right">
                     <Skeleton className="h-8 w-[68px] ml-auto" />
@@ -138,8 +138,8 @@ export function ReferenceTable({
               ))}
             {!isLoading && itemData?.map((item) => (
               <TableRow key={item.id}>
-                {columns.map((col) => (
-                  <TableCell key={col.key}>
+                {columns.map((col, colIndex) => (
+                  <TableCell key={`${col.key}-${colIndex}`}>
                     {col.key === 'fields' && Array.isArray(item.fields) ? (
                         <div className="flex flex-wrap gap-1">
                             {item.fields.map((field: any, index: number) => (
@@ -294,7 +294,7 @@ function ReferenceItemDialog({
                 <div className="grid gap-4 py-4 pr-4">
                 {columns.filter(c => c.key !== 'fields').map(col => (
                     <FormField
-                    key={col.key}
+                    key={`field-${col.key}`}
                     control={form.control}
                     name={col.key}
                     render={({ field }) => (

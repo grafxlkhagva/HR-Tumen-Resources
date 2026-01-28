@@ -72,22 +72,58 @@ export function ReleaseEmployeeDialog({
         , [firestore, actionConfig?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
 
+    // Normalize customInputs to guarantee unique keys in UI/state, even if template contains duplicates.
+    const normalizedCustomInputs = React.useMemo(() => {
+        const inputs = templateData?.customInputs || [];
+        const counts = new Map<string, number>();
+        return inputs.map((input: any, index: number) => {
+            const baseKey = String(input?.key || '').trim();
+            const prev = counts.get(baseKey) ?? 0;
+            counts.set(baseKey, prev + 1);
+
+            const normalizedKey = baseKey
+                ? (prev === 0 ? baseKey : `${baseKey}__${prev + 1}`)
+                : `__input_${index}`;
+
+            return {
+                ...input,
+                __baseKey: baseKey,
+                __normalizedKey: normalizedKey,
+                __index: index,
+            };
+        });
+    }, [templateData]);
+
     // Initialize custom inputs when template takes effect
     React.useEffect(() => {
-        if (templateData?.customInputs) {
+        if (normalizedCustomInputs.length > 0) {
             const initialValues: Record<string, any> = {};
-            templateData.customInputs.forEach(input => {
-                initialValues[input.key] = '';
+            normalizedCustomInputs.forEach((input: any) => {
+                initialValues[input.__normalizedKey] = '';
             });
             setCustomInputValues(initialValues);
+            return;
         }
-    }, [templateData]);
+        setCustomInputValues({});
+    }, [normalizedCustomInputs]);
 
     const handleRelease = async () => {
         if (!firestore || !employee || !position || !firebaseUser) return;
 
         setIsSubmitting(true);
         try {
+            // Build customInputs payload with unique keys (and keep the first occurrence of base keys for compatibility)
+            const customInputsPayload: Record<string, any> = {};
+            normalizedCustomInputs.forEach((input: any) => {
+                const normalizedKey = input.__normalizedKey as string;
+                const baseKey = input.__baseKey as string;
+                const val = customInputValues?.[normalizedKey] ?? '';
+                customInputsPayload[normalizedKey] = val;
+                if (baseKey && customInputsPayload[baseKey] === undefined) {
+                    customInputsPayload[baseKey] = val;
+                }
+            });
+
             if (!employee?.id || !position?.id) {
                 throw new Error('Ажилтан эсвэл ажлын байрны мэдээлэл дутуу байна');
             }
@@ -102,7 +138,7 @@ export function ReleaseEmployeeDialog({
                 positionId: position?.id || null,
                 departmentId: position?.departmentId || null,
                 reason: selectedActionId || null,
-                lastWorkingDate: customInputValues['releaseDate'] || customInputValues['Ажлаас чөлөөлөх огноо'] || null,
+                lastWorkingDate: customInputsPayload['releaseDate'] || customInputsPayload['Ажлаас чөлөөлөх огноо'] || null,
                 note: `${new Date().getFullYear()} онд ажлаас гарсан`
             };
 
@@ -129,7 +165,7 @@ export function ReleaseEmployeeDialog({
                     const docContent = generateDocumentContent(templateData.content || '', {
                         employee,
                         position,
-                        customInputs: customInputValues,
+                        customInputs: customInputsPayload,
                         company: null,
                         system: null,
                     });
@@ -151,7 +187,7 @@ export function ReleaseEmployeeDialog({
                             templateName: templateData.name || '',
                             actionId: selectedActionId
                         },
-                        customInputs: customInputValues,
+                        customInputs: customInputsPayload,
                         history: [{
                             action: 'CREATE',
                             actorId: firebaseUser.uid,
@@ -337,15 +373,15 @@ export function ReleaseEmployeeDialog({
                                                 </div>
                                             </div>
 
-                                            {templateData.customInputs && templateData.customInputs.length > 0 && (
+                                            {normalizedCustomInputs.length > 0 && (
                                                 <div className="space-y-4">
                                                     <div className="flex items-center gap-2 text-rose-600">
                                                         <Wand2 className="h-4 w-4" />
                                                         <label className="text-xs font-bold uppercase tracking-widest">Шаардлагатай мэдээллүүд</label>
                                                     </div>
                                                     <div className="grid grid-cols-1 gap-4">
-                                                        {templateData.customInputs.map(input => (
-                                                            <div key={input.key} className="space-y-1.5">
+                                                        {normalizedCustomInputs.map((input: any) => (
+                                                            <div key={input.__normalizedKey} className="space-y-1.5">
                                                                 <Label className="text-xs font-bold text-slate-600 ml-1">
                                                                     {input.label} {input.required && <span className="text-rose-500">*</span>}
                                                                 </Label>
@@ -356,18 +392,18 @@ export function ReleaseEmployeeDialog({
                                                                                 variant={"outline"}
                                                                                 className={cn(
                                                                                     "h-11 w-full justify-start text-left font-medium rounded-xl border-slate-200",
-                                                                                    !customInputValues[input.key] && "text-muted-foreground"
+                                                                                    !customInputValues[input.__normalizedKey] && "text-muted-foreground"
                                                                                 )}
                                                                             >
                                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                                {customInputValues[input.key] ? format(new Date(customInputValues[input.key]), "PPP", { locale: mn }) : <span>Огноо сонгох</span>}
+                                                                                {customInputValues[input.__normalizedKey] ? format(new Date(customInputValues[input.__normalizedKey]), "PPP", { locale: mn }) : <span>Огноо сонгох</span>}
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0" align="start">
                                                                             <Calendar
                                                                                 mode="single"
-                                                                                selected={customInputValues[input.key] ? new Date(customInputValues[input.key]) : undefined}
-                                                                                onSelect={(date) => setCustomInputValues(prev => ({ ...prev, [input.key]: date ? format(date, 'yyyy-MM-dd') : '' }))}
+                                                                                selected={customInputValues[input.__normalizedKey] ? new Date(customInputValues[input.__normalizedKey]) : undefined}
+                                                                                onSelect={(date) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: date ? format(date, 'yyyy-MM-dd') : '' }))}
                                                                                 initialFocus
                                                                             />
                                                                         </PopoverContent>
@@ -375,23 +411,23 @@ export function ReleaseEmployeeDialog({
                                                                 ) : input.type === 'number' ? (
                                                                     <Input
                                                                         type="number"
-                                                                        value={customInputValues[input.key] || ''}
-                                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                                        value={customInputValues[input.__normalizedKey] || ''}
+                                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
                                                                         placeholder={input.description || `${input.label} оруулна уу...`}
                                                                         className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
                                                                     />
                                                                 ) : input.type === 'boolean' ? (
                                                                     <div className="flex items-center space-x-2 h-11 px-4 bg-slate-50/50 rounded-xl border border-slate-100">
                                                                         <Switch
-                                                                            checked={!!customInputValues[input.key]}
-                                                                            onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.key]: checked }))}
+                                                                            checked={!!customInputValues[input.__normalizedKey]}
+                                                                            onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: checked }))}
                                                                         />
-                                                                        <span className="text-sm text-slate-500">{customInputValues[input.key] ? 'Тийм' : 'Үгүй'}</span>
+                                                                        <span className="text-sm text-slate-500">{customInputValues[input.__normalizedKey] ? 'Тийм' : 'Үгүй'}</span>
                                                                     </div>
                                                                 ) : (
                                                                     <Input
-                                                                        value={customInputValues[input.key] || ''}
-                                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.key]: e.target.value }))}
+                                                                        value={customInputValues[input.__normalizedKey] || ''}
+                                                                        onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
                                                                         placeholder={input.description || `${input.label} оруулна уу...`}
                                                                         className="h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/10 transition-all font-medium"
                                                                     />
@@ -459,7 +495,7 @@ export function ReleaseEmployeeDialog({
                                 </Button>
                                 <Button
                                     onClick={handleRelease}
-                                    disabled={isSubmitting || (templateData?.customInputs || []).some(i => i.required && !customInputValues[i.key])}
+                                    disabled={isSubmitting || normalizedCustomInputs.some((i: any) => i.required && !customInputValues[i.__normalizedKey])}
                                     className="flex-[2] bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-rose-200"
                                 >
                                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

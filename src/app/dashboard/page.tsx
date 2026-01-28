@@ -114,6 +114,8 @@ type CustomNode = Node<JobPositionNodeData | EmployeeNodeData>;
 // --- Constants & Layout ---
 const X_GAP = 450;
 const Y_GAP = 500;
+const UNASSIGNED_X = -600;
+const UNASSIGNED_Y_GAP = 220;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 // --- Helper Functions ---
@@ -993,7 +995,9 @@ const OrganizationChart = () => {
         const visibleUnassigned = unassignedEmployees.slice(0, 10);
         visibleUnassigned.forEach((emp, index) => {
             newNodes.push({
-                id: emp.id, type: 'unassigned', position: { x: -600, y: index * 120 },
+                id: emp.id,
+                type: 'unassigned',
+                position: { x: UNASSIGNED_X, y: index * UNASSIGNED_Y_GAP },
                 data: {
                     label: emp.firstName,
                     name: `${emp.firstName} ${emp.lastName}`,
@@ -1008,7 +1012,7 @@ const OrganizationChart = () => {
             newNodes.push({
                 id: 'unassigned-more',
                 type: 'unassigned',
-                position: { x: -600, y: 10 * 120 },
+                position: { x: UNASSIGNED_X, y: visibleUnassigned.length * UNASSIGNED_Y_GAP },
                 data: {
                     label: `Бусад ${unassignedEmployees.length - 10}...`,
                     name: `+${unassignedEmployees.length - 10} ажилтан`,
@@ -1077,7 +1081,7 @@ const OrganizationChart = () => {
             />
 
             {/* Organization Chart - 80% height */}
-            <div className="flex-1 relative w-full">
+            <div className="flex-1 relative w-full bg-[#f5f5f7] dark:bg-slate-950">
                 {isLoading ? <SkeletonChart /> : (
                     <ReactFlow
                         nodes={nodes}
@@ -1086,6 +1090,7 @@ const OrganizationChart = () => {
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         nodeTypes={nodeTypes}
+                        className="bg-transparent"
                         fitView>
                         <Background />
                         <Controls />

@@ -368,8 +368,8 @@ export function LookupManagement({ collectionName, title, description, columns, 
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                {columns.map(col => (
-                                    <TableHead key={col.key} style={{ width: col.width }}>{col.label}</TableHead>
+                                {columns.map((col, colIndex) => (
+                                    <TableHead key={`${col.key}-${colIndex}`} style={{ width: col.width }}>{col.label}</TableHead>
                                 ))}
                                 <TableHead className="w-[100px] text-right">Үйлдэл</TableHead>
                             </TableRow>
@@ -378,8 +378,8 @@ export function LookupManagement({ collectionName, title, description, columns, 
                             {/* Add Row */}
                             {isAdding ? (
                                 <TableRow className="bg-indigo-50/30">
-                                    {columns.map(col => (
-                                        <TableCell key={col.key}>
+                                    {columns.map((col, colIndex) => (
+                                        <TableCell key={`${col.key}-${colIndex}`}>
                                             <Input
                                                 autoFocus={columns[0].key === col.key}
                                                 type={col.type}
@@ -435,8 +435,8 @@ export function LookupManagement({ collectionName, title, description, columns, 
                                 <TableRow key={item.id} className="group transition-colors">
                                     {editingId === item.id ? (
                                         <>
-                                            {columns.map(col => (
-                                                <TableCell key={col.key}>
+                                            {columns.map((col, colIndex) => (
+                                                <TableCell key={`${col.key}-${colIndex}`}>
                                                     <Input
                                                         type={col.type}
                                                         value={editItemData[col.key] ?? ''}
@@ -459,7 +459,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
                                     ) : (
                                         <>
                                             {columns.map((col, colIdx) => (
-                                                <TableCell key={col.key} className="font-medium">
+                                                <TableCell key={`${col.key}-${colIdx}`} className="font-medium">
                                                     <div className="flex items-center gap-2">
                                                         {item[col.key]}
                                                         {/* Show usage badge on first column */}
@@ -549,16 +549,16 @@ export function LookupManagement({ collectionName, title, description, columns, 
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50">
-                                {columns.map(col => (
-                                    <TableHead key={col.key}>{col.label}</TableHead>
+                                {columns.map((col, colIndex) => (
+                                    <TableHead key={`${col.key}-${colIndex}`}>{col.label}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {generatedItems.map((item, idx) => (
                                 <TableRow key={idx}>
-                                    {columns.map(col => (
-                                        <TableCell key={col.key}>{item[col.key]}</TableCell>
+                                    {columns.map((col, colIndex) => (
+                                        <TableCell key={`${col.key}-${colIndex}`}>{item[col.key]}</TableCell>
                                     ))}
                                 </TableRow>
                             ))}
