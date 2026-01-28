@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
+import { Task } from '@/types/project';
 
 // Widget system imports
 import { DashboardWidgetsBar, useDashboardWidgets, WidgetData } from './widgets';
@@ -1062,11 +1063,73 @@ const OrganizationChart = () => {
                 return;
             }
 
-            setSelectedPosition(positionNode.data as any);
-            setSelectedEmployeeForAppointment((employeeNode.data as any).employee);
-            setIsAppointDialogOpen(true);
+            (async () => {
+                if (!firestore) return;
+
+                // Before appoint: ensure position preparation is completed
+                try {
+                    const prepSnap = await getDocs(
+                        query(
+                            collection(firestore, 'projects'),
+                            where('type', '==', 'position_preparation'),
+                            where('positionPreparationPositionId', '==', positionNode.id)
+                        )
+                    );
+
+                    if (prepSnap.empty) {
+                        toast({
+                            title: 'Ажлын байр бэлтгэгдээгүй байна',
+                            description: (
+                                <div className="space-y-1">
+                                    <div>Эхлээд ажлын байрны бэлтгэлийг хангана уу.</div>
+                                    <Link className="underline font-medium" href={`/dashboard/organization/positions/${positionNode.id}`}>
+                                        Ажлын байр бэлтгэх
+                                    </Link>
+                                </div>
+                            ),
+                            variant: 'destructive',
+                        });
+                        return;
+                    }
+
+                    const prepProject = prepSnap.docs[0].data() as any;
+                    const tasksSnap = await getDocs(collection(firestore, 'projects', prepProject.id, 'tasks'));
+                    const tasks = tasksSnap.docs.map((d) => d.data() as Task);
+                    const total = tasks.length;
+                    const done = tasks.filter((t) => t.status === 'DONE').length;
+                    const isPrepared = total > 0 && done === total;
+
+                    if (!isPrepared) {
+                        toast({
+                            title: 'Ажлын байрны бэлтгэл дуусаагүй байна',
+                            description: (
+                                <div className="space-y-1">
+                                    <div>Эхлээд бэлтгэлийн таскуудаа дуусгаад дараа нь ажилтан томилно уу.</div>
+                                    <Link className="underline font-medium" href={`/dashboard/organization/positions/${positionNode.id}`}>
+                                        Ажлын байр бэлтгэх
+                                    </Link>
+                                </div>
+                            ),
+                            variant: 'destructive',
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    toast({
+                        title: 'Алдаа гарлаа',
+                        description: 'Ажлын байрны бэлтгэлийг шалгахад алдаа гарлаа. Дахин оролдоно уу.',
+                        variant: 'destructive',
+                    });
+                    return;
+                }
+
+                setSelectedPosition(positionNode.data as any);
+                setSelectedEmployeeForAppointment((employeeNode.data as any).employee);
+                setIsAppointDialogOpen(true);
+            })();
         },
-        [nodes, toast]
+        [nodes, toast, firestore]
     );
 
     return (

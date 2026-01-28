@@ -355,7 +355,17 @@ function ReferenceItemDialog({
         key: z.string().min(1, 'Түлхүүр үг хоосон байж болохгүй.'),
         label: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
         type: z.enum(['text', 'number', 'date']),
-      })).optional();
+      })).superRefine((fields, ctx) => {
+        const keys = (fields || []).map((f) => (f?.key || '').trim()).filter(Boolean);
+        const dupKeys = keys.filter((k, i) => keys.indexOf(k) !== i);
+        if (dupKeys.length > 0) {
+          const uniqueDup = Array.from(new Set(dupKeys));
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Түлхүүр үг (key) давхардаж байна: ${uniqueDup.join(', ')}`,
+          });
+        }
+      }).optional();
     }
     if (collectionName === 'timeOffRequestTypes') {
       shape.paid = z.boolean().default(false);

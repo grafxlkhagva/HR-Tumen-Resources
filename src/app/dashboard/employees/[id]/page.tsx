@@ -1114,6 +1114,12 @@ export default function EmployeeProfilePage() {
                                 style={{ width: `${employee.questionnaireCompletion || 0}%` }}
                             />
                         </div>
+                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
+                            <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
+                                Анкет руу очих
+                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                            </Link>
+                        </Button>
                     </div>
 
                     {/* Onboarding Progress */}
@@ -1206,7 +1212,7 @@ export default function EmployeeProfilePage() {
                                     value="documents"
                                     className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
                                 >
-                                    Баримт бичиг
+                                    Ажилтны бичиг баримт
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="time-off"

@@ -209,7 +209,7 @@ const SaveButton = ({ isSubmitting }: { isSubmitting: boolean }) => (
 );
 
 // Form Components
-function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: boolean }) {
+function GeneralInfoForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
     const hasDisability = form.watch("hasDisability");
     const hasDriversLicense = form.watch("hasDriversLicense");
     const driverLicenseCategoryItems = ["A", "B", "C", "D", "E", "M"];
@@ -237,6 +237,36 @@ function GeneralInfoForm({ form, isSubmitting }: { form: any, isSubmitting: bool
                         <FormItem>
                             <FormLabel className="text-xs text-slate-500">Регистрийн дугаар</FormLabel>
                             <FormControl><Input placeholder="АА00112233" {...field} value={field.value || ''} className="h-10 font-mono" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="citizenshipCountryId" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Иргэншил</FormLabel>
+                            <Select
+                                value={field.value || '__none__'}
+                                onValueChange={(val) => field.onChange(val === '__none__' ? undefined : val)}
+                            >
+                                <FormControl>
+                                    <SelectTrigger className="h-10">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="max-h-[320px]">
+                                    <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                    {[...(references?.countries || [])]
+                                        .sort((a: ReferenceItem, b: ReferenceItem) => (a.id || '').localeCompare(b.id || ''))
+                                        .map((item: ReferenceItem) => (
+                                        <SelectItem key={item.id} value={item.id}>
+                                            <span className="font-mono text-blue-600 mr-2">{item.id}</span>
+                                            <span className="text-sm">{item.name}</span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                                Иргэншил нь кодтойгоор сонгогдоно (жишээ: 001 - Монгол).
+                            </p>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -1303,7 +1333,7 @@ export default function QuestionnairePage() {
 
                         <TabsContent value="general" className="mt-0">
                             <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
-                                {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} />}
+                                {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
                             </FormSection>
                         </TabsContent>
                         <TabsContent value="contact" className="mt-0">

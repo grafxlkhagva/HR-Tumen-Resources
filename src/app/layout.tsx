@@ -25,7 +25,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 
       </head>
-      <body className={`${inter.variable} font-body antialiased`}>
+      <body suppressHydrationWarning className={`${inter.variable} font-body antialiased`}>
         <FirebaseClientProvider>
           <CompanyThemeProvider>
             {children}

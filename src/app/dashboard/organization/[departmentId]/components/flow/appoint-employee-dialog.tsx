@@ -38,6 +38,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { mn } from 'date-fns/locale';
+import Link from 'next/link';
+
+const ACTION_REQUIREMENTS: Record<string, Array<{ label: string; key: string }>> = {
+    appointment_permanent: [{ label: 'Томилогдсон огноо', key: 'appointmentDate' }],
+    appointment_probation: [
+        { label: 'Туршилтын эхлэх огноо', key: 'probationStartDate' },
+        { label: 'Туршилтын дуусах огноо', key: 'probationEndDate' },
+    ],
+    appointment_reappoint: [{ label: 'Эргүүлэн томилсон огноо', key: 'reappointmentDate' }],
+};
 
 interface AppointEmployeeDialogProps {
     open: boolean;
@@ -382,8 +392,72 @@ export function AppointEmployeeDialog({
         setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
     };
 
+    const showActionNotConfiguredToast = React.useCallback((actionName?: string) => {
+        toast({
+            title: 'Үйлдлийн загвар тохируулаагүй байна',
+            description: (
+                <div className="space-y-1">
+                    <div>
+                        {actionName ? `"${actionName}"` : 'Энэ үйлдэл'} дээр “Ашиглах загвар” тохируулаагүй тул үргэлжлүүлэх боломжгүй.
+                    </div>
+                    <Link className="underline font-medium" href="/dashboard/organization/settings">
+                        Тохируулах хэсэг рүү очих (Үйлдэл tab)
+                    </Link>
+                </div>
+            ),
+            variant: 'destructive',
+        });
+    }, [toast]);
+
+    const handleSelectAppointmentType = React.useCallback(async (type: { id: string; name: string }) => {
+        if (!firestore) return;
+        if (offboardingStatus === 'active' || offboardingStatus === 'checking') return;
+
+        setSelectedActionId(type.id);
+
+        try {
+            const actionSnap = await getDoc(doc(firestore, 'organization_actions', type.id));
+            const cfg = actionSnap.exists() ? (actionSnap.data() as any) : null;
+            if (!cfg?.templateId) {
+                showActionNotConfiguredToast(type.name);
+                return;
+            }
+
+            const reqs = ACTION_REQUIREMENTS[type.id];
+            if (reqs && reqs.length > 0) {
+                const mappings = cfg?.dateMappings || {};
+                const missing = reqs.some((r) => !mappings?.[r.key]);
+                if (missing) {
+                    toast({
+                        title: 'Огнооны талбар тохируулаагүй байна',
+                        description: (
+                            <div className="space-y-1">
+                                <div>Шаардлагатай огнооны талбаруудыг “Үйлдэл” тохиргооноос холбоно уу.</div>
+                                <Link className="underline font-medium" href="/dashboard/organization/settings">
+                                    Тохируулах хэсэг рүү очих (Үйлдэл tab)
+                                </Link>
+                            </div>
+                        ),
+                        variant: 'destructive',
+                    });
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            toast({
+                title: 'Алдаа гарлаа',
+                description: 'Үйлдлийн тохиргоо шалгахад алдаа гарлаа.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        goToNextStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+    }, [firestore, offboardingStatus, showActionNotConfiguredToast, toast, goToNextStep]);
+
     // Navigate to next step based on available data
-    const goToNextStep = (currentStep: number) => {
+    function goToNextStep(currentStep: number) {
         console.log('goToNextStep called:', {
             currentStep,
             salaryStepsLength: salarySteps.length,
@@ -447,7 +521,7 @@ export function AppointEmployeeDialog({
                 handleStartProcess();
             }
         }
-    };
+    }
 
     // Navigate to previous step
     const goToPreviousStep = (currentStep: number) => {
@@ -956,10 +1030,7 @@ export function AppointEmployeeDialog({
                                 ].map((type) => (
                                     <button
                                         key={type.id}
-                                        onClick={() => {
-                                            setSelectedActionId(type.id);
-                                            goToNextStep(WIZARD_STEPS.APPOINTMENT_TYPE);
-                                        }}
+                                        onClick={() => handleSelectAppointmentType(type)}
                                         disabled={offboardingStatus === 'active' || offboardingStatus === 'checking'}
                                         className={cn(
                                             "w-full flex items-center gap-4 p-4 rounded-xl border-2 bg-white transition-all text-left group",

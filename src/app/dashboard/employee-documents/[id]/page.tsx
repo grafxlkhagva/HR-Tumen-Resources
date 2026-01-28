@@ -241,6 +241,17 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
 
     const selectedDocTypeName = form.watch('documentType');
     const selectedDocType = documentTypes?.find(type => type.name === selectedDocTypeName);
+    const uniqueFieldDefs = React.useMemo(() => {
+        const list = selectedDocType?.fields || [];
+        const seen = new Set<string>();
+        return list.filter((f) => {
+            const k = f?.key;
+            if (!k) return false;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+    }, [selectedDocType?.fields]);
 
     return (
         <Card>
@@ -290,16 +301,16 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                             )}
                         />
 
-                        {isEditing && selectedDocType?.fields && selectedDocType.fields.map(fieldDef => (
-                            <DynamicField key={fieldDef.key} form={form} fieldDef={fieldDef} />
+                        {isEditing && uniqueFieldDefs.length > 0 && uniqueFieldDefs.map((fieldDef, idx) => (
+                            <DynamicField key={`${fieldDef.key}-${idx}`} form={form} fieldDef={fieldDef} />
                         ))}
 
-                        {!isEditing && selectedDocType?.fields && (
+                        {!isEditing && uniqueFieldDefs.length > 0 && (
                             <div className="space-y-4">
-                                {selectedDocType.fields.map(fieldDef => {
+                                {uniqueFieldDefs.map((fieldDef, idx) => {
                                     const value = documentData.metadata?.[fieldDef.key];
                                     return (
-                                        <div key={fieldDef.key}>
+                                        <div key={`${fieldDef.key}-${idx}`}>
                                             <p className="text-sm text-muted-foreground">{fieldDef.label}</p>
                                             <p className="font-medium">
                                                 {fieldDef.type === 'date' && value ? new Date(value).toLocaleDateString() : (value || 'Тодорхойгүй')}
@@ -310,7 +321,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                             </div>
                         )}
 
-                        {!isEditing && !selectedDocType?.fields && (
+                        {!isEditing && uniqueFieldDefs.length === 0 && (
                             <p className="text-sm text-muted-foreground text-center py-4">Нэмэлт талбар тохируулаагүй байна.</p>
                         )}
 

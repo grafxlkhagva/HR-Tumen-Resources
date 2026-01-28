@@ -16,7 +16,7 @@ import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X,
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
@@ -43,6 +43,13 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import Link from 'next/link';
+
+const ACTION_REQUIREMENTS: Record<string, Array<{ label: string; key: string }>> = {
+    release_company: [{ label: 'Ажлаас чөлөөлөх огноо', key: 'releaseDate' }],
+    release_employee: [{ label: 'Ажлаас чөлөөлөх огноо', key: 'releaseDate' }],
+    release_temporary: [{ label: 'Түр чөлөөлөх огноо', key: 'releaseDate' }],
+};
 
 interface ReleaseEmployeeDialogProps {
     open: boolean;
@@ -67,6 +74,65 @@ export function ReleaseEmployeeDialog({
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
     const [enableOffboarding, setEnableOffboarding] = React.useState(false);
     const [taskPlanByStage, setTaskPlanByStage] = React.useState<Record<string, Record<string, { selected: boolean; dueDate?: string; ownerId?: string }>>>({});
+
+    const showActionNotConfiguredToast = React.useCallback((actionName?: string) => {
+        toast({
+            title: 'Үйлдлийн загвар тохируулаагүй байна',
+            description: (
+                <div className="space-y-1">
+                    <div>
+                        {actionName ? `"${actionName}"` : 'Энэ үйлдэл'} дээр “Ашиглах загвар” тохируулаагүй тул үргэлжлүүлэх боломжгүй.
+                    </div>
+                    <Link className="underline font-medium" href="/dashboard/organization/settings">
+                        Тохируулах хэсэг рүү очих (Үйлдэл tab)
+                    </Link>
+                </div>
+            ),
+            variant: 'destructive',
+        });
+    }, [toast]);
+
+    const handleSelectReleaseType = React.useCallback(async (type: { id: string; name: string }) => {
+        if (!firestore) return;
+        setSelectedActionId(type.id);
+        try {
+            const actionSnap = await getDoc(doc(firestore, 'organization_actions', type.id));
+            const cfg = actionSnap.exists() ? (actionSnap.data() as any) : null;
+            if (!cfg?.templateId) {
+                showActionNotConfiguredToast(type.name);
+                return;
+            }
+            const reqs = ACTION_REQUIREMENTS[type.id];
+            if (reqs && reqs.length > 0) {
+                const mappings = cfg?.dateMappings || {};
+                const missing = reqs.some((r) => !mappings?.[r.key]);
+                if (missing) {
+                    toast({
+                        title: 'Огнооны талбар тохируулаагүй байна',
+                        description: (
+                            <div className="space-y-1">
+                                <div>Шаардлагатай огнооны талбаруудыг “Үйлдэл” тохиргооноос холбоно уу.</div>
+                                <Link className="underline font-medium" href="/dashboard/organization/settings">
+                                    Тохируулах хэсэг рүү очих (Үйлдэл tab)
+                                </Link>
+                            </div>
+                        ),
+                        variant: 'destructive',
+                    });
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            toast({
+                title: 'Алдаа гарлаа',
+                description: 'Үйлдлийн тохиргоо шалгахад алдаа гарлаа.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        setStep(2);
+    }, [firestore, showActionNotConfiguredToast, toast]);
 
     // Reset state on open
     React.useEffect(() => {
@@ -523,8 +589,7 @@ export function ReleaseEmployeeDialog({
                                             <button
                                                 key={type.id}
                                                 onClick={() => {
-                                                    setSelectedActionId(type.id);
-                                                    setStep(2);
+                                                    handleSelectReleaseType(type);
                                                 }}
                                                 className="flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 bg-white hover:border-rose-600 hover:shadow-xl hover:shadow-rose-50 transition-all text-left group"
                                             >

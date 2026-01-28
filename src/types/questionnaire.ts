@@ -10,6 +10,7 @@ export const generalInfoSchema = z.object({
     lastName: z.string().min(1, "Овог хоосон байж болохгүй."),
     firstName: z.string().min(1, "Нэр хоосон байж болохгүй."),
     registrationNumber: z.string().min(1, "Регистрийн дугаар хоосон байж болохгүй."),
+    citizenshipCountryId: z.string().optional(),
     birthDate: z.date({ required_error: "Төрсөн огноо сонгоно уу." }).nullable(),
     gender: z.string().min(1, "Хүйс сонгоно уу."),
     idCardNumber: z.string().optional(),
