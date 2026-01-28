@@ -1,0 +1,115 @@
+rules_version = '2';
+// Teal HR — Firebase Storage аюулгүй байдлын дүрмүүд.
+// Админ эрх: Firestore employees/(request.auth.uid).role == 'admin'
+// Зам бүрийн тайлбар: docs/FIRESTORE_ROLES.md (Storage хэсэг нэмэгдэж болно).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Default: бүх унших/бичих хориглоно
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Ажилтны гэрэл зураг — админ нэмэх (add-employee), нэвтэрсэн унших
+    match /employee-photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Компаний түүхэн үйл явдлын файл
+    match /company-history/{eventId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Компаний бодлого, видео
+    match /company-policies/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+    match /company-policies-videos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Компаний видеонууд
+    match /company-videos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Хөдөлмөрийн харилцааны гарын үсэгтэй баримт — нэвтэрсэн бичих/унших
+    match /signed_docs/{docId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Ажлын байрны JD файл
+    match /positions/{positionId}/jd/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Компаний лого, cover, гэрчилгээний зураг — нэвтэрсэн хүн бичих (company/edit хуудас нээгдсэн тохиолдолд); унших нээлттэй
+    match /company-assets/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Ажилтны баримт бичиг — эзэмшигч эсвэл админ бичих, нэвтэрсэн унших
+    match /documents/{employeeId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == employeeId
+        || (firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+            && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin')
+      );
+    }
+
+    // Ажилтны түүхэн үйл явдлын файл
+    match /employees/{employeeId}/history-documents/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == employeeId
+        || (firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+            && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin')
+      );
+    }
+
+    // Сонгон шалгаруулалтын зарны файл — унших нээлттэй, бичих админ
+    match /vacancies/{vacancyId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Онооны шагналын зураг
+    match /rewards/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
+    // Дотоод нийтлэл (posts) зураг
+    match /posts/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+  }
+}

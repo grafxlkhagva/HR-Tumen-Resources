@@ -174,6 +174,25 @@ export function InvitationEmailTemplateSection() {
   const watchSubject = form.watch('subject');
   const watchHtmlBody = form.watch('htmlBody');
 
+  const onSubmit = async (data: FormValues) => {
+    if (!templateRef) return;
+    try {
+      await setDocumentNonBlocking(templateRef, data, { merge: true });
+      form.reset(data);
+      toast({
+        title: 'Амжилттай хадгаллаа',
+        description: 'Урилга мэйлын загвар шинэчлэгдлээ.',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Алдаа гарлаа',
+        description: 'Загвар хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Хадгалаагүй өөрчлөлттэй таб/цонх хаах үед анхааруулах
   React.useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -206,25 +225,6 @@ export function InvitationEmailTemplateSection() {
     () => replacePlaceholders(watchHtmlBody || INVITATION_EMAIL_DEFAULT_HTML, INVITATION_EMAIL_PREVIEW_VARS),
     [watchHtmlBody]
   );
-
-  const onSubmit = async (data: FormValues) => {
-    if (!templateRef) return;
-    try {
-      await setDocumentNonBlocking(templateRef, data, { merge: true });
-      form.reset(data);
-      toast({
-        title: 'Амжилттай хадгаллаа',
-        description: 'Урилга мэйлын загвар шинэчлэгдлээ.',
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Алдаа гарлаа',
-        description: 'Загвар хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleReset = () => {
     setResetConfirmOpen(false);

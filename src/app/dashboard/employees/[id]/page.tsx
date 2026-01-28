@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, query, orderBy, where } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -96,11 +97,13 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
 const AvatarWithProgress = ({ 
     employee, 
     size = 120, 
-    onboardingProgress = 0 
+    onboardingProgress = 0,
+    onClick
 }: { 
     employee?: Employee; 
     size?: number; 
     onboardingProgress?: number;
+    onClick?: () => void;
 }) => {
     // Questionnaire progress (inner ring)
     const questionnaireProgress = employee?.questionnaireCompletion || 0;
@@ -187,17 +190,20 @@ const AvatarWithProgress = ({
         </div>
     );
 
-    if (employee) {
+    if (employee && onClick) {
         return (
-            <div className="group relative">
-                <Link href={`/dashboard/employees/${employee.id}/questionnaire`}>
-                    {avatarContent}
-                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium text-[10px] backdrop-blur-[1px] text-center leading-tight px-2">
-                        Анкет харах
-                    </div>
-                </Link>
-            </div>
-        )
+            <button
+                type="button"
+                onClick={onClick}
+                className="group relative focus:outline-none"
+                aria-label="Зураг солих"
+            >
+                {avatarContent}
+                <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium text-[10px] backdrop-blur-[1px] text-center leading-tight px-2">
+                    Зураг солих
+                </div>
+            </button>
+        );
     }
 
     return avatarContent;
@@ -475,10 +481,12 @@ export default function EmployeeProfilePage() {
     const { id } = useParams();
     const router = useRouter();
     const employeeId = Array.isArray(id) ? id[0] : id;
-    const { firestore } = useFirebase();
+    const { firestore, storage } = useFirebase();
     const { toast } = useToast();
     const { user } = useUser();
     const [showAdminDialog, setShowAdminDialog] = React.useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+    const photoInputRef = React.useRef<HTMLInputElement>(null);
     
     // Inline editing state
     const [isEditing, setIsEditing] = React.useState(false);
@@ -543,6 +551,39 @@ export default function EmployeeProfilePage() {
             setIsSaving(false);
         }
     }, [firestore, employeeId, editForm, toast]);
+
+    const handlePhotoSelected = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !firestore || !storage || !employeeId) return;
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Зөвхөн зураг (JPG, PNG, WebP) оруулна уу.' });
+            if (photoInputRef.current) photoInputRef.current.value = '';
+            return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Файл хэт том байна (8MB-с бага байх ёстой).' });
+            if (photoInputRef.current) photoInputRef.current.value = '';
+            return;
+        }
+
+        setIsUploadingPhoto(true);
+        try {
+            const storageRef = ref(storage, `employee-photos/${employeeId}/${Date.now()}-${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+            const empRef = doc(firestore, 'employees', employeeId);
+            await updateDocumentNonBlocking(empRef, { photoURL: url });
+            toast({ title: 'Амжилттай', description: 'Аватар зураг шинэчлэгдлээ' });
+        } catch (error) {
+            console.error('Photo upload error:', error);
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг солиход алдаа гарлаа' });
+        } finally {
+            setIsUploadingPhoto(false);
+            if (photoInputRef.current) photoInputRef.current.value = '';
+        }
+    }, [employeeId, firestore, storage, toast]);
 
     const employeeDocRef = useMemoFirebase(
         () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
@@ -836,12 +877,6 @@ export default function EmployeeProfilePage() {
                                 {employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
                             </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
-                                <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
-                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                                    Анкет
-                                </Link>
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
                                     <Activity className="h-3.5 w-3.5 mr-1.5" />
                                     Life Cycle
@@ -887,7 +922,20 @@ export default function EmployeeProfilePage() {
                         </div>
                         <div className="px-4 pb-4 -mt-10 text-center">
                             <div className="flex justify-center mb-3">
-                                <AvatarWithProgress employee={employee} size={80} onboardingProgress={onboardingProgress} />
+                                <input
+                                    ref={photoInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                    className="hidden"
+                                    onChange={handlePhotoSelected}
+                                    disabled={isUploadingPhoto}
+                                />
+                                <AvatarWithProgress
+                                    employee={employee}
+                                    size={80}
+                                    onboardingProgress={onboardingProgress}
+                                    onClick={() => photoInputRef.current?.click()}
+                                />
                             </div>
                             
                             {isEditing ? (
@@ -1048,12 +1096,6 @@ export default function EmployeeProfilePage() {
                                 style={{ width: `${employee.questionnaireCompletion || 0}%` }}
                             />
                         </div>
-                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
-                            <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
-                                Анкет харах
-                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                            </Link>
-                        </Button>
                     </div>
 
                     {/* Onboarding Progress */}

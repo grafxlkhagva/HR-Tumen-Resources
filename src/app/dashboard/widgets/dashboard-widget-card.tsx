@@ -36,6 +36,11 @@ export interface WidgetData {
     // Posts widget
     postsCount?: number;
     
+    // Employment Relations widget
+    erDocumentsCount?: number;
+    erPendingCount?: number;
+    erTemplatesCount?: number;
+    
     // KPI widgets
     newHiresCount?: number;
     openVacanciesCount?: number;
@@ -89,13 +94,13 @@ export function DashboardWidgetCard({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-700">
                             <div>
-                                <div className="text-3xl font-semibold text-white">{data.activeProjectsCount ?? 0}</div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-white">{data.activeProjectsCount ?? 0}</div>
                                 <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Идэвхтэй төсөл</div>
                             </div>
                             <div className="h-10 w-px bg-slate-700" />
                         </div>
                         <div>
-                            <div className="text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
+                            <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
                             <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Хугацаа хэтэрсэн таск</div>
                         </div>
                     </div>
@@ -106,18 +111,18 @@ export function DashboardWidgetCard({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-700">
                             <div>
-                                <div className="text-3xl font-semibold text-white">{data.activeEmployeesCount ?? 0}</div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-white">{data.activeEmployeesCount ?? 0}</div>
                                 <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нийт идэвхтэй</div>
                             </div>
                             <div className="h-10 w-px bg-slate-700" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <div className="text-2xl font-semibold text-emerald-400">{data.onboardingCount ?? 0}</div>
+                                <div className="text-xl sm:text-2xl font-semibold text-emerald-400">{data.onboardingCount ?? 0}</div>
                                 <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Onboarding</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-semibold text-amber-400">{data.offboardingCount ?? 0}</div>
+                                <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.offboardingCount ?? 0}</div>
                                 <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Offboarding</div>
                             </div>
                         </div>
@@ -144,12 +149,12 @@ export function DashboardWidgetCard({
                 return (
                     <div className="flex items-end gap-6">
                         <div>
-                            <div className="text-3xl font-semibold text-white">{data.presentCount ?? 0}</div>
+                            <div className="text-2xl sm:text-3xl font-semibold text-white">{data.presentCount ?? 0}</div>
                             <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Ажил дээрээ</div>
                         </div>
                         <div className="h-12 w-px bg-slate-700" />
                         <div>
-                            <div className="text-3xl font-semibold text-white">{data.onLeaveCount ?? 0}</div>
+                            <div className="text-2xl sm:text-3xl font-semibold text-white">{data.onLeaveCount ?? 0}</div>
                             <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Чөлөөтэй</div>
                         </div>
                     </div>
@@ -158,7 +163,7 @@ export function DashboardWidgetCard({
             case 'vacation':
                 return (
                     <div>
-                        <div className="text-4xl font-semibold text-amber-500 mb-1">{data.vacationCount ?? 0}</div>
+                        <div className="text-3xl sm:text-4xl font-semibold text-amber-500 mb-1">{data.vacationCount ?? 0}</div>
                         <div className="text-xs text-slate-400 font-medium">ажилтан амарч байна</div>
                     </div>
                 );
@@ -166,7 +171,7 @@ export function DashboardWidgetCard({
             case 'posts':
                 return (
                     <div>
-                        <div className="text-4xl font-semibold text-white mb-1">{data.postsCount ?? 0}</div>
+                        <div className="text-3xl sm:text-4xl font-semibold text-white mb-1">{data.postsCount ?? 0}</div>
                         <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
                     </div>
                 );
@@ -175,7 +180,7 @@ export function DashboardWidgetCard({
                 return (
                     <div className="relative z-10">
                         <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-2xl font-bold text-white">Сонгон шалгаруулалт</div>
+                            <div className="text-xl sm:text-2xl font-bold text-white">Сонгон шалгаруулалт</div>
                         </div>
                         <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Recruitment & Selection</div>
                     </div>
@@ -185,7 +190,7 @@ export function DashboardWidgetCard({
                 return (
                     <div className="relative z-10">
                         <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-3xl font-semibold text-white">Points</div>
+                            <div className="text-2xl sm:text-3xl font-semibold text-white">Points</div>
                         </div>
                         <div className="text-xs text-slate-400 font-medium">Recognition System</div>
                     </div>
@@ -193,11 +198,26 @@ export function DashboardWidgetCard({
 
             case 'er':
                 return (
-                    <div className="relative z-10">
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-2xl font-semibold text-white">Хөдөлмөрийн харилцаа</div>
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Хөдөлмөрийн харилцаа
                         </div>
-                        <div className="text-xs text-slate-400 font-medium">Гэрээ, протокол, баримт</div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.erDocumentsCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Нийт баримт</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-amber-400">{data.erPendingCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Хүлээгдэж буй</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-blue-400">{data.erTemplatesCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Загвар</div>
+                            </div>
+                        </div>
                     </div>
                 );
 
@@ -205,7 +225,7 @@ export function DashboardWidgetCard({
                 return (
                     <div className="relative z-10">
                         <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-2xl font-semibold text-white">Процесс</div>
+                            <div className="text-xl sm:text-2xl font-semibold text-white">Процесс</div>
                         </div>
                         <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
                     </div>
@@ -280,13 +300,14 @@ export function DashboardWidgetCard({
             ref={setNodeRef}
             style={style}
             className={cn(
-                "h-full bg-slate-900 dark:bg-slate-800 border-slate-700 transition-all duration-300 group overflow-hidden",
+                "h-full flex-none bg-slate-900 dark:bg-slate-800 border-slate-700 transition-all duration-300 group overflow-hidden",
                 "hover:bg-slate-800 dark:hover:bg-slate-700 hover:shadow-xl hover:scale-[1.02]",
-                isCompact ? "w-[200px] sm:w-[240px]" : "w-[280px] sm:w-[320px]",
+                // Keep all widgets the same width for consistent UX
+                "w-[240px] sm:w-[280px] lg:w-[320px]",
                 isDragging && "opacity-50 scale-105 shadow-2xl z-50"
             )}
         >
-            <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
+            <CardContent className="p-3 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
                 {/* Decorative gradient background for some widgets */}
                 {getGradientClasses() && (
                     <div className={cn(
@@ -297,18 +318,20 @@ export function DashboardWidgetCard({
                 )}
 
                 {/* Header with title, icon, and actions */}
-                <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10">
                     <div className="flex items-center gap-2">
-                        {/* Drag handle */}
-                        <button
-                            {...attributes}
-                            {...listeners}
-                            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded hover:bg-slate-700/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label="Чирэх"
-                        >
-                            <GripVertical className="h-4 w-4 text-slate-500" />
-                        </button>
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {/* Drag handle (disabled for Employees card) */}
+                        {id !== 'employees' && (
+                            <button
+                                {...attributes}
+                                {...listeners}
+                                className="cursor-grab active:cursor-grabbing -ml-1 rounded hover:bg-slate-700/50 transition-all overflow-hidden w-0 p-0 opacity-0 group-hover:w-6 group-hover:p-1 group-hover:opacity-100"
+                                aria-label="Чирэх"
+                            >
+                                <GripVertical className="h-4 w-4 text-slate-500" />
+                            </button>
+                        )}
+                        <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                             {config.label}
                         </div>
                     </div>
@@ -328,18 +351,21 @@ export function DashboardWidgetCard({
                                 <EyeOff className="h-3.5 w-3.5 text-slate-400" />
                             </Button>
                         )}
-                        <Icon className={cn(
-                            "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
-                            id === 'projects' && "text-violet-400",
-                            id === 'points' && "text-yellow-500",
-                            id === 'recruitment' && "text-blue-400",
-                            id === 'er' && "text-blue-500",
-                            id === 'process' && "text-pink-500",
-                            id === 'newHires' && "text-emerald-400",
-                            id === 'openVacancies' && "text-blue-400",
-                            id === 'pendingTimeOff' && "text-orange-400",
-                            id === 'inactive' && "text-rose-400"
-                        )} />
+                        {/* Top-right icon (disabled for Employees card) */}
+                        {id !== 'employees' && (
+                            <Icon className={cn(
+                                "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
+                                id === 'projects' && "text-violet-400",
+                                id === 'points' && "text-yellow-500",
+                                id === 'recruitment' && "text-blue-400",
+                                id === 'er' && "text-blue-500",
+                                id === 'process' && "text-pink-500",
+                                id === 'newHires' && "text-emerald-400",
+                                id === 'openVacancies' && "text-blue-400",
+                                id === 'pendingTimeOff' && "text-orange-400",
+                                id === 'inactive' && "text-rose-400"
+                            )} />
+                        )}
                     </div>
                 </div>
 

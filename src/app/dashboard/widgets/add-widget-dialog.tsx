@@ -327,9 +327,26 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
 
             case 'er':
                 return (
-                    <div className="relative z-10">
-                        <div className="text-2xl font-semibold text-white mb-1">Хөдөлмөрийн харилцаа</div>
-                        <div className="text-xs text-slate-400 font-medium">Гэрээ, протокол, баримт</div>
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Хөдөлмөрийн харилцаа
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">--</div>
+                                <div className="text-[10px] text-slate-400">Нийт баримт</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-amber-400">--</div>
+                                <div className="text-[10px] text-slate-400">Хүлээгдэж буй</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-blue-400">--</div>
+                                <div className="text-[10px] text-slate-400">Загвар</div>
+                            </div>
+                        </div>
                     </div>
                 );
 

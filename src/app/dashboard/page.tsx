@@ -130,9 +130,7 @@ function isColorDark(hex: string): boolean {
 
 // --- Node Components ---
 
-const AvatarWithProgress = ({ employee }: { employee?: Employee }) => {
-    const size = 72;
-    const avatarSize = 56;
+const AvatarWithProgress = ({ employee, size = 72, avatarSize = 56 }: { employee?: Employee; size?: number; avatarSize?: number }) => {
 
     // Questionnaire Completion (Ring)
     const quesProgress = employee?.questionnaireCompletion || 0;
@@ -461,6 +459,8 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
         'offboarding': { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Чөлөөлөх' },
     };
     const lifecycle = employee?.lifecycleStage ? lifecycleColors[employee.lifecycleStage] : null;
+    const lastName = employee?.lastName || '';
+    const firstName = employee?.firstName || data.name || '';
 
     return (
         <div className="relative group">
@@ -468,36 +468,35 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
             <Handle 
                 type="source" 
                 position={Position.Right} 
-                className="!w-4 !h-4 !bg-amber-500 !border-2 !border-amber-300 !rounded-full !right-[-8px] hover:!bg-amber-600 hover:!scale-125 transition-all cursor-crosshair" 
+                className="!w-3 !h-3 !bg-slate-300 !border-2 !border-white !rounded-full !right-[-6px] hover:!bg-slate-400 transition-all cursor-default" 
             />
             
             {/* Main Card */}
-            <div className="w-72 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80 shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-amber-300">
-                {/* Top accent */}
-                <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-orange-400" />
-                
-                <div className="p-5 space-y-4">
-                    {/* Avatar & Info */}
-                    <div className="flex items-center gap-4">
-                        <div className="relative flex-shrink-0">
-                            <div className="w-16 h-16">
-                                <AvatarWithProgress employee={employee} />
-                            </div>
-                            {/* Status indicator */}
-                            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center shadow-sm">
-                                <UserMinus className="h-3 w-3 text-white" />
-                            </div>
-                        </div>
-                        
-                        {employee && (
-                            <Link href={`/dashboard/employees/${employee.id}`} className="flex-1 min-w-0">
-                                <div className="space-y-1">
-                                    <p className="font-bold text-slate-800 truncate hover:text-amber-700 transition-colors">{data.name}</p>
-                                    <p className="font-mono text-[11px] text-slate-500 bg-white/60 px-2 py-0.5 rounded-md inline-block">{employee.employeeCode}</p>
-                                </div>
-                            </Link>
-                        )}
+            <div className="w-72 rounded-2xl bg-white/95 border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-slate-300">
+                <div className="p-5 flex flex-col items-center text-center gap-3">
+                    {/* Avatar */}
+                    <div className="flex justify-center">
+                        <AvatarWithProgress employee={employee} size={84} avatarSize={64} />
                     </div>
+
+                    {/* Name + code */}
+                    {employee && (
+                        <Link href={`/dashboard/employees/${employee.id}`} className="w-full">
+                            <div className="flex flex-col items-center gap-0.5">
+                                <p className="text-xs font-semibold text-slate-500 truncate leading-none max-w-full">
+                                    {lastName}
+                                </p>
+                                <p className="text-base font-bold text-slate-900 truncate leading-tight max-w-full">
+                                    {firstName}
+                                </p>
+                                {employee.employeeCode && (
+                                    <p className="mt-1 font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
+                                        {employee.employeeCode}
+                                    </p>
+                                )}
+                            </div>
+                        </Link>
+                    )}
 
                     {/* Lifecycle Badge */}
                     {lifecycle && (
@@ -511,14 +510,10 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
                     )}
 
                     {/* Footer */}
-                    <div className="pt-3 border-t border-amber-200/50 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                    <div className="pt-3 border-t border-slate-200/70 w-full flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                             Томилогдоогүй
                         </span>
-                        <div className="flex items-center gap-1 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-[10px] font-semibold">Чирэх</span>
-                            <ArrowLeft className="h-3 w-3 rotate-180" />
-                        </div>
                     </div>
                 </div>
             </div>

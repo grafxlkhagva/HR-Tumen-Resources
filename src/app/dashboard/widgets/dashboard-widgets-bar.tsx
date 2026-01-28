@@ -101,8 +101,8 @@ export function DashboardWidgetsBar({
 
     return (
         <>
-            <div className="h-[20vh] min-h-[160px] border-b bg-slate-50 dark:bg-slate-950 relative">
-                <div className="h-full overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4 scrollbar-hide">
+            <div className="h-[20vh] min-h-[220px] border-b bg-slate-50 dark:bg-slate-950 relative">
+                <div className="h-full overflow-x-auto overflow-y-hidden px-3 sm:px-6 py-3 sm:py-4 min-[1280px]:scrollbar-hide">
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -114,7 +114,7 @@ export function DashboardWidgetsBar({
                             items={order}
                             strategy={horizontalListSortingStrategy}
                         >
-                            <div className="flex gap-4 sm:gap-6 h-full min-w-max">
+                            <div className="flex gap-3 sm:gap-6 h-full min-w-max pr-14 sm:pr-12">
                                 {renderItems()}
                             </div>
                         </SortableContext>
@@ -135,19 +135,20 @@ export function DashboardWidgetsBar({
                     </DndContext>
                 </div>
 
-                {/* Floating Add Button - bottom center */}
+                {/* Floating Add Button: жижиг дэлгэцэнд баруун доод буланд, том дэлгэцэнд доод төвд */}
                 {hasAvailableWidgets && (
                     <Button
                         size="icon"
                         className={cn(
-                            "absolute left-1/2 -translate-x-1/2 -bottom-5 z-20",
-                            "h-10 w-10 rounded-full shadow-lg",
+                            "absolute z-20 rounded-full shadow-lg",
+                            "right-3 bottom-3 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:-bottom-5",
+                            "h-9 w-9 sm:h-10 sm:w-10",
                             "bg-primary hover:bg-primary/90 hover:scale-110",
                             "transition-all duration-200"
                         )}
                         onClick={() => setIsAddDialogOpen(true)}
                     >
-                        <Plus className="h-5 w-5" />
+                        <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                         <span className="sr-only">Widget нэмэх</span>
                     </Button>
                 )}

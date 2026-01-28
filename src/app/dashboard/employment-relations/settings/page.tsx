@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit } from 'lucide-react';
+import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle } from 'lucide-react';
 import { generateDocCode } from '../utils';
 import { DocumentHeader, NumberingConfig } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -262,9 +262,21 @@ export default function ERDocumentTypesSettingsPage() {
                                 Баримт бүрт автомат дугаарлалт: <code className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">ҮСЭГ-ОН-ДУГААР</code>
                             </CardDescription>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                            {documentTypes?.length || 0} төрөл
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                                {documentTypes?.length || 0} төрөл
+                            </Badge>
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    setEditingItem(null);
+                                    setDialogOpen(true);
+                                }}
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Шинэ төрөл
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -275,21 +287,8 @@ export default function ERDocumentTypesSettingsPage() {
                         isLoading={loadingDocTypes}
                         dialogTitle="Баримтын төрөл"
                         onEdit={handleEdit}
-                        hideAddButton={false}
+                        hideAddButton={true}
                         compact={false}
-                        dialogComponent={({ open, onOpenChange }: any) => {
-                            // Override open state with our dialog
-                            React.useEffect(() => {
-                                if (open && !dialogOpen) {
-                                    setEditingItem(null);
-                                    setDialogOpen(true);
-                                }
-                                if (!open && dialogOpen) {
-                                    // Don't close our dialog, we control it
-                                }
-                            }, [open]);
-                            return null; // We render our own dialog below
-                        }}
                     />
                     
                     {/* Тусламж */}
@@ -758,7 +757,7 @@ export default function ERDocumentTypesSettingsPage() {
                         </Tabs>
 
                         <DialogFooter className="mt-6">
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                            <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); setEditingItem(null); }}>
                                 Цуцлах
                             </Button>
                             <Button type="submit" disabled={isSubmitting || !formData.name || !formData.prefix}>
