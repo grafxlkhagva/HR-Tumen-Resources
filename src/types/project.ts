@@ -37,6 +37,7 @@ export interface Project {
   endDate: string;           // ISO date string (YYYY-MM-DD)
   ownerId: string;           // Employee ID who owns this project
   teamMemberIds: string[];   // Багийн гишүүд (Employee IDs)
+  groupIds?: string[];       // Project Groups (tagging) - one project can belong to many groups
   status: ProjectStatus;
   priority: Priority;
   createdAt: Timestamp;
@@ -87,6 +88,16 @@ export interface ProjectMessage {
   senderId: string;         // Employee ID who sent the message
   mentions: string[];       // Mentioned employee IDs (@mention)
   createdAt: Timestamp;
+}
+
+// Project group (tag) – shared across projects
+export interface ProjectGroup {
+  id: string;
+  name: string;
+  color?: string;       // optional hex color (e.g. #6366F1)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;    // employee/user id
 }
 
 // Helper type for creating a new project (without id and timestamps)

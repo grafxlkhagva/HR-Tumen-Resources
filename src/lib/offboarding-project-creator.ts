@@ -106,78 +106,84 @@ export async function createOffboardingProjects(
         ? stageCandidates
         : stageCandidates.filter((s) => (s.tasks || []).length > 0);
 
+    const orderedStages = [...stagesToCreate].sort((a, b) => {
+        const ao = DEFAULT_STAGE_DUE_DATE_OFFSETS[a.id] ?? 999;
+        const bo = DEFAULT_STAGE_DUE_DATE_OFFSETS[b.id] ?? 999;
+        return ao - bo;
+    });
+
     const batch = writeBatch(firestore);
     let writeCount = 0;
     const projectIds: string[] = [];
     let totalTaskCount = 0;
 
-    for (let i = 0; i < stagesToCreate.length; i++) {
-        const stage = stagesToCreate[i];
-        const isFirstStage = i === 0;
+    // Single project (all stages combined)
+    const allPlannedDueDates: string[] = [];
+    const teamMemberSet = new Set<string>([employeeId, initiatorId].filter(Boolean));
+
+    for (const stage of orderedStages) {
         const stagePlanMap = taskPlanByStageId[stage.id];
-
-        // Stage end date = max dueDate among selected tasks, else default offset
-        let stageEndDate: string | null = null;
-        if (stagePlanMap && Object.keys(stagePlanMap).length > 0) {
-            const dueDates = Object.values(stagePlanMap)
-                .map((p) => p?.dueDate)
-                .filter(Boolean) as string[];
-            if (dueDates.length > 0) {
-                stageEndDate = dueDates.reduce((max, cur) => {
-                    const maxD = new Date(max);
-                    const curD = new Date(cur);
-                    return curD > maxD ? cur : max;
-                }, dueDates[0]);
-            }
-        }
-        if (!stageEndDate) {
-            const dueOffset = DEFAULT_STAGE_DUE_DATE_OFFSETS[stage.id] || 30;
-            stageEndDate = format(addDays(new Date(startDate), dueOffset), 'yyyy-MM-dd');
-        }
-
-        // Team members: employee + initiator + any task owners
-        const teamMemberSet = new Set<string>([employeeId, initiatorId].filter(Boolean));
         if (stagePlanMap) {
             Object.values(stagePlanMap).forEach((p) => {
+                if (p?.dueDate) allPlannedDueDates.push(p.dueDate);
                 if (p?.ownerId) teamMemberSet.add(p.ownerId);
             });
         }
-        const teamMemberIds = Array.from(teamMemberSet);
+    }
 
-        const projectRef = doc(collection(firestore, 'projects'));
-        const projectId = projectRef.id;
-        projectIds.push(projectId);
+    let projectEndDate: string | null = null;
+    if (allPlannedDueDates.length > 0) {
+        projectEndDate = allPlannedDueDates.reduce((max, cur) => {
+            const maxD = new Date(max);
+            const curD = new Date(cur);
+            return curD > maxD ? cur : max;
+        }, allPlannedDueDates[0]);
+    }
+    if (!projectEndDate) {
+        const maxOffset = Math.max(...Object.values(DEFAULT_STAGE_DUE_DATE_OFFSETS));
+        projectEndDate = format(addDays(new Date(startDate), maxOffset || 30), 'yyyy-MM-dd');
+    }
 
-        const projectData = {
-            id: projectId,
-            name: `${employeeName} - ${stage.title}`,
-            goal: stage.description,
-            expectedOutcome: `${stage.title} үе шатны бүх ажлуудыг амжилттай гүйцэтгэх`,
-            startDate,
-            endDate: stageEndDate,
-            ownerId: initiatorId,
-            teamMemberIds,
-            status: isFirstStage ? 'ACTIVE' : 'DRAFT',
-            priority: 'MEDIUM',
-            createdAt: now,
-            updatedAt: now,
-            createdBy: initiatorId,
-            type: 'offboarding' as const,
-            offboardingGroupId,
-            offboardingStageId: stage.id,
-            offboardingEmployeeId: employeeId,
-            stageOrder: i + 1,
-        };
+    const teamMemberIds = Array.from(teamMemberSet);
 
-        batch.set(projectRef, projectData);
-        writeCount++;
+    const projectRef = doc(collection(firestore, 'projects'));
+    const projectId = projectRef.id;
+    projectIds.push(projectId);
+
+    const projectData = {
+        id: projectId,
+        name: `${employeeName} - Чөлөөлөх (Offboarding)`,
+        goal: 'Ажлаас гарах үйл явцыг хэрэгжүүлэх',
+        expectedOutcome: 'Offboarding таскууд бүрэн биелсэн байх',
+        startDate,
+        endDate: projectEndDate,
+        ownerId: initiatorId,
+        teamMemberIds,
+        status: 'ACTIVE',
+        priority: 'MEDIUM',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: initiatorId,
+        type: 'offboarding' as const,
+        offboardingGroupId,
+        offboardingStageId: 'combined',
+        offboardingEmployeeId: employeeId,
+        stageOrder: 1,
+    };
+
+    batch.set(projectRef, projectData);
+    writeCount++;
+
+    for (const stage of orderedStages) {
+        const stagePlanMap = taskPlanByStageId[stage.id];
+        const stageFallbackEndDate = format(addDays(new Date(startDate), DEFAULT_STAGE_DUE_DATE_OFFSETS[stage.id] || 30), 'yyyy-MM-dd');
 
         for (const task of stage.tasks || []) {
             const taskRef = doc(collection(firestore, 'projects', projectId, 'tasks'));
             const taskId = taskRef.id;
             const plan = stagePlanMap?.[task.id];
 
-            const taskDueDate = plan?.dueDate || stageEndDate;
+            const taskDueDate = plan?.dueDate || stageFallbackEndDate;
             const ownerId = plan?.ownerId || undefined;
             const assignees = new Set<string>([employeeId]);
             if (ownerId) assignees.add(ownerId);
@@ -185,7 +191,7 @@ export async function createOffboardingProjects(
             const taskData = {
                 id: taskId,
                 projectId,
-                title: task.title,
+                title: `${stage.title}: ${task.title}`,
                 dueDate: taskDueDate,
                 assigneeIds: Array.from(assignees),
                 status: 'TODO' as const,

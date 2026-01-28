@@ -175,39 +175,41 @@ export async function createOnboardingProjects(
     const batch = writeBatch(firestore);
     let writeCount = 0;
 
-    // Create a project for each stage
-    for (let i = 0; i < orderedStages.length; i++) {
-        const stage = orderedStages[i];
-        const isFirstStage = i === 0;
-        
+    // Create a single combined onboarding project (all stages -> 1 project)
+    for (let i = 0; i < 1; i++) {
+        const stage = {
+            id: 'combined',
+            title: 'Чиглүүлэх (Onboarding)',
+            description: 'Дасан зохицох үйл явцыг хэрэгжүүлэх',
+            tasks: [] as OnboardingTask[],
+        };
+        const isFirstStage = true;
+        // (legacy variable) kept for minimal changes
         const stagePlanMap = taskPlanByStageId[stage.id];
 
-        // Calculate end date for this stage (max task dueDate if overrides exist)
+        // Calculate end date for this project (max dueDate among selected tasks; fallback to max stage offset)
         let stageEndDate: string | null = null;
-        if (stagePlanMap && Object.keys(stagePlanMap).length > 0) {
-            const dueDates = Object.values(stagePlanMap)
-                .map(p => p?.dueDate)
-                .filter(Boolean) as string[];
-            if (dueDates.length > 0) {
-                stageEndDate = dueDates.reduce((max, cur) => {
-                    const maxD = new Date(max);
-                    const curD = new Date(cur);
-                    return curD > maxD ? cur : max;
-                }, dueDates[0]);
-            }
+        const dueDates = Object.values(taskPlanByStageId)
+            .flatMap((m) => Object.values(m || {}).map((p) => p?.dueDate).filter(Boolean) as string[]);
+        if (dueDates.length > 0) {
+            stageEndDate = dueDates.reduce((max, cur) => {
+                const maxD = new Date(max);
+                const curD = new Date(cur);
+                return curD > maxD ? cur : max;
+            }, dueDates[0]);
         }
         if (!stageEndDate) {
-            const dueOffset = STAGE_DUE_DATE_OFFSETS[stage.id] || 30;
-            stageEndDate = format(addDays(new Date(startDate), dueOffset), 'yyyy-MM-dd');
+            const maxOffset = Math.max(...Object.values(STAGE_DUE_DATE_OFFSETS));
+            stageEndDate = format(addDays(new Date(startDate), maxOffset || 90), 'yyyy-MM-dd');
         }
         
-        // Build team members for this stage (include task owners if provided)
+        // Build team members (employee + mentor + appointer + any task owners)
         const teamMemberSet = new Set(baseTeamMemberIds);
-        if (stagePlanMap) {
-            Object.values(stagePlanMap).forEach(p => {
+        Object.values(taskPlanByStageId).forEach((m) => {
+            Object.values(m || {}).forEach((p) => {
                 if (p?.ownerId) teamMemberSet.add(p.ownerId);
             });
-        }
+        });
         const teamMemberIds = Array.from(teamMemberSet);
 
         // Create project document
@@ -224,7 +226,7 @@ export async function createOnboardingProjects(
             endDate: stageEndDate,
             ownerId: appointerId,
             teamMemberIds: teamMemberIds,
-            status: isFirstStage ? 'ACTIVE' : 'DRAFT',
+            status: 'ACTIVE',
             priority: 'MEDIUM',
             createdAt: now,
             updatedAt: now,
@@ -232,41 +234,46 @@ export async function createOnboardingProjects(
             // Onboarding-specific fields
             type: 'onboarding',
             onboardingGroupId: onboardingGroupId,
-            onboardingStageId: stage.id,
+            onboardingStageId: 'combined',
             onboardingEmployeeId: employeeId,
-            stageOrder: STAGE_ORDER[stage.id] || i + 1,
+            stageOrder: 1,
         };
 
         batch.set(projectRef, projectData);
         writeCount++;
 
-        // Create tasks for this project
-        for (const task of stage.tasks) {
-            const taskRef = doc(collection(firestore, 'projects', projectId, 'tasks'));
-            const taskId = taskRef.id;
+        // Create tasks (all stages) within this single project
+        for (const s of orderedStages) {
+            const stageFallbackEndDate = format(addDays(new Date(startDate), STAGE_DUE_DATE_OFFSETS[s.id] || 30), 'yyyy-MM-dd');
+            const planMap = taskPlanByStageId[s.id];
 
-            const plan = stagePlanMap?.[task.id];
-            const taskDueDate = plan?.dueDate || stageEndDate;
-            const ownerId = plan?.ownerId || undefined;
-            const assignees = new Set<string>([employeeId]);
-            if (ownerId) assignees.add(ownerId);
-            
-            const taskData = {
-                id: taskId,
-                projectId: projectId,
-                title: task.title,
-                dueDate: taskDueDate,
-                assigneeIds: Array.from(assignees), // Employee + responsible
-                status: 'TODO' as const,
-                priority: 'MEDIUM' as const,
-                createdAt: now,
-                updatedAt: now,
-                ...(ownerId ? { ownerId } : {}),
-                ...(task.policyId ? { policyId: task.policyId } : {}),
-            };
-            batch.set(taskRef, taskData);
-            writeCount++;
-            totalTaskCount++;
+            for (const task of s.tasks) {
+                const taskRef = doc(collection(firestore, 'projects', projectId, 'tasks'));
+                const taskId = taskRef.id;
+
+                const plan = planMap?.[task.id];
+                const taskDueDate = plan?.dueDate || stageFallbackEndDate;
+                const ownerId = plan?.ownerId || undefined;
+                const assignees = new Set<string>([employeeId]);
+                if (ownerId) assignees.add(ownerId);
+
+                const taskData = {
+                    id: taskId,
+                    projectId: projectId,
+                    title: `${s.title}: ${task.title}`,
+                    dueDate: taskDueDate,
+                    assigneeIds: Array.from(assignees), // Employee + responsible
+                    status: 'TODO' as const,
+                    priority: 'MEDIUM' as const,
+                    createdAt: now,
+                    updatedAt: now,
+                    ...(ownerId ? { ownerId } : {}),
+                    ...(task.policyId ? { policyId: task.policyId } : {}),
+                };
+                batch.set(taskRef, taskData);
+                writeCount++;
+                totalTaskCount++;
+            }
         }
     }
 

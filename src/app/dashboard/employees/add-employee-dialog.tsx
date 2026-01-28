@@ -35,6 +35,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+    buildInvitationEmailHtmlFromFields,
+    INVITATION_EMAIL_DEFAULT_FIELDS,
+    INVITATION_EMAIL_DEFAULT_SUBJECT,
+    INVITATION_EMAIL_TEMPLATE_DOC_ID,
+} from '@/lib/invitation-email-template';
 
 const employeeSchema = z.object({
     firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
@@ -87,7 +93,7 @@ function buildDefaultInvitationHtml(v: Record<string, string>): string {
             <p>Таныг <strong>${v.companyName}</strong> байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.</p>
             <div class="credentials-box">
                 <div class="credential-item"><div class="label">Ажилтны код:</div><div class="value">${v.employeeCode}</div></div>
-                <div class="credential-item"><div class="label">Нэвтрэх имэйл:</div><div class="value">${v.loginEmail}</div></div>
+                <div class="credential-item"><div class="label">Нэвтрэх нэр:</div><div class="value">${v.employeeCode}</div></div>
                 <div class="credential-item"><div class="label">Нууц үг:</div><div class="value">${v.password}</div></div>
             </div>
             <div class="warning"><strong>⚠️ Аюулгүй байдал:</strong> Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу.</div>
@@ -107,7 +113,7 @@ function buildDefaultInvitationText(v: Record<string, string>): string {
         `Сайн байна уу, ${v.employeeName},`,
         `Таныг ${v.companyName} байгууллагын HR системд бүртгэлээ.`,
         `Ажилтны код: ${v.employeeCode}`,
-        `Нэвтрэх имэйл: ${v.loginEmail}`,
+        `Нэвтрэх нэр: ${v.employeeCode}`,
         `Нууц үг: ${v.password}`,
         `Системд нэвтрэх: ${v.appUrl}/login`,
         `Бүртгэсэн: ${v.adminName}`,
@@ -206,11 +212,12 @@ export function AddEmployeeDialog({
                 ? window.location.origin 
                 : (process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com');
 
+            // NOTE: системд нэвтрэх нэр = ажилтны код
             const vars: Record<string, string> = {
                 companyName,
                 employeeName,
                 employeeCode,
-                loginEmail,
+                loginEmail: employeeCode,
                 password,
                 appUrl,
                 adminName,
@@ -223,31 +230,34 @@ export function AddEmployeeDialog({
             let emailText: string;
 
             if (firestore) {
-                const templateRef = doc(firestore, 'company', 'invitationEmailTemplate');
+                const templateRef = doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID);
                 const templateSnap = await getDoc(templateRef);
                 if (templateSnap.exists()) {
-                    const t = templateSnap.data();
-                    if (t?.subject && t?.htmlBody) {
-                        emailSubject = replacePlaceholders(t.subject as string);
-                        emailHtml = replacePlaceholders(t.htmlBody as string);
-                        emailText = [
-                            `${companyName} - Нэвтрэх мэдээлэл`,
-                            `Сайн байна уу, ${employeeName},`,
-                            emailHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500),
-                        ].join('\n\n');
-                    } else {
-                        emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
-                        emailHtml = buildDefaultInvitationHtml(vars);
-                        emailText = buildDefaultInvitationText(vars);
-                    }
+                    const t = templateSnap.data() as any;
+                    const subjectTemplate = (t?.subject as string | undefined) || INVITATION_EMAIL_DEFAULT_SUBJECT;
+
+                    // Priority:
+                    // 1) htmlBody (legacy/advanced)
+                    // 2) fields -> generate htmlBody
+                    // 3) fallback default
+                    const htmlTemplate: string =
+                        (typeof t?.htmlBody === 'string' && t.htmlBody.trim())
+                            ? (t.htmlBody as string)
+                            : (t?.fields
+                                ? buildInvitationEmailHtmlFromFields(t.fields)
+                                : buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS));
+
+                    emailSubject = replacePlaceholders(subjectTemplate);
+                    emailHtml = replacePlaceholders(htmlTemplate);
+                    emailText = buildDefaultInvitationText(vars);
                 } else {
-                    emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
-                    emailHtml = buildDefaultInvitationHtml(vars);
+                    emailSubject = replacePlaceholders(INVITATION_EMAIL_DEFAULT_SUBJECT);
+                    emailHtml = replacePlaceholders(buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS));
                     emailText = buildDefaultInvitationText(vars);
                 }
             } else {
-                emailSubject = `Таны нэвтрэх мэдээлэл - ${companyName}`;
-                emailHtml = buildDefaultInvitationHtml(vars);
+                emailSubject = replacePlaceholders(INVITATION_EMAIL_DEFAULT_SUBJECT);
+                emailHtml = replacePlaceholders(buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS));
                 emailText = buildDefaultInvitationText(vars);
             }
 

@@ -40,6 +40,7 @@ export type Position = {
     workScheduleId?: string;
     companyType?: 'main' | 'subsidiary'; // main company or subsidiary
     subsidiaryName?: string; // Name of subsidiary if companyType is 'subsidiary'
+    workingCondition?: WorkingCondition;
     isActive?: boolean;
     createdAt?: string;
     canApproveAttendance?: boolean;
@@ -130,6 +131,13 @@ export type Position = {
         currency: string;
     };
 };
+
+export type WorkingCondition =
+    | 'NORMAL'
+    | 'NON_STANDARD'
+    | 'HEAVY'
+    | 'HAZARDOUS'
+    | 'EXTREMELY_HAZARDOUS';
 
 export type BenefitReference = {
     id: string;

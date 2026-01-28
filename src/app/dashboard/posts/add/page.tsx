@@ -50,7 +50,7 @@ type PostFormValues = z.infer<typeof postSchema>;
 
 export default function AddPostPage() {
   const router = useRouter();
-  const { firestore } = useFirebase();
+  const { firestore, firebaseApp } = useFirebase();
   const { employeeProfile } = useEmployeeProfile();
   const { toast } = useToast();
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
@@ -89,7 +89,10 @@ export default function AddPostPage() {
     setIsUploading(true);
     const imageUrls: string[] = [];
     if (imageFiles.length > 0) {
-        const storage = getStorage();
+        if (!firebaseApp) {
+          throw new Error('Firebase app init хийгдээгүй байна.');
+        }
+        const storage = getStorage(firebaseApp);
         for (const file of imageFiles) {
             const storageRef = ref(storage, `posts/${Date.now()}-${file.name}`);
             await uploadBytes(storageRef, file);

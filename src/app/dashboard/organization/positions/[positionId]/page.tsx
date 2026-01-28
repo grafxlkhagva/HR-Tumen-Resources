@@ -224,7 +224,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         const checks = {
             hasBasicInfo: !!position.title?.trim() && !!position.code?.trim(),
             hasReporting: !!position.departmentId && !!position.reportsToId,
-            hasAttributes: !!position.levelId && !!position.jobCategoryId && !!position.employmentTypeId && !!position.workScheduleId,
+            hasAttributes: !!position.levelId && !!position.jobCategoryId && !!position.employmentTypeId && !!position.workScheduleId && !!position.workingCondition,
             hasSettings: !!position.budget?.yearlyBudget && position.budget.yearlyBudget > 0,
         };
         return { ...checks, isComplete: Object.values(checks).every(Boolean) };

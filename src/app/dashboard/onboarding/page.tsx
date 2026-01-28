@@ -324,40 +324,76 @@ export default function OnboardingDashboardPage() {
                                             </div>
                                             <Progress value={group.overallProgress} className="h-2 bg-slate-100 rounded-full" />
 
-                                            {/* 4 Stages Preview */}
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {STAGE_ORDER.map((stageId, i) => {
-                                                    const project = group.projects.find(p => p.onboardingStageId === stageId);
-                                                    const projectTaskCounts = project ? taskCounts[project.id] : null;
-                                                    const stageProgress = projectTaskCounts && projectTaskCounts.total > 0
-                                                        ? Math.round((projectTaskCounts.completed / projectTaskCounts.total) * 100)
-                                                        : 0;
-                                                    const isCompleted = stageProgress === 100;
-                                                    const isActive = project?.status === 'ACTIVE';
+                                            {/* Stages Preview (legacy 4 stages) / Single combined */}
+                                            {group.projects.some(p => STAGE_ORDER.includes(p.onboardingStageId || '')) ? (
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {STAGE_ORDER.map((stageId) => {
+                                                        const project = group.projects.find(p => p.onboardingStageId === stageId);
+                                                        const projectTaskCounts = project ? taskCounts[project.id] : null;
+                                                        const stageProgress = projectTaskCounts && projectTaskCounts.total > 0
+                                                            ? Math.round((projectTaskCounts.completed / projectTaskCounts.total) * 100)
+                                                            : 0;
+                                                        const isCompleted = stageProgress === 100;
+                                                        const isActive = project?.status === 'ACTIVE';
 
-                                                    return (
-                                                        <div key={stageId} className="space-y-1.5">
-                                                            <div className="flex h-1 gap-0.5 rounded-full overflow-hidden bg-slate-100">
-                                                                <div 
-                                                                    className={cn(
-                                                                        "h-full transition-all duration-500",
-                                                                        isCompleted ? "bg-emerald-500" :
-                                                                            isActive ? "bg-indigo-500" : "bg-slate-200"
-                                                                    )} 
-                                                                    style={{ width: `${stageProgress}%` }}
-                                                                />
+                                                        return (
+                                                            <div key={stageId} className="space-y-1.5">
+                                                                <div className="flex h-1 gap-0.5 rounded-full overflow-hidden bg-slate-100">
+                                                                    <div
+                                                                        className={cn(
+                                                                            "h-full transition-all duration-500",
+                                                                            isCompleted ? "bg-emerald-500" :
+                                                                                isActive ? "bg-indigo-500" : "bg-slate-200"
+                                                                        )}
+                                                                        style={{ width: `${stageProgress}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "text-[9px] font-bold uppercase truncate block",
+                                                                    isCompleted ? "text-emerald-600" :
+                                                                        isActive ? "text-indigo-600" : "text-slate-400"
+                                                                )}>
+                                                                    {STAGE_LABELS[stageId]}
+                                                                </span>
                                                             </div>
-                                                            <span className={cn(
-                                                                "text-[9px] font-bold uppercase truncate block",
-                                                                isCompleted ? "text-emerald-600" :
-                                                                    isActive ? "text-indigo-600" : "text-slate-400"
-                                                            )}>
-                                                                {STAGE_LABELS[stageId]}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {(() => {
+                                                        const project = group.projects[0];
+                                                        const projectTaskCounts = project ? taskCounts[project.id] : null;
+                                                        const progress = projectTaskCounts && projectTaskCounts.total > 0
+                                                            ? Math.round((projectTaskCounts.completed / projectTaskCounts.total) * 100)
+                                                            : 0;
+                                                        const isCompleted = progress === 100;
+                                                        const isActive = project?.status === 'ACTIVE';
+
+                                                        return (
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex h-1 gap-0.5 rounded-full overflow-hidden bg-slate-100">
+                                                                    <div
+                                                                        className={cn(
+                                                                            "h-full transition-all duration-500",
+                                                                            isCompleted ? "bg-emerald-500" :
+                                                                                isActive ? "bg-indigo-500" : "bg-slate-200"
+                                                                        )}
+                                                                        style={{ width: `${progress}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "text-[9px] font-bold uppercase truncate block",
+                                                                    isCompleted ? "text-emerald-600" :
+                                                                        isActive ? "text-indigo-600" : "text-slate-400"
+                                                                )}>
+                                                                    Нэгдсэн
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Action */}

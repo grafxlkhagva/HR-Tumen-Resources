@@ -19,7 +19,7 @@ import {
     CheckCircle2,
     Building2
 } from 'lucide-react';
-import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule } from '../../../types';
+import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule, WorkingCondition } from '../../../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,15 @@ import { ValidationIndicator } from './validation-indicator';
 import { generateCode } from '@/lib/code-generator';
 import { Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+
+const WORKING_CONDITION_LABELS: Record<WorkingCondition, string> = {
+    NORMAL: 'Хэвийн',
+    NON_STANDARD: 'Хэвийн бус',
+    HEAVY: 'Хүнд',
+    HAZARDOUS: 'Хортой / Аюултай',
+    EXTREMELY_HAZARDOUS: 'Онцгой хортой / Онцгой аюултай',
+};
 
 interface Subsidiary {
     name: string;
@@ -83,6 +92,7 @@ export function PositionOverview({
     const { toast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUpdatingSchedule, setIsUpdatingSchedule] = useState(false);
 
     const posCodeConfigRef = useMemoFirebase(
         ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
@@ -116,6 +126,7 @@ export function PositionOverview({
         jobCategoryId: position.jobCategoryId || '',
         employmentTypeId: position.employmentTypeId || '',
         workScheduleId: position.workScheduleId || '',
+        workingCondition: (position.workingCondition as WorkingCondition | undefined) ?? '__none__',
         companyType: position.companyType || 'main',
         subsidiaryName: position.subsidiaryName || '',
         permissions: {
@@ -145,6 +156,7 @@ export function PositionOverview({
                 jobCategoryId: formData.jobCategoryId,
                 employmentTypeId: formData.employmentTypeId,
                 workScheduleId: formData.workScheduleId,
+                workingCondition: formData.workingCondition === '__none__' ? null : formData.workingCondition,
                 companyType: formData.companyType,
                 subsidiaryName: formData.companyType === 'subsidiary' ? formData.subsidiaryName : '',
                 permissions: formData.permissions,
@@ -178,6 +190,7 @@ export function PositionOverview({
             jobCategoryId: position.jobCategoryId || '',
             employmentTypeId: position.employmentTypeId || '',
             workScheduleId: position.workScheduleId || '',
+            workingCondition: (position.workingCondition as WorkingCondition | undefined) ?? '__none__',
             companyType: position.companyType || 'main',
             subsidiaryName: position.subsidiaryName || '',
             permissions: {
@@ -313,8 +326,59 @@ export function PositionOverview({
                         />
                         <InfoRow 
                             label="Цагийн хуваарь" 
-                            value={schedule?.name || 'Тохируулаагүй'} 
-                            isEmpty={!schedule}
+                            value={
+                                <div className="flex items-center justify-end gap-2">
+                                    <Select
+                                        value={(position.workScheduleId as string | undefined) || '__none__'}
+                                        onValueChange={async (val) => {
+                                            if (!firestore) return;
+                                            setIsUpdatingSchedule(true);
+                                            try {
+                                                await updateDoc(doc(firestore, 'positions', position.id), {
+                                                    workScheduleId: val === '__none__' ? null : val,
+                                                    updatedAt: new Date().toISOString(),
+                                                });
+                                                toast({ title: 'Цагийн хуваарь шинэчлэгдлээ' });
+                                            } catch (e) {
+                                                console.error(e);
+                                                toast({ variant: 'destructive', title: 'Алдаа', description: 'Цагийн хуваарь шинэчлэхэд алдаа гарлаа.' });
+                                            } finally {
+                                                setIsUpdatingSchedule(false);
+                                            }
+                                        }}
+                                        disabled={isUpdatingSchedule}
+                                    >
+                                        <SelectTrigger className="h-8 w-44">
+                                            <SelectValue placeholder="Сонгох" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                            {schedules
+                                                .filter((s: any) => s?.isActive !== false)
+                                                .map((s) => (
+                                                    <SelectItem key={s.id} value={s.id}>
+                                                        {s.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
+                                        <Link href="/dashboard/settings/time-off">
+                                            Тохиргоо
+                                        </Link>
+                                    </Button>
+                                </div>
+                            }
+                            isEmpty={!position.workScheduleId}
+                        />
+                        <InfoRow
+                            label="Хөдөлмөрийн нөхцөл"
+                            value={
+                                position.workingCondition
+                                    ? (WORKING_CONDITION_LABELS[position.workingCondition as WorkingCondition] || position.workingCondition)
+                                    : 'Тохируулаагүй'
+                            }
+                            isEmpty={!position.workingCondition}
                         />
                     </div>
 
@@ -561,6 +625,23 @@ export function PositionOverview({
                             <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
                             <SelectContent>
                                 {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Хөдөлмөрийн нөхцөл</label>
+                        <Select
+                            value={formData.workingCondition || '__none__'}
+                            onValueChange={(val) => handleFieldUpdate('workingCondition', val)}
+                            disabled={position.isApproved}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                {Object.entries(WORKING_CONDITION_LABELS).map(([k, label]) => (
+                                    <SelectItem key={k} value={k}>{label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

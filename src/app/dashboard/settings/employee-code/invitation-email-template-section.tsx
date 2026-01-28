@@ -37,101 +37,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-const INVITATION_EMAIL_TEMPLATE_REF_ID = 'invitationEmailTemplate';
-
-export const INVITATION_EMAIL_DEFAULT_SUBJECT = 'Таны нэвтрэх мэдээлэл - {{companyName}}';
-
-export const INVITATION_EMAIL_DEFAULT_HTML = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-        .credentials-box { background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .credential-item { margin: 15px 0; }
-        .label { font-weight: bold; color: #6b7280; font-size: 14px; }
-        .value { font-size: 18px; color: #111827; font-family: monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
-        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>{{companyName}}</h1>
-            <p>Нэвтрэх мэдээлэл</p>
-        </div>
-        <div class="content">
-            <p>Сайн байна уу, <strong>{{employeeName}}</strong>,</p>
-            
-            <p>Таныг <strong>{{companyName}}</strong> байгууллагын HR системд бүртгэлээ. Доорх мэдээлэл ашиглан системд нэвтрэх боломжтой.</p>
-            
-            <div class="credentials-box">
-                <div class="credential-item">
-                    <div class="label">Ажилтны код:</div>
-                    <div class="value">{{employeeCode}}</div>
-                </div>
-                <div class="credential-item">
-                    <div class="label">Нэвтрэх имэйл:</div>
-                    <div class="value">{{loginEmail}}</div>
-                </div>
-                <div class="credential-item">
-                    <div class="label">Нууц үг:</div>
-                    <div class="value">{{password}}</div>
-                </div>
-            </div>
-            
-            <div class="warning">
-                <strong>⚠️ Аюулгүй байдал:</strong> Энэ мэдээллийг хадгалж, хэнтэй ч хуваалцахгүй байхыг анхаарна уу. Нэвтрэх мэдээллээ нууц үгээр солихыг зөвлөж байна.
-            </div>
-            
-            <p>Системд нэвтрэх: <a href="{{appUrl}}/login">{{appUrl}}/login</a></p>
-            
-            <p>Асуулт байвал HR багтай холбогдоно уу.</p>
-            
-            <div class="footer">
-                <p>Энэ мэйл автоматаар илгээгдсэн. Хариу бичих шаардлагагүй.</p>
-                <p>Бүртгэсэн: {{adminName}}</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
-
-export const INVITATION_EMAIL_PLACEHOLDERS = [
-  { key: '{{companyName}}', label: 'Байгууллагын нэр' },
-  { key: '{{employeeName}}', label: 'Ажилтны нэр' },
-  { key: '{{employeeCode}}', label: 'Ажилтны код' },
-  { key: '{{loginEmail}}', label: 'Нэвтрэх имэйл' },
-  { key: '{{password}}', label: 'Нууц үг' },
-  { key: '{{appUrl}}', label: 'Системийн URL (жишээ: https://app.example.com)' },
-  { key: '{{adminName}}', label: 'Бүртгэсэн админы нэр' },
-];
-
-/** Жишээ утгууд — урьдчилан харах болон тайлбарт ашиглана */
-export const INVITATION_EMAIL_PREVIEW_VARS: Record<string, string> = {
-  companyName: 'Жишээ байгууллага',
-  employeeName: 'Бат-Эрдэнэ',
-  employeeCode: 'EMP0001',
-  loginEmail: 'EMP0001@example.com',
-  password: '••••••••',
-  appUrl: 'https://hr.example.com',
-  adminName: 'Системийн админ',
-};
-
-function replacePlaceholders(text: string, vars: Record<string, string>): string {
-  return Object.entries(vars).reduce(
-    (out, [k, v]) => out.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v),
-    text
-  );
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  buildInvitationEmailHtmlFromFields,
+  INVITATION_EMAIL_DEFAULT_FIELDS,
+  INVITATION_EMAIL_DEFAULT_SUBJECT,
+  INVITATION_EMAIL_PLACEHOLDERS,
+  INVITATION_EMAIL_PREVIEW_VARS,
+  INVITATION_EMAIL_TEMPLATE_DOC_ID,
+  InvitationEmailTemplateFields,
+  replacePlaceholders,
+} from '@/lib/invitation-email-template';
 
 const schema = z.object({
   subject: z.string().min(1, 'Гарчиг хоосон байж болохгүй.'),
+  fields: z.object({
+    headerTitle: z.string().min(1, 'Header title хоосон байж болохгүй.'),
+    headerSubtitle: z.string().min(1, 'Header subtitle хоосон байж болохгүй.'),
+    introText: z.string().min(1, 'Танилцуулга текст хоосон байж болохгүй.'),
+    securityTitle: z.string().min(1, 'Анхааруулгын гарчиг хоосон байж болохгүй.'),
+    securityText: z.string().min(1, 'Анхааруулгын текст хоосон байж болохгүй.'),
+    helpText: z.string().min(1, 'Тусламжийн текст хоосон байж болохгүй.'),
+    footerAutoText: z.string().min(1, 'Footer текст хоосон байж болохгүй.'),
+    footerAdminLabel: z.string().min(1, 'Footer admin label хоосон байж болохгүй.'),
+  }),
+  /** Нарийвчилсан: хүсвэл шууд HTML засна */
   htmlBody: z.string().min(1, 'HTML бие хоосон байж болохгүй.'),
 });
 
@@ -140,14 +70,17 @@ type FormValues = z.infer<typeof schema>;
 export type InvitationEmailTemplate = {
   subject: string;
   htmlBody: string;
+  fields?: InvitationEmailTemplateFields;
+  templateVersion?: number;
 };
 
 export function InvitationEmailTemplateSection() {
   const { toast } = useToast();
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
+  const [mode, setMode] = React.useState<'fields' | 'html'>('fields');
   const templateRef = useMemoFirebase(
     ({ firestore }) =>
-      firestore ? doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_REF_ID) : null,
+      firestore ? doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID) : null,
     []
   );
 
@@ -156,9 +89,14 @@ export function InvitationEmailTemplateSection() {
   const defaultValues: FormValues = React.useMemo(
     () => ({
       subject: template?.subject ?? INVITATION_EMAIL_DEFAULT_SUBJECT,
-      htmlBody: template?.htmlBody ?? INVITATION_EMAIL_DEFAULT_HTML,
+      fields: (template?.fields ?? INVITATION_EMAIL_DEFAULT_FIELDS) as InvitationEmailTemplateFields,
+      htmlBody:
+        template?.htmlBody ??
+        buildInvitationEmailHtmlFromFields(
+          (template?.fields ?? INVITATION_EMAIL_DEFAULT_FIELDS) as InvitationEmailTemplateFields
+        ),
     }),
-    [template?.subject, template?.htmlBody]
+    [template?.subject, template?.htmlBody, template?.fields]
   );
 
   const form = useForm<FormValues>({
@@ -168,17 +106,36 @@ export function InvitationEmailTemplateSection() {
 
   React.useEffect(() => {
     form.reset(defaultValues);
-  }, [defaultValues.subject, defaultValues.htmlBody, form]);
+  }, [defaultValues.subject, defaultValues.htmlBody, defaultValues.fields, form]);
 
   const { isSubmitting, isDirty } = form.formState;
   const watchSubject = form.watch('subject');
+  const watchFields = form.watch('fields');
   const watchHtmlBody = form.watch('htmlBody');
 
   const onSubmit = async (data: FormValues) => {
     if (!templateRef) return;
     try {
-      await setDocumentNonBlocking(templateRef, data, { merge: true });
-      form.reset(data);
+      if (mode === 'fields') {
+        const htmlBody = buildInvitationEmailHtmlFromFields(data.fields);
+        const payload: InvitationEmailTemplate = {
+          subject: data.subject,
+          fields: data.fields,
+          htmlBody,
+          templateVersion: 2,
+        };
+        await setDocumentNonBlocking(templateRef, payload, { merge: true });
+        form.reset({ ...data, htmlBody });
+      } else {
+        // HTML mode: зөвхөн subject + htmlBody хадгална (хуучин загвартай нийцтэй)
+        const payload: InvitationEmailTemplate = {
+          subject: data.subject,
+          htmlBody: data.htmlBody,
+          templateVersion: template?.templateVersion ?? 1,
+        };
+        await setDocumentNonBlocking(templateRef, payload, { merge: true });
+        form.reset(data);
+      }
       toast({
         title: 'Амжилттай хадгаллаа',
         description: 'Урилга мэйлын загвар шинэчлэгдлээ.',
@@ -218,19 +175,31 @@ export function InvitationEmailTemplateSection() {
   }, [form, onSubmit]);
 
   const previewSubject = React.useMemo(
-    () => replacePlaceholders(watchSubject || INVITATION_EMAIL_DEFAULT_SUBJECT, INVITATION_EMAIL_PREVIEW_VARS),
+    () =>
+      replacePlaceholders(
+        watchSubject || INVITATION_EMAIL_DEFAULT_SUBJECT,
+        INVITATION_EMAIL_PREVIEW_VARS
+      ),
     [watchSubject]
   );
   const previewHtml = React.useMemo(
-    () => replacePlaceholders(watchHtmlBody || INVITATION_EMAIL_DEFAULT_HTML, INVITATION_EMAIL_PREVIEW_VARS),
-    [watchHtmlBody]
+    () => {
+      const htmlTemplate =
+        mode === 'fields'
+          ? buildInvitationEmailHtmlFromFields(watchFields || INVITATION_EMAIL_DEFAULT_FIELDS)
+          : (watchHtmlBody ||
+              buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS));
+      return replacePlaceholders(htmlTemplate, INVITATION_EMAIL_PREVIEW_VARS);
+    },
+    [mode, watchFields, watchHtmlBody]
   );
 
   const handleReset = () => {
     setResetConfirmOpen(false);
     form.reset({
       subject: INVITATION_EMAIL_DEFAULT_SUBJECT,
-      htmlBody: INVITATION_EMAIL_DEFAULT_HTML,
+      fields: INVITATION_EMAIL_DEFAULT_FIELDS,
+      htmlBody: buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS),
     });
     toast({
       title: 'Үндсэн загвар руу буцаалаа',
@@ -260,6 +229,60 @@ export function InvitationEmailTemplateSection() {
 
   return (
     <>
+    {/* Бодит харагдах байдал — жишээ өгөгдлөөр урьдчилан харах */}
+    <Card className={cn('shadow-premium border-slate-200/60')}>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Eye className="h-4 w-4" />
+            Бодит харагдах байдал
+          </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const blob = new Blob([previewHtml], { type: 'text/html;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank', 'noopener,noreferrer');
+              setTimeout(() => URL.revokeObjectURL(url), 5000);
+            }}
+            className="shrink-0"
+          >
+            <ExternalLink className="h-4 w-4 mr-1.5" />
+            Шинэ цонхонд нээх
+          </Button>
+        </div>
+        <CardDescription>
+          Одоогийн загвар жишээ өгөгдлөөр хэрхэн харагдахыг доор харуулна. “Текст талбарууд” эсвэл “HTML” засахад энд
+          шинэчлэгдэнэ.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Мэйлын гарчиг (жишээ)</p>
+          <p className="text-sm font-medium text-foreground break-all rounded-md bg-muted/50 px-3 py-2">
+            {previewSubject}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Мэйлын бие (жишээ)</p>
+          <div className="rounded-lg border bg-white overflow-hidden" style={{ minHeight: 360 }}>
+            <iframe
+              title="Урилга мэйл урьдчилан харах"
+              srcDoc={previewHtml}
+              className="w-full border-0"
+              style={{ height: 480, display: 'block' }}
+              sandbox="allow-same-origin"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Жишээ утгууд: {Object.entries(INVITATION_EMAIL_PREVIEW_VARS).map(([k, v]) => `${k}=${v}`).join(', ')}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+
     <Card className="shadow-premium border-slate-200/60">
       <CardHeader>
         <div className="flex items-center gap-2 flex-wrap">
@@ -281,6 +304,155 @@ export function InvitationEmailTemplateSection() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="fields">Текст талбарууд</TabsTrigger>
+                <TabsTrigger value="html">HTML (нарийвчилсан)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="fields" className="pt-4 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fields.headerTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Header title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="{{companyName}}" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fields.headerSubtitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Header subtitle</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Нэвтрэх мэдээлэл" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="fields.introText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Танилцуулга текст</FormLabel>
+                      <FormControl>
+                        <Textarea className="min-h-[110px]" {...field} />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Орлуулагч: {INVITATION_EMAIL_PLACEHOLDERS.map((p) => p.key).join(', ')}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fields.securityTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Анхааруулгын гарчиг</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fields.securityText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Анхааруулгын текст</FormLabel>
+                        <FormControl>
+                          <Textarea className="min-h-[90px]" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="fields.helpText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Тусламжийн текст</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fields.footerAutoText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Footer автоматаар</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fields.footerAdminLabel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Footer “Бүртгэсэн:”</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="html" className="pt-4 space-y-6">
+                <FormField
+                  control={form.control}
+                  name="htmlBody"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>HTML бие</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="HTML форматаар мэйлын бие..."
+                          className="min-h-[320px] font-mono text-sm"
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Орлуулагч: {INVITATION_EMAIL_PLACEHOLDERS.map((p) => p.key).join(', ')}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+
             <FormField
               control={form.control}
               name="subject"
@@ -290,27 +462,6 @@ export function InvitationEmailTemplateSection() {
                   <FormControl>
                     <Input placeholder={INVITATION_EMAIL_DEFAULT_SUBJECT} {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="htmlBody"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>HTML бие</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="HTML форматаар мэйлын бие..."
-                      className="min-h-[320px] font-mono text-sm"
-                      {...field}
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Орлуулагч: {INVITATION_EMAIL_PLACEHOLDERS.map((p) => p.key).join(', ')}
-                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -354,59 +505,6 @@ export function InvitationEmailTemplateSection() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-
-    {/* Бодит харагдах байдал — жишээ өгөгдлөөр урьдчилан харах */}
-    <Card className={cn('shadow-premium border-slate-200/60 mt-6')}>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Eye className="h-4 w-4" />
-            Бодит харагдах байдал
-          </CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const blob = new Blob([previewHtml], { type: 'text/html;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank', 'noopener,noreferrer');
-              setTimeout(() => URL.revokeObjectURL(url), 5000);
-            }}
-            className="shrink-0"
-          >
-            <ExternalLink className="h-4 w-4 mr-1.5" />
-            Шинэ цонхонд нээх
-          </Button>
-        </div>
-        <CardDescription>
-          Одоогийн загвар жишээ өгөгдлөөр хэрхэн харагдахыг доор харуулна. Гарчиг болон HTML биеийг өөрчлөхөд энд шинэчлэгдэнэ.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Мэйлын гарчиг (жишээ)</p>
-          <p className="text-sm font-medium text-foreground break-all rounded-md bg-muted/50 px-3 py-2">
-            {previewSubject}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Мэйлын бие (жишээ)</p>
-          <div className="rounded-lg border bg-white overflow-hidden" style={{ minHeight: 360 }}>
-            <iframe
-              title="Урилга мэйл урьдчилан харах"
-              srcDoc={previewHtml}
-              className="w-full border-0"
-              style={{ height: 480, display: 'block' }}
-              sandbox="allow-same-origin"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Жишээ утгууд: {Object.entries(INVITATION_EMAIL_PREVIEW_VARS).map(([k, v]) => `${k}=${v}`).join(', ')}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
   </>
   );
 }

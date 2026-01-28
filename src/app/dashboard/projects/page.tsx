@@ -17,6 +17,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     FolderKanban,
     Plus,
@@ -35,6 +38,7 @@ import {
     LayoutGrid,
     List,
     Pencil,
+    Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -50,10 +54,13 @@ import {
     PROJECT_STATUS_COLORS,
     PRIORITY_LABELS,
     PRIORITY_COLORS,
+    ProjectGroup,
 } from '@/types/project';
 import { Employee } from '@/types';
 import { CreateProjectDialog } from './components/create-project-dialog';
 import { EditProjectDialog } from './components/edit-project-dialog';
+import { ProjectGroupsManagerDialog } from './components/project-groups-manager-dialog';
+import { AssignProjectGroupsDialog } from './components/assign-project-groups-dialog';
 
 export default function ProjectsPage() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +68,9 @@ export default function ProjectsPage() {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [editingProject, setEditingProject] = useState<Project | null>(null);
+    const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const [isGroupsManagerOpen, setIsGroupsManagerOpen] = useState(false);
+    const [assignGroupsProject, setAssignGroupsProject] = useState<Project | null>(null);
 
     const { firestore } = useFirebase();
 
@@ -73,6 +83,17 @@ export default function ProjectsPage() {
     );
     const { data: projects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
 
+    // Fetch project groups
+    const groupsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null,
+        [firestore]
+    );
+    const { data: groups, isLoading: isLoadingGroups } = useCollection<ProjectGroup>(groupsQuery as any);
+
+    const groupsById = useMemo(() => {
+        return new Map((groups || []).map(g => [g.id, g]));
+    }, [groups]);
+
     // Fetch employees for owner display
     const employeesQuery = useMemoFirebase(
         () => firestore ? collection(firestore, 'employees') : null,
@@ -84,11 +105,21 @@ export default function ProjectsPage() {
         return new Map((employees || []).map(e => [e.id, e]));
     }, [employees]);
 
+    const toggleGroupFilter = (groupId: string, checked: boolean) => {
+        setSelectedGroupIds((prev) => checked ? Array.from(new Set([...prev, groupId])) : prev.filter((id) => id !== groupId));
+    };
+
     // Filter projects
     const filteredProjects = useMemo(() => {
         if (!projects) return [];
         
         return projects.filter(project => {
+            // Group filter (multi)
+            if (selectedGroupIds.length > 0) {
+                const ids = project.groupIds || [];
+                if (!selectedGroupIds.some((gid) => ids.includes(gid))) return false;
+            }
+
             // Status filter
             if (statusFilter !== 'ALL' && project.status !== statusFilter) {
                 return false;
@@ -110,7 +141,7 @@ export default function ProjectsPage() {
             
             return true;
         });
-    }, [projects, statusFilter, searchQuery, employeeMap]);
+    }, [projects, statusFilter, searchQuery, employeeMap, selectedGroupIds]);
 
     // Calculate stats
     const stats = useMemo(() => {
@@ -128,8 +159,8 @@ export default function ProjectsPage() {
         };
     }, [projects]);
 
-    const isLoading = isLoadingProjects || isLoadingEmployees;
-    const hasActiveFilters = searchQuery || statusFilter !== 'ALL';
+    const isLoading = isLoadingProjects || isLoadingEmployees || isLoadingGroups;
+    const hasActiveFilters = searchQuery || statusFilter !== 'ALL' || selectedGroupIds.length > 0;
 
     // Status config with colors
     const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -330,6 +361,54 @@ export default function ProjectsPage() {
                                 </SelectContent>
                             </Select>
 
+                            {/* Group Filter */}
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="bg-white dark:bg-slate-900">
+                                        <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
+                                        Бүлэг
+                                        {selectedGroupIds.length > 0 && (
+                                            <Badge variant="secondary" className="ml-2">
+                                                {selectedGroupIds.length}
+                                            </Badge>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[320px] p-3" align="end">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-sm font-semibold">Бүлгээр шүүх</div>
+                                        <Button variant="ghost" size="sm" onClick={() => setIsGroupsManagerOpen(true)}>
+                                            Бүлэг удирдах
+                                        </Button>
+                                    </div>
+                                    <ScrollArea className="h-[220px] pr-2">
+                                        <div className="space-y-2">
+                                            {(groups || []).length === 0 ? (
+                                                <div className="text-sm text-muted-foreground">Бүлэг алга.</div>
+                                            ) : (
+                                                (groups || []).map((g) => {
+                                                    const checked = selectedGroupIds.includes(g.id);
+                                                    return (
+                                                        <label key={g.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer">
+                                                            <Checkbox checked={checked} onCheckedChange={(v) => toggleGroupFilter(g.id, !!v)} />
+                                                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: g.color || '#94a3b8' }} />
+                                                            <span className="text-sm font-medium">{g.name}</span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                    {selectedGroupIds.length > 0 && (
+                                        <div className="pt-2 flex justify-end">
+                                            <Button variant="outline" size="sm" onClick={() => setSelectedGroupIds([])}>
+                                                Цэвэрлэх
+                                            </Button>
+                                        </div>
+                                    )}
+                                </PopoverContent>
+                            </Popover>
+
                             {/* View Mode Toggle */}
                             <div className="flex border rounded-md bg-white dark:bg-slate-900">
                                 <Button
@@ -378,12 +457,24 @@ export default function ProjectsPage() {
                                     </button>
                                 </Badge>
                             )}
+                            {selectedGroupIds.map((gid) => {
+                                const g = groupsById.get(gid);
+                                return (
+                                    <Badge key={gid} variant="secondary" className="gap-1">
+                                        {g?.name || 'Бүлэг'}
+                                        <button onClick={() => setSelectedGroupIds((prev) => prev.filter((x) => x !== gid))}>
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                );
+                            })}
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                     setSearchQuery('');
                                     setStatusFilter('ALL');
+                                    setSelectedGroupIds([]);
                                 }}
                                 className="h-6 px-2 text-xs"
                             >
@@ -451,6 +542,8 @@ export default function ProjectsPage() {
                                     owner={employeeMap.get(project.ownerId)}
                                     viewMode={viewMode}
                                     onEdit={setEditingProject}
+                                    groupsById={groupsById}
+                                    onEditGroups={(p) => setAssignGroupsProject(p)}
                                 />
                             ))
                         )}
@@ -470,6 +563,19 @@ export default function ProjectsPage() {
                     project={editingProject}
                 />
             )}
+
+            <ProjectGroupsManagerDialog
+                open={isGroupsManagerOpen}
+                onOpenChange={setIsGroupsManagerOpen}
+                groups={groups || []}
+            />
+
+            <AssignProjectGroupsDialog
+                open={!!assignGroupsProject}
+                onOpenChange={(open) => !open && setAssignGroupsProject(null)}
+                project={assignGroupsProject}
+                groups={groups || []}
+            />
         </div>
     );
 }
@@ -480,6 +586,8 @@ interface ProjectCardProps {
     owner?: Employee;
     viewMode: 'grid' | 'list';
     onEdit: (project: Project) => void;
+    groupsById: Map<string, ProjectGroup>;
+    onEditGroups: (project: Project) => void;
 }
 
 // Status colors mapping
@@ -503,7 +611,7 @@ const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
     URGENT: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400' },
 };
 
-function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
+function ProjectCard({ project, owner, viewMode, onEdit, groupsById, onEditGroups }: ProjectCardProps) {
     const daysLeft = differenceInDays(parseISO(project.endDate), new Date());
     const isOverdue = daysLeft < 0 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED';
     const totalDays = differenceInDays(parseISO(project.endDate), parseISO(project.startDate));
@@ -518,6 +626,16 @@ function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
         e.stopPropagation();
         onEdit(project);
     };
+
+    const handleEditGroups = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onEditGroups(project);
+    };
+
+    const groupBadges = (project.groupIds || [])
+        .map((gid) => groupsById.get(gid))
+        .filter(Boolean) as ProjectGroup[];
 
     if (viewMode === 'list') {
         return (
@@ -546,6 +664,20 @@ function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
                                         {PROJECT_STATUS_LABELS[project.status]}
                                     </Badge>
                                 </div>
+                                {groupBadges.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-1">
+                                        {groupBadges.slice(0, 3).map((g) => (
+                                            <Badge key={g.id} variant="secondary" className="text-[10px]">
+                                                {g.name}
+                                            </Badge>
+                                        ))}
+                                        {groupBadges.length > 3 && (
+                                            <Badge variant="secondary" className="text-[10px]">
+                                                +{groupBadges.length - 3}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                )}
                                 {project.goal && (
                                     <p className="text-sm text-muted-foreground truncate">
                                         <span className="font-medium">Зорилго:</span> {project.goal}
@@ -601,6 +733,15 @@ function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
                                 <Pencil className="h-4 w-4" />
                             </Button>
 
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={handleEditGroups}
+                            >
+                                <Tag className="h-4 w-4" />
+                            </Button>
+
                             <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
                         </div>
                     </CardContent>
@@ -633,6 +774,14 @@ function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
                             >
                                 <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={handleEditGroups}
+                            >
+                                <Tag className="h-3.5 w-3.5" />
+                            </Button>
                             <Badge className={cn('text-xs', priorityStyle.bg, priorityStyle.text)}>
                                 {PRIORITY_LABELS[project.priority]}
                             </Badge>
@@ -644,6 +793,20 @@ function ProjectCard({ project, owner, viewMode, onEdit }: ProjectCardProps) {
                         <h3 className="font-semibold text-lg truncate group-hover:text-violet-600 transition-colors mb-1">
                             {project.name}
                         </h3>
+                        {groupBadges.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                                {groupBadges.slice(0, 3).map((g) => (
+                                    <Badge key={g.id} variant="secondary" className="text-[10px]">
+                                        {g.name}
+                                    </Badge>
+                                ))}
+                                {groupBadges.length > 3 && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                        +{groupBadges.length - 3}
+                                    </Badge>
+                                )}
+                            </div>
+                        )}
                         {project.goal && (
                             <p className="text-sm text-muted-foreground line-clamp-2">
                                 {project.goal}
