@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -42,6 +42,9 @@ import { PositionsManagementTab } from './components/positions-management-tab';
 import { HistoryTab } from './components/history-tab';
 import { PositionStructureChart } from './components/position-structure-chart';
 import { AddPositionDialog } from '@/app/dashboard/organization/add-position-dialog';
+import { DepartmentStructureCard } from '@/components/organization/department-structure-card';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function DepartmentPage({ params }: { params: Promise<{ departmentId: string }> }) {
     const { departmentId } = use(params);
@@ -116,6 +119,9 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
 
     const parentName = allDepartments?.find(d => d.id === department?.parentId)?.name || 'Үндсэн нэгж';
     const typeName = departmentTypes?.find(t => t.id === department?.typeId)?.name || 'Нэгж';
+    const deptApprovedPositions = (positions || []).filter(p => p.isApproved !== false);
+    const deptApprovedCount = deptApprovedPositions.length;
+    const deptFilledCount = deptApprovedPositions.reduce((sum, p) => sum + (p.filled || 0), 0);
 
     // -- Handlers --
     const handleInfoEdit = () => {
@@ -420,258 +426,302 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                         { label: department.name }
                     ]}
                     showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/organization"
                     backHref="/dashboard/organization"
                 />
 
                 <div className="space-y-6">
-                    {/* Info Card */}
-                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                        {/* Header */}
-                        <div className="px-4 py-3 border-b flex items-center justify-between">
-                            <span className="text-sm font-medium text-foreground">Мэдээлэл</span>
-                            {isEditingInfo ? (
-                                <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleInfoCancel} disabled={isSavingInfo}>
-                                        Болих
-                                    </Button>
-                                    <Button size="sm" className="h-7 px-3 text-xs gap-1" onClick={handleInfoSave} disabled={isSavingInfo}>
-                                        {isSavingInfo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                                        Хадгалах
-                                    </Button>
-                                </div>
-                            ) : (
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleInfoEdit}>
-                                    <Edit3 className="h-3 w-3" />
-                                    Засах
-                                </Button>
-                            )}
-                        </div>
+                    {/* Edit dialog (moved from Info card) */}
+                    <Dialog open={isEditingInfo} onOpenChange={(open) => { if (!open) handleInfoCancel(); }}>
+                        <DialogContent className="sm:max-w-[620px]">
+                            <DialogHeader>
+                                <DialogTitle>Нэгж засах</DialogTitle>
+                                <DialogDescription>Алба нэгжийн мэдээллийг шинэчилнэ.</DialogDescription>
+                            </DialogHeader>
 
-                        {/* Content */}
-                        <div className="p-4">
-                            {isEditingInfo ? (
-                                <div className="space-y-4">
-                                    {/* Grid for basic fields */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="col-span-2 space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Нэр</Label>
-                                            <Input
-                                                value={infoForm.name || ''}
-                                                onChange={(e) => setInfoForm(prev => ({ ...prev, name: e.target.value }))}
-                                                className="h-9"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Код</Label>
-                                            <Input
-                                                value={infoForm.code || ''}
-                                                onChange={(e) => setInfoForm(prev => ({ ...prev, code: e.target.value }))}
-                                                className="h-9 font-mono"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Төлөв</Label>
-                                            <Select
-                                                value={infoForm.status || 'active'}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, status: val as any }))}
-                                            >
-                                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="active">Идэвхтэй</SelectItem>
-                                                    <SelectItem value="inactive">Идэвхгүй</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Төрөл</Label>
-                                            <Select
-                                                value={infoForm.typeId || ''}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, typeId: val }))}
-                                            >
-                                                <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {departmentTypes?.map(t => (
-                                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Харьяалал</Label>
-                                            <Select
-                                                value={infoForm.parentId || 'root'}
-                                                onValueChange={(val) => setInfoForm(prev => ({ ...prev, parentId: val === 'root' ? '' : val }))}
-                                            >
-                                                <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="root">Үндсэн нэгж</SelectItem>
-                                                    {allDepartments?.filter(d => d.id !== department.id).map(d => (
-                                                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-
-                                    {/* Vision & Description with AI */}
-                                    <div className="pt-3 border-t space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium text-muted-foreground">Зорилго & Чиг үүрэг</span>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleAIGenerate}
-                                                disabled={isGeneratingAI}
-                                                className="h-7 gap-1.5 text-xs bg-violet-50 border-violet-200 hover:bg-violet-100 text-violet-700"
-                                            >
-                                                {isGeneratingAI ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                                AI
-                                            </Button>
-                                        </div>
-                                        <Textarea
-                                            value={infoForm.vision || ''}
-                                            onChange={(e) => setInfoForm(prev => ({ ...prev, vision: e.target.value }))}
-                                            className="min-h-[70px] text-sm resize-none"
-                                            placeholder="Зорилго..."
-                                        />
-                                        <Textarea
-                                            value={infoForm.description || ''}
-                                            onChange={(e) => setInfoForm(prev => ({ ...prev, description: e.target.value }))}
-                                            className="min-h-[70px] text-sm resize-none"
-                                            placeholder="Чиг үүрэг..."
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Нэр</Label>
+                                        <Input
+                                            value={infoForm.name || ''}
+                                            onChange={(e) => setInfoForm(prev => ({ ...prev, name: e.target.value }))}
+                                            className="h-9"
                                         />
                                     </div>
-
-                                    {/* Delete Button - Only shown in edit mode */}
-                                    <div className="pt-3 border-t">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                            onClick={handleDeptDeleteClick}
-                                            disabled={isDeptDeleting}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Код</Label>
+                                        <Input
+                                            value={infoForm.code || ''}
+                                            onChange={(e) => setInfoForm(prev => ({ ...prev, code: e.target.value }))}
+                                            className="h-9 font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Төлөв</Label>
+                                        <Select
+                                            value={infoForm.status || 'active'}
+                                            onValueChange={(val) => setInfoForm(prev => ({ ...prev, status: val as any }))}
                                         >
-                                            {isDeptDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
-                                            Нэгж устгах
+                                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Идэвхтэй</SelectItem>
+                                                <SelectItem value="inactive">Идэвхгүй</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Төрөл</Label>
+                                        <Select
+                                            value={infoForm.typeId || ''}
+                                            onValueChange={(val) => setInfoForm(prev => ({ ...prev, typeId: val }))}
+                                        >
+                                            <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                                            <SelectContent>
+                                                {departmentTypes?.map(t => (
+                                                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Харьяалал</Label>
+                                        <Select
+                                            value={infoForm.parentId || 'root'}
+                                            onValueChange={(val) => setInfoForm(prev => ({ ...prev, parentId: val === 'root' ? '' : val }))}
+                                        >
+                                            <SelectTrigger className="h-9"><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="root">Үндсэн нэгж</SelectItem>
+                                                {allDepartments?.filter(d => d.id !== department.id).map(d => (
+                                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="pt-3 border-t space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-muted-foreground">Зорилго & Чиг үүрэг</span>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAIGenerate}
+                                            disabled={isGeneratingAI}
+                                            className="h-7 gap-1.5 text-xs bg-violet-50 border-violet-200 hover:bg-violet-100 text-violet-700"
+                                        >
+                                            {isGeneratingAI ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                            AI
                                         </Button>
                                     </div>
+                                    <Textarea
+                                        value={infoForm.vision || ''}
+                                        onChange={(e) => setInfoForm(prev => ({ ...prev, vision: e.target.value }))}
+                                        className="min-h-[70px] text-sm resize-none"
+                                        placeholder="Зорилго..."
+                                    />
+                                    <Textarea
+                                        value={infoForm.description || ''}
+                                        onChange={(e) => setInfoForm(prev => ({ ...prev, description: e.target.value }))}
+                                        className="min-h-[70px] text-sm resize-none"
+                                        placeholder="Чиг үүрэг..."
+                                    />
                                 </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {/* Info Grid */}
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                                        <div>
-                                            <p className="text-[11px] text-muted-foreground mb-0.5">Төрөл</p>
-                                            <p className="text-sm font-medium">{typeName}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] text-muted-foreground mb-0.5">Төлөв</p>
-                                            <Badge variant="outline" className={cn(
-                                                "text-[10px] h-5",
-                                                department.status === 'active' 
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                                                    : "bg-slate-50 text-slate-600"
-                                            )}>
-                                                {department.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                            </Badge>
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] text-muted-foreground mb-0.5">Харьяалал</p>
-                                            <p className="text-sm font-medium truncate">{parentName}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] text-muted-foreground mb-0.5">Ажлын байр</p>
-                                            <p className="text-sm font-medium">{positions?.length || 0}</p>
-                                        </div>
-                                    </div>
 
-                                    {/* Vision & Description */}
-                                    {(department.vision || department.description) && (
-                                        <div className="pt-3 border-t space-y-4">
-                                            {department.vision && (
-                                                <div className="bg-slate-50 rounded-lg p-3">
-                                                    <p className="text-xs font-semibold text-slate-600 mb-1.5">Зорилго</p>
-                                                    <p className="text-sm text-foreground leading-relaxed">{department.vision}</p>
-                                                </div>
-                                            )}
-                                            {department.description && (
-                                                <div className="bg-slate-50 rounded-lg p-3">
-                                                    <p className="text-xs font-semibold text-slate-600 mb-1.5">Чиг үүрэг</p>
-                                                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{department.description}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Chart & Tabs */}
-                    <Card className="border-none shadow-md overflow-hidden bg-white">
-                        <Tabs defaultValue="chart" className="w-full">
-                            <div className="border-b border-border/50 px-6 pt-2 flex items-center justify-between">
-                                <TabsList className="justify-start rounded-none bg-transparent p-0 h-auto">
-                                    <TabsTrigger
-                                        value="chart"
-                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 py-4 px-6 gap-2 text-muted-foreground transition-all"
-                                    >
-                                        <Network className="w-4 h-4" />
-                                        <span>Бүтэц зураглал</span>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="positions"
-                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 py-4 px-6 gap-2 text-muted-foreground transition-all"
-                                    >
-                                        <LayoutDashboard className="w-4 h-4" />
-                                        <span>Ажлын байрууд</span>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="history"
-                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 py-4 px-6 gap-2 text-muted-foreground transition-all"
-                                    >
-                                        <HistoryIcon className="w-4 h-4" />
-                                        <span>Түүх</span>
-                                    </TabsTrigger>
-                                </TabsList>
-                                <div className="flex items-center gap-2">
+                                <div className="pt-3 border-t">
                                     <Button
-                                        variant="default"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full shadow-sm"
-                                        onClick={handleAddPosition}
-                                        title="Ажлын байр нэмэх"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        onClick={handleDeptDeleteClick}
+                                        disabled={isDeptDeleting}
                                     >
-                                        <PlusCircle className="h-3.5 w-3.5" />
+                                        {isDeptDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                                        Нэгж устгах
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="p-0">
-                                <TabsContent value="chart" className="mt-0 focus-visible:ring-0">
-                                    <div className="bg-slate-50/50 min-h-[700px] relative border-b border-border/50">
-                                        <PositionStructureChart
-                                            positions={positions || []}
-                                            employees={allActiveEmployees || []}
-                                            department={department}
-                                            isLoading={isDeptLoading}
-                                            lookups={lookups}
-                                            onPositionClick={(pos) => router.push(`/dashboard/organization/positions/${pos.id}`)}
-                                            onAddChild={handleAddChild}
-                                            onDuplicate={handleDuplicate}
-                                        />
-                                    </div>
-                                </TabsContent>
-                                <TabsContent value="positions" className="mt-0 focus-visible:ring-0 p-6">
-                                    <PositionsManagementTab department={department} hideChart={true} hideAddButton={true} />
-                                </TabsContent>
-                                <TabsContent value="history" className="mt-0 focus-visible:ring-0 p-6">
-                                    <HistoryTab departmentId={department.id} />
-                                </TabsContent>
+                            <DialogFooter>
+                                <Button variant="ghost" onClick={handleInfoCancel} disabled={isSavingInfo}>Болих</Button>
+                                <Button onClick={handleInfoSave} disabled={isSavingInfo}>
+                                    {isSavingInfo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                    Хадгалах
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Chart & Tabs */}
+                    <Tabs defaultValue="chart" className="w-full">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* Left column: Department card */}
+                            <div className="lg:col-span-3 space-y-4">
+                                <div className="flex justify-center lg:justify-start">
+                                    <DepartmentStructureCard
+                                        className="w-full"
+                                        department={{
+                                            id: department.id,
+                                            name: department.name,
+                                            typeName,
+                                            approvedCount: deptApprovedCount,
+                                            filled: deptFilledCount,
+                                            color: department.color,
+                                            status: department.status,
+                                            isRoot: false,
+                                        }}
+                                        actionsVisibility="always"
+                                        showOpenButton={false}
+                                        onDepartmentUpdate={async (_id, data) => {
+                                            if (!firestore || !deptDocRef) return;
+                                            try {
+                                                await updateDocumentNonBlocking(deptDocRef as any, data as any);
+                                            } catch (e) {
+                                                console.error(e);
+                                            }
+                                        }}
+                                        topActions={
+                                            <>
+                                                <TooltipProvider delayDuration={150}>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className={cn(
+                                                                    "h-7 w-7 rounded-lg",
+                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
+                                                                )}
+                                                                onClick={handleAddPosition}
+                                                                aria-label="Ажлын байр нэмэх"
+                                                            >
+                                                                <PlusCircle className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <div className="text-xs font-semibold">Ажлын байр нэмэх</div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className={cn(
+                                                                    "h-7 w-7 rounded-lg",
+                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
+                                                                )}
+                                                                onClick={handleInfoEdit}
+                                                                aria-label="Засах"
+                                                            >
+                                                                <Edit3 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <div className="text-xs font-semibold">Засах</div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </>
+                                        }
+                                        details={
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                                    <div>
+                                                        <p className="text-[10px] font-medium opacity-70">Код</p>
+                                                        <p className="text-sm font-semibold">{department.code || 'Код оноогоогүй'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-medium opacity-70">Төлөв</p>
+                                                        <p className="text-sm font-semibold">{department.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-medium opacity-70">Харьяалал</p>
+                                                        <p className="text-sm font-semibold truncate">{parentName}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-medium opacity-70">Ажлын байр</p>
+                                                        <p className="text-sm font-semibold">{positions?.length || 0}</p>
+                                                    </div>
+                                                </div>
+
+                                                {(department.vision || department.description) ? (
+                                                    <div className="space-y-2">
+                                                        {department.vision ? (
+                                                            <div className={cn("rounded-xl p-3", department.color ? "bg-white/10 border border-white/10" : "bg-slate-50 border border-slate-100")}>
+                                                                <p className={cn("text-xs font-semibold mb-1.5", department.color ? "opacity-80" : "text-slate-600")}>Зорилго</p>
+                                                                <p className={cn("text-sm leading-relaxed", department.color ? "opacity-90" : "text-foreground")}>{department.vision}</p>
+                                                            </div>
+                                                        ) : null}
+                                                        {department.description ? (
+                                                            <div className={cn("rounded-xl p-3", department.color ? "bg-white/10 border border-white/10" : "bg-slate-50 border border-slate-100")}>
+                                                                <p className={cn("text-xs font-semibold mb-1.5", department.color ? "opacity-80" : "text-slate-600")}>Чиг үүрэг</p>
+                                                                <p className={cn("text-sm leading-relaxed whitespace-pre-wrap", department.color ? "opacity-90" : "text-foreground")}>{department.description}</p>
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        }
+                                    />
+                                </div>
                             </div>
-                        </Tabs>
-                    </Card>
+
+                            {/* Right column: tab content */}
+                            <div className="lg:col-span-9">
+                                {/* Horizontal tab menu (stays visible) */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <VerticalTabMenu
+                                        orientation="horizontal"
+                                        items={[
+                                            { value: 'chart', label: 'Бүтэц зураглал' },
+                                            { value: 'positions', label: 'Жагсаалт' },
+                                            { value: 'history', label: 'Түүх' },
+                                        ]}
+                                    />
+                                </div>
+                                <div className="bg-transparent border-0 rounded-none">
+                                    <div className="p-0 min-h-[700px]">
+                                        <TabsContent value="chart" className="mt-0 focus-visible:ring-0">
+                                            <div className="bg-slate-50/50 min-h-[700px] relative">
+                                                <PositionStructureChart
+                                                    positions={positions || []}
+                                                    employees={allActiveEmployees || []}
+                                                    department={department}
+                                                    isLoading={isDeptLoading}
+                                                    lookups={lookups}
+                                                    onPositionClick={(pos) => router.push(`/dashboard/organization/positions/${pos.id}`)}
+                                                    onAddChild={handleAddChild}
+                                                    onDuplicate={handleDuplicate}
+                                                />
+                                            </div>
+                                        </TabsContent>
+                                        <TabsContent value="positions" className="mt-0 focus-visible:ring-0">
+                                            <div className="p-4 pt-2">
+                                                <PositionsManagementTab
+                                                    department={department}
+                                                    hideChart={true}
+                                                    hideAddButton={true}
+                                                    hideControls={true}
+                                                    listVariant="cards"
+                                                />
+                                            </div>
+                                        </TabsContent>
+                                        <TabsContent value="history" className="mt-0 focus-visible:ring-0">
+                                            <div className="p-6">
+                                                <HistoryTab departmentId={department.id} />
+                                            </div>
+                                        </TabsContent>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Tabs>
                 </div>
 
                 {/* Dialogs */}

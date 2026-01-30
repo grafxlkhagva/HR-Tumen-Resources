@@ -32,7 +32,8 @@
     --info-foreground: 0 0% 100%;
 
     /* Core Theme Variables - Light Mode */
-    --background: 0 0% 100%;
+    /* Slight gray page background (#f5f5f7) */
+    --background: 240 11% 96%;
     --foreground: 221 39% 11%;
 
     --card: 0 0% 100%;

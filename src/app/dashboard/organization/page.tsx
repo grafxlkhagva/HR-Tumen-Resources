@@ -78,6 +78,10 @@ export default function OrganizationPage() {
                     title="Байгууллагын бүтэц"
                     description="Компанийн дотоод бүтэц, албан тушаал, хүн хүчний төлөвлөлт."
                     showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard"
                     backHref="/dashboard"
                 />
 

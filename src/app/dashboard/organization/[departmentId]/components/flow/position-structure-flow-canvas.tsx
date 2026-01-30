@@ -40,10 +40,12 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-    const nodeWidth = 260;
-    const nodeHeight = 160;
+    // Keep in sync with PositionStructureCard sizing (horizontal layout)
+    const nodeWidth = 360; // max-w-[360px]
+    // Slightly taller to fit progress + status + optional footer actions
+    const nodeHeight = 300;
 
-    dagreGraph.setGraph({ rankdir: direction, nodesep: 70, ranksep: 100 });
+    dagreGraph.setGraph({ rankdir: direction, nodesep: 110, ranksep: 170 });
 
     nodes.forEach((node) => {
         dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -159,6 +161,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
                     ...pos,
                     levelName: lookups.levelMap[pos.levelId || ''] || 'Түвшин -',
                     departmentColor: lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor,
+                    departmentName: department?.name,
                     assignedEmployee,
                     onPositionClick,
                     onAddChild,

@@ -8,26 +8,30 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
-    Edit3,
-    Save,
-    AlertCircle,
-    CheckCircle2,
-    Building2
+    Briefcase,
+    Building2,
+    Hash,
+    Network,
+    Layers,
+    FolderKanban,
+    Clock,
+    HardHat,
+    CalendarCheck,
+    CalendarX,
+    Wallet,
+    User
 } from 'lucide-react';
 import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule, WorkingCondition } from '../../../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { ValidationIndicator } from './validation-indicator';
 import { generateCode } from '@/lib/code-generator';
 import { Wand2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { FieldCard, LabeledInput } from '@/components/organization/field-card';
 
 const WORKING_CONDITION_LABELS: Record<WorkingCondition, string> = {
     NORMAL: 'Хэвийн',
@@ -63,21 +67,6 @@ interface PositionOverviewProps {
     };
 }
 
-// Simple display row component
-function InfoRow({ label, value, isEmpty = false }: { label: string; value: React.ReactNode; isEmpty?: boolean }) {
-    return (
-        <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-            <span className="text-sm text-muted-foreground">{label}</span>
-            <span className={cn(
-                "text-sm font-medium text-right",
-                isEmpty ? "text-muted-foreground/50 italic" : "text-foreground"
-            )}>
-                {value}
-            </span>
-        </div>
-    );
-}
-
 export function PositionOverview({
     position,
     departments,
@@ -86,13 +75,26 @@ export function PositionOverview({
     categories,
     employmentTypes,
     schedules,
-    validationChecklist
 }: PositionOverviewProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isUpdatingSchedule, setIsUpdatingSchedule] = useState(false);
+
+    // Local edit state for each field
+    const [editTitle, setEditTitle] = useState(position.title || '');
+    const [editCode, setEditCode] = useState(position.code || '');
+    const [editDepartmentId, setEditDepartmentId] = useState(position.departmentId || '');
+    const [editReportsToId, setEditReportsToId] = useState(position.reportsToId || '');
+    const [editLevelId, setEditLevelId] = useState(position.levelId || '');
+    const [editCategoryId, setEditCategoryId] = useState(position.jobCategoryId || '');
+    const [editEmploymentTypeId, setEditEmploymentTypeId] = useState(position.employmentTypeId || '');
+    const [editScheduleId, setEditScheduleId] = useState(position.workScheduleId || '');
+    const [editWorkingCondition, setEditWorkingCondition] = useState(position.workingCondition || '');
+    const [editCompanyType, setEditCompanyType] = useState(position.companyType || 'main');
+    const [editSubsidiaryName, setEditSubsidiaryName] = useState(position.subsidiaryName || '');
+    const [editCanApproveVacation, setEditCanApproveVacation] = useState(position.permissions?.canApproveVacation || false);
+    const [editCanApproveLeave, setEditCanApproveLeave] = useState(position.permissions?.canApproveLeave || false);
+    const [editYearlyBudget, setEditYearlyBudget] = useState(position.budget?.yearlyBudget || 0);
+    const [editCurrency, setEditCurrency] = useState(position.budget?.currency || 'MNT');
 
     const posCodeConfigRef = useMemoFirebase(
         ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
@@ -106,7 +108,7 @@ export function PositionOverview({
     );
     const { data: companyProfile } = useDoc<CompanyProfile>(companyProfileRef as any);
 
-    // Parse subsidiaries (handle both old string format and new object format)
+    // Parse subsidiaries
     const subsidiaries: Subsidiary[] = useMemo(() => {
         if (!companyProfile?.subsidiaries) return [];
         return companyProfile.subsidiaries.map(item => {
@@ -117,93 +119,24 @@ export function PositionOverview({
         });
     }, [companyProfile?.subsidiaries]);
 
-    const [formData, setFormData] = useState({
-        title: position.title || '',
-        code: position.code || '',
-        departmentId: position.departmentId || '',
-        reportsToId: position.reportsToId || '',
-        levelId: position.levelId || '',
-        jobCategoryId: position.jobCategoryId || '',
-        employmentTypeId: position.employmentTypeId || '',
-        workScheduleId: position.workScheduleId || '',
-        workingCondition: (position.workingCondition as WorkingCondition | undefined) ?? '__none__',
-        companyType: position.companyType || 'main',
-        subsidiaryName: position.subsidiaryName || '',
-        permissions: {
-            canApproveVacation: position.permissions?.canApproveVacation || false,
-            canApproveLeave: position.permissions?.canApproveLeave || false,
-        },
-        budget: {
-            yearlyBudget: position.budget?.yearlyBudget || 0,
-            currency: position.budget?.currency || 'MNT',
-        }
-    });
-
-    const handleFieldUpdate = (field: string, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleSave = async () => {
-        if (!firestore) return;
-        setIsSaving(true);
-        try {
-            const updateData: any = {
-                title: formData.title,
-                code: formData.code.trim().toUpperCase(),
-                departmentId: formData.departmentId,
-                reportsToId: formData.reportsToId,
-                levelId: formData.levelId,
-                jobCategoryId: formData.jobCategoryId,
-                employmentTypeId: formData.employmentTypeId,
-                workScheduleId: formData.workScheduleId,
-                workingCondition: formData.workingCondition === '__none__' ? null : formData.workingCondition,
-                companyType: formData.companyType,
-                subsidiaryName: formData.companyType === 'subsidiary' ? formData.subsidiaryName : '',
-                permissions: formData.permissions,
-                budget: formData.budget,
-                updatedAt: new Date().toISOString(),
-            };
-
-            await updateDoc(doc(firestore, 'positions', position.id), updateData);
-
-            toast({ title: 'Мэдээлэл амжилттай хадгалагдлаа' });
-            setIsEditing(false);
-        } catch (error) {
-            console.error('Error updating position:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Алдаа гарлаа',
-                description: 'Мэдээллийг хадгалахад алдаа гарлаа.'
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleCancel = () => {
-        setFormData({
-            title: position.title || '',
-            code: position.code || '',
-            departmentId: position.departmentId || '',
-            reportsToId: position.reportsToId || '',
-            levelId: position.levelId || '',
-            jobCategoryId: position.jobCategoryId || '',
-            employmentTypeId: position.employmentTypeId || '',
-            workScheduleId: position.workScheduleId || '',
-            workingCondition: (position.workingCondition as WorkingCondition | undefined) ?? '__none__',
-            companyType: position.companyType || 'main',
-            subsidiaryName: position.subsidiaryName || '',
-            permissions: {
-                canApproveVacation: position.permissions?.canApproveVacation || false,
-                canApproveLeave: position.permissions?.canApproveLeave || false,
-            },
-            budget: {
-                yearlyBudget: position.budget?.yearlyBudget || 0,
-                currency: position.budget?.currency || 'MNT',
-            }
-        });
-        setIsEditing(false);
-    };
+    // Sync edit states when position data changes
+    React.useEffect(() => {
+        setEditTitle(position.title || '');
+        setEditCode(position.code || '');
+        setEditDepartmentId(position.departmentId || '');
+        setEditReportsToId(position.reportsToId || '');
+        setEditLevelId(position.levelId || '');
+        setEditCategoryId(position.jobCategoryId || '');
+        setEditEmploymentTypeId(position.employmentTypeId || '');
+        setEditScheduleId(position.workScheduleId || '');
+        setEditWorkingCondition(position.workingCondition || '');
+        setEditCompanyType(position.companyType || 'main');
+        setEditSubsidiaryName(position.subsidiaryName || '');
+        setEditCanApproveVacation(position.permissions?.canApproveVacation || false);
+        setEditCanApproveLeave(position.permissions?.canApproveLeave || false);
+        setEditYearlyBudget(position.budget?.yearlyBudget || 0);
+        setEditCurrency(position.budget?.currency || 'MNT');
+    }, [position]);
 
     // Lookup values
     const department = useMemo(() => departments.find(d => d.id === position.departmentId), [departments, position.departmentId]);
@@ -213,481 +146,466 @@ export function PositionOverview({
     const employmentType = useMemo(() => employmentTypes.find(t => t.id === position.employmentTypeId), [employmentTypes, position.employmentTypeId]);
     const schedule = useMemo(() => schedules.find(s => s.id === position.workScheduleId), [schedules, position.workScheduleId]);
 
-    const handleStartEditing = () => {
-        if (!formData.code && posCodeConfig) {
-            const generated = generateCode({
-                prefix: posCodeConfig.prefix || '',
-                digitCount: posCodeConfig.digitCount || 4,
-                nextNumber: posCodeConfig.nextNumber || 1
-            });
-            handleFieldUpdate('code', generated);
-        }
-        setIsEditing(true);
+    // Generic save helper
+    const saveField = async (field: string, value: any) => {
+        if (!firestore) return;
+        await updateDoc(doc(firestore, 'positions', position.id), {
+            [field]: value,
+            updatedAt: new Date().toISOString(),
+        });
+        toast({ title: 'Амжилттай хадгалагдлаа' });
     };
 
-    // VIEW MODE
-    if (!isEditing) {
-        return (
-            <div className="space-y-8">
-                {/* Edit button */}
-                <div className="flex justify-end">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleStartEditing}
-                        className="h-8 gap-2"
-                    >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Засах
-                    </Button>
-                </div>
+    // Reset edit state when dialog opens (sync with current position data)
+    const resetEditState = () => {
+        setEditTitle(position.title || '');
+        setEditCode(position.code || '');
+        setEditDepartmentId(position.departmentId || '');
+        setEditReportsToId(position.reportsToId || '');
+        setEditLevelId(position.levelId || '');
+        setEditCategoryId(position.jobCategoryId || '');
+        setEditEmploymentTypeId(position.employmentTypeId || '');
+        setEditScheduleId(position.workScheduleId || '');
+        setEditWorkingCondition(position.workingCondition || '');
+        setEditCompanyType(position.companyType || 'main');
+        setEditSubsidiaryName(position.subsidiaryName || '');
+        setEditCanApproveVacation(position.permissions?.canApproveVacation || false);
+        setEditCanApproveLeave(position.permissions?.canApproveLeave || false);
+        setEditYearlyBudget(position.budget?.yearlyBudget || 0);
+        setEditCurrency(position.budget?.currency || 'MNT');
+    };
 
-                {/* Validation checklist */}
-                {validationChecklist && (
-                    <ValidationIndicator
-                        title="Мэдээллийн бүрдэл"
-                        items={[
-                            { label: 'Үндсэн мэдээлэл', isDone: validationChecklist.hasBasicInfo },
-                            { label: 'Удирдлагын бүтэц', isDone: validationChecklist.hasReporting },
-                            { label: 'Ажлын нөхцөл', isDone: validationChecklist.hasAttributes },
-                            { label: 'Тохиргоо & Төсөв', isDone: validationChecklist.hasSettings },
-                        ]}
+    // Generate code helper
+    const handleGenerateCode = async () => {
+        if (!firestore || !posCodeConfigRef) return;
+        try {
+            const { runTransaction } = await import('firebase/firestore');
+            await runTransaction(firestore, async (transaction) => {
+                const configDoc = await transaction.get(posCodeConfigRef);
+                if (configDoc.exists()) {
+                    const configData = configDoc.data();
+                    const currentNum = configData.nextNumber || 1;
+                    const generated = generateCode({
+                        prefix: configData.prefix || '',
+                        digitCount: configData.digitCount || 4,
+                        nextNumber: currentNum
+                    });
+                    setEditCode(generated);
+                    transaction.update(posCodeConfigRef, {
+                        nextNumber: currentNum + 1
+                    });
+                }
+            });
+        } catch (e) {
+            toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Ажлын байрны нэр */}
+                    <FieldCard
+                        icon={Briefcase}
+                        title="Ажлын байрны нэр"
+                        value={position.title || 'Оруулаагүй'}
+                        isEmpty={!position.title}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Ажлын байрны нэр">
+                                <Input
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    placeholder="Жишээ: Ахлах менежер"
+                                    className="h-12 rounded-xl"
+                                />
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('title', editTitle);
+                        }}
                     />
-                )}
 
-                {/* Approved warning */}
-                {position.isApproved && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                        Батлагдсан ажлын байр тул зарим мэдээллийг өөрчлөх боломжгүй.
-                    </div>
-                )}
-
-                {/* Clean grid layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    
-                    {/* Section 1: Basic Info */}
-                    <div className="bg-muted/30 rounded-lg px-4">
-                        <InfoRow label="Ажлын байрны нэр" value={position.title} />
-                        <InfoRow 
-                            label="Код" 
-                            value={position.code ? (
-                                <code className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-mono">
-                                    {position.code}
-                                </code>
-                            ) : 'Кодгүй'} 
-                            isEmpty={!position.code}
-                        />
-                        <InfoRow 
-                            label="Компани" 
-                            value={
-                                position.companyType === 'subsidiary' && position.subsidiaryName ? (
-                                    <div className="flex items-center gap-1.5">
-                                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                                        <span>{position.subsidiaryName}</span>
-                                    </div>
-                                ) : (
-                                    <span>{companyProfile?.name || 'Үндсэн компани'}</span>
-                                )
-                            } 
-                        />
-                        <InfoRow 
-                            label="Нэгж / Хэлтэс" 
-                            value={department?.name || 'Оноогоогүй'} 
-                            isEmpty={!department}
-                        />
-                        <InfoRow 
-                            label="Шууд удирдлага" 
-                            value={supervisor?.title || 'Дээд шат'} 
-                            isEmpty={!supervisor}
-                        />
-                    </div>
-
-                    {/* Section 2: Classification */}
-                    <div className="bg-muted/30 rounded-lg px-4">
-                        <InfoRow 
-                            label="Түвшин / Зэрэглэл" 
-                            value={level?.name ? (
-                                <Badge variant="secondary" className="font-medium">
-                                    {level.name}
-                                </Badge>
-                            ) : 'Тохируулаагүй'} 
-                            isEmpty={!level}
-                        />
-                        <InfoRow 
-                            label="Мэргэжлийн ангилал" 
-                            value={category?.name || 'Оноогоогүй'} 
-                            isEmpty={!category}
-                        />
-                        <InfoRow 
-                            label="Ажлын байрны төрөл" 
-                            value={employmentType?.name || 'Бүртгэгдээгүй'} 
-                            isEmpty={!employmentType}
-                        />
-                        <InfoRow 
-                            label="Цагийн хуваарь" 
-                            value={
-                                <div className="flex items-center justify-end gap-2">
-                                    <Select
-                                        value={(position.workScheduleId as string | undefined) || '__none__'}
-                                        onValueChange={async (val) => {
-                                            if (!firestore) return;
-                                            setIsUpdatingSchedule(true);
-                                            try {
-                                                await updateDoc(doc(firestore, 'positions', position.id), {
-                                                    workScheduleId: val === '__none__' ? null : val,
-                                                    updatedAt: new Date().toISOString(),
-                                                });
-                                                toast({ title: 'Цагийн хуваарь шинэчлэгдлээ' });
-                                            } catch (e) {
-                                                console.error(e);
-                                                toast({ variant: 'destructive', title: 'Алдаа', description: 'Цагийн хуваарь шинэчлэхэд алдаа гарлаа.' });
-                                            } finally {
-                                                setIsUpdatingSchedule(false);
-                                            }
-                                        }}
-                                        disabled={isUpdatingSchedule}
+                    {/* Код */}
+                    <FieldCard
+                        icon={Hash}
+                        title="Код"
+                        value={position.code ? (
+                            <code className="bg-primary/10 text-primary px-2 py-0.5 rounded text-sm font-mono">
+                                {position.code}
+                            </code>
+                        ) : 'Кодгүй'}
+                        isEmpty={!position.code}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Ажлын байрны код">
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={editCode}
+                                        onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                                        placeholder="Жишээ: POS-0001"
+                                        className="h-12 rounded-xl font-mono uppercase flex-1"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleGenerateCode}
+                                        className="h-12 px-4 rounded-xl"
+                                        title="Автомат код үүсгэх"
                                     >
-                                        <SelectTrigger className="h-8 w-44">
-                                            <SelectValue placeholder="Сонгох" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="__none__">Сонгоогүй</SelectItem>
-                                            {schedules
-                                                .filter((s: any) => s?.isActive !== false)
-                                                .map((s) => (
-                                                    <SelectItem key={s.id} value={s.id}>
-                                                        {s.name}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
-                                        <Link href="/dashboard/settings/time-off">
-                                            Тохиргоо
-                                        </Link>
+                                        <Wand2 className="w-5 h-5" />
                                     </Button>
                                 </div>
-                            }
-                            isEmpty={!position.workScheduleId}
-                        />
-                        <InfoRow
-                            label="Хөдөлмөрийн нөхцөл"
-                            value={
-                                position.workingCondition
-                                    ? (WORKING_CONDITION_LABELS[position.workingCondition as WorkingCondition] || position.workingCondition)
-                                    : 'Тохируулаагүй'
-                            }
-                            isEmpty={!position.workingCondition}
-                        />
-                    </div>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('code', editCode.trim().toUpperCase());
+                        }}
+                    />
 
-                    {/* Section 3: Permissions & Budget */}
-                    <div className="bg-muted/30 rounded-lg px-4">
-                        <InfoRow 
-                            label="Амралт батлах эрх" 
-                            value={formData.permissions.canApproveVacation ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            ) : (
-                                <span className="text-muted-foreground/50">Үгүй</span>
-                            )} 
-                        />
-                        <InfoRow 
-                            label="Чөлөө батлах эрх" 
-                            value={formData.permissions.canApproveLeave ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            ) : (
-                                <span className="text-muted-foreground/50">Үгүй</span>
-                            )} 
-                        />
-                        <InfoRow 
-                            label="Жилийн төсөв" 
-                            value={formData.budget.yearlyBudget > 0 ? (
-                                <span className="font-semibold">
-                                    {formData.budget.yearlyBudget.toLocaleString()} {formData.budget.currency === 'MNT' ? '₮' : '$'}
-                                </span>
-                            ) : 'Тодорхойгүй'} 
-                            isEmpty={formData.budget.yearlyBudget === 0}
-                        />
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // EDIT MODE
-    return (
-        <div className="space-y-8">
-            {/* Save/Cancel buttons */}
-            <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8">
-                    Болих
-                </Button>
-                <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2">
-                    <Save className="w-3.5 h-3.5" />
-                    Хадгалах
-                </Button>
-            </div>
-
-            {/* Approved warning */}
-            {position.isApproved && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    Батлагдсан ажлын байр тул зарим мэдээллийг өөрчлөх боломжгүй.
-                </div>
-            )}
-
-            {/* Edit form - 2 columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                {/* Basic Info */}
-                <div className="space-y-3">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Ажлын байрны нэр</label>
-                        <Input
-                            value={formData.title}
-                            onChange={(e) => handleFieldUpdate('title', e.target.value)}
-                            placeholder="Жишээ: Ахлах менежер"
-                            disabled={position.isApproved}
-                        />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Код</label>
-                        <div className="flex gap-2">
-                            <Input
-                                value={formData.code || ''}
-                                readOnly
-                                placeholder="Код үүсгэх"
-                                className="font-mono uppercase bg-muted/50"
-                                disabled={position.isApproved}
-                            />
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                disabled={position.isApproved || !posCodeConfigRef}
-                                onClick={async () => {
-                                    if (!firestore || !posCodeConfigRef) return;
-                                    try {
-                                        const { runTransaction } = await import('firebase/firestore');
-                                        await runTransaction(firestore, async (transaction) => {
-                                            const configDoc = await transaction.get(posCodeConfigRef);
-                                            if (configDoc.exists()) {
-                                                const configData = configDoc.data();
-                                                const currentNum = configData.nextNumber || 1;
-                                                const generated = generateCode({
-                                                    prefix: configData.prefix || '',
-                                                    digitCount: configData.digitCount || 4,
-                                                    nextNumber: currentNum
-                                                });
-                                                handleFieldUpdate('code', generated);
-                                                transaction.update(posCodeConfigRef, {
-                                                    nextNumber: currentNum + 1
-                                                });
-                                            }
-                                        });
-                                    } catch (e) {
-                                        toast({ title: "Код үүсгэхэд алдаа гарлаа", variant: "destructive" });
-                                    }
-                                }}
-                                title="Код үүсгэх"
-                            >
-                                <Wand2 className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Компани</label>
-                        <Select
-                            value={formData.companyType === 'subsidiary' && formData.subsidiaryName ? formData.subsidiaryName : 'main'}
-                            onValueChange={(val) => {
-                                if (val === 'main') {
-                                    handleFieldUpdate('companyType', 'main');
-                                    handleFieldUpdate('subsidiaryName', '');
-                                } else {
-                                    handleFieldUpdate('companyType', 'subsidiary');
-                                    handleFieldUpdate('subsidiaryName', val);
-                                }
-                            }}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Сонгох" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="main">
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="w-4 h-4 text-primary" />
-                                        {companyProfile?.name || 'Үндсэн компани'}
-                                    </div>
-                                </SelectItem>
-                                {subsidiaries.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
-                                            Охин компаниуд
-                                        </div>
-                                        {subsidiaries.map((sub, idx) => (
-                                            <SelectItem key={idx} value={sub.name}>
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 className="w-4 h-4 text-indigo-500" />
-                                                    {sub.name}
+                    {/* Компани */}
+                    <FieldCard
+                        icon={Building2}
+                        title="Компани"
+                        value={
+                            position.companyType === 'subsidiary' && position.subsidiaryName
+                                ? position.subsidiaryName
+                                : companyProfile?.name || 'Үндсэн компани'
+                        }
+                        editContent={
+                            <LabeledInput label="Компани сонгох">
+                                <Select
+                                    value={editCompanyType === 'subsidiary' && editSubsidiaryName ? editSubsidiaryName : 'main'}
+                                    onValueChange={(val) => {
+                                        if (val === 'main') {
+                                            setEditCompanyType('main');
+                                            setEditSubsidiaryName('');
+                                        } else {
+                                            setEditCompanyType('subsidiary');
+                                            setEditSubsidiaryName(val);
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="main">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 className="w-4 h-4 text-primary" />
+                                                {companyProfile?.name || 'Үндсэн компани'}
+                                            </div>
+                                        </SelectItem>
+                                        {subsidiaries.length > 0 && (
+                                            <>
+                                                <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
+                                                    Охин компаниуд
                                                 </div>
-                                            </SelectItem>
+                                                {subsidiaries.map((sub, idx) => (
+                                                    <SelectItem key={idx} value={sub.name}>
+                                                        <div className="flex items-center gap-2">
+                                                            <Building2 className="w-4 h-4 text-indigo-500" />
+                                                            {sub.name}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            if (!firestore) return;
+                            await updateDoc(doc(firestore, 'positions', position.id), {
+                                companyType: editCompanyType,
+                                subsidiaryName: editCompanyType === 'subsidiary' ? editSubsidiaryName : '',
+                                updatedAt: new Date().toISOString(),
+                            });
+                            toast({ title: 'Амжилттай хадгалагдлаа' });
+                        }}
+                    />
+
+                    {/* Нэгж / Хэлтэс */}
+                    <FieldCard
+                        icon={FolderKanban}
+                        title="Нэгж / Хэлтэс"
+                        value={department?.name || 'Оноогоогүй'}
+                        isEmpty={!department}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Нэгж / Хэлтэс сонгох">
+                                <Select value={editDepartmentId} onValueChange={setEditDepartmentId}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map(d => (
+                                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                                         ))}
-                                    </>
-                                )}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('departmentId', editDepartmentId);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Нэгж / Хэлтэс</label>
-                        <Select
-                            value={formData.departmentId}
-                            onValueChange={(val) => handleFieldUpdate('departmentId', val)}
-                            disabled={position.isApproved}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Шууд удирдлага */}
+                    <FieldCard
+                        icon={Network}
+                        title="Шууд удирдлага"
+                        value={supervisor?.title || 'Дээд шат'}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Шууд удирдлага сонгох">
+                                <Select
+                                    value={editReportsToId || 'none'}
+                                    onValueChange={(val) => setEditReportsToId(val === 'none' ? '' : val)}
+                                >
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Удирдлагагүй (Дээд шат)</SelectItem>
+                                        {allPositions.filter(p => p.id !== position.id).map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('reportsToId', editReportsToId);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Шууд удирдлага</label>
-                        <Select
-                            value={formData.reportsToId || 'none'}
-                            onValueChange={(val) => handleFieldUpdate('reportsToId', val === 'none' ? '' : val)}
-                            disabled={position.isApproved}
-                        >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Удирдлагагүй (Дээд шат)</SelectItem>
-                                {allPositions.filter(p => p.id !== position.id).map(p => (
-                                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+                    {/* Түвшин */}
+                    <FieldCard
+                        icon={Layers}
+                        title="Түвшин / Зэрэглэл"
+                        value={level?.name || 'Тохируулаагүй'}
+                        isEmpty={!level}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Түвшин сонгох">
+                                <Select value={editLevelId} onValueChange={setEditLevelId}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {levels.map(l => (
+                                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('levelId', editLevelId);
+                        }}
+                    />
 
-                {/* Classification & Employment */}
-                <div className="space-y-3">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Түвшин / Зэрэглэл</label>
-                        <Select
-                            value={formData.levelId}
-                            onValueChange={(val) => handleFieldUpdate('levelId', val)}
-                            disabled={position.isApproved}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                {levels.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Мэргэжлийн ангилал */}
+                    <FieldCard
+                        icon={FolderKanban}
+                        title="Мэргэжлийн ангилал"
+                        value={category?.name || 'Оноогоогүй'}
+                        isEmpty={!category}
+                        editContent={
+                            <LabeledInput label="Мэргэжлийн ангилал (ЯАМАТ)">
+                                <Select value={editCategoryId} onValueChange={setEditCategoryId}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('jobCategoryId', editCategoryId);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Мэргэжлийн ангилал (ЯАМАТ)</label>
-                        <Select
-                            value={formData.jobCategoryId}
-                            onValueChange={(val) => handleFieldUpdate('jobCategoryId', val)}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Ажлын байрны төрөл */}
+                    <FieldCard
+                        icon={User}
+                        title="Ажлын байрны төрөл"
+                        value={employmentType?.name || 'Бүртгэгдээгүй'}
+                        isEmpty={!employmentType}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Ажлын байрны төрөл">
+                                <Select value={editEmploymentTypeId} onValueChange={setEditEmploymentTypeId}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {employmentTypes.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('employmentTypeId', editEmploymentTypeId);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Ажлын байрны төрөл</label>
-                        <Select
-                            value={formData.employmentTypeId}
-                            onValueChange={(val) => handleFieldUpdate('employmentTypeId', val)}
-                            disabled={position.isApproved}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                {employmentTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Цагийн хуваарь */}
+                    <FieldCard
+                        icon={Clock}
+                        title="Цагийн хуваарь"
+                        value={schedule?.name || 'Сонгоогүй'}
+                        isEmpty={!schedule}
+                        editContent={
+                            <LabeledInput label="Цагийн хуваарь">
+                                <Select value={editScheduleId || '__none__'} onValueChange={(val) => setEditScheduleId(val === '__none__' ? '' : val)}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                        {schedules.filter((s: any) => s?.isActive !== false).map(s => (
+                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('workScheduleId', editScheduleId || null);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Цагийн хуваарь</label>
-                        <Select
-                            value={formData.workScheduleId}
-                            onValueChange={(val) => handleFieldUpdate('workScheduleId', val)}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Хөдөлмөрийн нөхцөл */}
+                    <FieldCard
+                        icon={HardHat}
+                        title="Хөдөлмөрийн нөхцөл"
+                        value={
+                            position.workingCondition
+                                ? WORKING_CONDITION_LABELS[position.workingCondition as WorkingCondition] || position.workingCondition
+                                : 'Тохируулаагүй'
+                        }
+                        isEmpty={!position.workingCondition}
+                        isLocked={position.isApproved}
+                        editContent={
+                            <LabeledInput label="Хөдөлмөрийн нөхцөл">
+                                <Select value={editWorkingCondition || '__none__'} onValueChange={(val) => setEditWorkingCondition(val === '__none__' ? '' : val)}>
+                                    <SelectTrigger className="h-12 rounded-xl">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                        {Object.entries(WORKING_CONDITION_LABELS).map(([k, label]) => (
+                                            <SelectItem key={k} value={k}>{label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            await saveField('workingCondition', editWorkingCondition || null);
+                        }}
+                    />
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Хөдөлмөрийн нөхцөл</label>
-                        <Select
-                            value={formData.workingCondition || '__none__'}
-                            onValueChange={(val) => handleFieldUpdate('workingCondition', val)}
-                            disabled={position.isApproved}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="__none__">Сонгоогүй</SelectItem>
-                                {Object.entries(WORKING_CONDITION_LABELS).map(([k, label]) => (
-                                    <SelectItem key={k} value={k}>{label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+                    {/* Амралт батлах эрх */}
+                    <FieldCard
+                        icon={CalendarCheck}
+                        title="Амралт батлах эрх"
+                        value={position.permissions?.canApproveVacation ? 'Тийм' : 'Үгүй'}
+                        editContent={
+                            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
+                                <span className="text-sm font-medium">Амралт батлах эрхтэй эсэх</span>
+                                <Switch
+                                    checked={editCanApproveVacation}
+                                    onCheckedChange={setEditCanApproveVacation}
+                                />
+                            </div>
+                        }
+                        onSave={async () => {
+                            if (!firestore) return;
+                            await updateDoc(doc(firestore, 'positions', position.id), {
+                                'permissions.canApproveVacation': editCanApproveVacation,
+                                updatedAt: new Date().toISOString(),
+                            });
+                            toast({ title: 'Амжилттай хадгалагдлаа' });
+                        }}
+                    />
 
-                {/* Permissions & Budget */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <label className="text-sm">Амралт батлах эрх</label>
-                        <Switch
-                            checked={formData.permissions.canApproveVacation}
-                            onCheckedChange={(checked) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveVacation: checked })}
-                        />
-                    </div>
+                    {/* Чөлөө батлах эрх */}
+                    <FieldCard
+                        icon={CalendarX}
+                        title="Чөлөө батлах эрх"
+                        value={position.permissions?.canApproveLeave ? 'Тийм' : 'Үгүй'}
+                        editContent={
+                            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
+                                <span className="text-sm font-medium">Чөлөө батлах эрхтэй эсэх</span>
+                                <Switch
+                                    checked={editCanApproveLeave}
+                                    onCheckedChange={setEditCanApproveLeave}
+                                />
+                            </div>
+                        }
+                        onSave={async () => {
+                            if (!firestore) return;
+                            await updateDoc(doc(firestore, 'positions', position.id), {
+                                'permissions.canApproveLeave': editCanApproveLeave,
+                                updatedAt: new Date().toISOString(),
+                            });
+                            toast({ title: 'Амжилттай хадгалагдлаа' });
+                        }}
+                    />
 
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <label className="text-sm">Чөлөө батлах эрх</label>
-                        <Switch
-                            checked={formData.permissions.canApproveLeave}
-                            onCheckedChange={(checked) => handleFieldUpdate('permissions', { ...formData.permissions, canApproveLeave: checked })}
-                        />
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Жилийн төсөв</label>
-                        <div className="flex gap-2">
-                            <Input
-                                type="number"
-                                value={formData.budget.yearlyBudget}
-                                onChange={(e) => handleFieldUpdate('budget', { ...formData.budget, yearlyBudget: Number(e.target.value) })}
-                                className="flex-1"
-                            />
-                            <Select 
-                                value={formData.budget.currency} 
-                                onValueChange={(val) => handleFieldUpdate('budget', { ...formData.budget, currency: val })}
-                            >
-                                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="MNT">₮</SelectItem>
-                                    <SelectItem value="USD">$</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    {/* Жилийн төсөв */}
+                    <FieldCard
+                        icon={Wallet}
+                        title="Жилийн төсөв"
+                        value={
+                            position.budget?.yearlyBudget
+                                ? `${position.budget.yearlyBudget.toLocaleString()} ${position.budget.currency === 'MNT' ? '₮' : '$'}`
+                                : 'Тодорхойгүй'
+                        }
+                        isEmpty={!position.budget?.yearlyBudget}
+                        editContent={
+                            <LabeledInput label="Жилийн төсөв">
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="number"
+                                        value={editYearlyBudget}
+                                        onChange={(e) => setEditYearlyBudget(Number(e.target.value))}
+                                        className="h-12 rounded-xl flex-1"
+                                        placeholder="0"
+                                    />
+                                    <Select value={editCurrency} onValueChange={setEditCurrency}>
+                                        <SelectTrigger className="w-24 h-12 rounded-xl">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MNT">₮</SelectItem>
+                                            <SelectItem value="USD">$</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </LabeledInput>
+                        }
+                        onSave={async () => {
+                            if (!firestore) return;
+                            await updateDoc(doc(firestore, 'positions', position.id), {
+                                budget: {
+                                    yearlyBudget: editYearlyBudget,
+                                    currency: editCurrency,
+                                },
+                                updatedAt: new Date().toISOString(),
+                            });
+                            toast({ title: 'Амжилттай хадгалагдлаа' });
+                        }}
+                    />
         </div>
     );
 }

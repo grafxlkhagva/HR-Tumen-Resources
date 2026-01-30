@@ -459,17 +459,44 @@ export default function BrandingPage() {
 
     // Track original data for unsaved changes detection
     const originalDataRef = React.useRef<{ colors: BrandColor[]; mapping: ThemeMapping } | null>(null);
+    const didInitRef = React.useRef(false);
 
     React.useEffect(() => {
-        if (branding) {
-            const brandColors = branding.brandColors || [];
-            const themeMapping = branding.themeMapping || DEFAULT_MAPPING;
+        if (isLoading) return;
+
+        // If the doc doesn't exist yet, we still need a baseline so "Save" can enable on edits.
+        const brandColors = branding?.brandColors ?? [];
+        const themeMapping = branding?.themeMapping ?? DEFAULT_MAPPING;
+
+        // Sanitize mapping: if an id no longer exists in brandColors, fall back to default.
+        const validIds = new Set(brandColors.map((c) => c.id));
+        const nextMapping: ThemeMapping = {
+            ...DEFAULT_MAPPING,
+            ...themeMapping,
+        };
+        (Object.keys(nextMapping) as Array<keyof ThemeMapping>).forEach((key) => {
+            const val = nextMapping[key];
+            if (val && !validIds.has(val)) nextMapping[key] = '';
+        });
+
+        // First non-loading render: initialize baseline (even if branding is undefined).
+        if (!didInitRef.current) {
+            didInitRef.current = true;
             setColors(brandColors);
-            setMapping(themeMapping);
-            originalDataRef.current = { colors: brandColors, mapping: themeMapping };
+            setMapping(nextMapping);
+            originalDataRef.current = { colors: brandColors, mapping: nextMapping };
+            setHasUnsavedChanges(false);
+            return;
+        }
+
+        // Subsequent updates: keep in sync only when user has no local edits.
+        if (!hasUnsavedChanges && !isSaving) {
+            setColors(brandColors);
+            setMapping(nextMapping);
+            originalDataRef.current = { colors: brandColors, mapping: nextMapping };
             setHasUnsavedChanges(false);
         }
-    }, [branding]);
+    }, [branding, isLoading, hasUnsavedChanges, isSaving]);
 
     // Track unsaved changes
     React.useEffect(() => {
@@ -478,6 +505,17 @@ export default function BrandingPage() {
             setHasUnsavedChanges(hasChanges);
         }
     }, [colors, mapping]);
+
+    // Warn on tab close/refresh if there are unsaved changes
+    React.useEffect(() => {
+        if (!hasUnsavedChanges) return;
+        const onBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     const handleAddColor = () => {
         if (!newColorName.trim()) {
@@ -489,20 +527,20 @@ export default function BrandingPage() {
             name: newColorName.trim(),
             hex: newColorHex,
         };
-        setColors([...colors, newColor]);
+        setColors((prev) => [...prev, newColor]);
         setNewColorName('');
         setNewColorHex('#3b82f6');
     };
 
     const handleDeleteColor = (id: string) => {
-        setColors(colors.filter(c => c.id !== id));
-        const newMapping = { ...mapping };
-        Object.keys(newMapping).forEach(key => {
-            if (newMapping[key as keyof ThemeMapping] === id) {
-                newMapping[key as keyof ThemeMapping] = '';
-            }
+        setColors((prev) => prev.filter((c) => c.id !== id));
+        setMapping((prev) => {
+            const next = { ...prev };
+            (Object.keys(next) as Array<keyof ThemeMapping>).forEach((key) => {
+                if (next[key] === id) next[key] = '';
+            });
+            return next;
         });
-        setMapping(newMapping);
     };
 
     const handleStartEdit = (color: BrandColor) => {
@@ -513,9 +551,9 @@ export default function BrandingPage() {
 
     const handleSaveEdit = () => {
         if (!editingColorId || !editName.trim()) return;
-        setColors(colors.map(c => 
-            c.id === editingColorId ? { ...c, name: editName.trim(), hex: editHex } : c
-        ));
+        setColors((prev) =>
+            prev.map((c) => (c.id === editingColorId ? { ...c, name: editName.trim(), hex: editHex } : c))
+        );
         setEditingColorId(null);
         setEditName('');
         setEditHex('');
@@ -536,26 +574,40 @@ export default function BrandingPage() {
             name: c.name,
             hex: c.hex,
         }));
-        setColors([...colors, ...newColors]);
+        setColors((prev) => [...prev, ...newColors]);
         toast({ title: `"${preset.name}" палетт нэмэгдлээ` });
     };
 
     const handleReset = () => {
-        if (branding) {
-            setColors(branding.brandColors || []);
-            setMapping(branding.themeMapping || DEFAULT_MAPPING);
-            setHasUnsavedChanges(false);
-        }
+        const brandColors = branding?.brandColors ?? [];
+        const themeMapping = branding?.themeMapping ?? DEFAULT_MAPPING;
+        const validIds = new Set(brandColors.map((c) => c.id));
+        const nextMapping: ThemeMapping = {
+            ...DEFAULT_MAPPING,
+            ...themeMapping,
+        };
+        (Object.keys(nextMapping) as Array<keyof ThemeMapping>).forEach((key) => {
+            const val = nextMapping[key];
+            if (val && !validIds.has(val)) nextMapping[key] = '';
+        });
+        setColors(brandColors);
+        setMapping(nextMapping);
+        originalDataRef.current = { colors: brandColors, mapping: nextMapping };
+        setHasUnsavedChanges(false);
     };
 
     const handleSave = async () => {
         if (!firestore) return;
         setIsSaving(true);
         try {
-            await setDoc(doc(firestore, 'company', 'branding'), {
-                brandColors: colors,
-                themeMapping: mapping,
-            });
+            await setDoc(
+                doc(firestore, 'company', 'branding'),
+                {
+                    brandColors: colors,
+                    themeMapping: mapping,
+                },
+                { merge: true }
+            );
             originalDataRef.current = { colors, mapping };
             setHasUnsavedChanges(false);
             toast({ title: "Амжилттай хадгалагдлаа" });

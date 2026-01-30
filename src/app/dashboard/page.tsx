@@ -119,17 +119,7 @@ const UNASSIGNED_X = -600;
 const UNASSIGNED_Y_GAP = 220;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
-// --- Helper Functions ---
-function isColorDark(hex: string): boolean {
-    if (!hex) return false;
-    const color = hex.startsWith('#') ? hex.substring(1) : hex;
-    const rgb = parseInt(color, 16); // convert rrggbb to decimal
-    const r = (rgb >> 16) & 0xff; // extract red
-    const g = (rgb >> 8) & 0xff; // extract green
-    const b = (rgb >> 0) & 0xff; // extract blue
-    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b; // per ITU-R BT.709
-    return luma < 128;
-}
+import { PositionStructureCard } from '@/components/organization/position-structure-card';
 
 // --- Node Components ---
 
@@ -260,173 +250,26 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
 
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
     const employee = data.employees[0];
-    // Use department color for position card
-    const cardColor = data.departmentColor || '#1e293b';
-    const isDarkBg = cardColor ? isColorDark(cardColor) : false;
-    const hasEmployee = !!employee;
-
     return (
         <div className="relative group">
             <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
-            
-            {/* Main Card */}
-            <div
-                className={cn(
-                    "w-72 rounded-2xl shadow-xl relative overflow-hidden transition-all duration-300",
-                    "hover:shadow-2xl hover:-translate-y-1",
-                    isDarkBg ? "text-white" : "text-slate-800"
-                )}
-                style={{ backgroundColor: cardColor }}
-            >
-                {/* Glassmorphism overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-                
-                {/* Top accent line */}
-                <div className={cn(
-                    "h-1 w-full",
-                    hasEmployee ? "bg-emerald-400" : "bg-amber-400"
-                )} />
-
-                {/* Detail link button */}
-                <Link 
-                    href={`/dashboard/organization/positions/${data.id}`}
-                    className="absolute top-3 right-3 z-10"
-                >
-                    <div className={cn(
-                        "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                        "opacity-0 group-hover:opacity-100",
-                        isDarkBg 
-                            ? "bg-white/20 hover:bg-white/30 text-white" 
-                            : "bg-black/10 hover:bg-black/20 text-slate-700"
-                    )}>
-                        <ExternalLink className="h-4 w-4" />
-                    </div>
-                </Link>
-
-                <div className="p-5 space-y-4">
-                    {/* Avatar Section */}
-                    <div className="flex justify-center">
-                        <div className="relative">
-                            <AvatarWithProgress employee={employee} />
-                            {/* Status dot */}
-                            <div className={cn(
-                                "absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 flex items-center justify-center",
-                                isDarkBg ? "border-slate-800" : "border-white",
-                                hasEmployee ? "bg-emerald-500" : "bg-amber-500"
-                            )}>
-                                {hasEmployee ? (
-                                    <UserCheck className="h-3 w-3 text-white" />
-                                ) : (
-                                    <User className="h-3 w-3 text-white" />
-                                )}
-                            </div>
+            <PositionStructureCard
+                positionId={data.id}
+                positionTitle={data.title}
+                departmentName={data.department}
+                departmentColor={data.departmentColor}
+                employee={employee as any}
+                actions={
+                    <Link href={`/dashboard/organization/positions/${data.id}`} className="block">
+                        <div className={cn(
+                            "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                            "bg-white/20 hover:bg-white/30 text-white"
+                        )}>
+                            <ExternalLink className="h-4 w-4" />
                         </div>
-                    </div>
-
-                    {/* Info Section */}
-                    <div className="text-center space-y-1">
-                        {employee ? (
-                            <Link href={`/dashboard/employees/${employee.id}`} className="block group/name">
-                                <h3 className="font-bold text-lg leading-tight group-hover/name:underline">
-                                    {employee.firstName} {employee.lastName}
-                                </h3>
-                                <p className={cn(
-                                    "text-xs font-mono tracking-wider",
-                                    isDarkBg ? "text-white/60" : "text-slate-500"
-                                )}>
-                                    {employee.employeeCode}
-                                </p>
-                            </Link>
-                        ) : (
-                            <div className="py-1">
-                                <h3 className={cn(
-                                    "font-semibold text-base",
-                                    isDarkBg ? "text-white/70" : "text-slate-500"
-                                )}>
-                                    Сул орон тоо
-                                </h3>
-                            </div>
-                        )}
-                        
-                        {/* Position Title */}
-                        <Link 
-                            href={`/dashboard/organization/positions/${data.id}`} 
-                            className="block"
-                        >
-                            <p className={cn(
-                                "text-sm font-medium hover:underline",
-                                isDarkBg ? "text-white/80" : "text-slate-600"
-                            )}>
-                                {data.title}
-                            </p>
-                        </Link>
-                    </div>
-
-                    {/* Attendance Status */}
-                    {data.attendanceStatus && (
-                        <div className="flex justify-center">
-                            <AttendanceStatusIndicator status={data.attendanceStatus} />
-                        </div>
-                    )}
-
-                    {/* Progress bar (if employee has questionnaire) */}
-                    {employee?.questionnaireCompletion !== undefined && (
-                        <div className="space-y-1">
-                            <div className="flex justify-between text-[10px]">
-                                <span className={isDarkBg ? "text-white/60" : "text-slate-500"}>Анкет</span>
-                                <span className={cn(
-                                    "font-semibold",
-                                    employee.questionnaireCompletion >= 90 ? "text-emerald-400" :
-                                    employee.questionnaireCompletion >= 50 ? "text-amber-400" : "text-rose-400"
-                                )}>
-                                    {Math.round(employee.questionnaireCompletion)}%
-                                </span>
-                            </div>
-                            <div className={cn(
-                                "h-1.5 rounded-full overflow-hidden",
-                                isDarkBg ? "bg-white/10" : "bg-slate-200"
-                            )}>
-                                <div 
-                                    className={cn(
-                                        "h-full rounded-full transition-all duration-500",
-                                        employee.questionnaireCompletion >= 90 ? "bg-emerald-400" :
-                                        employee.questionnaireCompletion >= 50 ? "bg-amber-400" : "bg-rose-400"
-                                    )}
-                                    style={{ width: `${employee.questionnaireCompletion}%` }}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className={cn(
-                        "pt-3 border-t flex items-center justify-between text-xs",
-                        isDarkBg ? "border-white/10" : "border-slate-200"
-                    )}>
-                        <div className="flex items-center gap-1.5">
-                            <Building className={cn("h-3.5 w-3.5", isDarkBg ? "text-white/50" : "text-slate-400")} />
-                            <span className={cn(
-                                "font-medium truncate max-w-[120px]",
-                                isDarkBg ? "text-white/80" : "text-slate-600"
-                            )}>
-                                {data.department}
-                            </span>
-                        </div>
-                        <Badge 
-                            variant="secondary" 
-                            className={cn(
-                                "text-[10px] px-2 py-0.5 font-semibold border-0",
-                                hasEmployee 
-                                    ? "bg-emerald-500/20 text-emerald-300" 
-                                    : "bg-amber-500/20 text-amber-300"
-                            )}
-                        >
-                            {hasEmployee ? "Томилсон" : "Сул"}
-                        </Badge>
-                    </div>
-                </div>
-            </div>
-            
+                    </Link>
+                }
+            />
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
         </div>
     );

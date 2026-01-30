@@ -121,6 +121,7 @@ const PositionHistorySheet = ({ position }: { position: Position }) => {
 };
 
 interface PositionsListTableProps {
+    variant?: 'table' | 'cards';
     positions: Position[] | null;
     lookups: any;
     isLoading: boolean;
@@ -134,6 +135,7 @@ interface PositionsListTableProps {
 }
 
 export const PositionsListTable = ({
+    variant = 'table',
     positions,
     lookups,
     isLoading,
@@ -160,6 +162,213 @@ export const PositionsListTable = ({
             onSelectionChange(selectedIds.filter(i => i !== id));
         }
     };
+
+    if (variant === 'cards') {
+        return (
+            <div className="space-y-3">
+                {isLoading &&
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-xl border shadow-sm p-4 flex items-start gap-4">
+                            <Skeleton className="h-4 w-4 mt-1" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-5 w-1/2" />
+                                <Skeleton className="h-4 w-2/3" />
+                            </div>
+                            <Skeleton className="h-8 w-8" />
+                        </div>
+                    ))}
+
+                {!isLoading && positions?.map((pos) => {
+                    const isSelected = selectedIds.includes(pos.id);
+                    const deptColor = lookups.departmentColorMap?.[pos.departmentId] || lookups.departmentColor || undefined;
+                    const hasColor = deptColor && deptColor !== '#ffffff' && deptColor.toLowerCase() !== 'white';
+
+                    return (
+                        <div
+                            key={pos.id}
+                            className={cn(
+                                'bg-white rounded-xl border shadow-sm p-4 flex items-start gap-4',
+                                'transition-shadow hover:shadow-md',
+                                isSelected && 'ring-2 ring-primary/20'
+                            )}
+                        >
+                            <div className="pt-0.5">
+                                <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => handleToggleOne(pos.id, !!checked)}
+                                />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <button
+                                                type="button"
+                                                className="text-sm font-semibold text-slate-900 hover:text-primary truncate"
+                                                onClick={() => onEdit(pos)}
+                                            >
+                                                {pos.title}
+                                            </button>
+
+                                            {pos.isApproved === true ? (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200 py-0 h-5 font-semibold cursor-help">
+                                                                Батлагдсан
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        {pos.approvedByName && (
+                                                            <TooltipContent side="bottom" className="p-3 space-y-1.5 max-w-[240px]">
+                                                                <div className="flex items-center gap-2 pb-1 border-b border-white/20">
+                                                                    <CheckCircle className="h-3 w-3" />
+                                                                    <span className="text-[10px] font-semibold uppercase">Батлагдсан мэдээлэл</span>
+                                                                </div>
+                                                                <p className="text-xs font-semibold">{pos.approvedByName}</p>
+                                                                <p className="text-[10px] text-slate-300">
+                                                                    {pos.approvedAt ? format(new Date(pos.approvedAt), 'yyyy/MM/dd HH:mm', { locale: mn }) : ''}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        )}
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            ) : (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200 py-0 h-5 font-semibold cursor-help">
+                                                                Батлагдаагүй
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        {(pos.disapprovedByName || (pos.isApproved === false && pos.approvalHistory?.length)) && (
+                                                            <TooltipContent side="bottom" className="p-3 space-y-1.5 max-w-[240px]">
+                                                                <div className="flex items-center gap-2 pb-1 border-b border-white/20">
+                                                                    <HistoryIcon className="h-3 w-3" />
+                                                                    <span className="text-[10px] font-semibold uppercase">Цуцалсан мэдээлэл</span>
+                                                                </div>
+                                                                <p className="text-xs font-semibold">{pos.disapprovedByName || 'Мэдээлэлгүй'}</p>
+                                                                <p className="text-[10px] text-slate-300">
+                                                                    {pos.disapprovedAt ? format(new Date(pos.disapprovedAt), 'yyyy/MM/dd HH:mm', { locale: mn }) : ''}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        )}
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+
+                                            <PositionHistorySheet position={pos} />
+
+                                            {pos.hasPointBudget && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger>
+                                                            <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Онооны төсөвтэй</TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            {pos.code ? (
+                                                <span className="font-mono text-[11px] text-slate-500">{pos.code}</span>
+                                            ) : null}
+                                            <span>{lookups.departmentMap[pos.departmentId] || 'Тодорхойгүй'}</span>
+                                            {pos.levelId ? (
+                                                <span>{lookups.levelMap[pos.levelId] || 'Тодорхойгүй'}</span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    <div className="shrink-0">
+                                        <AlertDialog>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => onEdit(pos)}>
+                                                        <Pencil className="mr-2 h-4 w-4" /> Засах
+                                                    </DropdownMenuItem>
+                                                    <AlertDialogTrigger asChild>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                            <Copy className="mr-2 h-4 w-4" /> Хувилах
+                                                        </DropdownMenuItem>
+                                                    </AlertDialogTrigger>
+
+                                                    {pos.isApproved === true && onDisband && (
+                                                        <DropdownMenuItem onClick={() => onDisband(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
+                                                            <PowerOff className="mr-2 h-4 w-4" /> Татан буулгах
+                                                        </DropdownMenuItem>
+                                                    )}
+
+                                                    {pos.isApproved === false && (
+                                                        <>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem onClick={() => onDelete(pos)} className="text-destructive">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Устгах
+                                                            </DropdownMenuItem>
+                                                        </>
+                                                    )}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Ажлын байр хувилах</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Та "{pos.title}" ажлын байрыг хувилахдаа итгэлтэй байна уу? Шинэ ажлын байр нь ижил мэдээлэлтэй боловч ажилтан томилогдоогүйгээр үүснэ.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                                    <AlertDialogAction variant="default" onClick={() => onDuplicate(pos)}>
+                                                        Тийм, хувилах
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </div>
+
+                                {pos.hasPointBudget && (
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                        <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-yellow-400"
+                                                style={{ width: `${Math.min(100, ((pos.remainingPointBudget ?? 0) / (pos.yearlyPointBudget ?? 1)) * 100)}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] text-muted-foreground font-medium">
+                                            {(pos.remainingPointBudget ?? 0).toLocaleString()} / {(pos.yearlyPointBudget ?? 0).toLocaleString()}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {!isLoading && !positions?.length && (
+                    <div className="bg-white rounded-xl border shadow-sm p-0">
+                        <EmptyState
+                            icon={Briefcase}
+                            title="Ажлын байр олдсонгүй"
+                            description="Энэ нэгжид бүртгэлтэй ажлын байр байхгүй байна."
+                            className="py-12"
+                            action={onClearFilters ? {
+                                label: "Шүүлтүүдийг цэвэрлэх",
+                                onClick: onClearFilters
+                            } : undefined}
+                        />
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <Table>

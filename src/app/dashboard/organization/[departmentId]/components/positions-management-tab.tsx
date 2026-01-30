@@ -53,12 +53,16 @@ interface PositionsManagementTabProps {
     department: Department;
     hideChart?: boolean;
     hideAddButton?: boolean;
+    /** Hide the internal top control bar (used when page provides its own tabs/controls) */
+    hideControls?: boolean;
+    /** Render list as table or card list */
+    listVariant?: 'table' | 'cards';
     // We can pass lookup data here or fetch internally. Fetching internally within the tab allows this tab to be self-contained.
     // However, for performance, common lookups like Levels/Types might be better passed down if reused.
     // For now, let's fetch strictly needed data here.
 }
 
-export const PositionsManagementTab = ({ department, hideChart, hideAddButton }: PositionsManagementTabProps) => {
+export const PositionsManagementTab = ({ department, hideChart, hideAddButton, hideControls, listVariant = 'table' }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const router = useRouter();
@@ -560,11 +564,11 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
     const typeName = departmentTypes?.find(t => t.id === department.typeId)?.name || 'Нэгж';
 
 
-    return (
-        <div className="space-y-6">
+    const showControls = !hideControls;
 
-            <div className="space-y-6">
-                {/* Content Control Bar - Simplified */}
+    return (
+        <div className={cn('space-y-4', showControls && 'space-y-6')}>
+            {showControls && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-border/50">
                     <div className="flex items-center gap-3">
                         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-auto">
@@ -587,7 +591,6 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                                 </TabsList>
                             )}
                         </Tabs>
-
                     </div>
 
                     {!hideAddButton && (
@@ -602,36 +605,53 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton }:
                         </Button>
                     )}
                 </div>
-                {viewMode === 'chart' ? (
-                    <PositionStructureChart
+            )}
+
+            {viewMode === 'chart' ? (
+                <PositionStructureChart
+                    positions={positions || []}
+                    employees={employees || []}
+                    department={department}
+                    isLoading={isLoading}
+                    onPositionClick={handleEditPosition}
+                    onAddChild={handleAddChildPosition}
+                    onDuplicate={handleDuplicatePosition}
+                    lookups={lookups}
+                />
+            ) : listVariant === 'cards' ? (
+                <PositionsListTable
+                    variant="cards"
+                    positions={positions || []}
+                    lookups={lookups}
+                    isLoading={isLoading}
+                    selectedIds={selectedPositionIds}
+                    onSelectionChange={setSelectedPositionIds}
+                    onEdit={handleEditPosition}
+                    onDelete={handleDeletePosition}
+                    onDisband={(pos) => {
+                        setDisbandPosition(pos);
+                        setIsPosDisbandConfirmOpen(true);
+                    }}
+                    onDuplicate={handleDuplicatePosition}
+                />
+            ) : (
+                <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/50 overflow-hidden">
+                    <PositionsListTable
                         positions={positions || []}
-                        employees={employees || []}
-                        department={department}
-                        isLoading={isLoading}
-                        onPositionClick={handleEditPosition}
-                        onAddChild={handleAddChildPosition}
-                        onDuplicate={handleDuplicatePosition}
                         lookups={lookups}
+                        isLoading={isLoading}
+                        selectedIds={selectedPositionIds}
+                        onSelectionChange={setSelectedPositionIds}
+                        onEdit={handleEditPosition}
+                        onDelete={handleDeletePosition}
+                        onDisband={(pos) => {
+                            setDisbandPosition(pos);
+                            setIsPosDisbandConfirmOpen(true);
+                        }}
+                        onDuplicate={handleDuplicatePosition}
                     />
-                ) : (
-                    <Card className="border-none shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/50 overflow-hidden">
-                        <PositionsListTable
-                            positions={positions || []}
-                            lookups={lookups}
-                            isLoading={isLoading}
-                            selectedIds={selectedPositionIds}
-                            onSelectionChange={setSelectedPositionIds}
-                            onEdit={handleEditPosition}
-                            onDelete={handleDeletePosition}
-                            onDisband={(pos) => {
-                                setDisbandPosition(pos);
-                                setIsPosDisbandConfirmOpen(true);
-                            }}
-                            onDuplicate={handleDuplicatePosition}
-                        />
-                    </Card>
-                )}
-            </div>
+                </Card>
+            )}
 
 
             <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>

@@ -35,7 +35,6 @@ import {
     ExternalLink
 } from 'lucide-react';
 import { writeBatch, increment as firestoreIncrement, getDocs } from 'firebase/firestore';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AppointEmployeeDialog } from '../../[departmentId]/components/flow/appoint-employee-dialog';
 import { ReleaseEmployeeDialog } from '../../[departmentId]/components/flow/release-employee-dialog';
 import { format } from 'date-fns';
@@ -43,8 +42,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
+import { PositionStructureCard } from '@/components/organization/position-structure-card';
 import { useToast } from '@/hooks/use-toast';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -62,12 +69,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -370,311 +371,347 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
             <div className="flex-1 p-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title={position.title}
-                    description={`${position.code || 'Код оноогоогүй'} • ${department?.name || ''}`}
+                    description="Ажлын байр"
                     breadcrumbs={[
                         { label: 'Бүтэц', href: '/dashboard/organization' },
                         { label: department?.name || '', href: `/dashboard/organization/${position.departmentId}` },
                         { label: position.title }
                     ]}
                     showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref={position.departmentId ? `/dashboard/organization/${position.departmentId}` : '/dashboard/organization'}
                     backHref={`/dashboard/organization/${position.departmentId}`}
-                    actions={
-                        <div className="flex items-center gap-2">
-                            {/* Status Badge */}
-                            <Badge variant={position.isApproved ? "default" : "secondary"} className={cn(
-                                "text-[10px] uppercase",
-                                position.isApproved ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"
-                            )}>
-                                {position.isApproved ? 'Батлагдсан' : 'Ноорог'}
-                            </Badge>
-
-                            {/* Approve/Disapprove Button */}
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span>
-                                            <Button
-                                                variant={position.isApproved ? "outline" : "default"}
-                                                size="sm"
-                                                className={cn(
-                                                    "gap-2",
-                                                    position.isApproved && !assignedEmployee && "border-amber-200 text-amber-600 hover:bg-amber-50",
-                                                    (!position.isApproved && !validationChecklist.isComplete) && "opacity-50",
-                                                    (position.isApproved && assignedEmployee) && "opacity-50"
-                                                )}
-                                                onClick={() => position.isApproved && !assignedEmployee ? setIsDisapproveConfirmOpen(true) : validationChecklist.isComplete && setIsApproveConfirmOpen(true)}
-                                                disabled={(!position.isApproved && !validationChecklist.isComplete) || (position.isApproved && !!assignedEmployee)}
-                                            >
-                                                {position.isApproved ? <><XCircle className="w-4 h-4" /> Цуцлах</> : <><Sparkles className="w-4 h-4" /> Батлах</>}
-                                            </Button>
-                                        </span>
-                                    </TooltipTrigger>
-                                    {((!position.isApproved && !validationChecklist.isComplete) || (position.isApproved && assignedEmployee)) && (
-                                        <TooltipContent>
-                                            {!position.isApproved ? 'Мэдээлэл дутуу' : 'Ажилтан томилогдсон'}
-                                        </TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            {/* More Actions */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    {position.jobDescriptionFile && (
-                                        <DropdownMenuItem asChild>
-                                            <a href={position.jobDescriptionFile.url} target="_blank" rel="noopener noreferrer">
-                                                <Download className="w-4 h-4 mr-2" /> АБТ татах
-                                            </a>
-                                        </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteConfirmOpen(true)}>
-                                        <Trash2 className="w-4 h-4 mr-2" /> Устгах
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    }
                 />
 
-                <div className="space-y-6">
-                {/* Quick Stats Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-xl p-4 border overflow-hidden">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                <Briefcase className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-muted-foreground">Түвшин</p>
-                                <p className="font-semibold truncate" title={level?.name}>{level?.name || '-'}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border overflow-hidden">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                <Building2 className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-muted-foreground">Нэгж</p>
-                                <p className="font-semibold truncate" title={department?.name}>{department?.name || '-'}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border overflow-hidden">
-                        <div className="flex items-center gap-3">
-                            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", assignedEmployee ? "bg-emerald-50" : "bg-slate-50")}>
-                                <User className={cn("w-5 h-5", assignedEmployee ? "text-emerald-600" : "text-slate-400")} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-muted-foreground">Ажилтан</p>
-                                <p className="font-semibold truncate">{assignedEmployee ? assignedEmployee.firstName : 'Хоосон'}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border overflow-hidden">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                                <CheckCircle2 className={cn("w-5 h-5", completionPercentage === 100 ? "text-emerald-600" : "text-violet-600")} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-muted-foreground">Бөглөлт</p>
-                                <p className="font-semibold">{completionPercentage}%</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <Tabs defaultValue="overview" className="w-full">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Left column: employee card + vertical tab menu */}
+                        <div className="lg:col-span-3 space-y-4">
+                            {/* Position Card (structure style) */}
+                            <div className="flex justify-center">
+                                <PositionStructureCard
+                                    positionId={position.id}
+                                    positionTitle={position.title}
+                                    positionCode={position.code}
+                                    departmentName={department?.name || ''}
+                                    departmentColor={department?.color}
+                                    completionPct={completionPercentage}
+                                    actionsVisibility="always"
+                                    employee={
+                                        assignedEmployee
+                                            ? {
+                                                id: assignedEmployee.id,
+                                                firstName: assignedEmployee.firstName,
+                                                lastName: assignedEmployee.lastName,
+                                                employeeCode: assignedEmployee.employeeCode,
+                                                photoURL: assignedEmployee.photoURL,
+                                            }
+                                            : null
+                                    }
+                                    actions={
+                                        <TooltipProvider delayDuration={150}>
+                                        <>
+                                            {/* Approve / Disapprove (icon) */}
+                                            {position.isApproved ? (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className={cn(!!assignedEmployee && "cursor-not-allowed")}>
+                                                            <button
+                                                                type="button"
+                                                                className={cn(
+                                                                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                                                                    "bg-amber-500/30 hover:bg-amber-500/40 text-white",
+                                                                    !!assignedEmployee && "opacity-50"
+                                                                )}
+                                                                onClick={() => setIsDisapproveConfirmOpen(true)}
+                                                                disabled={!!assignedEmployee}
+                                                            >
+                                                                <XCircle className="h-4 w-4" />
+                                                            </button>
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-xs font-semibold">Цуцлах</div>
+                                                            {assignedEmployee ? (
+                                                                <div className="text-xs text-muted-foreground">Ажилтан томилогдсон тул цуцлах боломжгүй</div>
+                                                            ) : null}
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            ) : (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className={cn(!validationChecklist.isComplete && "cursor-not-allowed")}>
+                                                            <button
+                                                                type="button"
+                                                                className={cn(
+                                                                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                                                                    "bg-white/20 hover:bg-white/30 text-white",
+                                                                    !validationChecklist.isComplete && "opacity-50"
+                                                                )}
+                                                                onClick={() => setIsApproveConfirmOpen(true)}
+                                                                disabled={!validationChecklist.isComplete}
+                                                            >
+                                                                <Sparkles className="h-4 w-4" />
+                                                            </button>
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-xs font-semibold">Батлах</div>
+                                                            {!validationChecklist.isComplete ? (
+                                                                <div className="text-xs text-muted-foreground">Мэдээлэл дутуу</div>
+                                                            ) : null}
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
 
-                {/* Employee Card */}
-                <div className="bg-white rounded-xl border p-6">
-                    <div className="flex items-center gap-6">
-                        {assignedEmployee ? (
-                            <>
-                                <div className="relative cursor-pointer" onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}>
-                                    <Avatar className="h-16 w-16 border-2 border-white shadow-md">
-                                        <AvatarImage src={assignedEmployee.photoURL} />
-                                        <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-                                            {assignedEmployee.firstName?.[0]}{assignedEmployee.lastName?.[0]}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    {assignedEmployee.status === 'Томилогдож буй' && (
-                                        <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center">
-                                            <Clock className="w-3 h-3 text-white" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h3 className="text-lg font-bold hover:text-primary cursor-pointer" onClick={() => router.push(`/dashboard/employees/${assignedEmployee.id}`)}>
-                                            {assignedEmployee.lastName} {assignedEmployee.firstName}
-                                        </h3>
-                                        <Badge variant="outline" className={cn(
-                                            "text-[10px]",
-                                            assignedEmployee.status === 'Томилогдож буй' ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                        )}>
-                                            {assignedEmployee.status}
-                                        </Badge>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        #{assignedEmployee.employeeCode} • {assignedEmployee.email}
-                                    </p>
-                                </div>
+                                            {/* Employee/appointment actions in top-right (icon buttons) */}
+                                            {assignedEmployee ? (
+                                                assignedEmployee.status === 'Томилогдож буй' ? (
+                                                    <>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className={cn(isActionLoading && "cursor-not-allowed")}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center",
+                                                                            isActionLoading && "opacity-50"
+                                                                        )}
+                                                                        onClick={() => setIsDocStatusOpen(true)}
+                                                                        disabled={isActionLoading}
+                                                                    >
+                                                                        <FileText className="h-4 w-4" />
+                                                                    </button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Баримт</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
 
-                                {assignedEmployee.status === 'Томилогдож буй' ? (
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => setIsDocStatusOpen(true)} disabled={isActionLoading}>
-                                            <FileText className="w-4 h-4 mr-2" /> Баримт
-                                        </Button>
-                                        <Button 
-                                            size="sm" 
-                                            className="bg-emerald-600 hover:bg-emerald-700"
-                                            disabled={!['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') || isActionLoading}
-                                            onClick={() => setIsConfirmAppointmentConfirmOpen(true)}
-                                        >
-                                            <CheckCircle2 className="w-4 h-4 mr-2" /> Баталгаажуулах
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                            disabled={['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') || isActionLoading}
-                                            onClick={() => setIsCancelAppointmentConfirmOpen(true)}
-                                        >
-                                            <UserX className="w-4 h-4 mr-2" /> Цуцлах
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Button variant="outline" size="sm" className="text-rose-600 border-rose-200 hover:bg-rose-50" onClick={() => setIsReleaseDialogOpen(true)}>
-                                        <UserMinus className="w-4 h-4 mr-2" /> Чөлөөлөх
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <div className="h-16 w-16 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center">
-                                    <UserPlus className="w-6 h-6 text-slate-400" />
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-slate-700">Ажилтан томилогдоогүй</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {!position.isApproved
-                                            ? "Эхлээд ажлын байрыг батлана уу"
-                                            : isPrepCompleted
-                                                ? "Бэлтгэл дууссан. Одоо ажилтан томилж болно."
-                                                : (prepProjects && prepProjects.length > 0)
-                                                    ? `Бэлтгэл үргэлжилж байна • ${prepProgressPct}%`
-                                                    : "Эхлээд ажлын байрыг бэлтгэнэ."}
-                                    </p>
-                                </div>
-                                {position.isApproved && (
-                                    isPrepCompleted ? (
-                                        <Button onClick={() => setIsAppointDialogOpen(true)} className="gap-2">
-                                            <UserPlus className="w-4 h-4" /> Томилох
-                                        </Button>
-                                    ) : (prepProjects && prepProjects.length > 0 && prepTaskSummary?.projectId) ? (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.push(`/dashboard/projects/${prepTaskSummary.projectId}`)}
-                                            className="gap-2"
-                                        >
-                                            <Briefcase className="w-4 h-4" /> Бэлтгэл үргэлжлүүлэх
-                                        </Button>
-                                    ) : (
-                                        <Button onClick={() => setIsPrepWizardOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-                                            <Briefcase className="w-4 h-4" /> Ажлын байр бэлтгэх
-                                        </Button>
-                                    )
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
+                                                        {(() => {
+                                                            const disabled = !['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') || isActionLoading;
+                                                            return (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className={cn(disabled && "cursor-not-allowed")}>
+                                                                            <button
+                                                                                type="button"
+                                                                                className={cn(
+                                                                                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                                                                                    "bg-emerald-500/30 hover:bg-emerald-500/40 text-white",
+                                                                                    disabled && "opacity-50"
+                                                                                )}
+                                                                                onClick={() => setIsConfirmAppointmentConfirmOpen(true)}
+                                                                                disabled={disabled}
+                                                                            >
+                                                                                <CheckCircle2 className="h-4 w-4" />
+                                                                            </button>
+                                                                        </span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <div className="space-y-0.5">
+                                                                            <div className="text-xs font-semibold">Баталгаажуулах</div>
+                                                                            {disabled ? (
+                                                                                <div className="text-xs text-muted-foreground">Баримт батлагдаагүй эсвэл ачаалж байна</div>
+                                                                            ) : null}
+                                                                        </div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            );
+                                                        })()}
 
-                {/* Tabs */}
-                <div className="bg-white rounded-xl border overflow-hidden">
-                    <Tabs defaultValue="overview" className="w-full">
-                        <div className="border-b px-6 pt-4">
-                            <TabsList className="bg-transparent h-auto p-0 gap-6">
-                                {[
-                                    { value: 'overview', label: 'Ерөнхий' },
-                                    { value: 'competency', label: 'АБТ' },
-                                    { value: 'compensation', label: 'Цалин' },
-                                    { value: 'benefits', label: 'Хангамж' },
-                                    { value: 'history', label: 'Түүх' },
-                                ].map(tab => (
-                                    <TabsTrigger
-                                        key={tab.value}
-                                        value={tab.value}
-                                        className="px-0 pb-3 pt-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
-                                    >
-                                        {tab.label}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </div>
-
-                        <div className="p-6 min-h-[400px]">
-                            <TabsContent value="overview" className="mt-0">
-                                <PositionOverview
-                                    position={position}
-                                    departments={allDepartments || []}
-                                    allPositions={allPositions || []}
-                                    levels={levels || []}
-                                    categories={categories || []}
-                                    employmentTypes={empTypes || []}
-                                    schedules={schedules || []}
-                                    validationChecklist={validationChecklist}
+                                                        {(() => {
+                                                            const disabled = ['APPROVED', 'SIGNED'].includes(appointmentDoc?.status || '') || isActionLoading;
+                                                            return (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className={cn(disabled && "cursor-not-allowed")}>
+                                                                            <button
+                                                                                type="button"
+                                                                                className={cn(
+                                                                                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                                                                                    "bg-amber-500/30 hover:bg-amber-500/40 text-white",
+                                                                                    disabled && "opacity-50"
+                                                                                )}
+                                                                                onClick={() => setIsCancelAppointmentConfirmOpen(true)}
+                                                                                disabled={disabled}
+                                                                            >
+                                                                                <UserX className="h-4 w-4" />
+                                                                            </button>
+                                                                        </span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <div className="space-y-0.5">
+                                                                            <div className="text-xs font-semibold">Томилгоо цуцлах</div>
+                                                                            {disabled ? (
+                                                                                <div className="text-xs text-muted-foreground">Баримт батлагдсан эсвэл ачаалж байна</div>
+                                                                            ) : null}
+                                                                        </div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            );
+                                                        })()}
+                                                    </>
+                                                ) : (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="h-8 w-8 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white flex items-center justify-center"
+                                                                onClick={() => setIsReleaseDialogOpen(true)}
+                                                            >
+                                                                <UserMinus className="h-4 w-4" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <div className="text-xs font-semibold">Чөлөөлөх</div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )
+                                            ) : (
+                                                position.isApproved && (
+                                                    isPrepCompleted ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+                                                                    onClick={() => setIsAppointDialogOpen(true)}
+                                                                >
+                                                                    <UserPlus className="h-4 w-4" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Томилох</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (prepProjects && prepProjects.length > 0 && prepTaskSummary?.projectId) ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+                                                                    onClick={() => router.push(`/dashboard/projects/${prepTaskSummary.projectId}`)}
+                                                                >
+                                                                    <Briefcase className="h-4 w-4" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Бэлтгэл үргэлжлүүлэх</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="h-8 w-8 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 text-white flex items-center justify-center"
+                                                                    onClick={() => setIsPrepWizardOpen(true)}
+                                                                >
+                                                                    <Briefcase className="h-4 w-4" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Ажлын байр бэлтгэх</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )
+                                                )
+                                            )}
+                                        </>
+                                        </TooltipProvider>
+                                    }
+                                    bottomLeftMeta={position.isApproved ? 'Батлагдсан' : 'Ноорог'}
                                 />
-                            </TabsContent>
-
-                            <TabsContent value="competency" className="mt-0">
-                                <PositionCompetency position={position} departmentName={department?.name} levelName={level?.name} />
-                            </TabsContent>
-
-                            <TabsContent value="compensation" className="mt-0">
-                                <PositionCompensation position={position} />
-                            </TabsContent>
-
-                            <TabsContent value="benefits" className="mt-0">
-                                <PositionBenefits position={position} />
-                            </TabsContent>
-
-                            <TabsContent value="history" className="mt-0">
-                                {!history.length ? (
-                                    <div className="text-center py-16 text-muted-foreground">
-                                        <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>Түүх байхгүй</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {history.map((log, idx) => (
-                                            <div key={idx} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
-                                                <div className={cn(
-                                                    "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                                                    log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                                                )}>
-                                                    {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="font-medium">{log.userName}</span>
-                                                        <span className="text-xs text-muted-foreground">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground">{log.note}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </TabsContent>
+                            </div>
                         </div>
-                    </Tabs>
-                </div>
-                </div>
+
+                        {/* Right column: selected tab content */}
+                        <div className="lg:col-span-9">
+                            {/* Horizontal tab menu (above content) */}
+                            <div className="mb-4">
+                                <VerticalTabMenu
+                                    orientation="horizontal"
+                                    items={[
+                                        { value: 'overview', label: 'Ерөнхий' },
+                                        { value: 'competency', label: 'АБТ' },
+                                        { value: 'compensation', label: 'Цалин' },
+                                        { value: 'benefits', label: 'Хангамж' },
+                                        { value: 'history', label: 'Түүх' },
+                                    ]}
+                                />
+                            </div>
+                            <div className="bg-transparent border-0 rounded-none">
+                                <div className="p-0 min-h-[400px]">
+                                    <TabsContent value="overview" className="mt-0">
+                                        <PositionOverview
+                                            position={position}
+                                            departments={allDepartments || []}
+                                            allPositions={allPositions || []}
+                                            levels={levels || []}
+                                            categories={categories || []}
+                                            employmentTypes={empTypes || []}
+                                            schedules={schedules || []}
+                                            validationChecklist={validationChecklist}
+                                        />
+                                    </TabsContent>
+
+                                    <TabsContent value="competency" className="mt-0">
+                                        <PositionCompetency position={position} departmentName={department?.name} levelName={level?.name} />
+                                    </TabsContent>
+
+                                    <TabsContent value="compensation" className="mt-0">
+                                        <PositionCompensation position={position} />
+                                    </TabsContent>
+
+                                    <TabsContent value="benefits" className="mt-0">
+                                        <PositionBenefits position={position} />
+                                    </TabsContent>
+
+                                    <TabsContent value="history" className="mt-0">
+                                        <div className="space-y-4">
+                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Өөрчлөлтийн түүх</p>
+
+                                            {!history.length ? (
+                                                <div className="rounded-xl border bg-muted/30 text-center py-16 text-muted-foreground">
+                                                    <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                    <p>Түүх байхгүй</p>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                                                    {history.map((log, idx) => (
+                                                        <div key={idx} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
+                                                            <div className={cn(
+                                                                "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                                                                log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                                                            )}>
+                                                                {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center justify-between mb-1 gap-3">
+                                                                    <span className="font-medium truncate">{log.userName}</span>
+                                                                    <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
+                                                                </div>
+                                                                <p className="text-sm text-muted-foreground">{log.note}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TabsContent>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Tabs>
             </div>
 
             {/* Dialogs */}

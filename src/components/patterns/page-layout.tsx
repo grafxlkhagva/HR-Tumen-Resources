@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,13 @@ interface PageHeaderProps {
   breadcrumbs?: Breadcrumb[];
   showBackButton?: boolean;
   hideBreadcrumbs?: boolean;
+  /** Where to render the back button (default: top row) */
+  backButtonPlacement?: 'top' | 'inline';
+  /** How the back button should navigate */
+  backBehavior?: 'href' | 'history';
   backHref?: string;
+  /** Used when backBehavior='history' but there is no history entry */
+  fallbackBackHref?: string;
   actions?: React.ReactNode;
   className?: string;
 }
@@ -66,11 +72,15 @@ export function PageHeader({
   breadcrumbs,
   showBackButton = false,
   hideBreadcrumbs = false,
+  backButtonPlacement = 'top',
+  backBehavior = 'href',
   backHref,
+  fallbackBackHref,
   actions,
   className,
 }: PageHeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Auto-generate breadcrumbs if not provided
   const generatedBreadcrumbs = React.useMemo(() => {
@@ -135,20 +145,55 @@ export function PageHeader({
     return '/dashboard';
   }, [backHref, generatedBreadcrumbs]);
 
+  const effectiveFallbackHref = fallbackBackHref || effectiveBackHref || '/dashboard';
+
+  const onBack = React.useCallback(() => {
+    if (backBehavior !== 'history') return;
+    if (typeof window === 'undefined') {
+      router.push(effectiveFallbackHref);
+      return;
+    }
+
+    // Next.js sets history.state.idx in App Router. Prefer that when available.
+    const idx = (window.history.state as any)?.idx;
+    const hasIdxHistory = typeof idx === 'number' ? idx > 0 : false;
+
+    let sameOriginReferrer = false;
+    try {
+      if (document.referrer) {
+        sameOriginReferrer = new URL(document.referrer).origin === window.location.origin;
+      }
+    } catch {
+      sameOriginReferrer = false;
+    }
+
+    const canGoBack = hasIdxHistory || sameOriginReferrer;
+    if (canGoBack) router.back();
+    else router.push(effectiveFallbackHref);
+  }, [backBehavior, router, effectiveFallbackHref]);
+
   const showBreadcrumbs = !hideBreadcrumbs && generatedBreadcrumbs.length > 1;
+  const showBackInTopRow = showBackButton && backButtonPlacement === 'top';
+  const showBackInline = showBackButton && backButtonPlacement === 'inline';
+
+  const backButton = backBehavior === 'history' ? (
+    <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back">
+      <ArrowLeft className="h-4 w-4" />
+    </Button>
+  ) : (
+    <Button variant="ghost" size="icon-sm" asChild aria-label="Back">
+      <Link href={effectiveBackHref}>
+        <ArrowLeft className="h-4 w-4" />
+      </Link>
+    </Button>
+  );
 
   return (
     <div className={cn("space-y-4", className)}>
       {/* Breadcrumbs & Back Button */}
-      {(showBackButton || showBreadcrumbs) && (
+      {(showBackInTopRow || showBreadcrumbs) && (
         <div className="flex items-center gap-2">
-          {showBackButton && (
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link href={effectiveBackHref}>
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+          {showBackInTopRow ? backButton : null}
           {showBreadcrumbs && (
             <Breadcrumbs items={generatedBreadcrumbs.slice(1)} />
           )}
@@ -157,11 +202,14 @@ export function PageHeader({
 
       {/* Title & Actions */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-title tracking-tight">{title}</h1>
-          {description && (
-            <p className="text-body text-muted-foreground">{description}</p>
-          )}
+        <div className="flex items-start gap-2">
+          {showBackInline ? backButton : null}
+          <div className="space-y-1">
+            <h1 className="text-title tracking-tight">{title}</h1>
+            {description && (
+              <p className="text-body text-muted-foreground">{description}</p>
+            )}
+          </div>
         </div>
         {actions && (
           <div className="flex items-center gap-2 shrink-0">{actions}</div>

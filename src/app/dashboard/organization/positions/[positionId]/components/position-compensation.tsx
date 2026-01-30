@@ -1,19 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
     PlusCircle,
     X,
-    Save,
     Zap,
-    Edit3,
     LayoutGrid,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Banknote
 } from 'lucide-react';
 import { Position, SalaryRangeVersion } from '../../../types';
 import { doc, collection, addDoc } from 'firebase/firestore';
@@ -26,14 +23,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Plus,
-    History,
-    ChevronDown,
-    ArrowRight
-} from 'lucide-react';
 import { CurrencyInput } from './currency-input';
-import { cn } from '@/lib/utils';
+import { FieldCard, LabeledInput } from '@/components/organization/field-card';
 
 interface PositionCompensationProps {
     position: Position;
@@ -44,20 +35,10 @@ export function PositionCompensation({
 }: PositionCompensationProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isAddingRange, setIsAddingRange] = useState(false);
-    const [newRangeName, setNewRangeName] = useState('');
-
-    const { data: salaryRanges } = useCollection<SalaryRangeVersion>(
-        firestore ? collection(firestore, 'salary_range_versions') : null
-    );
 
     // Helper to normalize salary steps from any previous format
     const normalizeSteps = (pos: Position) => {
         if (pos.salarySteps?.items) return pos.salarySteps;
-
-        // Migrate from old 'values' format if it exists
         const oldValues = (pos.salarySteps as any)?.values || [0];
         return {
             items: oldValues.map((v: number, i: number) => ({
@@ -69,30 +50,21 @@ export function PositionCompensation({
         };
     };
 
-    const [formData, setFormData] = useState({
-        salaryRange: {
-            min: position.salaryRange?.min || 0,
-            max: position.salaryRange?.max || 0,
-            currency: position.salaryRange?.currency || 'MNT',
-            id: position.salaryRange?.id || '',
-        },
-        salarySteps: normalizeSteps(position),
-        incentives: position.incentives || [],
-    });
+    // Edit states
+    const [editSalarySteps, setEditSalarySteps] = useState(normalizeSteps(position));
+    const [editIncentives, setEditIncentives] = useState<any[]>(position.incentives || []);
 
-    const handleSalaryUpdate = (field: string, value: any) => {
-        setFormData(prev => ({
-            ...prev,
-            salaryRange: {
-                ...prev.salaryRange,
-                [field]: value,
-                id: (field === 'min' || field === 'max') ? '' : prev.salaryRange.id
-            }
-        }));
-    };
+    // Sync when position changes
+    React.useEffect(() => {
+        setEditSalarySteps(normalizeSteps(position));
+        setEditIncentives(position.incentives || []);
+    }, [position]);
 
+    const activeItem = editSalarySteps.items[editSalarySteps.activeIndex] || { name: 'Тодорхойгүй', value: 0 };
+
+    // Salary steps handlers
     const handleStepCountChange = (count: number) => {
-        const currentItems = [...formData.salarySteps.items];
+        const currentItems = [...editSalarySteps.items];
         let newItems = [];
         if (count > currentItems.length) {
             newItems = [
@@ -105,449 +77,274 @@ export function PositionCompensation({
         } else {
             newItems = currentItems.slice(0, count);
         }
-
-        setFormData(prev => ({
+        setEditSalarySteps(prev => ({
             ...prev,
-            salarySteps: {
-                ...prev.salarySteps,
-                items: newItems,
-                activeIndex: Math.min(prev.salarySteps.activeIndex, newItems.length - 1)
-            }
+            items: newItems,
+            activeIndex: Math.min(prev.activeIndex, newItems.length - 1)
         }));
     };
 
     const updateStepValue = (index: number, value: number) => {
-        const newItems = [...formData.salarySteps.items];
+        const newItems = [...editSalarySteps.items];
         newItems[index] = { ...newItems[index], value };
-        setFormData(prev => ({
-            ...prev,
-            salarySteps: { ...prev.salarySteps, items: newItems }
-        }));
+        setEditSalarySteps(prev => ({ ...prev, items: newItems }));
     };
 
     const updateStepName = (index: number, name: string) => {
-        const newItems = [...formData.salarySteps.items];
+        const newItems = [...editSalarySteps.items];
         newItems[index] = { ...newItems[index], name };
-        setFormData(prev => ({
-            ...prev,
-            salarySteps: { ...prev.salarySteps, items: newItems }
-        }));
+        setEditSalarySteps(prev => ({ ...prev, items: newItems }));
     };
 
     const activateStep = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            salarySteps: { ...prev.salarySteps, activeIndex: index }
-        }));
+        setEditSalarySteps(prev => ({ ...prev, activeIndex: index }));
     };
 
+    // Incentive handlers
     const handleAddIncentive = () => {
-        setFormData(prev => ({
-            ...prev,
-            incentives: [...prev.incentives, { type: '', description: '', amount: 0, currency: 'MNT', unit: '%', frequency: 'Сар бүр' }]
-        }));
+        setEditIncentives(prev => [...prev, { type: '', description: '', amount: 0, currency: 'MNT', unit: '%', frequency: 'Сар бүр' }]);
     };
 
     const removeIncentive = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            incentives: prev.incentives.filter((_, i) => i !== index)
-        }));
+        setEditIncentives(prev => prev.filter((_, i) => i !== index));
     };
 
     const updateIncentive = (index: number, field: string, value: any) => {
-        setFormData(prev => {
-            const newList = [...prev.incentives];
+        setEditIncentives(prev => {
+            const newList = [...prev];
             newList[index] = { ...newList[index], [field]: value };
-            return { ...prev, incentives: newList };
+            return newList;
         });
     };
 
-    const handleSave = async () => {
+    // Save helpers
+    const saveSalarySteps = async () => {
         if (!firestore) return;
-        setIsSaving(true);
-        if (formData.salarySteps.items.some((item: any) => item.value < 0)) {
+        if (editSalarySteps.items.some((item: any) => item.value < 0)) {
             toast({ title: "Алдаа", description: "Цалингийн дүн 0-ээс бага байж болохгүй", variant: "destructive" });
-            setIsSaving(false);
             return;
         }
 
-        const values = formData.salarySteps.items.map((i: any) => i.value);
+        const values = editSalarySteps.items.map((i: any) => i.value);
         const min = Math.min(...values);
         const max = Math.max(...values);
 
-        try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
-                salarySteps: formData.salarySteps,
-                salaryRange: {
-                    ...formData.salaryRange,
-                    min,
-                    max
-                },
-                incentives: formData.incentives,
-                updatedAt: new Date().toISOString(),
-            });
-            toast({ title: "Цалингийн мэдээлэл хадгалагдлаа" });
-            setIsEditing(false);
-        } catch (e) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleCancel = () => {
-        setFormData({
+        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            salarySteps: editSalarySteps,
             salaryRange: {
-                min: position.salaryRange?.min || 0,
-                max: position.salaryRange?.max || 0,
-                currency: position.salaryRange?.currency || 'MNT',
-                id: position.salaryRange?.id || '',
+                min,
+                max,
+                currency: editSalarySteps.currency || 'MNT',
             },
-            salarySteps: normalizeSteps(position),
-            incentives: position.incentives || [],
+            updatedAt: new Date().toISOString(),
         });
-        setIsEditing(false);
+        toast({ title: 'Цалингийн шатлал хадгалагдлаа' });
     };
 
-    const handleCreateVersion = async () => {
-        if (!firestore || !newRangeName) {
-            toast({ title: "Нэр оруулна уу", variant: "destructive" });
-            return;
-        }
-        if (formData.salaryRange.min <= 0 || formData.salaryRange.max <= 0) {
-            toast({ title: "Дүн оруулна уу", variant: "destructive" });
-            return;
-        }
-        if (formData.salaryRange.min > formData.salaryRange.max) {
-            toast({ title: "Утга буруу байна", description: "Доод дүн дээд дүнгээс их байна", variant: "destructive" });
-            return;
-        }
-
-        try {
-            const docRef = await addDoc(collection(firestore, 'salary_range_versions'), {
-                name: newRangeName,
-                min: formData.salaryRange.min,
-                max: formData.salaryRange.max,
-                currency: formData.salaryRange.currency,
-                createdAt: new Date().toISOString()
-            });
-
-            // Auto-select the newly created version
-            handleSalaryUpdate('id', docRef.id);
-            setFormData(prev => ({
-                ...prev,
-                salaryRange: { ...prev.salaryRange, id: docRef.id }
-            }));
-
-            toast({ title: "Цалингийн хувилбар хадгалагдлаа" });
-            setIsAddingRange(false);
-            setNewRangeName('');
-        } catch (e) {
-            toast({ title: "Хувилбар хадгалахад алдаа гарлаа", variant: "destructive" });
-        }
+    const saveIncentives = async () => {
+        if (!firestore) return;
+        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            incentives: editIncentives.filter(inc => inc.type),
+            updatedAt: new Date().toISOString(),
+        });
+        toast({ title: 'Урамшуулал хадгалагдлаа' });
     };
-
-    const activeItem = formData.salarySteps.items[formData.salarySteps.activeIndex] || { name: 'Тодорхойгүй', value: 0 };
-    const activeSalary = activeItem.value;
 
     return (
-        <section className="space-y-12">
+        <div className="space-y-6">
             {position.isApproved && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 mb-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                     <p className="text-sm font-medium">Батлагдсан ажлын байр тул цалин, урамшууллын мэдээллийг өөрчлөх боломжгүй.</p>
                 </div>
             )}
 
-            <div className="flex items-center justify-end gap-2">
-                {!isEditing ? (
-                    !position.isApproved && (
-                        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="h-8 gap-2">
-                            <Edit3 className="w-3.5 h-3.5" />
-                            Засах
-                        </Button>
-                    )
-                ) : (
-                    <>
-                        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8">
-                            Болих
-                        </Button>
-                        <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 gap-2">
-                            <Save className="w-3.5 h-3.5" />
-                            Хадгалах
-                        </Button>
-                    </>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* 1. Salary Steps Section */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="flex items-center gap-2">
-                        <LayoutGrid className="w-4 h-4 text-primary" />
-                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Цалингийн шатлал</label>
-                    </div>
-
-                    <div className="bg-muted/50 p-6 rounded-2xl border border-border space-y-6">
-                        {isEditing ? (
-                            <div className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Шатлалын тоо</label>
-                                    <Select
-                                        value={formData.salarySteps.items.length.toString()}
-                                        onValueChange={(val) => handleStepCountChange(parseInt(val))}
-                                    >
-                                        <SelectTrigger className="h-11 rounded-xl border-border bg-background shadow-sm">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-border">
-                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                                                <SelectItem key={n} value={n.toString()} className="rounded-lg">{n} шатлалт</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-5 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {formData.salarySteps.items.map((item: any, i: number) => (
-                                        <div
-                                            key={i}
-                                            className={`p-6 rounded-xl border transition-all space-y-5 shadow-premium relative ${formData.salarySteps.activeIndex === i
-                                                ? 'bg-primary/5 border-primary/30'
-                                                : 'bg-background border-border'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between absolute top-4 right-6">
-                                                <Badge
-                                                    variant={formData.salarySteps.activeIndex === i ? "default" : "outline"}
-                                                    className={cn(
-                                                        "h-6 px-3 rounded-full text-[9px] font-bold uppercase tracking-widest cursor-pointer transition-all",
-                                                        formData.salarySteps.activeIndex === i
-                                                            ? "bg-primary text-primary-foreground shadow-sm"
-                                                            : "text-muted-foreground hover:border-primary/50 hover:text-primary"
-                                                    )}
-                                                    onClick={() => activateStep(i)}
-                                                >
-                                                    {formData.salarySteps.activeIndex === i ? 'Идэвхтэй Шатлал' : 'Сонгох'}
-                                                </Badge>
-                                            </div>
-
-                                            <div className="space-y-4 pt-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Шатлалын нэр</label>
-                                                    <Input
-                                                        value={item.name}
-                                                        onChange={(e) => updateStepName(i, e.target.value)}
-                                                        className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all font-bold text-sm"
-                                                        placeholder={`Шатлал ${i + 1}`}
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Цалингийн дүн</label>
-                                                    <CurrencyInput
-                                                        value={item.value}
-                                                        onValueChange={(val) => updateStepValue(i, val)}
-                                                        className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all"
-                                                        placeholder="Цалингийн дүн"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-8">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Үндсэн цалин</p>
-                                        <Badge variant="outline" className="h-4 px-1.5 text-[8px] border-primary/20 text-primary bg-primary/5 font-bold uppercase rounded-md">{activeItem.name}</Badge>
-                                    </div>
-                                    <p className="text-3xl font-bold text-foreground">
-                                        {activeSalary.toLocaleString()}<span className="text-sm ml-1 font-bold text-muted-foreground">₮</span>
-                                    </p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Шатлалууд</p>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {formData.salarySteps.items.map((item: any, i: number) => (
-                                            <div
-                                                key={i}
-                                                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${formData.salarySteps.activeIndex === i
-                                                    ? 'bg-primary border-primary text-primary-foreground shadow-md'
-                                                    : 'bg-background border-border text-foreground hover:border-primary/20'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${formData.salarySteps.activeIndex === i ? 'bg-primary-foreground/20' : 'bg-muted'
-                                                        }`}>
-                                                        {i + 1}
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className={`text-[9px] font-bold uppercase tracking-widest ${formData.salarySteps.activeIndex === i ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                                            {item.name}
-                                                        </span>
-                                                        <span className="text-sm font-bold">{item.value.toLocaleString()}₮</span>
-                                                    </div>
-                                                </div>
-                                                {formData.salarySteps.activeIndex === i && (
-                                                    <CheckCircle2 className="w-4 h-4 text-white" />
-                                                )}
-                                            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Үндсэн цалин */}
+                <FieldCard
+                    icon={Banknote}
+                    title="Үндсэн цалин"
+                    value={
+                        activeItem.value > 0
+                            ? `${activeItem.value.toLocaleString()}₮`
+                            : 'Тодорхойгүй'
+                    }
+                    isEmpty={activeItem.value <= 0}
+                    isLocked={position.isApproved}
+                    className="lg:col-span-2"
+                    editContent={
+                        <div className="space-y-4">
+                            <LabeledInput label="Шатлалын тоо">
+                                <Select
+                                    value={editSalarySteps.items.length.toString()}
+                                    onValueChange={(val) => handleStepCountChange(parseInt(val))}
+                                >
+                                    <SelectTrigger className="h-11 rounded-xl">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                                            <SelectItem key={n} value={n.toString()}>{n} шатлал</SelectItem>
                                         ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                                    </SelectContent>
+                                </Select>
+                            </LabeledInput>
 
-                {/* 2. Incentives Section */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-primary" />
-                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Урамшуулал & Нэмэгдэл</label>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {isEditing ? (
-                            <>
-                                {formData.incentives.map((inc: any, i: number) => (
-                                    <div key={i} className="p-6 rounded-xl border border-border bg-background shadow-premium space-y-5 group relative">
-                                        <button
-                                            onClick={() => removeIncentive(i)}
-                                            className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-
-                                        <div className="space-y-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Урамшууллын нэр</label>
-                                                <Input
-                                                    value={inc.type}
-                                                    onChange={(e) => updateIncentive(i, 'type', e.target.value)}
-                                                    placeholder="Жишээ: KPI Бонус, Хоолны мөнгө"
-                                                    className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all font-bold text-sm"
-                                                />
+                            <div className="max-h-[300px] overflow-y-auto space-y-2 rounded-xl border bg-slate-50 dark:bg-slate-800 p-2">
+                                {editSalarySteps.items.map((item: any, i: number) => (
+                                    <div
+                                        key={i}
+                                        className={`
+                                            p-3 rounded-xl border bg-white dark:bg-slate-700 shadow-sm
+                                            ${editSalarySteps.activeIndex === i ? 'border-primary ring-1 ring-primary/15' : ''}
+                                        `}
+                                    >
+                                        {/* Row 1: Step + Name + Active */}
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                <span className="text-xs font-bold text-primary">{i + 1}</span>
                                             </div>
+                                            <Input
+                                                value={item.name}
+                                                onChange={(e) => updateStepName(i, e.target.value)}
+                                                className="h-8 border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium flex-1"
+                                                placeholder={`Шатлал ${i + 1}`}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => activateStep(i)}
+                                                className={`
+                                                    h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0
+                                                    ${editSalarySteps.activeIndex === i
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'bg-slate-100 dark:bg-slate-600 text-muted-foreground hover:bg-primary/10 hover:text-primary'}
+                                                `}
+                                            >
+                                                {editSalarySteps.activeIndex === i ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" />
+                                                        Идэвхтэй
+                                                    </span>
+                                                ) : 'Сонгох'}
+                                            </button>
+                                        </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Дүн / Хэмжээ</label>
-                                                    <div className="flex gap-2">
-                                                        <div className="flex-1">
-                                                            {inc.unit === '₮' ? (
-                                                                <CurrencyInput
-                                                                    value={inc.amount}
-                                                                    onValueChange={(val) => updateIncentive(i, 'amount', val)}
-                                                                    className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all"
-                                                                    placeholder="Дүн оруулна уу"
-                                                                />
-                                                            ) : (
-                                                                <div className="relative">
-                                                                    <Input
-                                                                        type="number"
-                                                                        value={inc.amount}
-                                                                        onChange={(e) => updateIncentive(i, 'amount', Number(e.target.value))}
-                                                                        className="h-10 rounded-lg border-border bg-muted/30 focus:bg-background transition-all pr-8 font-bold"
-                                                                        placeholder="Хэмжээ"
-                                                                    />
-                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/50">%</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <Select
-                                                            value={inc.unit}
-                                                            onValueChange={(val) => updateIncentive(i, 'unit', val)}
-                                                        >
-                                                            <SelectTrigger className="w-16 h-10 rounded-lg border-border bg-background shadow-sm font-bold">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="rounded-xl border-border">
-                                                                <SelectItem value="%" className="rounded-lg">%</SelectItem>
-                                                                <SelectItem value="₮" className="rounded-lg">₮</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Олгох давтамж</label>
-                                                    <Select
-                                                        value={inc.frequency || 'Сар бүр'}
-                                                        onValueChange={(val) => updateIncentive(i, 'frequency', val)}
-                                                    >
-                                                        <SelectTrigger className="h-10 rounded-lg border-border bg-background shadow-sm font-bold">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent className="rounded-xl border-border">
-                                                            <SelectItem value="Өдөр бүр" className="rounded-lg">Өдөр бүр</SelectItem>
-                                                            <SelectItem value="Сар бүр" className="rounded-lg">Сар бүр</SelectItem>
-                                                            <SelectItem value="Улирал бүр" className="rounded-lg">Улирал бүр</SelectItem>
-                                                            <SelectItem value="Хагас жил тутам" className="rounded-lg">Хагас жил тутам</SelectItem>
-                                                            <SelectItem value="Жил бүр" className="rounded-lg">Жил бүр</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Тайлбар / Нөхцөл</label>
-                                                <Input
-                                                    value={inc.description}
-                                                    onChange={(e) => updateIncentive(i, 'description', e.target.value)}
-                                                    placeholder="Олгох нөхцөл, дүрмийн тайлбар..."
-                                                    className="h-9 rounded-lg border-border bg-muted/30 focus:bg-background transition-all text-xs text-muted-foreground italic shadow-none"
-                                                />
-                                            </div>
+                                        {/* Row 2: Amount */}
+                                        <div className="pl-11">
+                                            <CurrencyInput
+                                                value={item.value}
+                                                onValueChange={(val) => updateStepValue(i, val)}
+                                                className="h-9 rounded-lg text-sm"
+                                                placeholder="Цалингийн дүн"
+                                            />
                                         </div>
                                     </div>
                                 ))}
-                                <Button
-                                    variant="outline"
-                                    onClick={handleAddIncentive}
-                                    className="h-full min-h-[180px] border-dashed border-2 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col gap-3 group"
-                                >
-                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-all">
-                                        <PlusCircle className="w-6 h-6" />
-                                    </div>
-                                    <span className="text-[11px] font-bold uppercase tracking-widest">Урамшуулал нэмэх</span>
-                                </Button>
-                            </>
-                        ) : (
-                            formData.incentives.length > 0 ? (
-                                formData.incentives.map((inc: any, i: number) => (
-                                    <div key={i} className="p-6 rounded-xl border border-border bg-muted/30 group hover:border-primary/20 transition-all h-fit shadow-premium">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="space-y-1">
-                                                <h4 className="text-sm font-bold text-foreground">{inc.type}</h4>
-                                                <p className="text-xs text-muted-foreground font-medium italic">{inc.description}</p>
+                            </div>
+                        </div>
+                    }
+                    onSave={saveSalarySteps}
+                />
+
+                {/* Урамшуулал */}
+                <FieldCard
+                    icon={Zap}
+                    title="Урамшуулал & Нэмэгдэл"
+                    value={
+                        position.incentives?.length
+                            ? `${position.incentives.length} урамшуулал`
+                            : 'Бүртгэгдээгүй'
+                    }
+                    isEmpty={!position.incentives?.length}
+                    isLocked={position.isApproved}
+                    editContent={
+                        <div className="space-y-3">
+                            <div className="max-h-[300px] overflow-y-auto space-y-2 rounded-xl border bg-slate-50 dark:bg-slate-800 p-2">
+                                {editIncentives.map((inc, i) => (
+                                    <div key={i} className="p-3 rounded-xl border bg-white dark:bg-slate-700 shadow-sm">
+                                        {/* Row 1: Name */}
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                                                <Zap className="w-4 h-4 text-amber-500" />
                                             </div>
-                                            <div className="flex flex-col items-end gap-1">
-                                                <Badge className="bg-primary/10 text-primary border-none font-bold text-sm px-3 py-1.5 rounded-lg shadow-sm">
-                                                    {inc.unit === '₮' ? inc.amount.toLocaleString() : inc.amount}{inc.unit}
-                                                </Badge>
-                                                {inc.frequency && (
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{inc.frequency}</span>
-                                                )}
-                                            </div>
+                                            <Input
+                                                value={inc.type}
+                                                onChange={(e) => updateIncentive(i, 'type', e.target.value)}
+                                                className="h-8 border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium flex-1"
+                                                placeholder="Урамшууллын нэр"
+                                            />
+                                            <button
+                                                onClick={() => removeIncentive(i)}
+                                                className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        {/* Row 2: Amount & Unit & Frequency */}
+                                        <div className="flex gap-2 pl-11">
+                                            {inc.unit === '₮' ? (
+                                                <CurrencyInput
+                                                    value={inc.amount}
+                                                    onValueChange={(val) => updateIncentive(i, 'amount', val)}
+                                                    className="h-9 rounded-lg flex-1 text-sm"
+                                                    placeholder="Дүн"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    type="number"
+                                                    value={inc.amount}
+                                                    onChange={(e) => updateIncentive(i, 'amount', Number(e.target.value))}
+                                                    className="h-9 rounded-lg flex-1 text-sm"
+                                                    placeholder="Хувь"
+                                                />
+                                            )}
+                                            <Select
+                                                value={inc.unit}
+                                                onValueChange={(val) => updateIncentive(i, 'unit', val)}
+                                            >
+                                                <SelectTrigger className="w-16 h-9 rounded-lg font-medium">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="%">%</SelectItem>
+                                                    <SelectItem value="₮">₮</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Select
+                                                value={inc.frequency || 'Сар бүр'}
+                                                onValueChange={(val) => updateIncentive(i, 'frequency', val)}
+                                            >
+                                                <SelectTrigger className="w-[100px] h-9 rounded-lg text-xs font-medium">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Өдөр бүр">Өдөр бүр</SelectItem>
+                                                    <SelectItem value="Сар бүр">Сар бүр</SelectItem>
+                                                    <SelectItem value="Улирал бүр">Улирал</SelectItem>
+                                                    <SelectItem value="Хагас жил тутам">Хагас жил</SelectItem>
+                                                    <SelectItem value="Жил бүр">Жил бүр</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="md:col-span-2 py-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2 border-border rounded-xl">
-                                    <Zap className="w-8 h-8 text-muted-foreground/30 mb-3" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Нэмэгдэл урамшуулал заагаагүй</p>
-                                </div>
-                            )
-                        )}
-                    </div>
-                </div>
+                                ))}
+                                {editIncentives.length === 0 && (
+                                    <p className="text-xs text-muted-foreground italic py-4 text-center">Урамшуулал нэмээгүй</p>
+                                )}
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={handleAddIncentive}
+                                className="w-full h-10 border-dashed rounded-xl"
+                            >
+                                <PlusCircle className="w-4 h-4 mr-2" />
+                                Урамшуулал нэмэх
+                            </Button>
+                        </div>
+                    }
+                    onSave={saveIncentives}
+                />
             </div>
-        </section>
+        </div>
     );
 }
