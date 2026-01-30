@@ -12,6 +12,7 @@ export type DepartmentStructureCardData = {
   name: string;
   typeName?: string;
   approvedCount?: number;
+  unapprovedCount?: number;
   filled?: number;
   color?: string;
   status?: 'active' | 'inactive';
@@ -83,7 +84,7 @@ export function DepartmentStructureCard({
   details?: React.ReactNode;
   className?: string;
 }) {
-  const { id, name, typeName, approvedCount, filled, color: deptColor, status, isRoot } = department;
+  const { id, name, typeName, approvedCount, unapprovedCount, filled, color: deptColor, status, isRoot } = department;
   const [customColor, setCustomColor] = React.useState<string>(() => normalizeHexColor(deptColor));
 
   React.useEffect(() => {
@@ -95,6 +96,7 @@ export function DepartmentStructureCard({
   const textColor = getContrastColor(backgroundColor?.startsWith('hsl') ? undefined : backgroundColor);
 
   const totalPositions = approvedCount || 0;
+  const unapprovedPositions = unapprovedCount || 0;
   const filledPositions = filled || 0;
   const fillRate = totalPositions > 0 ? Math.round((filledPositions / totalPositions) * 100) : 0;
   const vacantPositions = totalPositions - filledPositions;
@@ -134,95 +136,103 @@ export function DepartmentStructureCard({
           {/* Top Toolbar */}
           <div
             className={cn(
-              'absolute top-2 right-2 flex items-center gap-1 transition-opacity z-10',
+              'absolute top-2 right-2 flex items-center gap-1 transition-opacity z-10 nodrag',
               actionsVisibility === 'always' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             )}
           >
             {topActions ? <div className="flex items-center gap-1">{topActions}</div> : null}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        'h-7 w-7 rounded-lg',
-                        hasCustomBg ? 'hover:bg-white/20 text-current' : 'hover:bg-muted text-muted-foreground'
-                      )}
-                      aria-label="Өнгө"
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex nodrag">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-7 w-7 rounded-lg nodrag',
+                          hasCustomBg ? 'hover:bg-white/20 text-current' : 'hover:bg-muted text-muted-foreground'
+                        )}
+                        aria-label="Өнгө"
+                      >
+                        <Palette className="h-3.5 w-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-56 p-3 rounded-xl shadow-xl nodrag"
+                      align="end"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Palette className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-xs font-semibold">Өнгө</div>
-                  </TooltipContent>
-                </Tooltip>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3 rounded-xl shadow-xl" align="end">
-                <div className="space-y-3">
-                  {/* Custom color */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      aria-label="Pick color"
-                      type="color"
-                      value={customColor}
-                      onChange={(e) => {
-                        const next = normalizeHexColor(e.target.value);
-                        setCustomColor(next);
-                        onDepartmentUpdate?.(id, { color: next });
-                      }}
-                      className="h-8 w-10 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-medium text-muted-foreground">Өнгөний код</div>
-                      <input
-                        value={customColor}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                        onBlur={() => {
-                          const next = normalizeHexColor(customColor);
-                          setCustomColor(next);
-                          onDepartmentUpdate?.(id, { color: next });
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return;
-                          const next = normalizeHexColor(customColor);
-                          setCustomColor(next);
-                          onDepartmentUpdate?.(id, { color: next });
-                        }}
-                        className={cn(
-                          'mt-0.5 h-8 w-full rounded-md border px-2 text-xs font-mono',
-                          'bg-background/70 focus:outline-none focus:ring-2 focus:ring-primary/30',
-                          hasCustomBg ? 'border-white/15 text-current placeholder:text-current/60' : 'border-border'
-                        )}
-                        placeholder="#3b82f6"
-                      />
-                    </div>
-                  </div>
+                      <div className="space-y-3">
+                        {/* Custom color */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            aria-label="Pick color"
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              const next = normalizeHexColor(e.target.value);
+                              setCustomColor(next);
+                              onDepartmentUpdate?.(id, { color: next });
+                            }}
+                            className="h-8 w-10 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0 nodrag"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[10px] font-medium text-muted-foreground">Өнгөний код</div>
+                            <input
+                              value={customColor}
+                              onChange={(e) => setCustomColor(e.target.value)}
+                              onBlur={() => {
+                                const next = normalizeHexColor(customColor);
+                                setCustomColor(next);
+                                onDepartmentUpdate?.(id, { color: next });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key !== 'Enter') return;
+                                const next = normalizeHexColor(customColor);
+                                setCustomColor(next);
+                                onDepartmentUpdate?.(id, { color: next });
+                              }}
+                              className={cn(
+                                'mt-0.5 h-8 w-full rounded-md border px-2 text-xs font-mono',
+                                'bg-background/70 focus:outline-none focus:ring-2 focus:ring-primary/30',
+                                'nodrag',
+                                hasCustomBg ? 'border-white/15 text-current placeholder:text-current/60' : 'border-border'
+                              )}
+                              placeholder="#3b82f6"
+                            />
+                          </div>
+                        </div>
 
-                  {/* Presets */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        className={cn(
-                          'h-6 w-6 rounded-md border border-white/20 transition-transform hover:scale-110',
-                          normalizeHexColor(deptColor) === normalizeHexColor(c) && 'ring-2 ring-primary ring-offset-1'
-                        )}
-                        style={{ backgroundColor: c }}
-                        onClick={() => {
-                          const next = normalizeHexColor(c);
-                          setCustomColor(next);
-                          onDepartmentUpdate?.(id, { color: next });
-                        }}
-                        aria-label={`Set color ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                        {/* Presets */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {PRESET_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              className={cn(
+                                'h-6 w-6 rounded-md border border-white/20 transition-transform hover:scale-110 nodrag',
+                                normalizeHexColor(deptColor) === normalizeHexColor(c) && 'ring-2 ring-primary ring-offset-1'
+                              )}
+                              style={{ backgroundColor: c }}
+                              onClick={() => {
+                                const next = normalizeHexColor(c);
+                                setCustomColor(next);
+                                onDepartmentUpdate?.(id, { color: next });
+                              }}
+                              aria-label={`Set color ${c}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs font-semibold">Өнгө</div>
+              </TooltipContent>
+            </Tooltip>
 
             {showOpenButton ? (
               <Tooltip>
@@ -231,7 +241,7 @@ export function DepartmentStructureCard({
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      'h-7 w-7 rounded-lg',
+                      'h-7 w-7 rounded-lg nodrag',
                       hasCustomBg ? 'hover:bg-white/20 text-current' : 'hover:bg-muted text-muted-foreground'
                     )}
                     onClick={() => onDepartmentClick?.(id)}
@@ -276,6 +286,10 @@ export function DepartmentStructureCard({
             <div className={cn('flex items-center justify-between text-[11px] font-medium', hasCustomBg ? 'text-current opacity-85' : 'text-slate-600')}>
               <span>Батлагдсан ажлын байр</span>
               <span className={cn('font-semibold', hasCustomBg ? 'text-current opacity-100' : 'text-slate-900')}>{totalPositions}</span>
+            </div>
+            <div className={cn('flex items-center justify-between text-[11px] font-medium', hasCustomBg ? 'text-current opacity-85' : 'text-slate-600')}>
+              <span>Батлагдаагүй ажлын байр</span>
+              <span className={cn('font-semibold', hasCustomBg ? 'text-current opacity-100' : 'text-slate-900')}>{unapprovedPositions}</span>
             </div>
             <div className={cn('flex items-center justify-between text-[11px] font-medium', hasCustomBg ? 'text-current opacity-85' : 'text-slate-600')}>
               <span>Томилогдсон</span>

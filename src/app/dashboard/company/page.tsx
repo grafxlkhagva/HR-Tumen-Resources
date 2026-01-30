@@ -1745,7 +1745,9 @@ export default function CompanyPage() {
                                         <p className="text-xs text-muted-foreground">Нэгж</p>
                                     </div>
                                     <div className="text-center p-3 rounded-lg bg-slate-50">
-                                        <p className="text-2xl font-bold text-primary">{positions?.length || 0}</p>
+                                        <p className="text-2xl font-bold text-primary">
+                                            {(positions || []).filter((p) => p.isApproved !== false).length}
+                                        </p>
                                         <p className="text-xs text-muted-foreground">Ажлын байр</p>
                                     </div>
                                 </div>

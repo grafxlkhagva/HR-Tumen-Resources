@@ -121,6 +121,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     const typeName = departmentTypes?.find(t => t.id === department?.typeId)?.name || 'Нэгж';
     const deptApprovedPositions = (positions || []).filter(p => p.isApproved !== false);
     const deptApprovedCount = deptApprovedPositions.length;
+    const deptUnapprovedCount = Math.max(0, (positions?.length || 0) - deptApprovedCount);
     const deptFilledCount = deptApprovedPositions.reduce((sum, p) => sum + (p.filled || 0), 0);
 
     // -- Handlers --
@@ -570,6 +571,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
                                             name: department.name,
                                             typeName,
                                             approvedCount: deptApprovedCount,
+                                            unapprovedCount: deptUnapprovedCount,
                                             filled: deptFilledCount,
                                             color: department.color,
                                             status: department.status,
