@@ -1067,16 +1067,6 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <FormField control={form.control} name={`experiences.${index}.employmentType`} render={({ field }) => (
-                                <FormItem className="md:col-span-2">
-                                    <FormLabel className="text-xs text-slate-500">Хөдөлмөрийн нөхцөл</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Сонгох" /></SelectTrigger></FormControl>
-                                        <SelectContent>{references.employmentTypes?.map((item: ReferenceItem) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
                             <FormField control={form.control} name={`experiences.${index}.description`} render={({ field }) => (
                                 <FormItem className="md:col-span-2">
                                     <FormLabel className="text-xs text-slate-500">Тодорхойлолт</FormLabel>
@@ -1087,7 +1077,7 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any, isS
                         </div>
                     </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, employmentType: '', description: '' })} className="gap-2">
+                <Button type="button" variant="outline" onClick={() => append({ company: '', position: '', startDate: null, endDate: null, description: '' })} className="gap-2">
                     <PlusCircle className="h-4 w-4" /> Туршлага нэмэх
                 </Button>
             </fieldset>
@@ -1119,7 +1109,6 @@ export default function QuestionnairePage() {
     const { data: languages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
     const { data: familyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
     const { data: emergencyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
-    const { data: questionnaireEmploymentTypes } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [firestore]));
 
     const defaultValues = React.useMemo(() => {
         const baseValues: Partial<FullQuestionnaireValues> = {
@@ -1134,7 +1123,7 @@ export default function QuestionnairePage() {
         return transformDates({ ...baseValues, ...employeeInfo, ...questionnaireData });
     }, [employeeData, questionnaireData]);
 
-    const references = { countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships, employmentTypes: questionnaireEmploymentTypes };
+    const references = { countries, schools, degrees, academicRanks, languages, familyRelationships, emergencyRelationships };
     const isLoading = isLoadingEmployee || isLoadingQuestionnaire;
     const completionPercent = Math.round(employeeData?.questionnaireCompletion || 0);
     const fullName = employeeData ? `${employeeData.lastName || ''} ${employeeData.firstName || ''}`.trim() : '';

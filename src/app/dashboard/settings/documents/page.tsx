@@ -8,6 +8,7 @@ import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 type FieldDefinition = {
   key: string;
@@ -23,7 +24,30 @@ export default function DocumentSettingsPage() {
 
   const docTypeColumns = [
     { key: 'name', header: 'Нэр' },
-    { key: 'fields', header: 'Талбарууд' }
+    {
+      key: 'fields',
+      header: 'Талбарууд',
+      render: (value: FieldDefinition[] | undefined) => {
+        const fields = Array.isArray(value) ? value : [];
+        if (fields.length === 0) return <span className="text-muted-foreground">-</span>;
+
+        const labels = fields
+          .map((f) => (typeof f?.label === 'string' ? f.label.trim() : ''))
+          .filter(Boolean);
+
+        return (
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant="secondary" className="text-[10px] h-5">
+              {fields.length}
+            </Badge>
+            <span className="text-xs text-muted-foreground line-clamp-1">
+              {labels.slice(0, 3).join(', ')}
+              {labels.length > 3 ? ` +${labels.length - 3}` : ''}
+            </span>
+          </div>
+        );
+      },
+    },
   ];
 
   return (

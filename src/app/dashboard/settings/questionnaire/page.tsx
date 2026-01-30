@@ -148,18 +148,6 @@ const CATEGORIES: CategoryConfig[] = [
         description: 'Найз, хамаатан гэх мэт'
     },
     {
-        id: 'employmentTypes',
-        label: 'Хөдөлмөрийн нөхцөл',
-        icon: Briefcase,
-        color: 'text-cyan-600',
-        bgColor: 'bg-cyan-50',
-        borderColor: 'border-cyan-200',
-        collectionName: 'questionnaireEmploymentTypes',
-        columns: [{ key: 'name', header: 'Нөхцлийн нэр' }],
-        dialogTitle: 'Хөдөлмөрийн нөхцөл',
-        description: 'Үндсэн, Гэрээт, Цагийн гэх мэт'
-    },
-    {
         id: 'jobCategories',
         label: 'Мэргэжлийн ангилал',
         icon: FileText,
@@ -179,7 +167,7 @@ const TABS = [
     { id: 'education', label: 'Боловсрол', icon: GraduationCap, categories: ['countries', 'schools', 'degrees', 'academicRanks'] },
     { id: 'language', label: 'Хэл', icon: Languages, categories: ['languages'] },
     { id: 'relations', label: 'Хамаарал', icon: Users, categories: ['familyRelationships', 'emergencyRelationships'] },
-    { id: 'work', label: 'Ажил', icon: Briefcase, categories: ['employmentTypes', 'jobCategories'] },
+    { id: 'work', label: 'Ажил', icon: Briefcase, categories: ['jobCategories'] },
 ];
 
 // AI Generation Dialog
@@ -571,9 +559,6 @@ export default function QuestionnaireSettingsPage() {
     const { data: emergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(
         useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [])
     );
-    const { data: employmentTypes, isLoading: loadingEmpTypes } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireEmploymentTypes') : null, [])
-    );
     const { data: jobCategories, isLoading: loadingJobCat } = useCollection<JobCategoryReferenceItem>(
         useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'jobCategories') : null, [])
     );
@@ -586,7 +571,6 @@ export default function QuestionnaireSettingsPage() {
         languages,
         familyRelationships,
         emergencyRelationships,
-        employmentTypes,
         jobCategories: jobCategories as SimpleReferenceItem[] | null,
     };
 
@@ -598,7 +582,6 @@ export default function QuestionnaireSettingsPage() {
         languages: loadingLanguages,
         familyRelationships: loadingFamilyR,
         emergencyRelationships: loadingEmergencyR,
-        employmentTypes: loadingEmpTypes,
         jobCategories: loadingJobCat,
     };
 

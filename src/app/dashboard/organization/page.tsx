@@ -76,7 +76,7 @@ export default function OrganizationPage() {
             <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title="Байгууллагын бүтэц"
-                    description="Компанийн дотоод бүтэц, албан тушаал, хүн хүчний төлөвлөлт."
+                    description="Компанийн бүтэц, ажлын байр, орон тооны төлөвлөлт "
                     showBackButton={true}
                     hideBreadcrumbs={true}
                     backButtonPlacement="inline"

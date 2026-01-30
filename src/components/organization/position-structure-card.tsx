@@ -131,6 +131,8 @@ export function PositionStructureCard({
   positionId,
   positionTitle,
   positionCode,
+  companyType,
+  subsidiaryName,
   departmentName,
   departmentColor,
   completionPct,
@@ -147,6 +149,8 @@ export function PositionStructureCard({
   positionId: string;
   positionTitle: string;
   positionCode?: string;
+  companyType?: 'main' | 'subsidiary';
+  subsidiaryName?: string;
   departmentName?: string;
   departmentColor?: string;
   completionPct?: number;
@@ -172,6 +176,14 @@ export function PositionStructureCard({
   const effectiveFooterMeta = footerMeta ?? topSlot;
   const effectiveFooterActions = footerActions ?? bottomSlot;
   const hasFooter = typeof completionPct === 'number' || !!bottomLeftMeta || !!effectiveFooterMeta || !!effectiveFooterActions;
+  const companyAffiliationLabel =
+    subsidiaryName?.trim()
+      ? subsidiaryName.trim()
+      : companyType === 'subsidiary'
+        ? 'Охин компани'
+        : companyType === 'main'
+          ? 'Үндсэн компани'
+          : null;
 
   return (
     <div
@@ -242,6 +254,12 @@ export function PositionStructureCard({
                   </span>
                 </div>
               </Link>
+            ) : null}
+
+            {companyAffiliationLabel ? (
+              <div className={cn('text-xs font-medium truncate', isDarkBg ? 'text-white/60' : 'text-slate-600/90')}>
+                {companyAffiliationLabel}
+              </div>
             ) : null}
 
             <Link href={`/dashboard/organization/positions/${positionId}`} className="block">

@@ -395,6 +395,8 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     positionId={position.id}
                                     positionTitle={position.title}
                                     positionCode={position.code}
+                                    companyType={position.companyType}
+                                    subsidiaryName={position.subsidiaryName}
                                     departmentName={department?.name || ''}
                                     departmentColor={department?.color}
                                     completionPct={completionPercentage}

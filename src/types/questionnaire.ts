@@ -98,7 +98,8 @@ export const workExperienceSchema = z.object({
     position: z.string().min(1, "Ажлын байрны нэр хоосон байж болохгүй."),
     startDate: z.date().nullable(),
     endDate: z.date().nullable(),
-    employmentType: z.string().min(1, "Хөдөлмөрийн нөхцөл сонгоно уу."),
+    // Removed from UI; keep optional for backward compatibility with existing records.
+    employmentType: z.string().optional(),
     description: z.string().optional(),
 });
 
