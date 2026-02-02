@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import * as SelectPrimitive from '@radix-ui/react-select';
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ import { useRouter } from 'next/navigation';
 import { addDays, format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Calendar as CalendarIcon,
   Check,
@@ -246,15 +248,14 @@ export function StartPositionPreparationWizardDialog({
   const renderStageStep = (stage: PositionPreparationStage, stageIndex: number) => {
     const stagePlan = taskPlanByStage[stage.id] || {};
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <DialogTitle className="text-lg">{stage.title}</DialogTitle>
-            <DialogDescription className="text-sm">{stage.description}</DialogDescription>
+            <div className="text-base font-semibold text-slate-900">{stage.title}</div>
+            {stage.description ? (
+              <div className="text-sm text-muted-foreground">{stage.description}</div>
+            ) : null}
           </div>
-          <Badge variant="outline" className="text-[10px]">
-            {stageIndex + 1}/{prepStages.length || 4}
-          </Badge>
         </div>
 
         <div className="space-y-3">
@@ -266,7 +267,10 @@ export function StartPositionPreparationWizardDialog({
             (stage.tasks || []).map((t) => {
               const plan = stagePlan[t.id] || { selected: false };
               return (
-                <div key={t.id} className={cn("p-4 rounded-2xl border-2 bg-white transition-all", plan.selected ? "border-indigo-200 shadow-sm" : "border-slate-100")}>
+                <div
+                  key={t.id}
+                  className="p-3 rounded-xl bg-white shadow-sm"
+                >
                   <div className="flex items-start gap-3">
                     <Checkbox
                       checked={!!plan.selected}
@@ -274,26 +278,26 @@ export function StartPositionPreparationWizardDialog({
                       className="mt-1"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-slate-900">{t.title}</div>
+                      <div className="text-sm font-medium text-slate-900">{t.title}</div>
                       {t.description && <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>}
                     </div>
                   </div>
 
                   {plan.selected && (
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Дуусах огноо</Label>
+                        <Label className="text-sm font-medium text-slate-700">Дуусах огноо</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               className={cn(
-                                "h-10 w-full justify-start text-left font-medium rounded-xl border-slate-200",
+                                "h-9 w-full justify-start text-left font-normal rounded-lg border-slate-200 bg-white",
                                 !plan.dueDate && "text-muted-foreground"
                               )}
                             >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {plan.dueDate ? format(new Date(plan.dueDate), 'PPP', { locale: mn }) : <span>Огноо сонгох</span>}
+                              <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                              {plan.dueDate ? format(new Date(plan.dueDate), 'yyyy.MM.dd') : <span>Он сар өдөр</span>}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -308,16 +312,40 @@ export function StartPositionPreparationWizardDialog({
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Хариуцагч</Label>
+                        <Label className="text-sm font-medium text-slate-700">Хариуцагч</Label>
                         <Select value={plan.ownerId || ''} onValueChange={(val) => setTaskOwner(stage.id, t.id, val)}>
-                          <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
+                          <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white">
                             <SelectValue placeholder="Хариуцагч сонгох" />
                           </SelectTrigger>
                           <SelectContent>
                             {(employees || []).map((e) => (
-                              <SelectItem key={e.id} value={e.id}>
-                                {e.firstName} {e.lastName}
-                              </SelectItem>
+                              <SelectPrimitive.Item
+                                key={e.id}
+                                value={e.id}
+                                textValue={`${e.firstName || ''} ${e.lastName || ''}`.trim()}
+                                className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                              >
+                                <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                                  <SelectPrimitive.ItemIndicator>
+                                    <Check className="h-4 w-4" />
+                                  </SelectPrimitive.ItemIndicator>
+                                </span>
+
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Avatar className="h-6 w-6 shrink-0">
+                                    <AvatarImage src={(e as any).photoURL || (e as any).avatarUrl || ''} />
+                                    <AvatarFallback className="text-[10px]">
+                                      {(e.firstName?.[0] || '').toUpperCase()}
+                                      {(e.lastName?.[0] || '').toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <SelectPrimitive.ItemText>
+                                    <span className="truncate">
+                                      {e.firstName} {e.lastName}
+                                    </span>
+                                  </SelectPrimitive.ItemText>
+                                </div>
+                              </SelectPrimitive.Item>
                             ))}
                           </SelectContent>
                         </Select>
@@ -335,18 +363,15 @@ export function StartPositionPreparationWizardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl">
-        <div className="flex flex-col h-[85vh] max-h-[760px]">
-          <DialogHeader className="p-8 pb-4 bg-gradient-to-b from-slate-50/50 to-white shrink-0">
-            <DialogTitle className="text-2xl font-bold text-slate-900 tracking-tight">Ажлын байр бэлтгэх</DialogTitle>
-            <DialogDescription className="text-sm font-medium text-muted-foreground mt-1">
-              <span className="font-bold text-slate-700">{positionTitle}</span> ажлын байранд бэлтгэл хийх төслийг үүсгэнэ.
-            </DialogDescription>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background rounded-2xl [&>button]:text-primary [&>button:hover]:text-primary">
+        <div className="flex flex-col h-[80vh] max-h-[680px]">
+          <DialogHeader className="p-6 pb-4 bg-background shrink-0">
+            <DialogTitle className="text-xl font-semibold text-slate-900">Ажлын байр бэлтгэх</DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden relative border-t">
             <ScrollArea className="h-full">
-              <div className="p-8">
+                <div className="p-6">
                 {employeesLoading || projectsLoading || configLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
@@ -356,9 +381,9 @@ export function StartPositionPreparationWizardDialog({
                     Бэлтгэл тохиргоо хоосон байна. Байгууллагын тохиргоо дээр “Ажлын байр бэлтгэх” tab-аа тохируулна уу.
                   </div>
                 ) : (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {prepStages.map((s, idx) => (
-                      <div key={s.id} className="pb-8 border-b last:border-b-0 last:pb-0">
+                      <div key={s.id} className="pb-6 border-b last:border-b-0 last:pb-0">
                         {renderStageStep(s, idx)}
                       </div>
                     ))}
@@ -378,23 +403,22 @@ export function StartPositionPreparationWizardDialog({
             )}
           </div>
 
-          <DialogFooter className="p-6 border-t bg-slate-50/50 shrink-0">
+          <DialogFooter className="p-4 border-t bg-background shrink-0">
             <div className="flex w-full gap-3">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 rounded-xl h-11 font-bold uppercase tracking-wider text-[10px]"
+                className="flex-1 rounded-lg h-10"
                 disabled={isSubmitting}
               >
-                Болих
+                Цуцлах
               </Button>
               <Button
                 onClick={handleCreate}
                 disabled={isSubmitting || !canSubmit || !prepStages?.length}
-                className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-indigo-200"
+                className="flex-[2] rounded-lg h-10"
               >
-                <Check className="h-4 w-4 mr-2" />
-                Бэлтгэл төсөл үүсгэх
+                Хадгалах
               </Button>
             </div>
           </DialogFooter>
