@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, isWeekend } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useToast } from '@/hooks/use-toast';
 import { getDeviceId, getCurrentPosition, checkLocationWithinRange } from '@/lib/attendance';
 import type { AttendanceRecord, AttendanceLocation, TimeOffRequestConfig } from '@/types/attendance';
+import { buildRecurringDayMap, resolveDayType, type WorkCalendar } from '@/lib/work-calendar-utils';
 
 export type SubmittingStep = 'idle' | 'location' | 'validating' | 'saving';
 
@@ -44,6 +45,11 @@ export function useAttendance() {
     const { data: locations, isLoading: isLocationsLoading } = useCollection<AttendanceLocation>(locationsQuery);
     const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
 
+    // Company work calendar (single source of truth for working/non-working days)
+    const workCalendarRef = useMemoFirebase(() => (firestore ? doc(firestore, 'workCalendars', 'default') : null), [firestore]);
+    const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef as any);
+    const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
+
     const todaysRecord = attendanceRecords?.[0];
     const isCheckedIn = !!todaysRecord;
     const isCheckedOut = !!todaysRecord?.checkOutTime;
@@ -62,14 +68,16 @@ export function useAttendance() {
         let daysToAdd = 0;
         while (i < deadlineDays) {
             const nextDay = addDays(today, daysToAdd);
-            if (!isWeekend(nextDay)) {
+            const dayType = workCalendar ? resolveDayType(nextDay, workCalendar, recurringDayMap) : 'working';
+            const isWorkingDay = dayType === 'working' || dayType === 'special_working' || dayType === 'half_day';
+            if (isWorkingDay) {
                 dates.push(nextDay);
                 i++;
             }
             daysToAdd++;
         }
         return dates;
-    }, [timeOffConfig]);
+    }, [timeOffConfig, workCalendar, recurringDayMap]);
 
     const handleAttendance = React.useCallback(async (type: 'check-in' | 'check-out') => {
         setIsSubmitting(true);
@@ -174,7 +182,7 @@ export function useAttendance() {
         // Computed
         isCheckedIn,
         isCheckedOut,
-        isLoading: isProfileLoading || isAttendanceLoading || isLocationsLoading || isTimeOffConfigLoading,
+        isLoading: isProfileLoading || isAttendanceLoading || isLocationsLoading || isTimeOffConfigLoading || isWorkCalendarLoading,
         
         // Actions
         handleCheckIn: () => handleAttendance('check-in'),

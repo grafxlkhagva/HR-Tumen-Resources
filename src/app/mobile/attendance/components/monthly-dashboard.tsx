@@ -4,10 +4,10 @@ import * as React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle, TrendingUp } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, addMonths, eachDayOfInterval, isSameDay, isWeekend, differenceInMinutes } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, eachDayOfInterval, isSameDay, differenceInMinutes, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import type { AttendanceRecord } from '@/types/attendance';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +17,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { buildRecurringDayMap, resolveDayType, type DayType, type WorkCalendar } from '@/lib/work-calendar-utils';
 
 interface MonthlyAttendanceDashboardProps {
     employeeId: string;
@@ -49,21 +50,40 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
 
     const { data: attendanceRecords, isLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
+    // Company work calendar for day-type resolution
+    const workCalendarRef = useMemoFirebase(() => (firestore ? doc(firestore, 'workCalendars', 'default') : null), [firestore]);
+    const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef as any);
+    const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
+
+    const getDayType = React.useCallback((date: Date): DayType => {
+        if (!workCalendar) return 'working';
+        return resolveDayType(date, workCalendar, recurringDayMap);
+    }, [workCalendar, recurringDayMap]);
+
+    const getBaselineMinutes = React.useCallback((dateStr: string): number => {
+        if (!workCalendar) return 8 * 60;
+        const dt = resolveDayType(parseISO(dateStr), workCalendar, recurringDayMap);
+        if (dt === 'half_day') return 4 * 60;
+        if (dt === 'working' || dt === 'special_working') return 8 * 60;
+        // weekend / holidays => 0 baseline (any work counts as overtime)
+        return 0;
+    }, [workCalendar, recurringDayMap]);
+
     const stats = React.useMemo(() => {
         let present = 0;
         let totalMinutes = 0;
         let lateDays = 0;
         let earlyDepartures = 0;
         let overtimeMinutes = 0;
-        const standardWorkMinutes = 8 * 60; // 8 hours
 
         attendanceRecords?.forEach(rec => {
             present++;
             if (rec.checkInTime && rec.checkOutTime) {
                 const workedMinutes = differenceInMinutes(new Date(rec.checkOutTime), new Date(rec.checkInTime));
                 totalMinutes += workedMinutes;
-                if (workedMinutes > standardWorkMinutes) {
-                    overtimeMinutes += workedMinutes - standardWorkMinutes;
+                const baseline = getBaselineMinutes(rec.date);
+                if (workedMinutes > baseline) {
+                    overtimeMinutes += workedMinutes - baseline;
                 }
             }
             if (rec.status === 'LATE') lateDays++;
@@ -78,7 +98,7 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
             earlyDepartures,
             overtimeHours: Math.floor(overtimeMinutes / 60)
         };
-    }, [attendanceRecords]);
+    }, [attendanceRecords, getBaselineMinutes]);
 
     // Create calendar days
     const calendarDays = React.useMemo(() => {
@@ -91,8 +111,13 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
     }, [monthStart, monthEnd, attendanceRecords]);
 
     const getDayStatus = (day: { date: Date; record?: AttendanceRecord }) => {
-        if (isWeekend(day.date)) return 'weekend';
-        if (!day.record) return 'absent';
+        const dt = getDayType(day.date);
+        const isNonWorking = dt === 'weekend' || dt === 'public_holiday' || dt === 'company_holiday';
+        if (!day.record) {
+            if (dt === 'half_day') return 'half_day';
+            if (dt === 'special_working') return 'special_working';
+            return isNonWorking ? 'non_working' : 'absent';
+        }
         if (day.record.checkOutTime) return 'completed';
         return 'working';
     };
@@ -102,12 +127,14 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
             case 'completed': return 'bg-green-500';
             case 'working': return 'bg-blue-500';
             case 'absent': return 'bg-red-400';
-            case 'weekend': return 'bg-gray-200';
+            case 'non_working': return 'bg-gray-200';
+            case 'half_day': return 'bg-amber-400';
+            case 'special_working': return 'bg-indigo-400';
             default: return 'bg-gray-300';
         }
     };
 
-    if (isLoading) {
+    if (isLoading || isWorkCalendarLoading) {
         return (
             <Card className="border-none shadow-none bg-transparent">
                 <div className="flex items-center justify-between mb-4 px-1">
@@ -202,7 +229,7 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
                                 <div className={cn(
                                     "h-5 w-5 rounded-full flex items-center justify-center",
                                     getDayColor(status),
-                                    status === 'weekend' ? 'text-gray-400' : 'text-white'
+                                    status === 'non_working' ? 'text-gray-400' : 'text-white'
                                 )}>
                                     {format(day.date, 'd')}
                                 </div>
@@ -222,6 +249,18 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
                     <div className="flex items-center gap-1">
                         <div className="h-2 w-2 rounded-full bg-red-400" />
                         <span>Тасалсан</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="h-2 w-2 rounded-full bg-gray-200 border" />
+                        <span>Амралт/Баяр</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="h-2 w-2 rounded-full bg-amber-400" />
+                        <span>Хагас өдөр</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="h-2 w-2 rounded-full bg-indigo-400" />
+                        <span>Нөхөж</span>
                     </div>
                 </div>
             </div>

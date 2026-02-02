@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy, FolderKanban } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy, FolderKanban, Building } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -390,8 +390,26 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
 
 function EmployeeCarousel() {
     const { firestore } = useFirebase();
+    const { employeeProfile } = useEmployeeProfile();
     const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
     const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
+
+    const isViewerAdmin = employeeProfile?.role === 'admin';
+    const visibleEmployees = React.useMemo(() => {
+        if (!employees) return [];
+        if (isViewerAdmin) return employees;
+
+        // Hide the initial system admin account from non-admin employees.
+        // This matches the seeded values written in `src/app/signup/page.tsx`.
+        return employees.filter((e) => {
+            const isInitialAdmin =
+                e.role === 'admin' &&
+                e.firstName === 'Admin' &&
+                e.lastName === 'User' &&
+                e.jobTitle === 'Системийн Админ';
+            return !isInitialAdmin;
+        });
+    }, [employees, isViewerAdmin]);
 
     if (isLoading) {
         return (
@@ -403,13 +421,13 @@ function EmployeeCarousel() {
         )
     }
 
-    if (!employees || employees.length === 0) return null;
+    if (!visibleEmployees || visibleEmployees.length === 0) return null;
 
     return (
         <div className="w-full overflow-x-auto pb-4 px-5 scrollbar-hide">
             <div className="flex gap-3 w-max">
-                {employees.map((employee) => (
-                    <Link href={`/mobile/employees/${employee.id}`} key={employee.id} className="group relative">
+                {visibleEmployees.map((employee) => (
+                    <Link href="/mobile/employees" key={employee.id} className="group relative">
                         <div className="flex flex-col items-center gap-1.5">
                             <div className="relative">
                                 <Avatar className="w-14 h-14 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.06)] group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all group-active:scale-95">
@@ -551,6 +569,7 @@ function getGreeting(): string {
 export default function MobileHomePage() {
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
+    const [logoFailed, setLogoFailed] = React.useState(false);
 
     const postsQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
@@ -587,38 +606,74 @@ export default function MobileHomePage() {
     // Format today's date in Mongolian
     const todayFormatted = format(new Date(), 'M сарын d, EEEE', { locale: mn });
 
+    React.useEffect(() => {
+        setLogoFailed(false);
+    }, [companyProfile?.logoUrl]);
+
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20 font-sans">
             {/* Sticky Header with Blur - iOS Style */}
-            <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-100 px-5 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="relative h-11 w-11 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-[0_2px_8px_rgba(99,102,241,0.25)]">
-                            <div className="h-full w-full bg-white rounded-[14px] flex items-center justify-center overflow-hidden">
-                                {companyProfile?.logoUrl ? (
-                                    <Image src={companyProfile.logoUrl} alt="Logo" fill className="object-contain p-1.5" />
+            <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-white/75 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] supports-[backdrop-filter]:bg-white/60">
+                <div className="px-5 pb-3 pt-[calc(env(safe-area-inset-top)+14px)]">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="relative h-11 w-11 shrink-0 rounded-2xl bg-white overflow-hidden ring-[3px] ring-primary/5 shadow-sm">
+                                {companyProfile?.logoUrl && !logoFailed ? (
+                                    <Image
+                                        src={companyProfile.logoUrl}
+                                        alt={companyProfile?.name || 'Logo'}
+                                        fill
+                                        sizes="44px"
+                                        onError={() => setLogoFailed(true)}
+                                        className="object-contain p-0 scale-[1.12]"
+                                    />
                                 ) : (
-                                    <span className="font-bold text-indigo-600 text-sm">HR</span>
+                                    <div className="h-full w-full flex items-center justify-center bg-primary/10">
+                                        <Building className="h-5 w-5 text-primary" />
+                                    </div>
                                 )}
                             </div>
+
+                            <div className="min-w-0">
+                                <h1 className="text-[18px] font-semibold tracking-tight text-slate-900 leading-tight truncate">
+                                    {employeeProfile ? (
+                                        <>
+                                            {getGreeting()},{' '}
+                                            <span className="font-bold">{employeeProfile.firstName}</span>
+                                        </>
+                                    ) : (
+                                        getGreeting()
+                                    )}
+                                </h1>
+                                <p className="mt-1 text-[12px] font-medium text-slate-500 truncate">
+                                    {companyProfile?.name ? (
+                                        <>
+                                            {companyProfile.name}
+                                            <span className="mx-1.5 text-slate-300">•</span>
+                                        </>
+                                    ) : null}
+                                    <span className="capitalize">{todayFormatted}</span>
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-slate-900 leading-tight">
-                                {employeeProfile ? `${getGreeting()}, ${employeeProfile.firstName}` : getGreeting()}
-                            </h1>
-                            <p className="text-xs font-medium text-slate-400 mt-0.5 capitalize">
-                                {todayFormatted}
-                            </p>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-2xl bg-white/70 hover:bg-white text-slate-600 ring-1 ring-slate-200/70 h-10 w-10 transition-colors"
+                            >
+                                <Search className="h-[18px] w-[18px]" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-2xl bg-white/70 hover:bg-white text-slate-600 ring-1 ring-slate-200/70 h-10 w-10 relative transition-colors"
+                            >
+                                <Bell className="h-[18px] w-[18px]" />
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                            </Button>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 h-10 w-10 transition-colors">
-                            <Search className="h-[18px] w-[18px]" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 h-10 w-10 relative transition-colors">
-                            <Bell className="h-[18px] w-[18px]" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-                        </Button>
                     </div>
                 </div>
             </header>
@@ -639,33 +694,6 @@ export default function MobileHomePage() {
                         <Link href="/mobile/employees" className="text-sm font-medium text-primary">Бүгд</Link>
                     </div>
                     <EmployeeCarousel />
-                </div>
-
-                {/* Social Creation Bar */}
-                <div className="px-5">
-                    <div className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9">
-                                <AvatarImage src={employeeProfile?.photoURL} />
-                                <AvatarFallback className="bg-slate-100 text-slate-600 text-sm">{employeeProfile?.firstName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 bg-slate-50 rounded-xl px-4 py-2.5 text-sm text-slate-400 font-medium">
-                                Таны бодол...
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 border-t border-slate-50 pt-3">
-                            <GivePointsDialog triggerButton={
-                                <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-primary bg-primary/5 hover:bg-primary/10 h-9">
-                                    <Sparkles className="w-4 h-4" />
-                                    <span className="text-xs font-semibold">Талархал</span>
-                                </Button>
-                            } />
-                            <Button variant="ghost" size="sm" className="flex-1 gap-2 rounded-xl text-slate-500 h-9">
-                                <MessageSquare className="w-4 h-4" />
-                                <span className="text-xs font-semibold">Мэдээ</span>
-                            </Button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* News Feed */}

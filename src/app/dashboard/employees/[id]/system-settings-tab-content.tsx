@@ -8,6 +8,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -18,7 +28,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Lock, KeyRound, Loader2, LogIn, Mail } from 'lucide-react';
+import { Lock, KeyRound, Loader2, LogIn, Mail, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
 import type { Employee } from '../data';
 import {
@@ -48,6 +58,11 @@ export function SystemSettingsTabContent({
     const [isResettingPassword, setIsResettingPassword] = React.useState(false);
     const [isResendingAccessEmail, setIsResendingAccessEmail] = React.useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
+    const [adminSetPasswordOpen, setAdminSetPasswordOpen] = React.useState(false);
+    const [adminPassword, setAdminPassword] = React.useState('');
+    const [adminPasswordConfirm, setAdminPasswordConfirm] = React.useState('');
+    const [adminPasswordShow, setAdminPasswordShow] = React.useState(false);
+    const [isAdminSettingPassword, setIsAdminSettingPassword] = React.useState(false);
 
     const isAdmin = currentUserRole === 'admin';
     const isSelf = employee.id === currentUserId;
@@ -132,6 +147,82 @@ export function SystemSettingsTabContent({
     const showResetForOther = isAdmin && !isSelf;
     const showChangePassword = isSelf;
     const showResendAccessEmail = (isAdmin || isSelf) && !!employee.email;
+    const showAdminSetPassword = isAdmin && !isSelf;
+
+    const resetAdminPasswordForm = React.useCallback(() => {
+        setAdminPassword('');
+        setAdminPasswordConfirm('');
+        setAdminPasswordShow(false);
+        setIsAdminSettingPassword(false);
+    }, []);
+
+    const handleAdminSetPassword = async () => {
+        if (!auth?.currentUser) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Админ хэрэглэгч нэвтрээгүй байна.',
+            });
+            return;
+        }
+
+        const pw = adminPassword.trim();
+        const confirm = adminPasswordConfirm.trim();
+
+        if (!pw || pw.length < 6) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Шинэ нууц үг дор хаяж 6 тэмдэгттэй байх ёстой.',
+            });
+            return;
+        }
+        if (pw !== confirm) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Нууц үгүүд таарахгүй байна.',
+            });
+            return;
+        }
+
+        setIsAdminSettingPassword(true);
+        try {
+            const token = await auth.currentUser.getIdToken();
+            const res = await fetch('/api/admin/set-user-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    uid: employee.id,
+                    newPassword: pw,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(err?.error || 'Нууц үг солиж чадсангүй');
+            }
+
+            toast({
+                title: 'Амжилттай',
+                description: 'Нууц үг амжилттай шинэчлэгдлээ.',
+            });
+            setAdminSetPasswordOpen(false);
+            resetAdminPasswordForm();
+        } catch (e: any) {
+            console.error('Admin set password error:', e);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: e?.message || 'Нууц үг солих үед алдаа гарлаа.',
+            });
+        } finally {
+            setIsAdminSettingPassword(false);
+        }
+    };
 
     const handleResendAccessEmail = async () => {
         if (!firestore) return;
@@ -295,6 +386,124 @@ export function SystemSettingsTabContent({
                         </Button>
                     </CardContent>
                 </Card>
+            ) : null}
+
+            {/* Админ: Нууц үг шууд солих */}
+            {showAdminSetPassword ? (
+                <>
+                    <Card className="border-none shadow-sm bg-white">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <ShieldAlert className="h-4 w-4" />
+                                Нууц үг (Админ)
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Тухайн ажилтны нууц үгийг админ шууд шинэчилж өгнө. (Email ашиглахгүй ажилтанд тохиромжтой)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-wrap gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => setAdminSetPasswordOpen(true)}
+                            >
+                                <KeyRound className="h-4 w-4" />
+                                Нууц үг солих
+                            </Button>
+                            {employee.phoneNumber ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2"
+                                    onClick={() => {
+                                        const v = String(employee.phoneNumber || '').trim();
+                                        setAdminPassword(v);
+                                        setAdminPasswordConfirm(v);
+                                        setAdminSetPasswordOpen(true);
+                                    }}
+                                >
+                                    <Lock className="h-4 w-4" />
+                                    Утсаар тохируулах
+                                </Button>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+
+                    <Dialog
+                        open={adminSetPasswordOpen}
+                        onOpenChange={(open) => {
+                            setAdminSetPasswordOpen(open);
+                            if (!open) resetAdminPasswordForm();
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-[460px]">
+                            <DialogHeader>
+                                <DialogTitle>Нууц үг шинэчлэх (Админ)</DialogTitle>
+                                <DialogDescription>
+                                    <span className="font-medium">
+                                        {employee.firstName} {employee.lastName}
+                                    </span>
+                                    -н нууц үгийг шинэчилнэ.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Шинэ нууц үг</Label>
+                                    <div className="relative">
+                                        <Input
+                                            type={adminPasswordShow ? 'text' : 'password'}
+                                            value={adminPassword}
+                                            onChange={(e) => setAdminPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            disabled={isAdminSettingPassword}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdminPasswordShow(!adminPasswordShow)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            aria-label={adminPasswordShow ? 'Нууцлах' : 'Харах'}
+                                        >
+                                            {adminPasswordShow ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">Дор хаяж 6 тэмдэгт.</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Давтаж оруулах</Label>
+                                    <Input
+                                        type={adminPasswordShow ? 'text' : 'password'}
+                                        value={adminPasswordConfirm}
+                                        onChange={(e) => setAdminPasswordConfirm(e.target.value)}
+                                        placeholder="••••••••"
+                                        disabled={isAdminSettingPassword}
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setAdminSetPasswordOpen(false)}
+                                    disabled={isAdminSettingPassword}
+                                >
+                                    Цуцлах
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleAdminSetPassword}
+                                    disabled={isAdminSettingPassword}
+                                >
+                                    {isAdminSettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Шинэчлэх
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </>
             ) : null}
 
             {/* Нэвтрэх эрх хаах/нээх */}

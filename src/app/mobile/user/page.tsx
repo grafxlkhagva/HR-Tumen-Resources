@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, User, Bell, Lock, Rocket, Shield, HelpCircle, Sparkles, Award, FileText } from 'lucide-react';
+import { ChevronRight, LogOut, User, Bell, Lock, HelpCircle, Sparkles, FileText } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -175,14 +175,12 @@ export default function MobileUserPage() {
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
           <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
-          <SettingsItem icon={Rocket} label="Чиглүүлэх хөтөлбөр" href="/mobile/onboarding" badge="1" />
         </div>
 
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Тохиргоо</h3>
           <SettingsItem icon={Bell} label="Мэдэгдэл" href="#" />
           <SettingsItem icon={Lock} label="Нууц үг солих" onClick={() => setIsPasswordDialogOpen(true)} />
-          <SettingsItem icon={Shield} label="Нууцлал" href="#" />
         </div>
 
         <div>

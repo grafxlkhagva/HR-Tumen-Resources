@@ -27,7 +27,8 @@ interface MonthCalendarProps {
     compact?: boolean;
 }
 
-const WEEKDAY_LABELS = ['Ня', 'Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя'];
+// startOfWeek(..., { weekStartsOn: 1 }) => Monday-first column order
+const WEEKDAY_LABELS = ['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'];
 
 export function MonthCalendar({
     year,

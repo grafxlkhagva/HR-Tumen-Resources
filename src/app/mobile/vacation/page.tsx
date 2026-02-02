@@ -31,7 +31,7 @@ import {
     AlertTriangle,
     CalendarCheck
 } from 'lucide-react';
-import { format, parseISO, differenceInDays, addMonths, isSameDay, isWeekend, startOfDay, eachMonthOfInterval, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfToday, addYears, isAfter, isBefore, isValid, getDay } from 'date-fns';
+import { format, parseISO, differenceInDays, addMonths, isSameDay, startOfDay, eachMonthOfInterval, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfToday, addYears, isAfter, isBefore, isValid, getDay } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import {
     Dialog,
@@ -59,21 +59,20 @@ import { Employee, Position } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    buildRecurringDayMap,
+    countVacationUnitsInclusive,
+    formatVacationUnits,
+    isVacationSelectableDayType,
+    resolveDayType,
+    roundToHalf,
+    type WorkCalendar,
+} from '@/lib/work-calendar-utils';
 
 type VacationSplit = {
     start: string;
     end: string;
     days: number;
-};
-
-// Local type for holidays
-type PublicHoliday = {
-    id: string;
-    name: string;
-    date?: string;
-    isRecurring?: boolean;
-    month?: number;
-    day?: number;
 };
 
 export default function MobileVacationPage() {
@@ -116,9 +115,13 @@ export default function MobileVacationPage() {
     const [activeSplitIndex, setActiveSplitIndex] = React.useState(0);
     const [selectingDate, setSelectingDate] = React.useState<'start' | 'end'>('start');
 
-    // Fetch Public Holidays
-    const publicHolidaysQuery = useMemoFirebase(() => collection(firestore!, 'publicHolidays'), [firestore]);
-    const { data: publicHolidays } = useCollection<PublicHoliday>(publicHolidaysQuery);
+    // Fetch company work calendar (single source of truth for working/non-working days)
+    const workCalendarRef = useMemoFirebase(
+        ({ firestore }) => (firestore ? (doc(firestore, 'workCalendars', 'default') as DocumentReference<any>) : null),
+        [firestore]
+    );
+    const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef);
+    const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
 
     // Fetch current employee's position to check for approval rights
     const myPositionQuery = useMemoFirebase(() =>
@@ -199,74 +202,92 @@ export default function MobileVacationPage() {
         return map;
     }, [allEmployees]);
 
-    // Approver choices for the form
-    const approverPositionsQuery = useMemoFirebase(() =>
+    // Approver choices for the form (Vacation approval rights)
+    // Some positions store the flag at root `canApproveVacation`, others under `permissions.canApproveVacation`.
+    const approverPositionsQueryRoot = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'positions'), where('canApproveVacation', '==', true)) : null
         , [firestore]);
-    const { data: approverPositions } = useCollection<Position>(approverPositionsQuery);
-    const approverPosIds = React.useMemo(() => approverPositions?.map(p => p.id) || [], [approverPositions]);
+    const approverPositionsQueryPermissions = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'positions'), where('permissions.canApproveVacation', '==', true)) : null
+        , [firestore]);
+
+    const { data: approverPositionsRoot } = useCollection<Position>(approverPositionsQueryRoot);
+    const { data: approverPositionsPerm } = useCollection<Position>(approverPositionsQueryPermissions);
+
+    const approverPosIds = React.useMemo(() => {
+        const ids = new Set<string>();
+        (approverPositionsRoot || []).forEach(p => ids.add(p.id));
+        (approverPositionsPerm || []).forEach(p => ids.add(p.id));
+        return Array.from(ids);
+    }, [approverPositionsRoot, approverPositionsPerm]);
 
     const potentialApprovers = React.useMemo(() => {
-        if (!allEmployees || approverPosIds.length === 0) return [];
-        return allEmployees.filter(emp => emp.positionId && approverPosIds.includes(emp.positionId));
-    }, [allEmployees, approverPosIds]);
+        if (!allEmployees) return [];
+        const isMe = (emp: Employee) => emp.id === employeeProfile?.id;
+        const hasVacApproveRole = (emp: Employee) =>
+            emp.role === 'admin' || (!!emp.positionId && approverPosIds.includes(emp.positionId));
 
-    // Stats calculation with new rules (skip weekends & holidays)
-    const calculateVacationDays = React.useCallback((start: Date, end: Date, holidays: PublicHoliday[]) => {
-        let count = 0;
-        const current = new Date(start);
-        while (current <= end) {
-            if (!isWeekend(current)) {
-                // Check if it's a holiday
-                const isHoliday = holidays?.some(h => {
-                    if (h.isRecurring) {
-                        return h.month === (current.getMonth() + 1) && h.day === current.getDate();
-                    }
-                    return h.date && isSameDay(new Date(h.date), current);
-                });
-                if (!isHoliday) {
-                    count++;
-                }
-            }
-            current.setDate(current.getDate() + 1);
+        return allEmployees
+            .filter(emp => emp.status === 'Идэвхтэй')
+            .filter(emp => !isMe(emp))
+            .filter(hasVacApproveRole);
+    }, [allEmployees, approverPosIds, employeeProfile?.id]);
+
+    // Vacation units calculation based on company work calendar:
+    // - working/special_working => 1
+    // - half_day => 0.5
+    // - weekend/public_holiday/company_holiday => 0 (not selectable)
+    const calculateVacationDays = React.useCallback((start: Date, end: Date) => {
+        if (!workCalendar) return 0;
+        return countVacationUnitsInclusive(start, end, workCalendar, recurringDayMap);
+    }, [workCalendar, recurringDayMap]);
+
+    const getRequestUnits = React.useCallback((r: VacationRequest): number => {
+        if (!workCalendar) return roundToHalf(r?.totalDays || 0);
+
+        const splitsArr = (r as any)?.splits as Array<{ start: string; end: string }> | undefined;
+        if (Array.isArray(splitsArr) && splitsArr.length > 0) {
+            const total = splitsArr.reduce((sum, s) => {
+                if (!s?.start || !s?.end) return sum;
+                return sum + countVacationUnitsInclusive(parseISO(s.start), parseISO(s.end), workCalendar, recurringDayMap);
+            }, 0);
+            return roundToHalf(total);
         }
-        return count;
-    }, []);
+
+        // Fallback: use the consolidated range
+        return countVacationUnitsInclusive(parseISO(r.startDate), parseISO(r.endDate), workCalendar, recurringDayMap);
+    }, [workCalendar, recurringDayMap]);
 
     const totalEntitled = employeeProfile?.vacationConfig?.baseDays || 15;
     const usedDays = React.useMemo(() => {
         if (!myRequests) return 0;
         return myRequests
             .filter(r => r.status === 'APPROVED' && r.workYearStart === workYear?.start.toISOString())
-            .reduce((sum: number, r: VacationRequest) => sum + r.totalDays, 0);
-    }, [myRequests, workYear]);
+            .reduce((sum: number, r: VacationRequest) => sum + getRequestUnits(r), 0);
+    }, [myRequests, workYear, getRequestUnits]);
 
     const pendingDays = React.useMemo(() => {
         if (!myRequests) return 0;
         return myRequests
             .filter(r => r.status === 'PENDING' && r.workYearStart === workYear?.start.toISOString())
-            .reduce((sum: number, r: VacationRequest) => sum + r.totalDays, 0);
-    }, [myRequests, workYear]);
+            .reduce((sum: number, r: VacationRequest) => sum + getRequestUnits(r), 0);
+    }, [myRequests, workYear, getRequestUnits]);
 
     const availableDays = Math.max(0, totalEntitled - usedDays - pendingDays);
 
     // Current selection calculation
     const totalSelectedDays = React.useMemo(() => {
-        return splits.reduce((sum: number, s: VacationSplit) => sum + s.days, 0);
+        return roundToHalf(splits.reduce((sum: number, s: VacationSplit) => sum + (s.days || 0), 0));
     }, [splits]);
 
-    const isHoliday = React.useCallback((date: Date, holidays: PublicHoliday[]) => {
-        return holidays?.some(h => {
-            if (h.isRecurring) {
-                return h.month === (date.getMonth() + 1) && h.day === date.getDate();
-            }
-            return h.date && isSameDay(new Date(h.date), date);
-        });
-    }, []);
+    const isFullyPlanned = React.useMemo(() => {
+        return Math.abs(roundToHalf(totalSelectedDays) - roundToHalf(availableDays)) < 0.001;
+    }, [totalSelectedDays, availableDays]);
 
     const handleSplitDateSelection = (date: Date) => {
-        if (!publicHolidays) return;
-        if (isWeekend(date) || isHoliday(date, publicHolidays)) return;
+        if (!workCalendar) return;
+        const dt = resolveDayType(date, workCalendar, recurringDayMap);
+        if (!isVacationSelectableDayType(dt)) return;
 
         const dateStr = format(date, 'yyyy-MM-dd');
         const newSplits = [...splits];
@@ -304,11 +325,7 @@ export default function MobileVacationPage() {
             } else {
                 // Happy path: selecting the end date
                 newSplits[activeSplitIndex] = { ...currentSplit, end: dateStr };
-                newSplits[activeSplitIndex].days = calculateVacationDays(
-                    new Date(currentSplit.start),
-                    date,
-                    publicHolidays
-                );
+                newSplits[activeSplitIndex].days = calculateVacationDays(new Date(currentSplit.start), date);
                 // After setting end, we go back to 'start' mode so the NEXT click starts over if they want
                 setSelectingDate('start');
             }
@@ -333,7 +350,7 @@ export default function MobileVacationPage() {
     };
 
     const handleCreateRequest = async () => {
-        if (!selectedApproverId || !employeeProfile || !workYear || !publicHolidays) {
+        if (!selectedApproverId || !employeeProfile || !workYear || !workCalendar) {
             toast({ variant: "destructive", title: "Мэдээлэл дутуу" });
             return;
         }
@@ -360,11 +377,11 @@ export default function MobileVacationPage() {
         // Calculate total available
         const currentUsed = myRequests
             ?.filter(r => r.status === 'APPROVED' && r.workYearStart === workYear?.start.toISOString() && r.id !== editingRequest?.id)
-            .reduce((sum, r) => sum + r.totalDays, 0) || 0;
+            .reduce((sum, r) => sum + getRequestUnits(r), 0) || 0;
 
         const currentPending = myRequests
             ?.filter(r => r.status === 'PENDING' && r.workYearStart === workYear?.start.toISOString() && r.id !== editingRequest?.id)
-            .reduce((sum, r) => sum + r.totalDays, 0) || 0;
+            .reduce((sum, r) => sum + getRequestUnits(r), 0) || 0;
 
         const dynamicAvailableDays = Math.max(0, totalEntitled - currentUsed - currentPending);
 
@@ -577,7 +594,7 @@ export default function MobileVacationPage() {
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Амралтын эрх</p>
                                     <h3 className="text-2xl font-semibold text-slate-900">
-                                        {totalSelectedDays} <span className="text-slate-300 text-lg font-semibold">/ {availableDays} хоног</span>
+                                        {formatVacationUnits(totalSelectedDays)} <span className="text-slate-300 text-lg font-semibold">/ {formatVacationUnits(availableDays)} хоног</span>
                                     </h3>
                                 </div>
                                 <div className="text-right">
@@ -586,7 +603,7 @@ export default function MobileVacationPage() {
                                         "rounded-lg font-semibold",
                                         (availableDays - totalSelectedDays) < 0 ? "bg-rose-500" : "bg-indigo-600"
                                     )}>
-                                        {availableDays - totalSelectedDays} хоног
+                                        {formatVacationUnits(availableDays - totalSelectedDays)} хоног
                                     </Badge>
                                 </div>
                             </div>
@@ -598,21 +615,21 @@ export default function MobileVacationPage() {
                                         "h-full transition-all duration-500",
                                         totalSelectedDays > availableDays ? "bg-rose-500" : "bg-indigo-600"
                                     )}
-                                    style={{ width: `${Math.min(100, (totalSelectedDays / availableDays) * 100)}%` }}
+                                    style={{ width: `${Math.min(100, availableDays > 0 ? (totalSelectedDays / availableDays) * 100 : 0)}%` }}
                                 />
                             </div>
 
                             {totalSelectedDays > availableDays && (
                                 <div className="flex items-center gap-2 text-rose-600 bg-rose-50 p-3 rounded-2xl border border-rose-100 animate-in shake duration-500">
                                     <AlertCircle className="w-4 h-4" />
-                                    <span className="text-[11px] font-semibold">Амралтын эрх {totalSelectedDays - availableDays} хоногоор хэтэрсэн байна!</span>
+                                    <span className="text-[11px] font-semibold">Амралтын эрх {formatVacationUnits(totalSelectedDays - availableDays)} хоногоор хэтэрсэн байна!</span>
                                 </div>
                             )}
 
                             {totalSelectedDays < availableDays && (
                                 <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 p-3 rounded-2xl border border-indigo-100 italic">
                                     <Info className="w-4 h-4" />
-                                    <span className="text-[10px] font-semibold">Та нийт {availableDays} хоногийг бүрэн төлөвлөх ёстой.</span>
+                                    <span className="text-[10px] font-semibold">Та нийт {formatVacationUnits(availableDays)} хоногийг бүрэн төлөвлөх ёстой.</span>
                                 </div>
                             )}
 
@@ -697,7 +714,7 @@ export default function MobileVacationPage() {
                             <div className="space-y-1.5 text-left">
                                 <Label className="text-[10px] font-semibold uppercase text-slate-400 ml-3">Тайлбар</Label>
                                 <Input
-                                    placeholder="Бидэнд хэлэх үг..."
+                                    placeholder="Тайлбар"
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     className="rounded-[20px] h-12 border-slate-100 bg-slate-50 focus:bg-white"
@@ -710,7 +727,7 @@ export default function MobileVacationPage() {
                         <div className="flex items-center justify-between mb-6 px-4">
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-semibold uppercase text-slate-400">Нийт хоног</span>
-                                <span className="text-xl font-semibold text-slate-900">{totalSelectedDays} хоног</span>
+                                <span className="text-xl font-semibold text-slate-900">{formatVacationUnits(totalSelectedDays)} хоног</span>
                             </div>
                             {totalSelectedDays > availableDays && (
                                 <Badge variant="destructive" className="animate-bounce">Эрх хүрэхгүй!</Badge>
@@ -720,7 +737,7 @@ export default function MobileVacationPage() {
                             className="w-full h-16 rounded-[24px] text-lg font-semibold shadow-xl bg-indigo-600 enabled:hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-20 disabled:grayscale"
                             disabled={
                                 isSubmitting ||
-                                totalSelectedDays !== availableDays ||
+                                !isFullyPlanned ||
                                 !splits.some(s => s.days >= 10) ||
                                 splits.some(s => !s.start || !s.end) ||
                                 !selectedApproverId
@@ -751,7 +768,7 @@ export default function MobileVacationPage() {
                                 </p>
                             </div>
                         </div>
-                        {currentSplit.days > 0 && <Badge className="bg-indigo-100 text-indigo-700 font-semibold rounded-lg">{currentSplit.days} хоног</Badge>}
+                        {currentSplit.days > 0 && <Badge className="bg-indigo-100 text-indigo-700 font-semibold rounded-lg">{formatVacationUnits(currentSplit.days)} хоног</Badge>}
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-4 py-8 space-y-12 bg-white no-scrollbar">
@@ -782,11 +799,11 @@ export default function MobileVacationPage() {
                                         ))}
                                         {days.map((day, dIdx) => {
                                             const dateStr = format(day, 'yyyy-MM-dd');
-                                            const isSatSun = isWeekend(day);
-                                            const holiday = publicHolidays?.find(h => {
-                                                if (h.isRecurring) return h.month === (day.getMonth() + 1) && h.day === day.getDate();
-                                                return h.date && isSameDay(new Date(h.date), day);
-                                            });
+                                            const dt = workCalendar ? resolveDayType(day, workCalendar, recurringDayMap) : 'working';
+                                            const isSelectable = workCalendar ? isVacationSelectableDayType(dt) : false;
+                                            const isHolidayDay = dt === 'public_holiday' || dt === 'company_holiday';
+                                            const isHalfDay = dt === 'half_day';
+                                            const isSpecialWorking = dt === 'special_working';
 
                                             const isApproved = myRequests?.some(r => r.status === 'APPROVED' && (isSameDay(new Date(r.startDate), day) || (isAfter(day, new Date(r.startDate)) && isBefore(day, new Date(r.endDate))) || isSameDay(new Date(r.endDate), day)));
                                             const isBeforeEligibility = eligibilityDate ? isBefore(day, startOfDay(eligibilityDate)) : false;
@@ -806,10 +823,10 @@ export default function MobileVacationPage() {
                                                 <button
                                                     key={dIdx}
                                                     onClick={() => handleSplitDateSelection(day)}
-                                                    disabled={isSatSun || !!holiday || isApproved || isBeforeEligibility}
+                                                    disabled={!isSelectable || isApproved || isBeforeEligibility}
                                                     className={cn(
                                                         "relative h-11 w-full flex items-center justify-center text-[13px] font-semibold transition-all",
-                                                        isSatSun || !!holiday || isBeforeEligibility ? "text-slate-200 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50 rounded-xl",
+                                                        !isSelectable || isBeforeEligibility ? "text-slate-200 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50 rounded-xl",
                                                         isBeforeEligibility && "opacity-40",
                                                         isApproved && "text-slate-200 line-through",
                                                         isToday(day) && !splitIdx && "ring-1 ring-slate-900 rounded-xl",
@@ -818,7 +835,9 @@ export default function MobileVacationPage() {
                                                     )}
                                                 >
                                                     {format(day, 'd')}
-                                                    {holiday && <span className="absolute bottom-1 w-1 h-1 bg-rose-400 rounded-full" />}
+                                                    {isHolidayDay && <span className="absolute bottom-1 w-1 h-1 bg-rose-400 rounded-full" />}
+                                                    {isSpecialWorking && <span className="absolute bottom-1 w-1 h-1 bg-blue-400 rounded-full" />}
+                                                    {isHalfDay && <span className="absolute bottom-1 w-1 h-1 bg-amber-400 rounded-full" />}
                                                 </button>
                                             );
                                         })}
