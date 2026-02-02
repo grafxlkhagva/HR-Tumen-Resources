@@ -16,6 +16,7 @@ import ReactFlow, {
     OnConnect,
     Background,
     Controls,
+    Panel,
     MarkerType,
     Handle,
     Position,
@@ -35,10 +36,9 @@ import {
 } from '@/firebase';
 import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, RotateCcw, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar } from 'lucide-react';
+import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, LayoutTemplate, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
     Tooltip,
@@ -120,82 +120,9 @@ const UNASSIGNED_Y_GAP = 220;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 import { PositionStructureCard } from '@/components/organization/position-structure-card';
+import { EmployeeCard } from '@/components/employees/employee-card';
 
 // --- Node Components ---
-
-const AvatarWithProgress = ({ employee, size = 72, avatarSize = 56 }: { employee?: Employee; size?: number; avatarSize?: number }) => {
-
-    // Questionnaire Completion (Ring)
-    const quesProgress = employee?.questionnaireCompletion || 0;
-    const radius = (size - 4) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (quesProgress / 100) * circumference;
-    const progressColor = quesProgress < 50 ? '#f43f5e' : quesProgress < 90 ? '#f59e0b' : '#10b981';
-
-    const avatarContent = (
-        <div 
-            className="relative mx-auto transition-transform duration-300 ease-out hover:scale-105" 
-            style={{ width: size, height: size }}
-        >
-            {/* Avatar */}
-            <div className="absolute inset-0 flex items-center justify-center">
-                <Avatar 
-                    className="border-2 border-white/50"
-                    style={{ width: avatarSize, height: avatarSize }}
-                >
-                    <AvatarImage src={employee?.photoURL} alt={employee?.firstName} className="object-cover" />
-                    <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600">
-                        {employee 
-                            ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` 
-                            : <User className="h-6 w-6 text-slate-400" />
-                        }
-                    </AvatarFallback>
-                </Avatar>
-            </div>
-
-            {/* Progress Ring */}
-            {employee && (
-                <svg
-                    className="absolute inset-0 pointer-events-none -rotate-90"
-                    width={size}
-                    height={size}
-                    viewBox={`0 0 ${size} ${size}`}
-                >
-                    {/* Track */}
-                    <circle
-                        stroke="rgba(255,255,255,0.15)"
-                        strokeWidth="3"
-                        fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
-                    />
-                    {/* Progress */}
-                    <circle
-                        stroke={progressColor}
-                        strokeWidth="3"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={offset}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        r={radius}
-                        cx={size / 2}
-                        cy={size / 2}
-                        style={{ 
-                            transition: 'stroke-dashoffset 0.6s ease-out'
-                        }}
-                    />
-                </svg>
-            )}
-        </div>
-    );
-
-    if (employee) {
-        return <Link href={`/dashboard/employees/${employee.id}`}>{avatarContent}</Link>
-    }
-
-    return avatarContent;
-};
 
 const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) => {
     if (!status) return null;
@@ -297,16 +224,7 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
     }
 
     const employee = data.employee;
-    const lifecycleColors: Record<string, { bg: string, text: string, label: string }> = {
-        'recruitment': { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Бүрдүүлэлт' },
-        'onboarding': { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Чиглүүлэх' },
-        'development': { bg: 'bg-violet-500/20', text: 'text-violet-400', label: 'Хөгжүүлэлт' },
-        'retention': { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Тогтворжилт' },
-        'offboarding': { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Чөлөөлөх' },
-    };
-    const lifecycle = employee?.lifecycleStage ? lifecycleColors[employee.lifecycleStage] : null;
-    const lastName = employee?.lastName || '';
-    const firstName = employee?.firstName || data.name || '';
+    if (!employee) return null;
 
     return (
         <div className="relative group">
@@ -316,53 +234,11 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
                 position={Position.Right} 
                 className="!w-3 !h-3 !bg-slate-300 !border-2 !border-white !rounded-full !right-[-6px] hover:!bg-slate-400 transition-all cursor-default" 
             />
-            
-            {/* Main Card */}
-            <div className="w-72 rounded-2xl bg-white/95 border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-slate-300">
-                <div className="p-5 flex flex-col items-center text-center gap-3">
-                    {/* Avatar */}
-                    <div className="flex justify-center">
-                        <AvatarWithProgress employee={employee} size={84} avatarSize={64} />
-                    </div>
-
-                    {/* Name + code */}
-                    {employee && (
-                        <Link href={`/dashboard/employees/${employee.id}`} className="w-full">
-                            <div className="flex flex-col items-center gap-0.5">
-                                <p className="text-xs font-semibold text-slate-500 truncate leading-none max-w-full">
-                                    {lastName}
-                                </p>
-                                <p className="text-base font-bold text-slate-900 truncate leading-tight max-w-full">
-                                    {firstName}
-                                </p>
-                                {employee.employeeCode && (
-                                    <p className="mt-1 font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
-                                        {employee.employeeCode}
-                                    </p>
-                                )}
-                            </div>
-                        </Link>
-                    )}
-
-                    {/* Lifecycle Badge */}
-                    {lifecycle && (
-                        <div className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                            lifecycle.bg, lifecycle.text
-                        )}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {lifecycle.label}
-                        </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="pt-3 border-t border-slate-200/70 w-full flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                            Томилогдоогүй
-                        </span>
-                    </div>
-                </div>
-            </div>
+            <EmployeeCard
+                employee={employee}
+                variant="compact"
+                footer="Томилогдоогүй"
+            />
         </div>
     );
 }
@@ -523,30 +399,6 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
 
-    // Onboarding processes query
-    const onboardingQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null
-        , [firestore]);
-    const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
-
-    // Offboarding (project-based) query
-    const offboardingQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'projects'), where('type', '==', 'offboarding')) : null
-        , [firestore]);
-    const { data: offboardingProcesses } = useCollection<any>(offboardingQuery as any);
-
-    // Open vacancies query (for KPI widget)
-    const vacanciesQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'vacancies'), where('status', '==', 'OPEN')) : null
-        , [firestore]);
-    const { data: openVacancies } = useCollection<any>(vacanciesQuery);
-
-    // Pending time-off requests query (for KPI widget)
-    const pendingTimeOffQuery = useMemoFirebase(() =>
-        firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Хүлээгдэж буй')) : null
-        , [firestore]);
-    const { data: pendingTimeOffRequests } = useCollection<any>(pendingTimeOffQuery);
-
     // Projects query (for projects widget)
     const projectsQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
@@ -612,10 +464,6 @@ const OrganizationChart = () => {
     // For visual skeleton of the chart
     const isLoading = isCriticalLoading;
 
-    const activeEmployeesCount = useMemo(() => {
-        return (employees || []).filter(emp => emp.status === 'Идэвхтэй').length;
-    }, [employees]);
-
     const unassignedEmployees = useMemo(() => {
         return (employees || []).filter(e => !e.positionId && e.status === 'Идэвхтэй');
     }, [employees]);
@@ -636,43 +484,6 @@ const OrganizationChart = () => {
         if (!attendanceData) return new Set<string>();
         return new Set(attendanceData.map(a => a.employeeId));
     }, [attendanceData]);
-
-
-
-    // New hires (last 30 days)
-    const newHiresStats = useMemo(() => {
-        if (!employees) return { count: 0 };
-
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const newHires = employees.filter(emp => {
-            if (!emp.hireDate) return false;
-            const hireDate = new Date(emp.hireDate);
-            return hireDate >= thirtyDaysAgo && emp.status === 'Идэвхтэй';
-        });
-
-        return { count: newHires.length };
-    }, [employees]);
-
-    // Offboarding stats
-    const offboardingStats = useMemo(() => {
-        if (!offboardingProcesses || !employees) return { count: 0, ongoing: [] };
-
-        const empMap = new Map((employees as Employee[]).map(e => [e.id, e]));
-        const ongoing = offboardingProcesses.map((process: any) => {
-            const emp = empMap.get(process.offboardingEmployeeId || process.employeeId || process.id);
-            return {
-                ...process,
-                employee: emp
-            };
-        }).filter((p: any) => p.employee);
-
-        return {
-            count: ongoing.length,
-            ongoing
-        };
-    }, [offboardingProcesses, employees]);
 
 
     // Recent activities (last 10)
@@ -701,19 +512,11 @@ const OrganizationChart = () => {
         return activities.slice(0, 10);
     }, [attendanceData, employees]);
 
-    // Inactive employees count (moved before widgetData)
-    const inactiveEmployeesCount = (employees || []).filter(e => e.status !== 'Идэвхтэй').length;
-
     // Prepare widget data for the dashboard widgets bar
     const widgetData: WidgetData = useMemo(() => ({
         // Projects widget
         activeProjectsCount: activeProjects?.length || 0,
         overdueTasksCount,
-        
-        // Employees widget
-        activeEmployeesCount,
-        onboardingCount: onboardingProcesses?.length || 0,
-        offboardingCount: offboardingProcesses?.length || 0,
         
         // Structure widget
         departmentsCount: departments?.length || 0,
@@ -728,28 +531,15 @@ const OrganizationChart = () => {
         
         // Posts widget
         postsCount: posts?.length || 0,
-        
-        // KPI widgets
-        newHiresCount: newHiresStats.count,
-        openVacanciesCount: openVacancies?.length || 0,
-        pendingTimeOffCount: pendingTimeOffRequests?.length || 0,
-        inactiveCount: inactiveEmployeesCount,
     }), [
         activeProjects,
         overdueTasksCount,
-        activeEmployeesCount,
-        onboardingProcesses,
-        offboardingProcesses,
         departments,
         positions,
         presentEmployees.size,
         onLeaveEmployees.size,
         onLeaveCount,
         posts,
-        newHiresStats.count,
-        openVacancies,
-        pendingTimeOffRequests,
-        inactiveEmployeesCount
     ]);
 
 
@@ -1002,28 +792,31 @@ const OrganizationChart = () => {
                         fitView>
                         <Background />
                         <Controls />
+                        <Panel position="top-left" className="flex flex-col gap-2">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-md hover:shadow-lg transition-all h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                                onClick={resetLayout}
+                                title="Байршил цэгцлэх"
+                            >
+                                <LayoutTemplate className="h-4 w-4 text-indigo-500" />
+                            </Button>
+                        </Panel>
                     </ReactFlow>
                 )}
                 <div className="absolute bottom-8 right-4 z-10 flex items-center gap-3 flex-shrink-0">
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button size="icon" onClick={resetLayout} variant="outline" className="rounded-full h-12 w-12 shadow-lg flex-shrink-0">
-                                    <RotateCcw className="h-6 w-6" />
-                                    <span className="sr-only">Байршлыг сэргээх</span>
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Байршлыг сэргээх</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button asChild size="icon" variant="outline" className="rounded-full h-12 w-12 shadow-lg bg-green-500/10 border-green-500/30 hover:bg-green-500/20 flex-shrink-0">
+                                <Button
+                                    asChild
+                                    size="icon"
+                                    variant="default"
+                                    className="rounded-full h-12 w-12 shadow-lg flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+                                >
                                     <Link href="/dashboard/calendar">
-                                        <Calendar className="h-6 w-6 text-green-500" />
+                                        <Calendar className="h-6 w-6 text-primary-foreground" />
                                         <span className="sr-only">Календар</span>
                                     </Link>
                                 </Button>
@@ -1038,10 +831,11 @@ const OrganizationChart = () => {
                             <TooltipTrigger asChild>
                                 <Button 
                                     size="icon" 
-                                    className="rounded-full h-12 w-12 shadow-lg flex-shrink-0"
+                                    variant="default"
+                                    className="rounded-full h-12 w-12 shadow-lg flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
                                     onClick={() => setIsAddEmployeeDialogOpen(true)}
                                 >
-                                    <User className="h-6 w-6" />
+                                    <User className="h-6 w-6 text-primary-foreground" />
                                     <span className="sr-only">Ажилтан нэмэх</span>
                                 </Button>
                             </TooltipTrigger>

@@ -218,7 +218,7 @@ export class PointsService {
 
                 // Prepare Sender Data
                 let senderData: UserPointProfile;
-                let senderExists = senderSnap.exists();
+                const senderExists = senderSnap.exists();
 
                 if (!senderExists) {
                     senderData = {

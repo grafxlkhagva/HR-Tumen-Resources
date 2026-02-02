@@ -3,19 +3,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  MoreHorizontal,
   Plus,
-  Trash2,
   Search,
   Users,
   UserPlus,
@@ -23,19 +14,15 @@ import {
   FileText,
   Flag,
   LogOut,
-  Mail,
-  Phone,
   Building2,
-  CalendarDays,
   ChevronRight,
-  Sparkles,
   ArrowLeft,
-  X
+  X,
+  Eye
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Employee, Department } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteEmployeeDialog } from './delete-employee-dialog';
@@ -49,6 +36,9 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { EmployeeCard } from '@/components/employees/employee-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AddActionButton } from '@/components/ui/add-action-button';
 
 // Status badge configuration
 const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' | 'error' | 'muted', label: string, color: string } } = {
@@ -71,10 +61,20 @@ export default function EmployeesPage() {
   const employeesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'employees') : null), []);
   const departmentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'departments') : null), []);
   const documentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documents') : null), []);
+  const onboardingQuery = useMemoFirebase(
+    ({ firestore }) => (firestore ? query(collection(firestore, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null),
+    []
+  );
+  const offboardingQuery = useMemoFirebase(
+    ({ firestore }) => (firestore ? query(collection(firestore, 'projects'), where('type', '==', 'offboarding')) : null),
+    []
+  );
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
   const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
   const { data: documents } = useCollection<any>(documentsQuery);
+  const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
+  const { data: offboardingProjects } = useCollection<any>(offboardingQuery as any);
 
   const departmentMap = React.useMemo(() => {
     if (!departments) return new Map<string, string>();
@@ -109,6 +109,18 @@ export default function EmployeesPage() {
       documents: documents?.length || 0
     };
   }, [employees, documents]);
+
+  const activeOnboardingCount = React.useMemo(() => {
+    return (onboardingProcesses || []).length;
+  }, [onboardingProcesses]);
+
+  const activeOffboardingCount = React.useMemo(() => {
+    return (offboardingProjects || []).filter((p: any) => {
+      const status = (p as any)?.status;
+      if (!status) return true;
+      return status !== 'DONE' && status !== 'COMPLETED' && status !== 'CANCELLED';
+    }).length;
+  }, [offboardingProjects]);
 
   const handleSelectDelete = (employee: Employee) => {
     setSelectedEmployee(employee);
@@ -149,10 +161,12 @@ export default function EmployeesPage() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setIsAddDialogOpen(true)} className="shrink-0">
-              <Plus className="h-4 w-4 mr-2" />
-              Шинэ ажилтан
-            </Button>
+            <AddActionButton
+              label="Шинэ ажилтан"
+              description="Шинэ ажилтан нэмэх"
+              onClick={() => setIsAddDialogOpen(true)}
+              className="shrink-0"
+            />
           </div>
 
           {/* Stats Cards */}
@@ -228,7 +242,12 @@ export default function EmployeesPage() {
                     <h3 className="font-semibold text-foreground">Чиглүүлэх хөтөлбөр</h3>
                     <p className="text-sm text-muted-foreground truncate">Шинэ ажилтныг чиглүүлэх</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge className="bg-white/70 text-slate-700 border border-white/60">
+                      {activeOnboardingCount} идэвхтэй
+                    </Badge>
+                    <ChevronRight className="h-5 w-5 text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </CardContent>
               </Card>
             </Link>
@@ -243,7 +262,12 @@ export default function EmployeesPage() {
                     <h3 className="font-semibold text-foreground">Чөлөөлөх хөтөлбөр</h3>
                     <p className="text-sm text-muted-foreground truncate">Ажлаас гарах процесс</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge className="bg-white/70 text-slate-700 border border-white/60">
+                      {activeOffboardingCount} идэвхтэй
+                    </Badge>
+                    <ChevronRight className="h-5 w-5 text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </CardContent>
               </Card>
             </Link>
@@ -385,11 +409,31 @@ export default function EmployeesPage() {
           {!isLoading && !error && filteredEmployees.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredEmployees.map((employee) => (
-                <EmployeeCard 
-                  key={employee.id} 
-                  employee={employee} 
+                <EmployeeCard
+                  key={employee.id}
+                  employee={employee}
+                  variant="detailed"
+                  asLink={false}
                   departmentName={departmentMap.get(employee.departmentId) || 'Тодорхойгүй'}
-                  onDelete={handleSelectDelete}
+                  showQuestionnaireAction={false}
+                  topRightActions={
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href={`/dashboard/employees/${employee.id}`}
+                            className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground"
+                            aria-label="Харах"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs font-semibold">Харах</div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  }
                 />
               ))}
             </div>
@@ -399,209 +443,3 @@ export default function EmployeesPage() {
   );
 }
 
-// Separate Employee Card Component for cleaner code
-interface EmployeeCardProps {
-  employee: Employee;
-  departmentName: string;
-  onDelete: (employee: Employee) => void;
-}
-
-function EmployeeCard({ employee, departmentName, onDelete }: EmployeeCardProps) {
-  const statusStyle = statusConfig[employee.status] || { variant: 'muted' as const, label: employee.status, color: 'slate' };
-  const quesProgress = employee.questionnaireCompletion || 0;
-
-  // Progress ring calculations
-  const size = 52;
-  const radius = (size - 4) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (quesProgress / 100) * circumference;
-  const progressColor = quesProgress < 50 ? '#f43f5e' : quesProgress < 90 ? '#f59e0b' : '#10b981';
-
-  return (
-    <Card
-      className={cn(
-        "group relative overflow-hidden transition-all duration-300",
-        "hover:shadow-lg hover:-translate-y-0.5",
-        "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
-        "hover:border-primary/30 dark:hover:border-primary/30"
-      )}
-    >
-      {/* Status indicator strip */}
-      <div className={cn(
-        "absolute top-0 left-0 right-0 h-1",
-        statusStyle.color === 'emerald' && "bg-gradient-to-r from-emerald-400 to-emerald-500",
-        statusStyle.color === 'blue' && "bg-gradient-to-r from-blue-400 to-blue-500",
-        statusStyle.color === 'amber' && "bg-gradient-to-r from-amber-400 to-amber-500",
-        statusStyle.color === 'rose' && "bg-gradient-to-r from-rose-400 to-rose-500",
-        statusStyle.color === 'slate' && "bg-gradient-to-r from-slate-300 to-slate-400"
-      )} />
-
-      <Link href={`/dashboard/employees/${employee.id}`} className="block">
-        <CardContent className="p-4 pt-5">
-          {/* Header with Avatar */}
-          <div className="flex items-start gap-3 mb-3">
-            {/* Avatar with Progress Ring */}
-            <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-              <Avatar className="h-full w-full border-2 border-white dark:border-slate-800 shadow-sm">
-                <AvatarImage src={employee.photoURL} alt={employee.firstName} className="object-cover" />
-                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-bold">
-                  {employee.firstName?.[0]?.toUpperCase()}{employee.lastName?.[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              
-              {/* Progress Ring */}
-              {quesProgress > 0 && (
-                <svg
-                  className="absolute inset-0 pointer-events-none -rotate-90"
-                  width={size}
-                  height={size}
-                  viewBox={`0 0 ${size} ${size}`}
-                >
-                  <circle
-                    stroke="rgba(0,0,0,0.05)"
-                    strokeWidth="2.5"
-                    fill="transparent"
-                    r={radius}
-                    cx={size / 2}
-                    cy={size / 2}
-                  />
-                  <circle
-                    stroke={progressColor}
-                    strokeWidth="2.5"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    r={radius}
-                    cx={size / 2}
-                    cy={size / 2}
-                    className="transition-all duration-500"
-                  />
-                </svg>
-              )}
-
-              {/* Status dot */}
-              <div className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-slate-900",
-                statusStyle.color === 'emerald' && "bg-emerald-500",
-                statusStyle.color === 'blue' && "bg-blue-500",
-                statusStyle.color === 'amber' && "bg-amber-500",
-                statusStyle.color === 'rose' && "bg-rose-500",
-                statusStyle.color === 'slate' && "bg-slate-400"
-              )} />
-            </div>
-
-            {/* Name and Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
-                {employee.lastName?.substring(0, 1)}.{employee.firstName}
-              </h3>
-              <p className="text-xs text-muted-foreground font-mono">
-                {employee.employeeCode}
-              </p>
-              <Badge 
-                variant={statusStyle.variant} 
-                className="mt-1 text-[10px] px-1.5 py-0 h-4"
-              >
-                {statusStyle.label}
-              </Badge>
-            </div>
-
-            {/* Actions */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity -mr-1"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/employees/${employee.id}`}>Харах</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/employees/${employee.id}/edit`}>Засварлах</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onDelete(employee);
-                  }}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Устгах
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Job Info */}
-          <div className="space-y-1.5 mb-3">
-            <div className="flex items-center gap-2 text-xs">
-              <Briefcase className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              <span className="text-foreground truncate">
-                {employee.jobTitle || 'Албан тушаал тодорхойгүй'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              <span className="text-muted-foreground truncate">
-                {departmentName}
-              </span>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              {/* Contact icons */}
-              <div className="flex items-center gap-1">
-                {employee.email && (
-                  <div className="h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center" title={employee.email}>
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                )}
-                {employee.phone && (
-                  <div className="h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center" title={employee.phone}>
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                )}
-                {employee.hireDate && (
-                  <div className="h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center" title={`Ажилд орсон: ${employee.hireDate}`}>
-                    <CalendarDays className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-
-              {/* Progress indicator */}
-              {quesProgress > 0 && (
-                <div className="flex items-center gap-1">
-                  <Sparkles className={cn(
-                    "h-3 w-3",
-                    quesProgress >= 90 ? "text-emerald-500" :
-                    quesProgress >= 50 ? "text-amber-500" : "text-rose-500"
-                  )} />
-                  <span className={cn(
-                    "text-[10px] font-semibold",
-                    quesProgress >= 90 ? "text-emerald-600 dark:text-emerald-400" :
-                    quesProgress >= 50 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"
-                  )}>
-                    {Math.round(quesProgress)}%
-                  </span>
-                </div>
-              )}
-
-              {/* Arrow */}
-              <ChevronRight className="h-4 w-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-            </div>
-          </div>
-        </CardContent>
-      </Link>
-    </Card>
-  );
-}

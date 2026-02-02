@@ -93,6 +93,15 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
         return (employees || []).filter(e => e.status === 'Идэвхтэй');
     }, [employees]);
 
+    const normalizeProjectStatus = React.useCallback(
+        (status: ProjectStatus): ProjectFormValues['status'] => {
+            if (status === 'IN_PROGRESS') return 'ACTIVE';
+            if (status === 'CANCELLED') return 'ARCHIVED';
+            return status as ProjectFormValues['status'];
+        },
+        []
+    );
+
     const form = useForm<ProjectFormValues>({
         resolver: zodResolver(projectSchema),
         defaultValues: {
@@ -103,7 +112,7 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
             endDate: parseISO(project.endDate),
             ownerId: project.ownerId,
             teamMemberIds: project.teamMemberIds || [],
-            status: project.status,
+            status: normalizeProjectStatus(project.status),
             priority: project.priority,
         },
     });
@@ -130,11 +139,11 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
                 endDate: parseISO(project.endDate),
                 ownerId: project.ownerId,
                 teamMemberIds: project.teamMemberIds || [],
-                status: project.status,
+                status: normalizeProjectStatus(project.status),
                 priority: project.priority,
             });
         }
-    }, [project, open, form]);
+    }, [project, open, form, normalizeProjectStatus]);
 
     const onSubmit = async (values: ProjectFormValues) => {
         if (!firestore || !project.id) return;
@@ -376,11 +385,11 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
                                                         className="flex-1 text-sm font-medium cursor-pointer"
                                                     >
                                                         {employee.firstName} {employee.lastName}
-                                                        {employee.position && (
+                                                        {employee.jobTitle ? (
                                                             <span className="text-muted-foreground ml-2">
-                                                                ({employee.position})
+                                                                ({employee.jobTitle})
                                                             </span>
-                                                        )}
+                                                        ) : null}
                                                     </label>
                                                 </div>
                                             ))}

@@ -2,24 +2,19 @@
 // Widget catalog for dashboard KPI cards
 
 import { 
-    Users, 
     Network, 
     UserCheck, 
     Palmtree, 
     Newspaper, 
     Handshake, 
     Sparkles, 
-    UserPlus,
-    Briefcase,
-    Clock,
-    UserMinus,
+    GitBranch,
     FolderKanban,
     LucideIcon
 } from 'lucide-react';
 
 export type WidgetId = 
     | 'projects'
-    | 'employees' 
     | 'structure' 
     | 'attendance' 
     | 'vacation' 
@@ -27,10 +22,7 @@ export type WidgetId =
     | 'recruitment' 
     | 'points' 
     | 'er' 
-    | 'newHires'
-    | 'openVacancies'
-    | 'pendingTimeOff'
-    | 'inactive';
+    | 'process';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -48,7 +40,6 @@ export interface WidgetConfig {
 // Default order for widgets (initial 9 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
     'projects',
-    'employees',
     'structure',
     'attendance',
     'vacation',
@@ -69,16 +60,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: FolderKanban,
         requiredData: ['projects'],
-        category: 'core'
-    },
-    employees: {
-        id: 'employees',
-        label: 'Ажилчид',
-        description: 'Нийт идэвхтэй ажилчид, onboarding, offboarding статистик',
-        href: '/dashboard/employees',
-        size: 'normal',
-        icon: Users,
-        requiredData: ['employees', 'onboardingProcesses', 'offboardingProcesses'],
         category: 'core'
     },
     structure: {
@@ -152,45 +133,13 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         category: 'core'
     },
 
-    // KPI widgets (additional)
-    newHires: {
-        id: 'newHires',
-        label: 'Шинэ элссэн',
-        description: 'Сүүлийн 30 хоногт элссэн ажилтнуудын тоо',
-        href: '/dashboard/employees',
+    process: {
+        id: 'process',
+        label: 'Процесс',
+        description: 'Шат дамжлага, урсгал',
         size: 'compact',
-        icon: UserPlus,
-        requiredData: ['employees'],
-        category: 'kpi'
-    },
-    openVacancies: {
-        id: 'openVacancies',
-        label: 'Нээлттэй зар',
-        description: 'Идэвхтэй сонгон шалгаруулалтын зарын тоо',
-        href: '/dashboard/recruitment',
-        size: 'compact',
-        icon: Briefcase,
-        requiredData: ['vacancies'],
-        category: 'kpi'
-    },
-    pendingTimeOff: {
-        id: 'pendingTimeOff',
-        label: 'Хүлээгдэж буй чөлөө',
-        description: 'Шийдвэрлэгдээгүй чөлөөний хүсэлтүүд',
-        href: '/dashboard/attendance',
-        size: 'compact',
-        icon: Clock,
-        requiredData: ['pendingTimeOffRequests'],
-        category: 'kpi'
-    },
-    inactive: {
-        id: 'inactive',
-        label: 'Идэвхгүй ажилтан',
-        description: 'Идэвхгүй статустай ажилтнуудын тоо',
-        href: '/dashboard/employees',
-        size: 'compact',
-        icon: UserMinus,
-        requiredData: ['employees'],
+        icon: GitBranch,
+        requiredData: [],
         category: 'kpi'
     }
 };

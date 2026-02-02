@@ -4,13 +4,14 @@ import React, { useState, useMemo } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     Settings,
-    Plus,
     Search,
     Filter,
     ChevronRight,
@@ -174,7 +175,7 @@ export default function OnboardingDashboardPage() {
 
     if (isLoadingEmployees || isLoadingProjects) {
         return (
-            <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+            <div className="w-full py-6 px-page space-y-6">
                 <Skeleton className="h-20 w-full" />
                 <div className="grid gap-4">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full" />)}
@@ -184,22 +185,30 @@ export default function OnboardingDashboardPage() {
     }
 
     return (
-        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+        <div className="w-full py-6 px-page space-y-6">
             <PageHeader
                 title="Чиглүүлэх (Onboarding)"
                 description="Ажилчдын дасан зохицох үйл явцыг хянах - Төслийн систем"
+                showBackButton={true}
+                hideBreadcrumbs={true}
+                backButtonPlacement="inline"
+                backBehavior="history"
+                fallbackBackHref="/dashboard/employees"
                 actions={
                     <div className="flex items-center gap-2">
-                        <Button onClick={() => setStartWizardOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Шинэ хөтөлбөр эхлүүлэх
-                        </Button>
-                        <Button asChild variant="outline" className="bg-white hover:bg-slate-50 border-slate-200">
-                            <Link href="/dashboard/onboarding/settings">
-                                <Settings className="h-4 w-4 mr-2" />
-                                Тохиргоо
-                            </Link>
-                        </Button>
+                        <AddActionButton
+                            label="Шинэ хөтөлбөр эхлүүлэх"
+                            description="Onboarding хөтөлбөр эхлүүлэх"
+                            onClick={() => setStartWizardOpen(true)}
+                        />
+                        <ActionIconButton
+                            label="Тохиргоо"
+                            description="Onboarding тохиргоо"
+                            href="/dashboard/onboarding/settings"
+                            icon={<Settings className="h-4 w-4" />}
+                            variant="outline"
+                            className="bg-white hover:bg-slate-50 border-slate-200"
+                        />
                     </div>
                 }
             />

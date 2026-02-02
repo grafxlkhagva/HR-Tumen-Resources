@@ -6,9 +6,10 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { ERDocument, ERDocumentType } from './types';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Activity, FileCode, TableIcon } from 'lucide-react';
+import { Search, Activity, FileCode, TableIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -58,7 +59,10 @@ export default function DocumentListPage() {
                     title="Процесс удирдлага"
                     description="Гэрээ, тушаал, албан бичиг баримтын нэгдсэн систем"
                     showBackButton={true}
-                    backHref="/dashboard"
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard"
                     actions={
                         <div className="flex items-center gap-2">
                             <Button variant="outline" asChild className="bg-white hover:bg-slate-50 shadow-sm">
@@ -67,11 +71,11 @@ export default function DocumentListPage() {
                                     Загварууд
                                 </Link>
                             </Button>
-                            <Button asChild size="icon" className="bg-primary hover:bg-primary/90 shadow-sm h-9 w-9">
-                                <Link href="/dashboard/employment-relations/create" title="Шинэ документ">
-                                    <Plus className="h-5 w-5" />
-                                </Link>
-                            </Button>
+                            <AddActionButton
+                                label="Шинэ документ"
+                                description="Шинэ процесс/баримт үүсгэх"
+                                href="/dashboard/employment-relations/create"
+                            />
                         </div>
                     }
                 />

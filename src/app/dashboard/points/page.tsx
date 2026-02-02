@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
+import { PageHeader } from '@/components/page-header';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 
 interface PointTx {
     id?: string;
@@ -60,7 +62,7 @@ export default function PointAdminPage() {
         const activeUserIds = new Set<string>();
         txList.forEach(t => {
             const dt = t.createdAt && (typeof t.createdAt === 'object' && 'toDate' in t.createdAt ? (t.createdAt as { toDate: () => Date }).toDate() : new Date(t.createdAt as string));
-            if (dt >= last30) activeUserIds.add(t.userId);
+            if (dt && dt >= last30) activeUserIds.add(t.userId);
         });
         const valueCounts: Record<string, number> = {};
         posts.forEach(p => {
@@ -85,20 +87,26 @@ export default function PointAdminPage() {
     }, [stats.topValueId, values]);
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Пойнт Модул</h1>
-                    <p className="text-muted-foreground">Байгууллагын урамшуулал, онооны нэгдсэн систем.</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2" asChild>
-                        <Link href="/dashboard/company/mission">
-                            <SettingsIcon className="w-4 h-4" /> Тохиргоо
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+        <div className="w-full py-6 px-page space-y-6">
+            <PageHeader
+                title="Пойнт Модул"
+                description="Байгууллагын урамшуулал, онооны нэгдсэн систем."
+                showBackButton={true}
+                hideBreadcrumbs={true}
+                backButtonPlacement="inline"
+                backBehavior="history"
+                fallbackBackHref="/dashboard"
+                actions={
+                    <ActionIconButton
+                        label="Тохиргоо"
+                        description="Пойнтын тохиргоо"
+                        href="/dashboard/company/mission"
+                        icon={<SettingsIcon className="h-4 w-4" />}
+                        variant="outline"
+                        className="bg-white hover:bg-slate-50 border-slate-200"
+                    />
+                }
+            />
 
             <Tabs defaultValue="overview" className="space-y-6">
                 <TabsList className="bg-muted/50 p-1">

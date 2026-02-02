@@ -108,7 +108,7 @@ export default function CompanyPoliciesPage() {
 
     const filteredPolicies = React.useMemo(() => {
         if (!policies) return [];
-        let result = policies.filter(policy => {
+        const result = policies.filter(policy => {
             const matchesSearch = policy.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 policy.description?.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesType = filterType === 'all' || policy.type === filterType;

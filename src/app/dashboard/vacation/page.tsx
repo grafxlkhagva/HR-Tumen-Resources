@@ -3,10 +3,12 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collectionGroup, collection, query, orderBy, where, doc } from 'firebase/firestore';
+import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -30,7 +32,6 @@ import { mn } from 'date-fns/locale';
 import {
     Calendar as CalendarIcon,
     Filter,
-    Plus,
     Search,
     CheckCircle2,
     XCircle,
@@ -209,21 +210,28 @@ export default function VacationPage() {
     function endOfToday(date: Date) { return endOfDay(date); }
 
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
-                <div>
-                    <h2 className="text-3xl font-semibold tracking-tight">Ээлжийн амралт</h2>
-                    <p className="text-muted-foreground">
-                        Ажилчдын ээлжийн амралтын хуваарь болон хүсэлтүүдийг удирдах хэсэг.
-                    </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Хуваарь нэмэх
-                    </Button>
-                </div>
-            </div>
+        <div className="w-full py-6 px-page space-y-6">
+            <PageHeader
+                title="Ээлжийн амралт"
+                description="Ажилчдын ээлжийн амралтын хуваарь болон хүсэлтүүдийг удирдах хэсэг."
+                showBackButton={true}
+                hideBreadcrumbs={true}
+                backButtonPlacement="inline"
+                backBehavior="history"
+                fallbackBackHref="/dashboard"
+                actions={
+                    <AddActionButton
+                        label="Хуваарь нэмэх"
+                        description="Ээлжийн амралтын хуваарь нэмэх"
+                        onClick={() =>
+                            toast({
+                                title: 'Тун удахгүй',
+                                description: 'Хуваарь нэмэх үйлдэл одоогоор хөгжүүлэлт хийгдэж байна.',
+                            })
+                        }
+                    />
+                }
+            />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="hover:shadow-md transition-shadow">

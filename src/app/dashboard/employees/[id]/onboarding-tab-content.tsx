@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
-import { Project, Task, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
+import { Project, Task, TaskStatus, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 
 // Stage order for display
 const STAGE_ORDER = ['pre-onboarding', 'orientation', 'integration', 'productivity'];
@@ -110,7 +110,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
         setIsTogglingTask(task.id);
         try {
-            const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+            const newStatus: TaskStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
             const taskRef = doc(firestore, 'projects', projectId, 'tasks', task.id);
 
             await updateDocumentNonBlocking(taskRef, {

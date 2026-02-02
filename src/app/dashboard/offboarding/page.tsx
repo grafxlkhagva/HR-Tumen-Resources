@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -18,7 +20,6 @@ import { cn } from '@/lib/utils';
 import { StartOffboardingWizardDialog } from '@/app/dashboard/offboarding/components/start-offboarding-wizard-dialog';
 import {
     Settings,
-    Plus,
     Search,
     Filter,
     ChevronRight,
@@ -158,7 +159,7 @@ export default function OffboardingDashboardPage() {
 
     if (isLoadingEmployees || isLoadingProjects) {
         return (
-            <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+        <div className="w-full py-6 px-page space-y-6">
                 <Skeleton className="h-20 w-full" />
                 <div className="grid gap-4">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full" />)}
@@ -168,22 +169,30 @@ export default function OffboardingDashboardPage() {
     }
 
     return (
-        <div className="py-6 px-4 sm:px-6 min-h-screen container mx-auto max-w-7xl space-y-6">
+        <div className="w-full py-6 px-page space-y-6">
             <PageHeader
                 title="Ажлаас чөлөөлөх (Offboarding)"
                 description="Ажилчдын ажлаас гарах үйл явцыг хянах - Төслийн систем"
+                showBackButton={true}
+                hideBreadcrumbs={true}
+                backButtonPlacement="inline"
+                backBehavior="history"
+                fallbackBackHref="/dashboard/employees"
                 actions={
                     <div className="flex items-center gap-2">
-                        <Button onClick={() => setStartWizardOpen(true)} className="bg-rose-600 hover:bg-rose-700">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Хөтөлбөр эхлүүлэх
-                        </Button>
-                        <Button asChild variant="outline" className="bg-white hover:bg-slate-50 border-slate-200">
-                            <Link href="/dashboard/offboarding/settings">
-                                <Settings className="h-4 w-4 mr-2" />
-                                Тохиргоо
-                            </Link>
-                        </Button>
+                        <AddActionButton
+                            label="Хөтөлбөр эхлүүлэх"
+                            description="Offboarding хөтөлбөр эхлүүлэх"
+                            onClick={() => setStartWizardOpen(true)}
+                        />
+                        <ActionIconButton
+                            label="Тохиргоо"
+                            description="Offboarding тохиргоо"
+                            href="/dashboard/offboarding/settings"
+                            icon={<Settings className="h-4 w-4" />}
+                            variant="outline"
+                            className="bg-white hover:bg-slate-50 border-slate-200"
+                        />
                     </div>
                 }
             />

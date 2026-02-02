@@ -76,7 +76,17 @@ export interface Employee {
     lifecycleStage?: LifecycleStage;
     vacationConfig?: {
         baseDays: number;
+        calculatedAt?: string; // ISO string
+        breakdown?: {
+            base: number;
+            normalAdditional: number;
+            normalMonths: number;
+            abnormalAdditional: number;
+            abnormalMonths: number;
+        };
     };
+    /** Нэвтрэх эрх идэвхгүй бол энэ талбар true. */
+    loginDisabled?: boolean;
     role?: 'admin' | 'employee';
 }
 

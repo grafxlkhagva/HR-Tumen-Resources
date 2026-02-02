@@ -44,6 +44,7 @@ interface PageProps {
 
 export default function DocumentDetailPage({ params }: PageProps) {
     const { firestore, storage, user: currentUser } = useFirebase();
+    const currentUserId = currentUser?.uid;
     const { toast } = useToast();
     const router = useRouter();
 
@@ -464,7 +465,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                     )}
                                 </>
                             )}
-                            {currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED' && (
+                            {currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED' && (
                                 <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
                                     <Check className="h-3.5 w-3.5 mr-1.5" />
                                     Батлах
@@ -713,7 +714,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         employeesList={employeesList || []}
                                         isApprover={isApprover}
                                         isAdmin={isAdmin}
-                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED'}
+                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED'}
                                         onApprove={handleApprove}
                                         canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}
@@ -862,7 +863,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         employeesList={employeesList || []}
                                         isApprover={isApprover}
                                         isAdmin={isAdmin}
-                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && document.approvalStatus?.[currentUser?.uid!]?.status !== 'APPROVED'}
+                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED'}
                                         onApprove={handleApprove}
                                         canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}

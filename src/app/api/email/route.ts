@@ -87,13 +87,15 @@ export async function POST(request: Request) {
 
         // Send email using Resend
         try {
-            const { data, error } = await resend.emails.send({
+            const payload: Record<string, unknown> = {
                 from: `${fromEmailName} <${fromEmail}>`,
                 to: [to],
-                subject: subject,
-                html: html || undefined,
-                text: text || undefined,
-            });
+                subject,
+            };
+            if (html) payload.html = html;
+            if (!html && text) payload.text = text;
+
+            const { data, error } = await resend.emails.send(payload as any);
 
             if (error) {
                 console.error('[API/Email] Resend Error:', error);

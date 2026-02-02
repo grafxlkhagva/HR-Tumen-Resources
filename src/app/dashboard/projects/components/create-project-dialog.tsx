@@ -358,11 +358,11 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                                                         className="flex-1 text-sm font-medium cursor-pointer"
                                                     >
                                                         {employee.firstName} {employee.lastName}
-                                                        {employee.position && (
+                                                        {employee.jobTitle ? (
                                                             <span className="text-muted-foreground ml-2">
-                                                                ({employee.position})
+                                                                ({employee.jobTitle})
                                                             </span>
-                                                        )}
+                                                        ) : null}
                                                     </label>
                                                 </div>
                                             ))}

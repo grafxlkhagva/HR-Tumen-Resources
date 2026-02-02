@@ -214,7 +214,7 @@ export default function MobileVacationPage() {
     // Stats calculation with new rules (skip weekends & holidays)
     const calculateVacationDays = React.useCallback((start: Date, end: Date, holidays: PublicHoliday[]) => {
         let count = 0;
-        let current = new Date(start);
+        const current = new Date(start);
         while (current <= end) {
             if (!isWeekend(current)) {
                 // Check if it's a holiday
@@ -792,7 +792,7 @@ export default function MobileVacationPage() {
                                             const isBeforeEligibility = eligibilityDate ? isBefore(day, startOfDay(eligibilityDate)) : false;
 
                                             // Show OTHER splits on this calendar too for context
-                                            let splitIdx = splits.findIndex(s => s.start === dateStr || (s.start && s.end && (isAfter(day, new Date(s.start)) || isSameDay(day, new Date(s.start))) && (isBefore(day, new Date(s.end)) || isSameDay(day, new Date(s.end)))));
+                                            const splitIdx = splits.findIndex(s => s.start === dateStr || (s.start && s.end && (isAfter(day, new Date(s.start)) || isSameDay(day, new Date(s.start))) && (isBefore(day, new Date(s.end)) || isSameDay(day, new Date(s.end)))));
 
                                             const colors = ['bg-indigo-600', 'bg-emerald-600', 'bg-amber-500', 'bg-rose-600', 'bg-violet-600'];
                                             const lightColors = ['bg-indigo-50/80 text-indigo-700', 'bg-emerald-50/80 text-emerald-700', 'bg-amber-50/80 text-amber-700', 'bg-rose-50/80 text-rose-700', 'bg-violet-50/80 text-violet-700'];

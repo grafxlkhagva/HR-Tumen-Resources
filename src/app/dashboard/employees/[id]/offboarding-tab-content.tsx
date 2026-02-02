@@ -12,7 +12,7 @@ import { Project, Task } from '@/types/project';
 import { FileText, LogOut, Loader2 } from 'lucide-react';
 
 import { Employee } from '../data';
-import type { ERDocument } from '../../employment-relations/types';
+import type { ERDocument, DocumentStatus } from '../../employment-relations/types';
 import { DOCUMENT_STATUSES } from '../../employment-relations/types';
 
 function formatActionLabel(actionId?: string) {
@@ -171,7 +171,8 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
           ) : (
             <div className="space-y-2">
               {releaseDocs.slice(0, 5).map((d: any) => {
-                const statusCfg = DOCUMENT_STATUSES[d.status] || { label: d.status, color: 'bg-slate-100 text-slate-700' };
+                const statusKey = ((d?.status as DocumentStatus) || 'DRAFT') as DocumentStatus;
+                const statusCfg = DOCUMENT_STATUSES[statusKey] || { label: String(d.status), color: 'bg-slate-100 text-slate-700' };
                 const actionId = d?.metadata?.actionId as string | undefined;
                 const createdAt = d?.createdAt?.toDate?.()?.toLocaleDateString?.() || '—';
                 return (

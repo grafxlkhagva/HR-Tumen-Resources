@@ -129,7 +129,7 @@ export function calculateMonthlyStats(
     let totalMinutes = 0;
     let lateDays = 0;
     let earlyDepartures = 0;
-    let totalBreakMinutes = 0;
+    const totalBreakMinutes = 0;
 
     records.forEach(rec => {
         presentDays++;

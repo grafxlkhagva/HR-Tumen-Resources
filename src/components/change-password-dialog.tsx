@@ -82,7 +82,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
             onOpenChange(false);
         } catch (error: any) {
             console.error('Password change error:', error);
-            let message = "Нууц үг солиход алдаа гарлаа.";
+            const message = "Нууц үг солиход алдаа гарлаа.";
 
             if (error.code === 'auth/wrong-password' || error.message?.includes('invalid-credential')) {
                 form.setError('currentPassword', { message: 'Одоогийн нууц үг буруу байна.' });

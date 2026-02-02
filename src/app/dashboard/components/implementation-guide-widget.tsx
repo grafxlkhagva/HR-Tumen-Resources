@@ -81,12 +81,11 @@ export function ImplementationGuideWidget() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button
-            variant="outline"
-            size="icon"
-            className="fixed bottom-6 right-[14rem] z-50 h-12 w-12 rounded-full shadow-lg"
-            aria-label="Нэвтрүүлэлтийн хөтөч нээх"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Support"
           >
-            <LifeBuoy className="h-6 w-6" />
+            <LifeBuoy className="h-4 w-4" />
           </Button>
         </SheetTrigger>
         <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">

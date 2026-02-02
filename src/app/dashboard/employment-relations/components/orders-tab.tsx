@@ -63,7 +63,7 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
     const filteredDocuments = useMemo(() => {
         if (!documents) return [];
         
-        let filtered = documents.filter(doc => {
+        const filtered = documents.filter(doc => {
             // Search filter
             const matchesSearch = !searchQuery || 
                 doc.documentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||

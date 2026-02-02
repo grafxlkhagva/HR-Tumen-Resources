@@ -35,8 +35,13 @@ import {
     Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
+import { EmployeeCard } from '@/components/employees/employee-card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageHeader } from '@/components/page-header';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 
 import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
@@ -98,6 +103,7 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
 const AvatarWithProgress = ({ 
     employee, 
     size = 120, 
+    // kept for backward-compatibility, but no longer rendered as a ring
     onboardingProgress = 0,
     onClick
 }: { 
@@ -106,22 +112,14 @@ const AvatarWithProgress = ({
     onboardingProgress?: number;
     onClick?: () => void;
 }) => {
-    // Questionnaire progress (inner ring)
+    // Questionnaire progress (single ring)
     const questionnaireProgress = employee?.questionnaireCompletion || 0;
     
     const strokeWidth = 3;
-    const gap = 4; // Gap between rings
-    
-    // Outer ring (Onboarding) - larger radius
-    const outerRadius = (size / 2) + 2;
-    const outerCircumference = 2 * Math.PI * outerRadius;
-    const outerOffset = outerCircumference - (onboardingProgress / 100) * outerCircumference;
-    const onboardingColor = onboardingProgress < 50 ? '#6366f1' : onboardingProgress < 90 ? '#6366f1' : '#10b981'; // indigo -> emerald
-    
-    // Inner ring (Questionnaire) - smaller radius
-    const innerRadius = (size / 2) - gap - strokeWidth;
-    const innerCircumference = 2 * Math.PI * innerRadius;
-    const innerOffset = innerCircumference - (questionnaireProgress / 100) * innerCircumference;
+    // Single ring radius around avatar
+    const ringRadius = (size / 2) + 2;
+    const ringCircumference = 2 * Math.PI * ringRadius;
+    const ringOffset = ringCircumference - (questionnaireProgress / 100) * ringCircumference;
     const questionnaireColor = questionnaireProgress < 50 ? '#ef4444' : questionnaireProgress < 90 ? '#f59e0b' : '#10b981'; // red -> amber -> emerald
 
     const avatarContent = (
@@ -139,48 +137,24 @@ const AvatarWithProgress = ({
                     width={size + (strokeWidth + 2) * 2}
                     height={size + (strokeWidth + 2) * 2}
                 >
-                    {/* Outer Ring Background (Onboarding) */}
+                    {/* Ring Background (Questionnaire) */}
                     <circle
                         stroke="#e2e8f0"
                         strokeWidth={strokeWidth}
                         fill="transparent"
-                        r={outerRadius}
+                        r={ringRadius}
                         cx={size / 2 + strokeWidth + 2}
                         cy={size / 2 + strokeWidth + 2}
                     />
-                    {/* Outer Ring Progress (Onboarding) */}
-                    <circle
-                        stroke={onboardingColor}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={outerCircumference}
-                        strokeDashoffset={outerOffset}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        r={outerRadius}
-                        cx={size / 2 + strokeWidth + 2}
-                        cy={size / 2 + strokeWidth + 2}
-                        transform={`rotate(-90 ${size / 2 + strokeWidth + 2} ${size / 2 + strokeWidth + 2})`}
-                        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
-                    />
-                    
-                    {/* Inner Ring Background (Questionnaire) */}
-                    <circle
-                        stroke="#e2e8f0"
-                        strokeWidth={strokeWidth}
-                        fill="transparent"
-                        r={innerRadius}
-                        cx={size / 2 + strokeWidth + 2}
-                        cy={size / 2 + strokeWidth + 2}
-                    />
-                    {/* Inner Ring Progress (Questionnaire) */}
+                    {/* Ring Progress (Questionnaire) */}
                     <circle
                         stroke={questionnaireColor}
                         strokeWidth={strokeWidth}
-                        strokeDasharray={innerCircumference}
-                        strokeDashoffset={innerOffset}
+                        strokeDasharray={ringCircumference}
+                        strokeDashoffset={ringOffset}
                         strokeLinecap="round"
                         fill="transparent"
-                        r={innerRadius}
+                        r={ringRadius}
                         cx={size / 2 + strokeWidth + 2}
                         cy={size / 2 + strokeWidth + 2}
                         transform={`rotate(-90 ${size / 2 + strokeWidth + 2} ${size / 2 + strokeWidth + 2})`}
@@ -851,43 +825,20 @@ export default function EmployeeProfilePage() {
     return (
         <>
         <div className="flex flex-col h-full bg-slate-50/50">
-
-            {/* Sticky Header */}
-            <div className="bg-white border-b sticky top-0 z-30">
-                <div className="px-6 md:px-8">
-                    <div className="flex items-center justify-between py-4 gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                                <Link href="/dashboard/employees">
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <Avatar className="h-10 w-10 border-2 border-white shadow shrink-0">
-                                <AvatarImage src={employee.photoURL} alt={employee.firstName} />
-                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                                    {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-lg font-semibold truncate">
-                                        {fullName}
-                                    </h1>
-                                    <Badge variant="outline" className={cn("shrink-0 text-[10px]", statusInfo.className)}>
-                                        {statusInfo.label}
-                                    </Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground truncate">
-                                    {employee.jobTitle || 'Албан тушаал'} • {departmentName} • #{employee.employeeCode}
-                                </p>
-                            </div>
-                        </div>
-                        
-                        {/* Header Actions */}
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+            <div className="px-6 md:px-8 pt-6">
+                <PageHeader
+                    title={fullName}
+                    description="Ажилтаны хувийн хэрэг"
+                    showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/employees"
+                    actions={
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 className={cn("h-8", employee.role === 'admin' && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
                                 onClick={() => setShowAdminDialog(true)}
                             >
@@ -900,9 +851,9 @@ export default function EmployeeProfilePage() {
                                     Life Cycle
                                 </Link>
                             </Button>
-                        </div>
-                    </div>
-                </div>
+                        </>
+                    }
+                />
             </div>
 
             {/* Main Content */}
@@ -922,234 +873,142 @@ export default function EmployeeProfilePage() {
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
                 {/* Left Sidebar - Profile Card */}
                 <div className="xl:col-span-1 space-y-4">
-                    {/* Profile Card */}
-                    <div className="bg-white rounded-xl border overflow-hidden">
-                        <div className="h-20 bg-gradient-to-br from-primary to-indigo-600 relative">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.2),transparent)]" />
-                            {/* Edit button */}
-                            {!isEditing && (
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="absolute top-2 right-2 h-7 w-7 bg-white/20 hover:bg-white/30 text-white"
-                                    onClick={() => handleStartEdit(employee)}
-                                >
-                                    <Edit className="h-3.5 w-3.5" />
-                                </Button>
-                            )}
-                        </div>
-                        <div className="px-4 pb-4 -mt-10 text-center">
-                            <div className="flex justify-center mb-3">
-                                <input
-                                    ref={photoInputRef}
-                                    type="file"
-                                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                                    className="hidden"
-                                    onChange={handlePhotoSelected}
-                                    disabled={isUploadingPhoto}
-                                />
-                                <AvatarWithProgress
-                                    employee={employee}
-                                    size={80}
-                                    onboardingProgress={onboardingProgress}
-                                    onClick={() => photoInputRef.current?.click()}
-                                />
-                            </div>
-                            
-                            {isEditing ? (
-                                // Editing mode
-                                <div className="space-y-3 text-left">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="text-[10px] font-medium text-slate-500 uppercase">Овог</label>
-                                            <Input 
-                                                value={editForm.lastName}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
-                                                className="h-8 text-sm"
-                                                placeholder="Овог"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-medium text-slate-500 uppercase">Нэр</label>
-                                            <Input 
-                                                value={editForm.firstName}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
-                                                className="h-8 text-sm"
-                                                placeholder="Нэр"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-medium text-slate-500 uppercase">Утас</label>
-                                        <Input 
-                                            value={editForm.phoneNumber}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                                            className="h-8 text-sm"
-                                            placeholder="+976 9911..."
+                    {/* Employee Card (replaces old profile + quick info cards) */}
+                    <EmployeeCard
+                        employee={employee as any}
+                        variant="detailed"
+                        asLink={false}
+                        departmentName={departmentName}
+                        className="shadow-sm"
+                        topRightActions={
+                            <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-lg"
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleStartEdit(employee);
+                                            }}
+                                            disabled={isSaving || isUploadingPhoto}
+                                            aria-label="Засах"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <div className="text-xs font-semibold">Засах</div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        }
+                    />
+
+                    {/* Edit dialog (kept outside EmployeeCard for reliable interactions) */}
+                    <Dialog
+                        open={isEditing}
+                        onOpenChange={(open) => {
+                            if (open) return;
+                            handleCancelEdit();
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-[520px]">
+                            <DialogHeader>
+                                <DialogTitle>Ажилтны мэдээлэл засах</DialogTitle>
+                                <DialogDescription>Овог, нэр, утас, имэйл, аватар зураг.</DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-5">
+                                {/* Avatar */}
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        ref={photoInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={handlePhotoSelected}
+                                        disabled={isUploadingPhoto}
+                                    />
+                                    <div className="shrink-0">
+                                        <AvatarWithProgress
+                                            employee={employee}
+                                            size={72}
+                                            onboardingProgress={onboardingProgress}
+                                            onClick={() => photoInputRef.current?.click()}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</label>
-                                        <Input 
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-semibold truncate">{fullName}</div>
+                                        <div className="text-xs text-muted-foreground truncate">
+                                            #{employee.employeeCode} • {departmentName}
+                                        </div>
+                                        <div className="mt-2 text-[11px] text-muted-foreground">
+                                            Зураг дээр дарж солино (JPG/PNG/WebP, 8MB).
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Fields */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Овог</div>
+                                        <Input
+                                            value={editForm.lastName}
+                                            onChange={(e) => setEditForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                                            className="h-9"
+                                            placeholder="Овог"
+                                            disabled={isSaving}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Нэр</div>
+                                        <Input
+                                            value={editForm.firstName}
+                                            onChange={(e) => setEditForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                                            className="h-9"
+                                            placeholder="Нэр"
+                                            disabled={isSaving}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Утас</div>
+                                        <Input
+                                            value={editForm.phoneNumber}
+                                            onChange={(e) => setEditForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                                            className="h-9"
+                                            placeholder="+976 9911..."
+                                            disabled={isSaving}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</div>
+                                        <Input
                                             type="email"
                                             value={editForm.email}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                                            className="h-8 text-sm"
+                                            onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                                            className="h-9"
                                             placeholder="email@example.com"
+                                            disabled={isSaving}
                                         />
                                     </div>
-                                    <div className="flex gap-2 pt-2">
-                                        <Button 
-                                            size="sm" 
-                                            className="flex-1 h-8"
-                                            onClick={handleSaveEdit}
-                                            disabled={isSaving}
-                                        >
-                                            {isSaving ? (
-                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <Check className="h-3.5 w-3.5 mr-1" />
-                                                    Хадгалах
-                                                </>
-                                            )}
-                                        </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="h-8"
-                                            onClick={handleCancelEdit}
-                                            disabled={isSaving}
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </div>
                                 </div>
-                            ) : (
-                                // View mode
-                                <>
-                                    <h2 className="text-base font-semibold text-slate-800">{fullName}</h2>
-                                    <p className="text-xs text-slate-500 mb-3">{employee.jobTitle || 'Албан тушаал'}</p>
-                                    
-                                    <div className="space-y-2 text-xs">
-                                        <div className="flex items-center justify-center gap-2 text-slate-600">
-                                            <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                            <span>{employee.phoneNumber || '-'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-center gap-2 text-slate-600">
-                                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                            <span className="truncate">{employee.email}</span>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                            </div>
 
-                    {/* Quick Info */}
-                    <div className="bg-white rounded-xl border p-4 space-y-3">
-                        <h3 className="text-xs font-semibold text-slate-500 uppercase">Ерөнхий</h3>
-                        <div className="space-y-2.5">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500">Код</span>
-                                <span className="font-medium font-mono">#{employee.employeeCode}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500">Хэлтэс</span>
-                                <span className="font-medium truncate ml-2">{departmentName}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500">Цагийн хуваарь</span>
-                                <span className="font-medium">{workScheduleName}</span>
-                            </div>
-                            {effectiveHireDate && (
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-slate-500">Ажилд орсон</span>
-                                    <span className="font-medium">{effectiveHireDate}</span>
-                                </div>
-                            )}
-                            {probationEndDate && (
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-slate-500">Туршилт дуусах</span>
-                                    <span className="font-medium">{probationEndDate}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Progress Legend */}
-                    <div className="bg-white rounded-xl border p-3">
-                        <h3 className="text-[10px] font-semibold text-slate-400 uppercase mb-2">Аватар тайлбар</h3>
-                        <div className="space-y-1.5">
-                            <div className="flex items-center gap-2 text-xs">
-                                <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                                <span className="text-slate-600">Гадна цагираг - Onboarding</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                                <div className="w-3 h-3 rounded-full bg-amber-500" />
-                                <span className="text-slate-600">Дотор цагираг - Анкет</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Questionnaire Progress */}
-                    <div className="bg-white rounded-xl border p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-semibold text-slate-500 uppercase">Анкет</h3>
-                            <span className={cn(
-                                "text-xs font-medium",
-                                (employee.questionnaireCompletion || 0) >= 90 ? "text-emerald-600" :
-                                (employee.questionnaireCompletion || 0) >= 50 ? "text-amber-600" : "text-rose-600"
-                            )}>
-                                {Math.round(employee.questionnaireCompletion || 0)}%
-                            </span>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                                className={cn(
-                                    "h-full rounded-full transition-all",
-                                    (employee.questionnaireCompletion || 0) >= 90 ? "bg-emerald-500" :
-                                    (employee.questionnaireCompletion || 0) >= 50 ? "bg-amber-500" : "bg-rose-500"
-                                )}
-                                style={{ width: `${employee.questionnaireCompletion || 0}%` }}
-                            />
-                        </div>
-                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
-                            <Link href={`/dashboard/employees/${employeeId}/questionnaire`}>
-                                Анкет руу очих
-                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                            </Link>
-                        </Button>
-                    </div>
-
-                    {/* Onboarding Progress */}
-                    <div className="bg-white rounded-xl border p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-semibold text-slate-500 uppercase">Onboarding</h3>
-                            <span className={cn(
-                                "text-xs font-medium",
-                                onboardingProgress >= 100 ? "text-emerald-600" :
-                                onboardingProgress > 0 ? "text-indigo-600" : "text-slate-400"
-                            )}>
-                                {onboardingProgress}%
-                            </span>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                                className={cn(
-                                    "h-full rounded-full transition-all",
-                                    onboardingProgress >= 100 ? "bg-emerald-500" : "bg-indigo-500"
-                                )}
-                                style={{ width: `${onboardingProgress}%` }}
-                            />
-                        </div>
-                        <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs" asChild>
-                            <Link href={`/dashboard/onboarding/${employeeId}`}>
-                                Onboarding харах
-                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                            </Link>
-                        </Button>
-                    </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                                    Болих
+                                </Button>
+                                <Button onClick={handleSaveEdit} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Хадгалах'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Offboarding Progress - Only show if projects exist */}
                     {(offboardingProjects && offboardingProjects.length > 0) && (
@@ -1185,62 +1044,25 @@ export default function EmployeeProfilePage() {
                 {/* Right Content - Tabs */}
                 <div className="xl:col-span-3">
                     <Tabs defaultValue="history" className="w-full">
-                        {/* Tab Navigation */}
-                        <div className="bg-white rounded-xl border mb-4 p-1 overflow-x-auto no-scrollbar">
-                            <TabsList className="bg-transparent h-10 w-full justify-start gap-1">
-                                <TabsTrigger
-                                    value="history"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    Хөдөлмөрийн харилцаа
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="onboarding"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    Onboarding
-                                </TabsTrigger>
-                                {(offboardingProjects && offboardingProjects.length > 0) && (
-                                    <TabsTrigger
-                                        value="offboarding"
-                                        className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700"
-                                    >
-                                        Offboarding
-                                    </TabsTrigger>
-                                )}
-                                <TabsTrigger
-                                    value="documents"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    Ажилтны бичиг баримт
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="time-off"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    Чөлөө
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="vacation"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    Амралт
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="cv"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                                    CV
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="system-settings"
-                                    className="h-8 px-4 rounded-lg text-xs font-medium data-[state=active]:bg-slate-100"
-                                >
-                                    <Settings className="h-3.5 w-3.5 mr-1.5" />
-                                    Системийн тохиргоо
-                                </TabsTrigger>
-                            </TabsList>
+                        {/* Tab Navigation (shared VerticalTabMenu like Position Detail) */}
+                        <div className="mb-4">
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                items={[
+                                    { value: 'history', label: 'Хөдөлмөрийн харилцаа' },
+                                    { value: 'onboarding', label: 'Onboarding' },
+                                    ...(offboardingProjects && offboardingProjects.length > 0
+                                        ? [{ value: 'offboarding', label: 'Offboarding' as const }]
+                                        : []),
+                                    { value: 'documents', label: 'Ажилтны бичиг баримт' },
+                                    { value: 'time-off', label: 'Чөлөө' },
+                                    { value: 'vacation', label: 'Амралт' },
+                                    { value: 'cv', label: 'CV' },
+                                    { value: 'system-settings', label: 'Системийн тохиргоо' },
+                                ]}
+                                className="w-full"
+                                triggerClassName="text-sm"
+                            />
                         </div>
 
                         {/* Tab Contents */}

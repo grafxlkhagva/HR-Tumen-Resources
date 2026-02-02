@@ -404,9 +404,11 @@ function GeneralInfoForm({ form, isSubmitting, references }: { form: any, isSubm
                                         <Checkbox
                                             checked={field.value?.includes(item)}
                                             onCheckedChange={(checked) => {
-                                                checked
-                                                    ? form.setValue("driverLicenseCategories", [...(field.value || []), item])
-                                                    : form.setValue("driverLicenseCategories", field.value?.filter((v: string) => v !== item))
+                                                if (checked) {
+                                                    form.setValue("driverLicenseCategories", [...(field.value || []), item]);
+                                                } else {
+                                                    form.setValue("driverLicenseCategories", field.value?.filter((v: string) => v !== item));
+                                                }
                                             }}
                                             className="hidden"
                                         />

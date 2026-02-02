@@ -131,7 +131,7 @@ export default function CreateDocumentPage() {
             const posData = positions?.find(p => p.id === selectedPosition);
 
             // Generate content
-            let content = generateDocumentContent(selectedTemplateData?.content || '', {
+            const content = generateDocumentContent(selectedTemplateData?.content || '', {
                 employee: { id: empDoc.id, ...empDoc.data() },
                 department: deptData,
                 position: posData,

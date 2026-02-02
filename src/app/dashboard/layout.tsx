@@ -75,6 +75,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1">
+            <ImplementationGuideWidget />
             <Button variant="ghost" size="icon-sm" asChild>
               <Link href="/dashboard/settings/employee-code">
                 <Settings className="h-4 w-4" />
@@ -90,9 +91,6 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
       <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
         {children}
       </main>
-
-      {/* Нэвтрүүлэлтийн хөтөч — support хэлбэртэй */}
-      <ImplementationGuideWidget />
     </div>
   );
 }

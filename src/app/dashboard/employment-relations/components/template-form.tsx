@@ -324,7 +324,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         const showDate = header?.showDate !== false;
         const showNumber = header?.showNumber !== false;
         
-        let headerParts: string[] = [];
+        const headerParts: string[] = [];
         
         // Logo (centered)
         if (showLogo && logoUrl) {

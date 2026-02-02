@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Clock, User, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MobileContainerContext } from './hooks/use-mobile-container';
 
 const navItems = [
   { href: '/mobile/home', label: 'Нүүр', icon: Home },
@@ -13,12 +14,7 @@ const navItems = [
   { href: '/mobile/user', label: 'Хэрэглэгч', icon: User },
 ];
 
-// Context for mobile container ref
-export const MobileContainerContext = React.createContext<HTMLDivElement | null>(null);
-
-export function useMobileContainer() {
-  return React.useContext(MobileContainerContext);
-}
+// Context for mobile container ref (defined in a separate module to satisfy Next's export constraints)
 
 export default function MobileLayout({
   children,

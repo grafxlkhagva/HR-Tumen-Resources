@@ -167,7 +167,8 @@ export function PageHeader({
       sameOriginReferrer = false;
     }
 
-    const canGoBack = hasIdxHistory || sameOriginReferrer;
+    // Fallback: some environments don't expose idx/referrer reliably.
+    const canGoBack = hasIdxHistory || sameOriginReferrer || window.history.length > 1;
     if (canGoBack) router.back();
     else router.push(effectiveFallbackHref);
   }, [backBehavior, router, effectiveFallbackHref]);

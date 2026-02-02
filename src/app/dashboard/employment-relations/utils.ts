@@ -88,6 +88,7 @@ export function getReplacementMap(data: {
     questionnaire?: any,
     system?: any,
     company?: any,
+    appointment?: any,
     customInputs?: Record<string, any>
 }): Record<string, string> {
     const map: Record<string, string> = {};
@@ -100,7 +101,8 @@ export function getReplacementMap(data: {
             position: data.position,
             department: data.department,
             questionnaire: data.questionnaire,
-            system: data.system
+            system: data.system,
+            appointment: data.appointment,
         };
 
         const rawValue = resolvePath(context, field.path);

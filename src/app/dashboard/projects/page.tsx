@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { PageHeader } from '@/components/patterns/page-layout';
+import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
     Select,
     SelectContent,
@@ -22,7 +22,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     FolderKanban,
-    Plus,
     Search,
     Calendar,
     Clock,
@@ -39,6 +38,7 @@ import {
     List,
     Pencil,
     Tag,
+    Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -186,23 +186,16 @@ export default function ProjectsPage() {
                             title="Төслүүд"
                             description="Төсөл болон таскуудын менежмент"
                             showBackButton={true}
-                            backHref="/dashboard"
+                            hideBreadcrumbs={true}
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard"
                             actions={
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button 
-                                                onClick={() => setIsCreateDialogOpen(true)}
-                                                className="bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/25"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Шинэ төсөл үүсгэх</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <AddActionButton
+                                    label="Шинэ төсөл"
+                                    description="Шинэ төсөл үүсгэх"
+                                    onClick={() => setIsCreateDialogOpen(true)}
+                                />
                             }
                         />
 

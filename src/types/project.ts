@@ -9,7 +9,10 @@ export type ProjectStatus =
   | 'ACTIVE'      // Идэвхтэй - хэрэгжиж байгаа
   | 'ON_HOLD'     // Түр зогссон
   | 'COMPLETED'   // Дууссан
-  | 'ARCHIVED';   // Архивласан - түүхэн зорилгоор хадгалсан
+  | 'ARCHIVED'    // Архивласан - түүхэн зорилгоор хадгалсан
+  // Legacy statuses (for backward compatibility with older docs/UI)
+  | 'IN_PROGRESS'
+  | 'CANCELLED';
 
 // Task Status
 export type TaskStatus =

@@ -18,7 +18,7 @@ export function VacationTabContent({ employee }: { employee: Employee }) {
 
     // Get vacation config
     const vacationConfig = employee.vacationConfig;
-    const hasCalculatedVacation = vacationConfig?.calculatedAt && vacationConfig?.baseDays;
+    const hasCalculatedVacation = !!(vacationConfig?.calculatedAt && vacationConfig?.baseDays);
 
     if (!employee.hireDate) {
         return (
@@ -96,7 +96,7 @@ export function VacationTabContent({ employee }: { employee: Employee }) {
 
                         {/* Calculated date */}
                         <div className="mt-4 text-white/60 text-xs">
-                            Тооцоолсон: {format(new Date(vacationConfig.calculatedAt), 'yyyy.MM.dd HH:mm')}
+                            Тооцоолсон: {format(new Date(vacationConfig!.calculatedAt!), 'yyyy.MM.dd HH:mm')}
                         </div>
                     </CardContent>
                 </Card>

@@ -2,31 +2,27 @@
 
 import React from 'react';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { Briefcase, Users, MoreHorizontal, Link as LinkIcon, Edit, UserPlus, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search } from 'lucide-react';
 import { CreateVacancyDialog } from './create-vacancy-dialog';
 import { Vacancy } from '@/types/recruitment';
 import { Department } from '@/types';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+import { OpenVacancyCard } from '@/components/recruitment/open-vacancy-card';
+import { cn } from '@/lib/utils';
+import { AddActionButton } from '@/components/ui/add-action-button';
 
 export function VacanciesList() {
     const { firestore } = useFirebase();
-    const router = useRouter();
-    const { toast } = useToast();
+    const [search, setSearch] = React.useState('');
+    const [departmentId, setDepartmentId] = React.useState<string>('all');
+    const [type, setType] = React.useState<string>('all');
+    const [status, setStatus] = React.useState<'all' | 'OPEN' | 'DRAFT'>('all');
+    const [sort, setSort] = React.useState<'newest' | 'oldest' | 'deadline'>('newest');
+    const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
     const vacanciesQuery = useMemoFirebase(
         () => (firestore ? query(collection(firestore, 'vacancies'), orderBy('createdAt', 'desc')) : null),
@@ -44,6 +40,38 @@ export function VacanciesList() {
     const getDeptName = (id: string) => {
         return departments?.find(d => d.id === id)?.name || 'Unknown';
     };
+    const getDeptColor = (id: string) => {
+        return departments?.find(d => d.id === id)?.color;
+    };
+
+    const filtered = React.useMemo(() => {
+        const list = (vacancies || [])
+            .filter(v => v.status === 'OPEN' || v.status === 'DRAFT')
+            .slice();
+
+        // Sort
+        list.sort((a, b) => {
+            if (sort === 'deadline') {
+                const ad = a.deadline ? Date.parse(a.deadline) : Number.POSITIVE_INFINITY;
+                const bd = b.deadline ? Date.parse(b.deadline) : Number.POSITIVE_INFINITY;
+                return ad - bd;
+            }
+            const at = Date.parse(a.createdAt || '') || 0;
+            const bt = Date.parse(b.createdAt || '') || 0;
+            return sort === 'oldest' ? at - bt : bt - at;
+        });
+
+        const q = search.trim().toLowerCase();
+        return list.filter((v) => {
+            if (status !== 'all' && v.status !== status) return false;
+            if (departmentId !== 'all' && v.departmentId !== departmentId) return false;
+            if (type !== 'all' && (v.type || 'UNKNOWN') !== type) return false;
+            if (!q) return true;
+
+            const hay = `${v.title} ${v.location || ''} ${getDeptName(v.departmentId)}`.toLowerCase();
+            return hay.includes(q);
+        });
+    }, [vacancies, search, departmentId, type, status, sort, departments]);
 
     if (isLoadingVacancies || isLoadingDepts) {
         return <div className="space-y-4">
@@ -51,7 +79,11 @@ export function VacanciesList() {
                 <Skeleton className="h-10 w-32" />
                 <Skeleton className="h-10 w-32" />
             </div>
-            <Skeleton className="h-64 w-full rounded-md" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[150px] w-full rounded-2xl" />
+                ))}
+            </div>
         </div>;
     }
 
@@ -59,71 +91,103 @@ export function VacanciesList() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-semibold tracking-tight">Нээлттэй ажлын байрууд</h2>
-                    <p className="text-sm text-muted-foreground">Идэвхтэй сонгон шалгаруулалтууд болон түүний явц.</p>
+                    <h2 className="text-xl font-semibold tracking-tight">Ажлын байрны зарууд</h2>
+                    <p className="text-sm text-muted-foreground">Нээлттэй болон ноорог зарууд.</p>
                 </div>
-                <CreateVacancyDialog departments={departments || []} />
+                <AddActionButton
+                    label="Шинэ зар"
+                    description="Нээлттэй ажлын байр нэмэх"
+                    onClick={() => setIsCreateOpen(true)}
+                />
             </div>
+            <CreateVacancyDialog
+                departments={departments || []}
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                hideTrigger={true}
+            />
 
-            <Card>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[30%]">Албан тушаал</TableHead>
-                            <TableHead>Хэлтэс</TableHead>
-                            <TableHead>Төлөв</TableHead>
-                            <TableHead>Үе шат</TableHead>
-                            <TableHead>Нийтэлсэн</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {!vacancies || vacancies.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                    Одоогоор идэвхтэй зар байхгүй байна. "Шинэ зар" товч дарж үүсгэнэ үү.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            vacancies.map((vacancy) => (
-                                <TableRow
-                                    key={vacancy.id}
-                                    className="group cursor-pointer hover:bg-muted/50 transition-colors"
-                                    onClick={() => router.push(`/dashboard/recruitment/vacancies/${vacancy.id}`)}
-                                >
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
-                                                <Briefcase className="h-4 w-4" />
-                                            </div>
-                                            <div>
-                                                <span className="block text-base">{vacancy.title}</span>
-                                                <span className="text-xs text-muted-foreground">ID: {vacancy.id.slice(0, 8)}...</span>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{getDeptName(vacancy.departmentId)}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={vacancy.status === 'OPEN' ? 'default' : 'secondary'} className={vacancy.status === 'OPEN' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
-                                            {vacancy.status === 'OPEN' ? 'Нээлттэй' :
-                                                vacancy.status === 'CLOSED' ? 'Хаагдсан' :
-                                                    vacancy.status === 'DRAFT' ? 'Ноорог' : vacancy.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{vacancy.stages?.length || 5} үе шаттай</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {format(new Date(vacancy.createdAt), 'yyyy-MM-dd')}
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+            {/* Filters */}
+            <Card className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Хайх (ажлын байр, хэлтэс, байршил)"
+                            className="pl-9"
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+                            <SelectTrigger className="h-10 w-[160px] bg-muted/30">
+                                <SelectValue placeholder="Төлөв" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Бүгд</SelectItem>
+                                <SelectItem value="OPEN">Нээлттэй</SelectItem>
+                                <SelectItem value="DRAFT">Ноорог</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={departmentId} onValueChange={setDepartmentId}>
+                            <SelectTrigger className="h-10 w-[220px] bg-muted/30">
+                                <SelectValue placeholder="Хэлтэс" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Бүх хэлтэс</SelectItem>
+                                {(departments || []).map((d) => (
+                                    <SelectItem key={d.id} value={d.id}>
+                                        {d.name || d.id}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={type} onValueChange={setType}>
+                            <SelectTrigger className="h-10 w-[170px] bg-muted/30">
+                                <SelectValue placeholder="Төрөл" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Бүгд</SelectItem>
+                                <SelectItem value="FULL_TIME">Full-time</SelectItem>
+                                <SelectItem value="PART_TIME">Part-time</SelectItem>
+                                <SelectItem value="CONTRACT">Contract</SelectItem>
+                                <SelectItem value="INTERNSHIP">Internship</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={sort} onValueChange={(v) => setSort(v as any)}>
+                            <SelectTrigger className="h-10 w-[170px] bg-muted/30">
+                                <SelectValue placeholder="Эрэмбэ" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="newest">Шинээс</SelectItem>
+                                <SelectItem value="oldest">Хуучнаас</SelectItem>
+                                <SelectItem value="deadline">Дуусах огноо</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </Card>
+
+            {!filtered.length ? (
+                <div className="rounded-2xl border bg-muted/20 text-center py-16 text-muted-foreground">
+                    Одоогоор нээлттэй зар олдсонгүй.
+                </div>
+            ) : (
+                <div className={cn('grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')}>
+                    {filtered.map((vacancy) => (
+                        <OpenVacancyCard
+                            key={vacancy.id}
+                            vacancy={vacancy}
+                            departmentName={getDeptName(vacancy.departmentId)}
+                            departmentColor={getDeptColor(vacancy.departmentId)}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

@@ -125,6 +125,8 @@ export interface ERDocument {
 
     // Workflow Data
     reviewers?: string[]; // List of User IDs who need to review
+    /** Legacy/simple approvals map (backward compatibility). */
+    approvals?: Record<string, boolean>;
     approvalStatus?: Record<string, {
         status: 'PENDING' | 'APPROVED' | 'REJECTED';
         comment?: string;

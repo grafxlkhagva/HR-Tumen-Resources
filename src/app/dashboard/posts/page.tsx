@@ -22,9 +22,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import {
   MoreHorizontal,
-  PlusCircle,
   Trash2,
   Newspaper,
   Image as ImageIcon,
@@ -151,16 +151,16 @@ export default function PostsPage() {
           title="Нийтлэлийн самбар"
           description="Байгууллагын дотоод мэдээ, мэдээллийг удирдах хэсэг."
           showBackButton={true}
-          backHref="/dashboard"
+          hideBreadcrumbs={true}
+          backButtonPlacement="inline"
+          backBehavior="history"
+          fallbackBackHref="/dashboard"
           actions={
-            <Button asChild size="sm" className="gap-1 rounded-full px-6">
-              <Link href="/dashboard/posts/add">
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Шинэ нийтлэл
-                </span>
-              </Link>
-            </Button>
+            <AddActionButton
+              label="Шинэ нийтлэл"
+              description="Шинэ нийтлэл нэмэх"
+              href="/dashboard/posts/add"
+            />
           }
         />
 

@@ -100,7 +100,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
         if (!firestore || !userId) return;
         const postRef = doc(firestore, 'posts', post.id);
         const currentReaction = reactions[userId];
-        let newReactions = { ...reactions };
+        const newReactions = { ...reactions };
         if (currentReaction === reaction) {
             delete newReactions[userId];
         } else {
@@ -261,7 +261,7 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
         if (!firestore || !userId) return;
         const postRef = doc(firestore, 'recognition_posts', post.id);
         const currentReaction = reactions[userId];
-        let newReactions = { ...reactions };
+        const newReactions = { ...reactions };
         if (currentReaction === reaction) {
             delete newReactions[userId];
         } else {

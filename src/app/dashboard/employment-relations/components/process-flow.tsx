@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { Timestamp, doc, updateDoc } from 'firebase/firestore';
-import { ERDocument, ERDocumentHistory, DocumentStatus, ActionType } from '../../types';
+import { ERDocument, ERDocumentHistory, DocumentStatus, ActionType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +75,7 @@ export function ProcessFlow({ document: docData, onUpdate }: ProcessFlowProps) {
                 updates.approvals = newApprovals;
 
                 // Check if all reviewers approved
-                const allApproved = docData.reviewers?.every(rid => newApprovals[rid]);
+                const allApproved = docData.reviewers?.every((rid: string) => newApprovals[rid]);
                 if (allApproved) {
                     // All approved, ready for final sign/upload (Conceptually move to next phase logic if needed)
                     // For now, it stays 'IN_REVIEW' until explicitly moved to 'APPROVED' by final action or auto?
@@ -237,7 +237,7 @@ export function ProcessFlow({ document: docData, onUpdate }: ProcessFlowProps) {
                     )}
 
                     {/* Final Sign/Upload Stage for Creator/Approver if needed when all approved but not yet FINAL */}
-                    {docData.status === 'IN_REVIEW' && docData.reviewers && docData.reviewers.every(r => docData.approvals?.[r]) && (
+                    {docData.status === 'IN_REVIEW' && docData.reviewers && docData.reviewers.every((r: string) => docData.approvals?.[r]) && (
                         <div className="mt-8 pt-8 border-t space-y-4 animate-in fade-in slide-in-from-bottom-4">
                             <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl">
                                 <h4 className="font-bold text-orange-800 flex items-center gap-2 mb-2">

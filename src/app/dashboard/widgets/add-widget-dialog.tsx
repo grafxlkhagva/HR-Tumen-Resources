@@ -16,17 +16,12 @@ import {
     Plus, 
     RotateCcw, 
     Sparkles,
-    Users,
     Network,
     UserCheck,
     Palmtree,
     Newspaper,
     Handshake,
-    Rocket,
-    UserPlus,
-    Briefcase,
-    Clock,
-    UserMinus
+    Rocket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WidgetId, WIDGET_CATALOG, getWidgetsByCategory, WidgetConfig } from './catalog';
@@ -206,14 +201,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
             case 'process':
                 return 'bg-gradient-to-br from-pink-500/10 to-rose-500/10';
-            case 'newHires':
-                return 'bg-gradient-to-br from-emerald-500/10 to-green-500/10';
-            case 'openVacancies':
-                return 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10';
-            case 'pendingTimeOff':
-                return 'bg-gradient-to-br from-orange-500/10 to-amber-500/10';
-            case 'inactive':
-                return 'bg-gradient-to-br from-rose-500/10 to-red-500/10';
             default:
                 return '';
         }
@@ -225,10 +212,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
             case 'recruitment': return 'text-blue-400';
             case 'er': return 'text-blue-500';
             case 'process': return 'text-pink-500';
-            case 'newHires': return 'text-emerald-400';
-            case 'openVacancies': return 'text-blue-400';
-            case 'pendingTimeOff': return 'text-orange-400';
-            case 'inactive': return 'text-rose-400';
             default: return 'text-slate-500';
         }
     };
@@ -236,29 +219,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
     // Render content based on widget type - same as dashboard
     const renderContent = () => {
         switch (widget.id) {
-            case 'employees':
-                return (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-700">
-                            <div>
-                                <div className="text-3xl font-semibold text-white">--</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нийт идэвхтэй</div>
-                            </div>
-                            <div className="h-10 w-px bg-slate-700" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <div className="text-2xl font-semibold text-emerald-400">--</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Onboarding</div>
-                            </div>
-                            <div>
-                                <div className="text-2xl font-semibold text-amber-400">--</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Offboarding</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
             case 'structure':
                 return (
                     <div className="space-y-3">
@@ -355,38 +315,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
                     <div className="relative z-10">
                         <div className="text-2xl font-semibold text-white mb-1">Процесс</div>
                         <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
-                    </div>
-                );
-
-            case 'newHires':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-emerald-400 mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">сүүлийн 30 хоногт</div>
-                    </div>
-                );
-
-            case 'openVacancies':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-blue-400 mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">нээлттэй зар</div>
-                    </div>
-                );
-
-            case 'pendingTimeOff':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-orange-400 mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">хүлээгдэж буй</div>
-                    </div>
-                );
-
-            case 'inactive':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-rose-400 mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">идэвхгүй ажилтан</div>
                     </div>
                 );
 

@@ -37,6 +37,27 @@ import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firesto
 import { useToast } from '@/hooks/use-toast';
 import { Vacancy, RecruitmentStage, VacancyStatus } from '@/types/recruitment';
 
+function buildAutoDescription(position: any): string {
+    const purpose = typeof position?.purpose === 'string' ? position.purpose.trim() : '';
+    const responsibilitiesRaw = Array.isArray(position?.responsibilities) ? position.responsibilities : [];
+    const lines = responsibilitiesRaw
+        .map((r: any) => {
+            if (!r) return '';
+            if (typeof r === 'string') return r.trim();
+            if (typeof r === 'object') {
+                const title = typeof r.title === 'string' ? r.title.trim() : '';
+                const desc = typeof r.description === 'string' ? r.description.trim() : '';
+                const combined = [title, desc].filter(Boolean).join(' — ');
+                return combined;
+            }
+            return '';
+        })
+        .filter(Boolean);
+
+    const responsibilitiesBlock = lines.length ? `## Чиг үүрэг\n${lines.map((l: string) => `- ${l}`).join('\n')}` : '';
+    return [purpose, responsibilitiesBlock].filter(Boolean).join('\n\n');
+}
+
 const vacancySchema = z.object({
     title: z.string().min(2, 'Гарчиг дор хаяж 2 үсэгтэй байх ёстой'),
     departmentId: z.string().min(1, 'Хэлтэс сонгоно уу'),
@@ -54,14 +75,39 @@ const DEFAULT_STAGES: RecruitmentStage[] = [
     { id: 'offer', title: 'Санал тавих', type: 'OFFER', order: 4 },
 ];
 
-export function CreateVacancyDialog({ children, departments }: { children?: React.ReactNode, departments: any[] }) {
-    const [open, setOpen] = useState(false);
+export function CreateVacancyDialog({
+    children,
+    departments,
+    open: controlledOpen,
+    onOpenChange,
+    hideTrigger = false,
+}: {
+    children?: React.ReactNode;
+    departments: any[];
+    /** Controlled open state (optional). */
+    open?: boolean;
+    /** Controlled open state setter (optional). */
+    onOpenChange?: (open: boolean) => void;
+    /** Hide the built-in trigger button (use external AddActionButton, etc.) */
+    hideTrigger?: boolean;
+}) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
 
     const [approvedPositions, setApprovedPositions] = useState<any[]>([]);
     const [isLoadingPositions, setIsLoadingPositions] = useState(false);
+
+    const isControlled = typeof controlledOpen === 'boolean';
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = React.useCallback(
+        (next: boolean) => {
+            onOpenChange?.(next);
+            if (!isControlled) setInternalOpen(next);
+        },
+        [onOpenChange, isControlled]
+    );
 
     // Fetch approved positions when dialog opens
     React.useEffect(() => {
@@ -149,14 +195,16 @@ export function CreateVacancyDialog({ children, departments }: { children?: Reac
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {children || (
-                    <Button className="gap-2">
-                        <PlusCircle className="h-4 w-4" />
-                        Шинэ зар
-                    </Button>
-                )}
-            </DialogTrigger>
+            {!hideTrigger ? (
+                <DialogTrigger asChild>
+                    {children || (
+                        <Button className="gap-2">
+                            <PlusCircle className="h-4 w-4" />
+                            Шинэ зар
+                        </Button>
+                    )}
+                </DialogTrigger>
+            ) : null}
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Шинэ ажлын байрны зар үүсгэх</DialogTitle>
@@ -186,8 +234,10 @@ export function CreateVacancyDialog({ children, departments }: { children?: Reac
                                                 if (selectedPos) {
                                                     form.setValue('departmentId', selectedPos.departmentId || '');
                                                     // Optional: auto-fill description
-                                                    if (selectedPos.purpose) {
-                                                        form.setValue('description', `${selectedPos.purpose}\n\n${(selectedPos.responsibilities || []).join('\n')}`);
+                                                    const currentDesc = form.getValues('description') || '';
+                                                    if (!currentDesc.trim()) {
+                                                        const next = buildAutoDescription(selectedPos);
+                                                        if (next.trim()) form.setValue('description', next);
                                                     }
                                                 }
                                             }}

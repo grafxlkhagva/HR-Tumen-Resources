@@ -78,7 +78,7 @@ export default function AttendanceMap({ latitude, longitude, radius, onLocationC
     ];
 
     return (
-        <MapContainer // @ts-ignore
+        <MapContainer
             center={center}
             zoom={15}
             style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}

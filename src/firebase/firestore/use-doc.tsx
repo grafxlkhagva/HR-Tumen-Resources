@@ -23,7 +23,7 @@ export interface UseDocResult<T = DocumentData> {
  * - алдааг state-д буцаана, throw хийхгүй
  */
 export function useDoc<T = DocumentData>(
-  docRef: DocumentReference<T> | null | undefined
+  docRef: DocumentReference<T> | DocumentReference<DocumentData> | null | undefined
 ): UseDocResult<T> {
   const [data, setData] = useState<(T & { id: string }) | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -42,7 +42,7 @@ export function useDoc<T = DocumentData>(
     setIsLoading(true);
 
     const unsubscribe = onSnapshot(
-      docRef,
+      docRef as any,
       (snapshot) => {
         if (!snapshot.exists()) {
           setData(null);

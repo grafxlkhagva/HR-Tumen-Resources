@@ -17,11 +17,6 @@ export interface WidgetData {
     activeProjectsCount?: number;
     overdueTasksCount?: number;
     
-    // Employees widget
-    activeEmployeesCount?: number;
-    onboardingCount?: number;
-    offboardingCount?: number;
-    
     // Structure widget
     departmentsCount?: number;
     positionsCount?: number;
@@ -40,12 +35,6 @@ export interface WidgetData {
     erDocumentsCount?: number;
     erPendingCount?: number;
     erTemplatesCount?: number;
-    
-    // KPI widgets
-    newHiresCount?: number;
-    openVacanciesCount?: number;
-    pendingTimeOffCount?: number;
-    inactiveCount?: number;
 }
 
 interface DashboardWidgetCardProps {
@@ -102,29 +91,6 @@ export function DashboardWidgetCard({
                         <div>
                             <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
                             <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Хугацаа хэтэрсэн таск</div>
-                        </div>
-                    </div>
-                );
-
-            case 'employees':
-                return (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-700">
-                            <div>
-                                <div className="text-2xl sm:text-3xl font-semibold text-white">{data.activeEmployeesCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нийт идэвхтэй</div>
-                            </div>
-                            <div className="h-10 w-px bg-slate-700" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <div className="text-xl sm:text-2xl font-semibold text-emerald-400">{data.onboardingCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Onboarding</div>
-                            </div>
-                            <div>
-                                <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.offboardingCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Offboarding</div>
-                            </div>
                         </div>
                     </div>
                 );
@@ -231,39 +197,6 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            // KPI widgets
-            case 'newHires':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-emerald-400 mb-1">{data.newHiresCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">сүүлийн 30 хоногт</div>
-                    </div>
-                );
-
-            case 'openVacancies':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-blue-400 mb-1">{data.openVacanciesCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">нээлттэй зар</div>
-                    </div>
-                );
-
-            case 'pendingTimeOff':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-orange-400 mb-1">{data.pendingTimeOffCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">хүлээгдэж буй</div>
-                    </div>
-                );
-
-            case 'inactive':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-3xl font-semibold text-rose-400 mb-1">{data.inactiveCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">идэвхгүй ажилтан</div>
-                    </div>
-                );
-
             default:
                 return null;
         }
@@ -282,14 +215,6 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
             case 'process':
                 return 'bg-gradient-to-br from-pink-500/10 to-rose-500/10';
-            case 'newHires':
-                return 'bg-gradient-to-br from-emerald-500/10 to-green-500/10';
-            case 'openVacancies':
-                return 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10';
-            case 'pendingTimeOff':
-                return 'bg-gradient-to-br from-orange-500/10 to-amber-500/10';
-            case 'inactive':
-                return 'bg-gradient-to-br from-rose-500/10 to-red-500/10';
             default:
                 return '';
         }
@@ -320,17 +245,15 @@ export function DashboardWidgetCard({
                 {/* Header with title, icon, and actions */}
                 <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10">
                     <div className="flex items-center gap-2">
-                        {/* Drag handle (disabled for Employees card) */}
-                        {id !== 'employees' && (
-                            <button
-                                {...attributes}
-                                {...listeners}
-                                className="cursor-grab active:cursor-grabbing -ml-1 rounded hover:bg-slate-700/50 transition-all overflow-hidden w-0 p-0 opacity-0 group-hover:w-6 group-hover:p-1 group-hover:opacity-100"
-                                aria-label="Чирэх"
-                            >
-                                <GripVertical className="h-4 w-4 text-slate-500" />
-                            </button>
-                        )}
+                        {/* Drag handle */}
+                        <button
+                            {...attributes}
+                            {...listeners}
+                            className="cursor-grab active:cursor-grabbing -ml-1 rounded hover:bg-slate-700/50 transition-all overflow-hidden w-0 p-0 opacity-0 group-hover:w-6 group-hover:p-1 group-hover:opacity-100"
+                            aria-label="Чирэх"
+                        >
+                            <GripVertical className="h-4 w-4 text-slate-500" />
+                        </button>
                         <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                             {config.label}
                         </div>
@@ -351,21 +274,17 @@ export function DashboardWidgetCard({
                                 <EyeOff className="h-3.5 w-3.5 text-slate-400" />
                             </Button>
                         )}
-                        {/* Top-right icon (disabled for Employees card) */}
-                        {id !== 'employees' && (
-                            <Icon className={cn(
+                        {/* Top-right icon */}
+                        <Icon
+                            className={cn(
                                 "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
                                 id === 'projects' && "text-violet-400",
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
                                 id === 'er' && "text-blue-500",
-                                id === 'process' && "text-pink-500",
-                                id === 'newHires' && "text-emerald-400",
-                                id === 'openVacancies' && "text-blue-400",
-                                id === 'pendingTimeOff' && "text-orange-400",
-                                id === 'inactive' && "text-rose-400"
-                            )} />
-                        )}
+                                id === 'process' && "text-pink-500"
+                            )}
+                        />
                     </div>
                 </div>
 

@@ -1,12 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { format, getDay, eachDayOfInterval, startOfYear, endOfYear, getMonth } from 'date-fns';
-import { ArrowLeft } from 'lucide-react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -470,21 +467,18 @@ export default function CalendarPage() {
     }, [selectedDate, workCalendar]);
 
     return (
-        <div className="flex flex-col h-full px-page pt-page pb-0">
-            <header className="space-y-4 shrink-0 pb-6">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard">
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Буцах</span>
-                        </Link>
-                    </Button>
-                    <PageHeader
-                        title="Хүний нөөцийн календар"
-                        description="Ажлын хуваарь, баярын өдрүүд, нэгтгэл статистик"
-                    />
-                </div>
-            </header>
+        <div className="flex flex-col h-full w-full py-6 px-page">
+            <div className="shrink-0 pb-6">
+                <PageHeader
+                    title="Хүний нөөцийн календар"
+                    description="Ажлын хуваарь, баярын өдрүүд, нэгтгэл статистик"
+                    showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard"
+                />
+            </div>
 
             <div className="flex-1 overflow-auto space-y-6 pb-page">
                 {/* Календар мэдээлэл ба он сонголт */}
