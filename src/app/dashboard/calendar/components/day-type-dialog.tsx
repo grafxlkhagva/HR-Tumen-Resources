@@ -4,13 +4,14 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    AppConfirmDialog,
+    AppDialog,
+    AppDialogContent,
+    AppDialogDescription,
+    AppDialogFooter,
+    AppDialogHeader,
+    AppDialogTitle,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,17 +27,6 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDay, DayType, HolidayType, DAY_TYPE_CONFIGS, CalendarEvent, EventType, EVENT_TYPE_CONFIGS, getEventTypeConfig } from '../types';
 import { CalendarIcon, Trash2, ArrowRight, Plus, X } from 'lucide-react';
@@ -197,14 +187,14 @@ export function DayTypeDialog({
     const hasExistingConfig = !!dayData;
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Өдрийн тохиргоо</DialogTitle>
-                    <DialogDescription>
+        <AppDialog open={open} onOpenChange={onOpenChange}>
+            <AppDialogContent size="md" className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+                <AppDialogHeader>
+                    <AppDialogTitle>Өдрийн тохиргоо</AppDialogTitle>
+                    <AppDialogDescription>
                         {format(date, 'yyyy оны MMMM d, EEEE', { locale: mn })}
-                    </DialogDescription>
-                </DialogHeader>
+                    </AppDialogDescription>
+                </AppDialogHeader>
 
                 <div className="space-y-4 py-4">
                     {/* Өдрийн төрөл */}
@@ -513,32 +503,22 @@ export function DayTypeDialog({
                     )}
                 </div>
 
-                <DialogFooter className="flex-col sm:flex-row gap-2">
+                <AppDialogFooter className="flex-col sm:flex-row gap-2 border-t-0 bg-transparent px-0 py-0">
                     {/* Устгах товч */}
                     {hasExistingConfig && onDelete && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                        <AppConfirmDialog
+                            title="Тохиргоог устгах уу?"
+                            description={`${format(date, 'yyyy оны MMMM d', { locale: mn })} өдрийн тохиргоог устгах гэж байна. Энэ өдөр дахин ажлын өдөр болно.`}
+                            confirmLabel="Устгах"
+                            cancelLabel="Цуцлах"
+                            onConfirm={handleDelete}
+                            trigger={
                                 <Button variant="destructive" className="sm:mr-auto">
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Устгах
                                 </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Тохиргоог устгах уу?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {format(date, 'yyyy оны MMMM d', { locale: mn })} өдрийн тохиргоог устгах гэж байна. 
-                                        Энэ өдөр дахин ажлын өдөр болно.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                        Устгах
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                            }
+                        />
                     )}
                     
                     <div className="flex gap-2 w-full sm:w-auto">
@@ -549,8 +529,8 @@ export function DayTypeDialog({
                             Хадгалах
                         </Button>
                     </div>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </AppDialogFooter>
+            </AppDialogContent>
+        </AppDialog>
     );
 }

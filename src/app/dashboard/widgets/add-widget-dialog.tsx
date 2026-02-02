@@ -206,6 +206,7 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
 
     const getIconColor = () => {
         switch (widget.id) {
+            case 'employees': return 'text-emerald-400';
             case 'points': return 'text-yellow-500';
             case 'recruitment': return 'text-blue-400';
             case 'er': return 'text-blue-500';
@@ -216,6 +217,14 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
     // Render content based on widget type - same as dashboard
     const renderContent = () => {
         switch (widget.id) {
+            case 'employees':
+                return (
+                    <div>
+                        <div className="text-4xl font-semibold text-white mb-1">--</div>
+                        <div className="text-xs text-slate-400 font-medium">нийт ажилтан</div>
+                    </div>
+                );
+
             case 'structure':
                 return (
                     <div className="space-y-3">

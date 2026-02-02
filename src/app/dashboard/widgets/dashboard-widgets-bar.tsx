@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { WidgetId } from './catalog';
+import { WidgetId, getAllWidgetIds } from './catalog';
 import { DashboardWidgetCard, WidgetData } from './dashboard-widget-card';
 import { AddWidgetDialog } from './add-widget-dialog';
 
@@ -83,7 +83,8 @@ export function DashboardWidgetsBar({
     };
 
     // Check if there are available widgets to add
-    const hasAvailableWidgets = hidden.length > 0 || order.length < 13; // 13 = total widgets in catalog
+    const totalWidgetCount = getAllWidgetIds().length;
+    const hasAvailableWidgets = hidden.length > 0 || order.length < totalWidgetCount;
 
     // Build items array - widgets only
     const renderItems = () => {

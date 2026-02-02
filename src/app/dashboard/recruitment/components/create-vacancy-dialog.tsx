@@ -5,14 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+    AppDialog,
+    AppDialogContent,
+    AppDialogDescription,
+    AppDialogFooter,
+    AppDialogHeader,
+    AppDialogTitle,
+    AppDialogTrigger,
+} from '@/components/patterns';
 import {
     Form,
     FormControl,
@@ -194,27 +194,27 @@ export function CreateVacancyDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <AppDialog open={open} onOpenChange={setOpen}>
             {!hideTrigger ? (
-                <DialogTrigger asChild>
+                <AppDialogTrigger asChild>
                     {children || (
                         <Button className="gap-2">
                             <PlusCircle className="h-4 w-4" />
                             Шинэ зар
                         </Button>
                     )}
-                </DialogTrigger>
+                </AppDialogTrigger>
             ) : null}
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>Шинэ ажлын байрны зар үүсгэх</DialogTitle>
-                    <DialogDescription>
+            <AppDialogContent size="md" className="p-0 overflow-hidden">
+                <AppDialogHeader className="px-6 pt-6">
+                    <AppDialogTitle>Шинэ ажлын байрны зар үүсгэх</AppDialogTitle>
+                    <AppDialogDescription>
                         Сонгон шалгаруулалт эхлүүлэх ажлын байрны үндсэн мэдээллийг оруулна уу.
-                    </DialogDescription>
-                </DialogHeader>
+                    </AppDialogDescription>
+                </AppDialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-4">
                         <FormField
                             control={form.control}
                             name="title"
@@ -327,15 +327,15 @@ export function CreateVacancyDialog({
                             )}
                         />
 
-                        <DialogFooter>
+                        <AppDialogFooter className="px-0 py-0 border-t-0 bg-transparent">
                             <Button type="submit" disabled={isLoading}>
                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Үүсгэх
                             </Button>
-                        </DialogFooter>
+                        </AppDialogFooter>
                     </form>
                 </Form>
-            </DialogContent>
-        </Dialog>
+            </AppDialogContent>
+        </AppDialog>
     );
 }

@@ -212,7 +212,7 @@ export function SystemSettingsTabContent({
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ error: 'Unknown error' }));
-                throw new Error(err?.error || 'Имэйл илгээж чадсангүй');
+                throw new Error(err?.details || err?.error || 'Имэйл илгээж чадсангүй');
             }
 
             const result = await res.json().catch(() => ({ status: 'unknown' }));

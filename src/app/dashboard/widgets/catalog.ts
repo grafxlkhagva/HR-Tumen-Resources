@@ -3,6 +3,7 @@
 
 import { 
     Network, 
+    Users,
     UserCheck, 
     Palmtree, 
     Newspaper, 
@@ -14,6 +15,7 @@ import {
 
 export type WidgetId = 
     | 'projects'
+    | 'employees'
     | 'structure' 
     | 'attendance' 
     | 'vacation' 
@@ -38,6 +40,7 @@ export interface WidgetConfig {
 // Default order for widgets (initial 9 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
     'projects',
+    'employees',
     'structure',
     'attendance',
     'vacation',
@@ -58,6 +61,16 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: FolderKanban,
         requiredData: ['projects'],
+        category: 'core'
+    },
+    employees: {
+        id: 'employees',
+        label: 'Ажилчид',
+        description: 'Нийт ажилтнууд',
+        href: '/dashboard/employees',
+        size: 'normal',
+        icon: Users,
+        requiredData: ['employees'],
         category: 'core'
     },
     structure: {

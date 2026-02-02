@@ -9,7 +9,14 @@ import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import type { Vacancy, VacancyStatus } from '@/types/recruitment';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppConfirmDialog,
+  AppDialog,
+  AppDialogContent,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogTitle,
+} from '@/components/patterns';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -17,17 +24,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 type EditVacancyDraft = {
   title: string;
@@ -77,13 +73,13 @@ export function EditVacancyDialog({
   const fileInputId = React.useId();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[720px]">
-        <DialogHeader>
-          <DialogTitle>Нээлтэй ажлын байр засах</DialogTitle>
-        </DialogHeader>
+    <AppDialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent size="xl" className="p-0 overflow-hidden">
+        <AppDialogHeader className="px-6 pt-6">
+          <AppDialogTitle>Нээлтэй ажлын байр засах</AppDialogTitle>
+        </AppDialogHeader>
 
-        <div className="grid gap-6 py-2">
+        <div className="grid gap-6 px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vacancy-title">Албан тушаал</Label>
@@ -195,65 +191,50 @@ export function EditVacancyDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-            {onDelete ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" className="gap-2" disabled={!!saving}>
-                    <Trash2 className="h-4 w-4" />
-                    Устгах
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Ажлын байрны зар болон түүнтэй холбоотой мэдээллүүд устах болно.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={!!saving}>Цуцлах</AlertDialogCancel>
-                    <AlertDialogAction
-                      disabled={!!saving}
-                      className="bg-red-600 hover:bg-red-700"
-                      onClick={async () => {
-                        await onDelete();
-                        onOpenChange(false);
-                      }}
-                    >
-                      Тийм, устгах
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : (
-              <div />
-            )}
+        <AppDialogFooter className="justify-between">
+          {onDelete ? (
+            <AppConfirmDialog
+              title="Та итгэлтэй байна уу?"
+              description="Ажлын байрны зар болон түүнтэй холбоотой мэдээллүүд устах болно."
+              confirmLabel="Тийм, устгах"
+              cancelLabel="Цуцлах"
+              onConfirm={async () => {
+                await onDelete();
+                onOpenChange(false);
+              }}
+              trigger={
+                <Button type="button" variant="destructive" className="gap-2" disabled={!!saving}>
+                  <Trash2 className="h-4 w-4" />
+                  Устгах
+                </Button>
+              }
+            />
+          ) : (
+            <div />
+          )}
 
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={!!saving}>
-                Цуцлах
-              </Button>
-              <Button
-                type="button"
-                onClick={async () => {
-                  if (!draft.title.trim()) {
-                    toast({ title: 'Албан тушаал хоосон байна', variant: 'destructive' });
-                    return;
-                  }
-                  await onSave(draft);
-                }}
-                disabled={!!saving}
-              >
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Хадгалах
-              </Button>
-            </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={!!saving}>
+              Цуцлах
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!draft.title.trim()) {
+                  toast({ title: 'Албан тушаал хоосон байна', variant: 'destructive' });
+                  return;
+                }
+                await onSave(draft);
+              }}
+              disabled={!!saving}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Хадгалах
+            </Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppDialogFooter>
+      </AppDialogContent>
+    </AppDialog>
   );
 }
 

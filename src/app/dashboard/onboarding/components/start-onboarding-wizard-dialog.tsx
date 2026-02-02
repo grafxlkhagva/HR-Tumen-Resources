@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppDialog,
+  AppDialogContent,
+  AppDialogDescription,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogTitle,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -621,11 +621,15 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
   }, [step]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[860px] h-[760px] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-none shadow-premium">
-        <DialogHeader className="p-6 pb-4 bg-gradient-to-br from-primary/5 to-background border-b shrink-0">
-          <DialogTitle className="text-lg font-bold">Onboarding хөтөлбөр эхлүүлэх</DialogTitle>
-          <DialogDescription className="text-xs">
+    <AppDialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent
+        size="xl"
+        withBorder={false}
+        className="sm:max-w-[860px] h-[760px] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-none shadow-premium"
+      >
+        <AppDialogHeader className="p-6 pb-4 bg-gradient-to-br from-primary/5 to-background border-b shrink-0">
+          <AppDialogTitle className="text-lg font-bold">Onboarding хөтөлбөр эхлүүлэх</AppDialogTitle>
+          <AppDialogDescription className="text-xs">
             {stepTitle}
             {selectedEmployee ? (
               <>
@@ -633,7 +637,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
                 • <span className="font-semibold">{selectedEmployee.lastName} {selectedEmployee.firstName}</span>
               </>
             ) : null}
-          </DialogDescription>
+          </AppDialogDescription>
 
           <div className="flex items-center gap-1 mt-3">
             {[1, 2, 3, 4, 5].map((s) => (
@@ -653,7 +657,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
               </React.Fragment>
             ))}
           </div>
-        </DialogHeader>
+        </AppDialogHeader>
 
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {step === 1 ? renderEmployeeStep() : renderStageStep(STAGE_ORDER[step - 2])}
@@ -669,7 +673,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
           )}
         </div>
 
-        <DialogFooter className="p-4 border-t bg-slate-50/50 shrink-0">
+        <AppDialogFooter className="p-4 border-t bg-slate-50/50 shrink-0">
           <div className="flex w-full gap-3">
             <Button
               variant="outline"
@@ -707,9 +711,9 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
               </Button>
             )}
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppDialogFooter>
+      </AppDialogContent>
+    </AppDialog>
   );
 }
 

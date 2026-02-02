@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         // Determine from address and name
         const fromEmail = from || emailConfig?.fromEmail || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
         const fromEmailName = fromName || emailConfig?.fromName || companyName;
+        const fallbackFromEmail = 'onboarding@resend.dev';
 
         // Check if Resend API key is configured
         if (!process.env.RESEND_API_KEY || !resend) {
@@ -81,28 +82,51 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 success: true,
                 status: 'simulated_success',
+                from: `${fromEmailName} <${fromEmail}>`,
                 note: 'RESEND_API_KEY not configured. Add it to .env.local to send real emails.'
             });
         }
 
         // Send email using Resend
         try {
-            const payload: Record<string, unknown> = {
-                from: `${fromEmailName} <${fromEmail}>`,
-                to: [to],
-                subject,
+            const sendWithFrom = async (fromAddr: string) => {
+                const payload: Record<string, unknown> = {
+                    from: `${fromEmailName} <${fromAddr}>`,
+                    to: [to],
+                    subject,
+                };
+                if (html) payload.html = html;
+                if (!html && text) payload.text = text;
+                return await resend.emails.send(payload as any);
             };
-            if (html) payload.html = html;
-            if (!html && text) payload.text = text;
 
-            const { data, error } = await resend.emails.send(payload as any);
+            let usedFrom = fromEmail;
+            let { data, error } = await sendWithFrom(usedFrom);
+
+            // If custom "from" is not verified in Resend, retry with default Resend sender.
+            if (error) {
+                const message = (error as any)?.message || '';
+                const looksLikeFromVerificationIssue =
+                    /verify|verified|domain|sender|from/i.test(message);
+
+                if (usedFrom !== fallbackFromEmail && looksLikeFromVerificationIssue) {
+                    console.warn(
+                        `[API/Email] Send failed for from="${usedFrom}". Retrying with fallback from="${fallbackFromEmail}".`
+                    );
+                    usedFrom = fallbackFromEmail;
+                    const retry = await sendWithFrom(usedFrom);
+                    data = retry.data;
+                    error = retry.error;
+                }
+            }
 
             if (error) {
                 console.error('[API/Email] Resend Error:', error);
                 return NextResponse.json(
                     { 
                         error: 'Failed to send email',
-                        details: error.message || 'Unknown Resend error'
+                        details: (error as any)?.message || 'Unknown Resend error',
+                        from: `${fromEmailName} <${usedFrom}>`
                     },
                     { status: 400 }
                 );
@@ -113,7 +137,8 @@ export async function POST(request: Request) {
                 success: true,
                 status: 'sent',
                 messageId: data?.id,
-                to: to
+                to: to,
+                from: `${fromEmailName} <${usedFrom}>`
             });
 
         } catch (resendError: any) {

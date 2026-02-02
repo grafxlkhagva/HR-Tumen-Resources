@@ -17,6 +17,9 @@ export interface WidgetData {
     activeProjectsCount?: number;
     overdueTasksCount?: number;
     
+    // Employees widget
+    employeesCount?: number;
+
     // Structure widget
     departmentsCount?: number;
     positionsCount?: number;
@@ -92,6 +95,14 @@ export function DashboardWidgetCard({
                             <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
                             <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Хугацаа хэтэрсэн таск</div>
                         </div>
+                    </div>
+                );
+
+            case 'employees':
+                return (
+                    <div>
+                        <div className="text-3xl sm:text-4xl font-semibold text-white mb-1">{data.employeesCount ?? 0}</div>
+                        <div className="text-xs text-slate-400 font-medium">нийт ажилтан</div>
                     </div>
                 );
 
@@ -197,6 +208,8 @@ export function DashboardWidgetCard({
         switch (id) {
             case 'projects':
                 return 'bg-gradient-to-br from-violet-500/10 to-purple-500/10';
+            case 'employees':
+                return 'bg-gradient-to-br from-emerald-500/10 to-teal-500/10';
             case 'recruitment':
                 return 'bg-blue-500/10';
             case 'points':
@@ -267,6 +280,7 @@ export function DashboardWidgetCard({
                             className={cn(
                                 "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
                                 id === 'projects' && "text-violet-400",
+                                id === 'employees' && "text-emerald-400",
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
                                 id === 'er' && "text-blue-500"

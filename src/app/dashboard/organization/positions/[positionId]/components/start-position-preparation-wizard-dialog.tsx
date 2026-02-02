@@ -2,13 +2,12 @@
 
 import * as React from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppDialog,
+  AppDialogContent,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogTitle,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -362,12 +361,17 @@ export function StartPositionPreparationWizardDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background rounded-2xl [&>button]:text-primary [&>button:hover]:text-primary">
+    <AppDialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent
+        size="xl"
+        withBorder={false}
+        closeTone="primary"
+        className="p-0 overflow-hidden"
+      >
         <div className="flex flex-col h-[80vh] max-h-[680px]">
-          <DialogHeader className="p-6 pb-4 bg-background shrink-0">
-            <DialogTitle className="text-xl font-semibold text-slate-900">Ажлын байр бэлтгэх</DialogTitle>
-          </DialogHeader>
+          <AppDialogHeader className="p-6 pb-4 bg-background shrink-0">
+            <AppDialogTitle className="text-xl font-semibold text-slate-900">Ажлын байр бэлтгэх</AppDialogTitle>
+          </AppDialogHeader>
 
           <div className="flex-1 overflow-hidden relative border-t">
             <ScrollArea className="h-full">
@@ -403,7 +407,7 @@ export function StartPositionPreparationWizardDialog({
             )}
           </div>
 
-          <DialogFooter className="p-4 border-t bg-background shrink-0">
+          <AppDialogFooter className="px-4 py-4 bg-background shrink-0">
             <div className="flex w-full gap-3">
               <Button
                 variant="outline"
@@ -421,10 +425,10 @@ export function StartPositionPreparationWizardDialog({
                 Хадгалах
               </Button>
             </div>
-          </DialogFooter>
+          </AppDialogFooter>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AppDialogContent>
+    </AppDialog>
   );
 }
 

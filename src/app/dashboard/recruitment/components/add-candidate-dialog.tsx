@@ -5,14 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+    AppDialog,
+    AppDialogContent,
+    AppDialogDescription,
+    AppDialogFooter,
+    AppDialogHeader,
+    AppDialogTitle,
+    AppDialogTrigger,
+} from '@/components/patterns';
 import {
     Form,
     FormControl,
@@ -114,23 +114,23 @@ export function AddCandidateDialog({ vacancy }: { vacancy?: Vacancy }) {
     if (!vacancy) return null;
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+        <AppDialog open={open} onOpenChange={setOpen}>
+            <AppDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                     <Plus className="h-4 w-4" />
                     Горилогч нэмэх
                 </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>Шинэ горилогч бүртгэх</DialogTitle>
-                    <DialogDescription>
+            </AppDialogTrigger>
+            <AppDialogContent size="md" className="p-0 overflow-hidden">
+                <AppDialogHeader className="px-6 pt-6">
+                    <AppDialogTitle>Шинэ горилогч бүртгэх</AppDialogTitle>
+                    <AppDialogDescription>
                         "{vacancy.title}" ажлын байранд материал бүрдүүлэх.
-                    </DialogDescription>
-                </DialogHeader>
+                    </AppDialogDescription>
+                </AppDialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-4">
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -188,15 +188,15 @@ export function AddCandidateDialog({ vacancy }: { vacancy?: Vacancy }) {
                             )}
                         />
 
-                        <DialogFooter>
+                        <AppDialogFooter className="px-0 py-0 border-t-0 bg-transparent">
                             <Button type="submit" disabled={isLoading}>
                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Бүртгэх
                             </Button>
-                        </DialogFooter>
+                        </AppDialogFooter>
                     </form>
                 </Form>
-            </DialogContent>
-        </Dialog>
+            </AppDialogContent>
+        </AppDialog>
     );
 }

@@ -1,9 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppDialog,
+  AppDialogContent,
+  AppDialogTitle,
+  AppDialogFooter,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, LucideIcon, Loader2, Check } from 'lucide-react';
+import { AlertCircle, LucideIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FieldCardProps {
@@ -135,14 +140,13 @@ export function FieldCard({
 
       {/* Edit Dialog */}
       {canEdit && (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-            {/* Header with icon */}
-            <div className="flex flex-col items-center pt-10 pb-6 px-6">
-              <div className="mb-3">
-                <Icon className="w-10 h-10 text-primary" />
-              </div>
-              <DialogTitle className="text-xl font-semibold text-center">{dialogTitle || title}</DialogTitle>
+        <AppDialog open={isOpen} onOpenChange={setIsOpen}>
+          <AppDialogContent size="sm" closeTone="primary" className="p-0 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 pt-8 pb-5">
+              <AppDialogTitle className="text-xl font-semibold text-center">
+                {dialogTitle || title}
+              </AppDialogTitle>
             </div>
 
             {/* Content */}
@@ -150,24 +154,17 @@ export function FieldCard({
 
             {/* Footer */}
             {!hideFooter && (
-              <div className="flex justify-end gap-2 px-6 py-4 border-t bg-slate-50 dark:bg-slate-800/50">
-                <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={isSaving}>
-                  Болих
+              <AppDialogFooter className="bg-slate-50 dark:bg-slate-800/50">
+                <Button variant="ghost" type="button" onClick={() => setIsOpen(false)} disabled={isSaving}>
+                  Цуцлах
                 </Button>
-                <Button onClick={handleSave} disabled={isSaving} className="min-w-[100px]">
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Хадгалах
-                    </>
-                  )}
+                <Button type="button" onClick={handleSave} disabled={isSaving} className="min-w-[110px]">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Хадгалах'}
                 </Button>
-              </div>
+              </AppDialogFooter>
             )}
-          </DialogContent>
-        </Dialog>
+          </AppDialogContent>
+        </AppDialog>
       )}
     </>
   );

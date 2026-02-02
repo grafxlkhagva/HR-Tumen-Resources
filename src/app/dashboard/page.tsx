@@ -517,6 +517,9 @@ const OrganizationChart = () => {
         // Projects widget
         activeProjectsCount: activeProjects?.length || 0,
         overdueTasksCount,
+
+        // Employees widget
+        employeesCount: employees?.length || 0,
         
         // Structure widget
         departmentsCount: departments?.length || 0,
@@ -534,6 +537,7 @@ const OrganizationChart = () => {
     }), [
         activeProjects,
         overdueTasksCount,
+        employees,
         departments,
         positions,
         presentEmployees.size,

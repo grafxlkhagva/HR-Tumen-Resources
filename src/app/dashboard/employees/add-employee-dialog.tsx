@@ -5,13 +5,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from '@/components/ui/dialog';
+    AppDialog,
+    AppDialogContent,
+    AppDialogFooter,
+    AppDialogHeader,
+    AppDialogTitle,
+    AppDialogDescription,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -276,7 +276,7 @@ export function AddEmployeeDialog({
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.warn('[Email] Илгээхэд алдаа:', errorData);
+                console.warn('[Email] Илгээхэд алдаа:', errorData?.details || errorData?.error || errorData);
                 // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй, зөвхөн warning log
                 return;
             }
@@ -399,17 +399,17 @@ export function AddEmployeeDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+        <AppDialog open={open} onOpenChange={onOpenChange}>
+            <AppDialogContent size="sm" className="p-0 overflow-hidden">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSave)}>
-                        <DialogHeader>
-                            <DialogTitle>Шинэ ажилтан нэмэх</DialogTitle>
-                            <DialogDescription>
+                        <AppDialogHeader className="px-6 pt-6">
+                            <AppDialogTitle>Шинэ ажилтан нэмэх</AppDialogTitle>
+                            <AppDialogDescription>
                                 Ажилтны үндсэн мэдээллийг бүртгэнэ үү.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4 space-y-4">
+                            </AppDialogDescription>
+                        </AppDialogHeader>
+                        <div className="px-6 py-4 space-y-4">
                             <div className="flex flex-col items-center gap-3">
                                 <Avatar className="h-20 w-20">
                                     <AvatarImage src={photoPreview || undefined} />
@@ -439,7 +439,7 @@ export function AddEmployeeDialog({
                                 <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Утас (Нууц үг болно)</FormLabel><FormControl><Input placeholder="9911-1234" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
                         </div>
-                        <DialogFooter className="gap-2 sm:gap-0">
+                        <AppDialogFooter>
                             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                                 Цуцлах
                             </Button>
@@ -447,10 +447,10 @@ export function AddEmployeeDialog({
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Нэмэх
                             </Button>
-                        </DialogFooter>
+                        </AppDialogFooter>
                     </form>
                 </Form>
-            </DialogContent>
-        </Dialog>
+            </AppDialogContent>
+        </AppDialog>
     )
 }
