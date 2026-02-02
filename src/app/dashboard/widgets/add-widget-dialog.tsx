@@ -199,8 +199,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
                 return 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20';
             case 'er':
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
-            case 'process':
-                return 'bg-gradient-to-br from-pink-500/10 to-rose-500/10';
             default:
                 return '';
         }
@@ -211,7 +209,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
             case 'points': return 'text-yellow-500';
             case 'recruitment': return 'text-blue-400';
             case 'er': return 'text-blue-500';
-            case 'process': return 'text-pink-500';
             default: return 'text-slate-500';
         }
     };
@@ -307,14 +304,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
                                 <div className="text-[10px] text-slate-400">Загвар</div>
                             </div>
                         </div>
-                    </div>
-                );
-
-            case 'process':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-2xl font-semibold text-white mb-1">Процесс</div>
-                        <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
                     </div>
                 );
 

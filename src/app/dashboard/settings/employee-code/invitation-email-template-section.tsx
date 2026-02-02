@@ -37,7 +37,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import {
   buildInvitationEmailHtmlFromFields,
   INVITATION_EMAIL_DEFAULT_FIELDS,
@@ -305,10 +306,13 @@ export function InvitationEmailTemplateSection() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="fields">Текст талбарууд</TabsTrigger>
-                <TabsTrigger value="html">HTML (нарийвчилсан)</TabsTrigger>
-              </TabsList>
+              <VerticalTabMenu
+                orientation="horizontal"
+                items={[
+                  { value: 'fields', label: 'Текст талбарууд' },
+                  { value: 'html', label: 'HTML (нарийвчилсан)' },
+                ]}
+              />
               <TabsContent value="fields" className="pt-4 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField

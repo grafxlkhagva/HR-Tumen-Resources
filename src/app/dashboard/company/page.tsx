@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { CoreValue } from '@/types/points';
 import { query, orderBy } from 'firebase/firestore';
 import { hexToHsl } from '@/lib/color-utils';

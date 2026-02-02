@@ -3,14 +3,15 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collectionGroup, collection, query, orderBy, where, doc } from 'firebase/firestore';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import {
     format,
     parseISO,
@@ -268,20 +269,15 @@ export default function VacationPage() {
 
             <Tabs defaultValue="pending" onValueChange={setActiveTab} className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <TabsList className="bg-slate-100/50 p-1">
-                        <TabsTrigger value="pending" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            Шийдвэрлэх ({stats.pending})
-                        </TabsTrigger>
-                        <TabsTrigger value="calendar" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            Календарь
-                        </TabsTrigger>
-                        <TabsTrigger value="approved" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            Батлагдсан
-                        </TabsTrigger>
-                        <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            Бүх жагсаалт
-                        </TabsTrigger>
-                    </TabsList>
+                    <VerticalTabMenu
+                        orientation="horizontal"
+                        items={[
+                            { value: 'pending', label: `Шийдвэрлэх (${stats.pending})` },
+                            { value: 'calendar', label: 'Календарь' },
+                            { value: 'approved', label: 'Батлагдсан' },
+                            { value: 'all', label: 'Бүх жагсаалт' },
+                        ]}
+                    />
                     {activeTab !== 'calendar' && (
                         <div className="flex w-[300px] items-center space-x-2">
                             <Search className="h-4 w-4 text-muted-foreground" />

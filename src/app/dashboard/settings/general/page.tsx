@@ -4,8 +4,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
-import { Settings, ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowLeft, ArrowUpRight, ScrollText } from 'lucide-react';
+import { PageHeader } from '@/components/patterns/page-layout';
+import { ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowUpRight } from 'lucide-react';
 
 interface SettingsCardProps {
     icon: React.ElementType;
@@ -80,23 +80,16 @@ export default function GeneralSettingsPage() {
     
   return (
     <div className="py-8">
-       <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Буцах</span>
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Ерөнхий тохиргоо
-              </h1>
-              <p className="text-muted-foreground">
-                Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах.
-              </p>
-            </div>
-        </div>
+      <div className="mb-8">
+        <PageHeader
+          title="Ерөнхий тохиргоо"
+          description="Системийн ерөнхий тохиргоо болон лавлах сангуудыг удирдах."
+          showBackButton
+          hideBreadcrumbs
+          backButtonPlacement="inline"
+          backBehavior="history"
+          fallbackBackHref="/dashboard"
+        />
       </div>
       
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

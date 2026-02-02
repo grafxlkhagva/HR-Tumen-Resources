@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ChevronLeft, Building2, Plus, Loader2, Pencil, Trash2, X, Check, Hash } from 'lucide-react';
@@ -162,27 +163,16 @@ export default function SubsidiariesPage() {
         <div className="flex flex-col h-full">
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20">
-                <div className="px-6 md:px-8">
-                    <div className="flex items-center justify-between py-4">
-                        <div className="flex items-center gap-4">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                <Link href="/dashboard/company">
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                    <Building2 className="h-5 w-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <h1 className="text-lg font-semibold">Охин компаниуд</h1>
-                                    <p className="text-xs text-muted-foreground">
-                                        {subsidiaries.length} бүртгэлтэй
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div className="px-6 md:px-8 py-4">
+                    <PageHeader
+                        title="Охин компаниуд"
+                        description={`${subsidiaries.length} бүртгэлтэй`}
+                        showBackButton
+                        hideBreadcrumbs
+                        backButtonPlacement="inline"
+                        backBehavior="history"
+                        fallbackBackHref="/dashboard/company"
+                    />
                 </div>
             </div>
 

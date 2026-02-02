@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import {
-    PlusCircle,
     X,
     Target,
     MapPin,
@@ -346,14 +346,13 @@ export function PositionCompetency({
                                     />
                                 </div>
                             ))}
-                            <Button
-                                variant="outline"
-                                onClick={() => setEditResponsibilities(prev => [...prev, { title: '', description: '' }])}
-                                className="w-full h-11 border-dashed border-2 rounded-xl"
-                            >
-                                <PlusCircle className="w-4 h-4 mr-2" />
-                                Чиг үүрэг нэмэх
-                            </Button>
+                            <div className="flex justify-end">
+                                <AddActionButton
+                                    label="Чиг үүрэг нэмэх"
+                                    description="Шинэ чиг үүргийн мөр нэмэх"
+                                    onClick={() => setEditResponsibilities(prev => [...prev, { title: '', description: '' }])}
+                                />
+                            </div>
                         </div>
                     }
                     onSave={async () => {

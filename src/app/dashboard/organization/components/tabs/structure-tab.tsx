@@ -10,7 +10,9 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Settings, Pencil, Trash2, History, Printer, Loader2 } from 'lucide-react';
+import { AddActionButton } from '@/components/ui/add-action-button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { MoreHorizontal, Settings, Pencil, Trash2, History, Printer, Loader2 } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -337,17 +339,19 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
                             >
                                 <History className="h-4 w-4" />
                             </Button>
-                            <Button
+                            <ActionIconButton
+                                label="Тохиргоо"
+                                description="Бүтцийн тохиргоо"
+                                href="/dashboard/organization/settings"
+                                icon={<Settings className="h-4 w-4" />}
                                 variant="outline"
-                                size="icon"
-                                onClick={() => router.push('/dashboard/organization/settings')}
-                                title="Тохиргоо"
-                            >
-                                <Settings className="h-4 w-4" />
-                            </Button>
-                            <Button variant="default" size="icon" onClick={onAddDepartment} title="Нэгж нэмэх">
-                                <PlusCircle className="h-4 w-4" />
-                            </Button>
+                                className="text-muted-foreground hover:text-primary transition-colors bg-white"
+                            />
+                            <AddActionButton
+                                label="Нэгж нэмэх"
+                                description="Шинэ алба нэгж үүсгэх"
+                                onClick={onAddDepartment}
+                            />
                         </div>
                     </div>
                 </CardHeader>

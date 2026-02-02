@@ -35,8 +35,9 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AddActionButton } from '@/components/ui/add-action-button';
 
 const weekDays = [
     { id: 'monday', label: 'Даваа' },
@@ -317,7 +318,13 @@ export function AddWorkScheduleDialog({ open, onOpenChange, editingItem }: AddWo
                                      <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                                  </div>
                              ))}
-                             <Button type="button" variant="outline" size="sm" onClick={() => append({ startTime: '09:00', endTime: '13:00' })}><PlusCircle className="mr-2 h-4 w-4" />Цагийн хэсэг нэмэх</Button>
+                             <div className="flex justify-end">
+                               <AddActionButton
+                                 label="Цагийн хэсэг нэмэх"
+                                 description="Хуваагддаг цагийн шинэ хэсэг нэмэх"
+                                 onClick={() => append({ startTime: '09:00', endTime: '13:00' })}
+                               />
+                             </div>
                              <FormMessage>{form.formState.errors.splitIntervals?.message || form.formState.errors.splitIntervals?.root?.message}</FormMessage>
                         </div>
                     )}

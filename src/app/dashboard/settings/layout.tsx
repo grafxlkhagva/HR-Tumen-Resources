@@ -4,17 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
-    Settings,
     Hash,
     FileText,
     Clock,
     GraduationCap,
     MapPin,
     Files,
-    ChevronLeft,
     Shield
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/patterns/page-layout';
 
 interface SettingsLayoutProps {
     children: React.ReactNode;
@@ -67,27 +65,19 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
         <div className="flex flex-col h-full">
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20">
-                <div className="px-6 md:px-8">
-                    {/* Title Row */}
-                    <div className="flex items-center gap-4 py-4">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <Link href="/dashboard">
-                                <ChevronLeft className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Settings className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <h1 className="text-lg font-semibold">Тохиргоо</h1>
-                                <p className="text-xs text-muted-foreground">Системийн тохиргоо</p>
-                            </div>
-                        </div>
-                    </div>
+                <div className="px-page py-4">
+                    <PageHeader
+                        title="Тохиргоо"
+                        description="Системийн тохиргоо"
+                        showBackButton={true}
+                        hideBreadcrumbs={true}
+                        backButtonPlacement="inline"
+                        backBehavior="history"
+                        fallbackBackHref="/dashboard"
+                    />
 
                     {/* Navigation Tabs */}
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mb-px">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mb-px mt-4">
                         {settingsNavItems.map((item) => {
                             const isActive = pathname.startsWith(item.href);
                             return (

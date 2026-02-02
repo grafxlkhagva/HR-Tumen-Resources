@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { CalendarStats, MonthlyStats, QuarterlyStats, StatsPeriodType, STATS_VIEW_CONFIGS } from '../types';
 import { 
     Calendar, 
@@ -210,13 +211,14 @@ export function CalendarStatsDashboard({ stats, isLoading, year }: CalendarStats
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{year} оны нэгтгэл</CardTitle>
                     <Tabs value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as StatsPeriodType)}>
-                        <TabsList className="h-8">
-                            {STATS_VIEW_CONFIGS.map((config) => (
-                                <TabsTrigger key={config.period} value={config.period} className="text-xs px-3">
-                                    {config.label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
+                        <VerticalTabMenu
+                            orientation="horizontal"
+                            triggerClassName="text-xs"
+                            items={STATS_VIEW_CONFIGS.map((config) => ({
+                                value: config.period,
+                                label: config.label,
+                            }))}
+                        />
                     </Tabs>
                 </div>
             </CardHeader>

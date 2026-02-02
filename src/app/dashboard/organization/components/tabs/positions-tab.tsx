@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2, Copy, Power, PowerOff, Sparkles, Briefcase } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import {
     Table,
     TableBody,
@@ -244,10 +245,13 @@ export const PositionsTab = ({
                 <CardContent className="p-0">
                     <Tabs defaultValue="active" className="w-full">
                         <div className="px-6 pt-4">
-                            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-                                <TabsTrigger value="active">Идэвхтэй</TabsTrigger>
-                                <TabsTrigger value="inactive">Идэвхгүй</TabsTrigger>
-                            </TabsList>
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                items={[
+                                    { value: 'active', label: 'Идэвхтэй' },
+                                    { value: 'inactive', label: 'Идэвхгүй' },
+                                ]}
+                            />
                         </div>
 
                         <TabsContent value="active" className="mt-0">

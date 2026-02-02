@@ -4,7 +4,7 @@ import React from 'react';
 import { useFirebase, useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { TemplatesTab } from '../components/templates-tab';
 import type { ERDocumentType } from '../types';
 

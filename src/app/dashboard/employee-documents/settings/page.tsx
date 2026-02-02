@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
-import { PageHeader } from '@/components/page-header';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/patterns/page-layout';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { FileText, Settings as SettingsIcon, ClipboardCheck } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -188,16 +189,10 @@ export default function DocumentsSettingsPage() {
             />
 
             <Tabs defaultValue="types" className="space-y-6">
-                <TabsList className="bg-white p-1 rounded-2xl border shadow-sm h-14">
-                    <TabsTrigger value="types" className="rounded-xl px-8 h-12 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600 font-bold text-[10px] uppercase tracking-widest transition-all">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Баримтын төрөл
-                    </TabsTrigger>
-                    <TabsTrigger value="templates" disabled className="rounded-xl px-8 h-12 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600 font-bold text-[10px] uppercase tracking-widest transition-all opacity-50">
-                        <SettingsIcon className="w-4 h-4 mr-2" />
-                        Загварууд (Удахгүй)
-                    </TabsTrigger>
-                </TabsList>
+                <VerticalTabMenu
+                    orientation="horizontal"
+                    items={[{ value: "types", label: "Баримтын төрөл" }]}
+                />
 
                 <TabsContent value="types">
                     <Card className="border-none shadow-xl shadow-indigo-100/20 bg-white rounded-[2.5rem] overflow-hidden">

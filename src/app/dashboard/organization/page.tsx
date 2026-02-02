@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { useRouter } from 'next/navigation';
 import {
     useCollection,

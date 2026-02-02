@@ -34,7 +34,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Department, Position, DepartmentType, PositionLevel, JobCategory, EmploymentType, WorkSchedule } from '@/app/dashboard/organization/types';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';

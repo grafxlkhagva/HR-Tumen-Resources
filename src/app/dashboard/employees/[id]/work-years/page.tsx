@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -539,25 +540,15 @@ export default function WorkYearsPage() {
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-10">
                 <div className="px-6 md:px-8 py-4">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleBack}
-                            className="h-9 w-9 rounded-xl hover:bg-slate-100"
-                        >
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                <Calculator className="h-5 w-5 text-indigo-600" />
-                            </div>
-                            <div>
-                                <h1 className="text-lg font-bold text-slate-800">Ажилсан жил тооцоолох</h1>
-                                <p className="text-xs text-slate-500">НДШ төлөлтийн лавлагаагаар ажилласан жил тооцоолох</p>
-                            </div>
-                        </div>
-                    </div>
+                    <PageHeader
+                        title="Ажилсан жил тооцоолох"
+                        description="НДШ төлөлтийн лавлагаагаар ажилласан жил тооцоолох"
+                        showBackButton
+                        hideBreadcrumbs
+                        backButtonPlacement="inline"
+                        backBehavior="history"
+                        fallbackBackHref={`/dashboard/employees/${employeeId}`}
+                    />
                 </div>
             </div>
 

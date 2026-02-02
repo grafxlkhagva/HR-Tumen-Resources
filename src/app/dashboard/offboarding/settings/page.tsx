@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Info, LogOut, ClipboardList, Calculator, MessageSquare } from 'lucide-react';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from 'next/link';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 
 interface OffboardingTask {
   id: string;
@@ -233,25 +234,14 @@ export default function OffboardingSettingsPage() {
 
       <Tabs defaultValue={stages[0]?.id} className="w-full">
         <div className="flex overflow-x-auto pb-2 scrollbar-hide">
-          <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl h-auto">
-            {stages.map((stage, idx) => {
-              const IconComponent = STAGE_ICONS[stage.icon] || LogOut;
-              return (
-                <TabsTrigger
-                  key={stage.id}
-                  value={stage.id}
-                  className="px-4 py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm font-semibold transition-all flex items-center gap-2"
-                >
-                  <IconComponent className="h-4 w-4" />
-                  <span className="hidden sm:inline">{stage.title}</span>
-                  <span className="sm:hidden">{idx + 1}</span>
-                  <Badge variant="secondary" className="ml-1 bg-slate-200 dark:bg-slate-700 text-[10px]">
-                    {stage.tasks.length}
-                  </Badge>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+          <VerticalTabMenu
+            orientation="horizontal"
+            className="flex-nowrap"
+            items={stages.map((stage, idx) => ({
+              value: stage.id,
+              label: `${idx + 1}. ${stage.title} (${stage.tasks.length})`,
+            }))}
+          />
         </div>
 
         {stages.map(stage => {

@@ -6,6 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
   Form,
   FormControl,
@@ -183,40 +184,31 @@ function EditMissionVisionForm({
       <form onSubmit={form.handleSubmit(handleSave)}>
         {/* Header */}
         <div className="bg-white border-b sticky top-0 z-20 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6">
-          <div className="px-6 md:px-8">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" className="h-8 w-8" type="button" asChild>
-                  <Link href="/dashboard/company">
-                    <ChevronLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center">
-                    <Heart className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-semibold">Байгууллагын соёл</h1>
-                    <p className="text-xs text-muted-foreground">Эрхэм зорилго, алсын хараа, үнэт зүйлс</p>
-                  </div>
+          <div className="px-6 md:px-8 py-4">
+            <PageHeader
+              title="Байгууллагын соёл"
+              description="Эрхэм зорилго, алсын хараа, үнэт зүйлс"
+              showBackButton
+              hideBreadcrumbs
+              backButtonPlacement="inline"
+              backBehavior="history"
+              fallbackBackHref="/dashboard/company"
+              actions={
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" type="button" asChild>
+                    <Link href="/dashboard/company">Цуцлах</Link>
+                  </Button>
+                  <Button size="sm" type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Хадгалах
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" type="button" asChild>
-                  <Link href="/dashboard/company">
-                    Цуцлах
-                  </Link>
-                </Button>
-                <Button size="sm" type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Хадгалах
-                </Button>
-              </div>
-            </div>
+              }
+            />
           </div>
         </div>
 

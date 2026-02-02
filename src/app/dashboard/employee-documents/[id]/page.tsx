@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,7 +13,7 @@ import { doc, collection } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, Calendar as CalendarIcon, Save, X, Loader2, Download, Trash2 } from 'lucide-react';
+import { Edit, FileText, Calendar as CalendarIcon, Save, X, Loader2, Download, Trash2 } from 'lucide-react';
 import type { Document } from '../data';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -401,42 +402,40 @@ export default function DocumentDetailPage() {
 
     return (
         <div className="py-8">
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/dashboard/employee-documents">
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Буцах</span>
-                        </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">{documentData.title}</h1>
-                        <p className="text-muted-foreground">{documentData.description}</p>
-                    </div>
-                </div>
-
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Баримт устгах
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Энэ үйлдлийг буцаах боломжгүй. Баримт бичиг системээс бүрмөсөн устлаа.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Устгах
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+            <div className="mb-6">
+                <PageHeader
+                    title={documentData.title}
+                    description={documentData.description}
+                    showBackButton
+                    hideBreadcrumbs
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/employee-documents"
+                    actions={
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Баримт устгах
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Энэ үйлдлийг буцаах боломжгүй. Баримт бичиг системээс бүрмөсөн устлаа.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Устгах
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    }
+                />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -13,7 +13,8 @@ import {
     SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { JobApplication, Interview, Scorecard } from '@/types/recruitment';
@@ -146,17 +147,15 @@ export function CandidateDetailSheet({ application, open, onOpenChange }: Candid
 
                 <div className="flex-1 overflow-hidden mt-6">
                     <Tabs defaultValue="activity" className="h-full flex flex-col">
-                        <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
-                            <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-2">
-                                Үйл явц
-                            </TabsTrigger>
-                            <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-2">
-                                Мэдээлэл
-                            </TabsTrigger>
-                            <TabsTrigger value="communication" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-2">
-                                Харилцаа
-                            </TabsTrigger>
-                        </TabsList>
+                        <VerticalTabMenu
+                            orientation="horizontal"
+                            className="border-b pb-2"
+                            items={[
+                                { value: 'activity', label: 'Үйл явц' },
+                                { value: 'info', label: 'Мэдээлэл' },
+                                { value: 'communication', label: 'Харилцаа' },
+                            ]}
+                        />
 
                         <ScrollArea className="flex-1 p-4">
                             <TabsContent value="activity" className="space-y-4 m-0">

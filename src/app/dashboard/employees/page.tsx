@@ -5,6 +5,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
   Plus,
   Search,
@@ -16,7 +17,6 @@ import {
   LogOut,
   Building2,
   ChevronRight,
-  ArrowLeft,
   X,
   Eye
 } from 'lucide-react';
@@ -146,28 +146,22 @@ export default function EmployeesPage() {
       {/* Scrollable Main Content */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
-          {/* Page Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" asChild className="shrink-0">
-                <Link href="/dashboard">
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Баг хамт олон</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Байгууллагын бүх ажилтнуудын мэдээлэл
-                </p>
-              </div>
-            </div>
-            <AddActionButton
-              label="Шинэ ажилтан"
-              description="Шинэ ажилтан нэмэх"
-              onClick={() => setIsAddDialogOpen(true)}
-              className="shrink-0"
-            />
-          </div>
+          <PageHeader
+            title="Баг хамт олон"
+            description="Байгууллагын бүх ажилтнуудын мэдээлэл"
+            showBackButton
+            hideBreadcrumbs
+            backButtonPlacement="inline"
+            backBehavior="history"
+            fallbackBackHref="/dashboard"
+            actions={
+              <AddActionButton
+                label="Шинэ ажилтан"
+                description="Шинэ ажилтан нэмэх"
+                onClick={() => setIsAddDialogOpen(true)}
+              />
+            }
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

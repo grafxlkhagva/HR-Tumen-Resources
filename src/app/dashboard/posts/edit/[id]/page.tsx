@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
   Card,
   CardContent,
@@ -31,7 +32,6 @@ import {
   Loader2,
   Save,
   X,
-  ArrowLeft,
   Upload,
   Trash2,
 } from 'lucide-react';
@@ -192,37 +192,36 @@ export default function EditPostPage() {
     <div className="py-8">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button asChild variant="outline" size="icon">
-                <Link href="/dashboard/posts">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="sr-only">Буцах</span>
-                </Link>
-              </Button>
-              <h1 className="text-xl font-semibold tracking-tight">
-                Нийтлэл засах
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => router.push('/dashboard/posts')}
-                disabled={isSubmitting || isUploading}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Цуцлах
-              </Button>
-              <Button type="submit" disabled={isSubmitting || isUploading}>
-                {isSubmitting || isUploading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Хадгалах
-              </Button>
-            </div>
+          <div className="mb-4">
+            <PageHeader
+              title="Нийтлэл засах"
+              showBackButton
+              hideBreadcrumbs
+              backButtonPlacement="inline"
+              backBehavior="history"
+              fallbackBackHref="/dashboard/posts"
+              actions={
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => router.push('/dashboard/posts')}
+                    disabled={isSubmitting || isUploading}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Цуцлах
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting || isUploading}>
+                    {isSubmitting || isUploading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Хадгалах
+                  </Button>
+                </div>
+              }
+            />
           </div>
 
           <Card>

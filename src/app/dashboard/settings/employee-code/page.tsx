@@ -35,8 +35,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Save, History, ArrowLeft, Hash, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { InvitationEmailTemplateSection } from './invitation-email-template-section';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 
 const employeeCodeSchema = z
   .object({
@@ -243,18 +244,17 @@ export default function EmployeeCodeSettingsPage() {
       </div>
 
       <Tabs defaultValue="code" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="code" className="flex items-center gap-2">
-            <Hash className="h-4 w-4" />
-            Кодчлол
-          </TabsTrigger>
-          <TabsTrigger value="invitation-email" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Системийн урилга мэйл
-          </TabsTrigger>
-        </TabsList>
+        <div className="mb-6">
+          <VerticalTabMenu
+            orientation="horizontal"
+            items={[
+              { value: 'code', label: 'Кодчлол' },
+              { value: 'invitation-email', label: 'Системийн урилга мэйл' },
+            ]}
+          />
+        </div>
 
-        <TabsContent value="code" className="space-y-6 mt-6">
+        <TabsContent value="code" className="space-y-6 mt-0">
           <Card className="shadow-premium border-slate-200/60">
             <CardHeader>
               <CardTitle>Ажилтны кодчлол</CardTitle>
@@ -280,7 +280,7 @@ export default function EmployeeCodeSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="invitation-email" className="mt-6">
+        <TabsContent value="invitation-email" className="mt-0">
           <InvitationEmailTemplateSection />
         </TabsContent>
       </Tabs>

@@ -5,11 +5,13 @@ import { useCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBl
 import { collection, query, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { ERTemplate, ERDocumentType } from '../types';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, FileCode, Pencil, Trash2, Copy, Settings } from 'lucide-react';
+import { Search, FileCode, Pencil, Trash2, Copy, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
@@ -100,16 +102,19 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
                     </Select>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" asChild className="bg-white hover:bg-slate-50 shadow-sm w-10 p-0 text-slate-600">
-                        <Link href="/dashboard/employment-relations/settings">
-                            <Settings className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                    <Button asChild className="bg-slate-900 text-white hover:bg-slate-800 shadow-sm">
-                        <Link href="/dashboard/employment-relations/templates/create">
-                            <Plus className="mr-2 h-4 w-4" /> Шинэ загвар
-                        </Link>
-                    </Button>
+                    <ActionIconButton
+                        label="Тохиргоо"
+                        description="Процессын тохиргоо"
+                        href="/dashboard/employment-relations/settings"
+                        icon={<Settings className="h-4 w-4" />}
+                        variant="outline"
+                        className="bg-white hover:bg-slate-50 shadow-sm text-slate-600"
+                    />
+                    <AddActionButton
+                        label="Шинэ загвар"
+                        description="Шинэ загвар үүсгэх"
+                        href="/dashboard/employment-relations/templates/create"
+                    />
                 </div>
             </div>
 

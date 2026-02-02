@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
     ArrowLeft,
     Calendar as CalendarIcon,
@@ -39,7 +40,8 @@ import {
     Sparkles,
     Upload
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1240,64 +1242,54 @@ export default function QuestionnairePage() {
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-30">
                 <div className="px-6 md:px-8">
-                    <div className="flex items-center justify-between py-4 gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                                <Link href={`/dashboard/employees/${employeeId}`}>
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <Avatar className="h-10 w-10 border-2 border-white shadow shrink-0">
-                                <AvatarImage src={employeeData?.photoURL} alt={fullName} />
-                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                                    {employeeData?.firstName?.charAt(0)}{employeeData?.lastName?.charAt(0)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-lg font-semibold truncate">{fullName || 'Ажилтан'}</h1>
+                    <div className="py-4">
+                        <PageHeader
+                            title={fullName || 'Ажилтан'}
+                            description={employeeData?.jobTitle || 'Албан тушаал'}
+                            showBackButton
+                            hideBreadcrumbs
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref={`/dashboard/employees/${employeeId}`}
+                            actions={
+                                <div className="flex items-center gap-3">
                                     <Badge variant="outline" className="shrink-0 text-[10px]">Анкет</Badge>
+
+                                    <Button
+                                        onClick={() => setIsCVDialogOpen(true)}
+                                        className="h-9 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/25"
+                                    >
+                                        <Sparkles className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">AI CV Уншигч</span>
+                                        <span className="sm:hidden">AI</span>
+                                    </Button>
+
+                                    <div className="text-right hidden sm:block">
+                                        <p className="text-xs text-muted-foreground">Гүйцэтгэл</p>
+                                        <p className={cn(
+                                            "text-sm font-semibold",
+                                            completionPercent >= 90 ? "text-emerald-600" :
+                                            completionPercent >= 50 ? "text-amber-600" : "text-rose-600"
+                                        )}>{completionPercent}%</p>
+                                    </div>
+                                    <div className="h-10 w-10 relative">
+                                        <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+                                            <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                                            <circle
+                                                cx="18" cy="18" r="15" fill="none"
+                                                stroke={completionPercent >= 90 ? "#10b981" : completionPercent >= 50 ? "#f59e0b" : "#ef4444"}
+                                                strokeWidth="3"
+                                                strokeDasharray={`${completionPercent * 0.94} 100`}
+                                                strokeLinecap="round"
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <FileText className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{employeeData?.jobTitle || 'Албан тушаал'}</p>
-                            </div>
-                        </div>
-                        
-                        {/* AI CV Upload & Progress */}
-                        <div className="flex items-center gap-3 shrink-0">
-                            {/* AI CV Upload Button */}
-                            <Button
-                                onClick={() => setIsCVDialogOpen(true)}
-                                className="h-9 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/25"
-                            >
-                                <Sparkles className="h-4 w-4 mr-2" />
-                                <span className="hidden sm:inline">AI CV Уншигч</span>
-                                <span className="sm:hidden">AI</span>
-                            </Button>
-                            
-                            <div className="text-right hidden sm:block">
-                                <p className="text-xs text-muted-foreground">Гүйцэтгэл</p>
-                                <p className={cn(
-                                    "text-sm font-semibold",
-                                    completionPercent >= 90 ? "text-emerald-600" :
-                                    completionPercent >= 50 ? "text-amber-600" : "text-rose-600"
-                                )}>{completionPercent}%</p>
-                            </div>
-                            <div className="h-10 w-10 relative">
-                                <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
-                                    <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" strokeWidth="3" />
-                                    <circle
-                                        cx="18" cy="18" r="15" fill="none"
-                                        stroke={completionPercent >= 90 ? "#10b981" : completionPercent >= 50 ? "#f59e0b" : "#ef4444"}
-                                        strokeWidth="3"
-                                        strokeDasharray={`${completionPercent * 0.94} 100`}
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <FileText className="h-4 w-4 text-slate-400" />
-                                </div>
-                            </div>
-                        </div>
+                            }
+                        />
                     </div>
                 </div>
             </div>
@@ -1308,18 +1300,12 @@ export default function QuestionnairePage() {
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         {/* Tab Navigation */}
                         <div className="bg-white rounded-xl border mb-6 p-1.5 overflow-x-auto no-scrollbar">
-                            <TabsList className="bg-transparent h-auto w-full justify-start gap-1 flex-wrap">
-                                {TABS.map((tab) => (
-                                    <TabsTrigger
-                                        key={tab.id}
-                                        value={tab.id}
-                                        className="px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm font-medium gap-2"
-                                    >
-                                        <tab.icon className="h-4 w-4" />
-                                        <span className="hidden sm:inline">{tab.label}</span>
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                className="flex-wrap gap-2"
+                                triggerClassName="text-sm"
+                                items={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+                            />
                         </div>
 
                         <TabsContent value="general" className="mt-0">

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useCollection, useFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { ERDocument, ERDocumentType } from './types';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Activity, FileCode, TableIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { DocumentPipeline } from './components/document-pipeline';
 import { OrdersTab } from './components/orders-tab';
 
@@ -83,14 +84,13 @@ export default function DocumentListPage() {
 
 
                 <Tabs defaultValue="er" className="space-y-6">
-                    <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full md:w-auto inline-flex">
-                        <TabsTrigger value="er" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            <Activity className="h-4 w-4" /> Процесс
-                        </TabsTrigger>
-                        <TabsTrigger value="orders" className="rounded-lg px-4 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                            <TableIcon className="h-4 w-4" /> Тушаал бүртгэл
-                        </TabsTrigger>
-                    </TabsList>
+                    <VerticalTabMenu
+                        orientation="horizontal"
+                        items={[
+                            { value: 'er', label: 'Процесс' },
+                            { value: 'orders', label: 'Тушаал бүртгэл' },
+                        ]}
+                    />
 
                     <TabsContent value="er" className="space-y-4">
                         {/* Filters */}

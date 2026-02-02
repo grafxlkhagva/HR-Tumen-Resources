@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, PlusCircle, Trash2, Pencil, Save, X, Check, Sparkles, AlertCircle, Link2, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -339,13 +339,10 @@ export function LookupManagement({ collectionName, title, description, columns, 
     return (
         <>
         <Card className="border-none shadow-none bg-transparent">
-            <CardHeader className="px-0 pt-0">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-                        {description && <CardDescription>{description}</CardDescription>}
-                    </div>
-                    {aiGenerationType && (
+            <CardContent className="px-0 pt-0">
+                {/* Tab label already provides context; show only actions here */}
+                {aiGenerationType ? (
+                    <div className="flex justify-end mb-4">
                         <Button
                             variant="outline"
                             size="sm"
@@ -353,17 +350,11 @@ export function LookupManagement({ collectionName, title, description, columns, 
                             disabled={isGenerating}
                             className="gap-2 bg-gradient-to-r from-violet-50 to-indigo-50 border-violet-200 hover:from-violet-100 hover:to-indigo-100 text-violet-700"
                         >
-                            {isGenerating ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Sparkles className="h-4 w-4" />
-                            )}
+                            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                             AI-р үүсгэх
                         </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent className="px-0">
+                    </div>
+                ) : null}
                 <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
                     <Table>
                         <TableHeader>

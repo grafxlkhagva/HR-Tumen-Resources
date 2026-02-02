@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserNav } from '@/components/user-nav';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
 
 interface CompanyProfile {
   name?: string;
@@ -76,12 +77,14 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-1">
             <ImplementationGuideWidget />
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link href="/dashboard/settings/employee-code">
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Тохиргоо</span>
-              </Link>
-            </Button>
+            <ActionIconButton
+              label="Тохиргоо"
+              description="Системийн тохиргоо"
+              href="/dashboard/settings/employee-code"
+              icon={<Settings className="h-4 w-4" />}
+              variant="ghost"
+              size="icon-sm"
+            />
             <UserNav />
           </div>
         </div>

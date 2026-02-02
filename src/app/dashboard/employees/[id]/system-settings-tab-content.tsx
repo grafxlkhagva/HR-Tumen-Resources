@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -18,9 +18,16 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Lock, KeyRound, Loader2, LogIn } from 'lucide-react';
+import { Lock, KeyRound, Loader2, LogIn, Mail } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
 import type { Employee } from '../data';
+import {
+    buildInvitationEmailHtmlFromFields,
+    INVITATION_EMAIL_DEFAULT_FIELDS,
+    INVITATION_EMAIL_DEFAULT_SUBJECT,
+    INVITATION_EMAIL_TEMPLATE_DOC_ID,
+    replacePlaceholders,
+} from '@/lib/invitation-email-template';
 
 export interface SystemSettingsTabContentProps {
     employee: Employee;
@@ -39,6 +46,7 @@ export function SystemSettingsTabContent({
     const [enableConfirmOpen, setEnableConfirmOpen] = React.useState(false);
     const [isTogglingAccess, setIsTogglingAccess] = React.useState(false);
     const [isResettingPassword, setIsResettingPassword] = React.useState(false);
+    const [isResendingAccessEmail, setIsResendingAccessEmail] = React.useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
 
     const isAdmin = currentUserRole === 'admin';
@@ -123,6 +131,109 @@ export function SystemSettingsTabContent({
     const showDisableEnable = isAdmin && !isSelf;
     const showResetForOther = isAdmin && !isSelf;
     const showChangePassword = isSelf;
+    const showResendAccessEmail = (isAdmin || isSelf) && !!employee.email;
+
+    const handleResendAccessEmail = async () => {
+        if (!firestore) return;
+        if (!employee.email) return;
+        setIsResendingAccessEmail(true);
+        try {
+            // Admin name (best-effort)
+            let adminName = 'Системийн админ';
+            try {
+                const adminSnap = await getDoc(doc(firestore, 'employees', currentUserId));
+                if (adminSnap.exists()) {
+                    const d = adminSnap.data() as any;
+                    const n = `${d?.firstName || ''} ${d?.lastName || ''}`.trim();
+                    if (n) adminName = n;
+                }
+            } catch {}
+
+            // Company profile (best-effort)
+            let companyName = 'Байгууллага';
+            try {
+                const companySnap = await getDoc(doc(firestore, 'company', 'profile'));
+                if (companySnap.exists()) {
+                    const d = companySnap.data() as any;
+                    if (typeof d?.name === 'string' && d.name.trim()) companyName = d.name.trim();
+                }
+            } catch {}
+
+            // Template (best-effort)
+            let subjectTemplate = INVITATION_EMAIL_DEFAULT_SUBJECT;
+            let htmlTemplate = buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS);
+            try {
+                const templateSnap = await getDoc(doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID));
+                if (templateSnap.exists()) {
+                    const t = templateSnap.data() as any;
+                    if (typeof t?.subject === 'string' && t.subject.trim()) subjectTemplate = t.subject;
+                    if (typeof t?.htmlBody === 'string' && t.htmlBody.trim()) {
+                        htmlTemplate = t.htmlBody;
+                    } else if (t?.fields) {
+                        htmlTemplate = buildInvitationEmailHtmlFromFields(t.fields);
+                    }
+                }
+            } catch {}
+
+            const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+            const vars: Record<string, string> = {
+                companyName,
+                employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
+                employeeCode: employee.employeeCode,
+                loginEmail: employee.employeeCode,
+                password: employee.phoneNumber || '',
+                appUrl,
+                adminName,
+            };
+
+            const subject = replacePlaceholders(subjectTemplate, vars);
+            const html = replacePlaceholders(htmlTemplate, vars);
+            const text = [
+                `${companyName} - Нэвтрэх мэдээлэл`,
+                `Сайн байна уу, ${vars.employeeName},`,
+                `Ажилтны код: ${vars.employeeCode}`,
+                `Нэвтрэх нэр: ${vars.employeeCode}`,
+                `Нууц үг: ${vars.password}`,
+                appUrl ? `Системд нэвтрэх: ${appUrl}/login` : '',
+            ]
+                .filter(Boolean)
+                .join('\n\n');
+
+            const res = await fetch('/api/email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: employee.email,
+                    subject,
+                    html,
+                    text,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(err?.error || 'Имэйл илгээж чадсангүй');
+            }
+
+            const result = await res.json().catch(() => ({ status: 'unknown' }));
+            toast({
+                title: 'Имэйл илгээгдлээ',
+                description:
+                    result?.status === 'simulated_success'
+                        ? 'Email service тохируулаагүй тул simulation горимд амжилттай гэж бүртгэгдлээ.'
+                        : 'Нэвтрэх эрхийн мэйл амжилттай дахин илгээгдлээ.',
+            });
+        } catch (e: any) {
+            console.error('Resend access email error:', e);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: e?.message || 'Имэйл дахин илгээхэд алдаа гарлаа.',
+            });
+        } finally {
+            setIsResendingAccessEmail(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -158,6 +269,33 @@ export function SystemSettingsTabContent({
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Нэвтрэх эрхийн мэйл дахин илгээх */}
+            {showResendAccessEmail ? (
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            Нэвтрэх эрхийн мэйл
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                            Нэвтрэх мэдээллийг ажилтны имэйл рүү дахин илгээх. (Олон удаа боломжтой)
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={handleResendAccessEmail}
+                            disabled={isResendingAccessEmail}
+                        >
+                            {isResendingAccessEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                            Дахин илгээх
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : null}
 
             {/* Нэвтрэх эрх хаах/нээх */}
             {showDisableEnable && (

@@ -64,7 +64,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { useRouter } from 'next/navigation';
 import { generateCode, generateNextPositionCode } from '@/lib/code-generator';
 
@@ -531,12 +532,15 @@ export function AddPositionDialog({
                   <Tabs defaultValue="basic" className="flex flex-col h-full">
                     <div className="border-b px-6 flex justify-between items-center">
                       {mode === 'full' && (
-                        <TabsList className="w-full justify-start h-12 bg-transparent p-0 gap-6">
-                          <TabsTrigger value="basic" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 h-12">Үндсэн</TabsTrigger>
-                          <TabsTrigger value="purpose" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 h-12">Зорилго</TabsTrigger>
-                          <TabsTrigger value="compensation" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 h-12">Цалин</TabsTrigger>
-                          <TabsTrigger value="benefits" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 h-12">Хангамж</TabsTrigger>
-                        </TabsList>
+                        <VerticalTabMenu
+                          orientation="horizontal"
+                          items={[
+                            { value: 'basic', label: 'Үндсэн' },
+                            { value: 'purpose', label: 'Зорилго' },
+                            { value: 'compensation', label: 'Цалин' },
+                            { value: 'benefits', label: 'Хангамж' },
+                          ]}
+                        />
                       )}
                       {mode === 'quick' && (
                         <Button

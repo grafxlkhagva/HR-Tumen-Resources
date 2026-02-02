@@ -5,21 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Info, FileText, Briefcase, Monitor, KeyRound, CheckCircle2 } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { AddActionButton } from '@/components/ui/add-action-button';
 
 interface PrepTask {
   id: string;
@@ -93,19 +87,11 @@ export function PositionPreparationSettings() {
   const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'settings', 'positionPreparation') : null), [firestore]);
   const { data: config } = useDoc<any>(configRef as any);
 
-  // policies (optional)
-  const policiesQuery = useMemoFirebase(() =>
-    (firestore ? query(collection(firestore, 'companyPolicies'), orderBy('title', 'asc')) : null),
-    [firestore]);
-  const { data: policies } = useCollection<any>(policiesQuery);
-
   const [stages, setStages] = useState<PrepStage[]>(DEFAULT_STAGES);
   const [editingTask, setEditingTask] = useState<{
     stageId: string;
     taskId: string | null;
     title: string;
-    description: string;
-    policyId?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -123,7 +109,7 @@ export function PositionPreparationSettings() {
   };
 
   const addTask = (stageId: string) => {
-    setEditingTask({ stageId, taskId: null, title: '', description: '', policyId: undefined });
+    setEditingTask({ stageId, taskId: null, title: '' });
   };
 
   const editTask = (stageId: string, task: PrepTask) => {
@@ -131,8 +117,6 @@ export function PositionPreparationSettings() {
       stageId,
       taskId: task.id,
       title: task.title,
-      description: task.description || '',
-      policyId: task.policyId
     });
   };
 
@@ -156,15 +140,11 @@ export function PositionPreparationSettings() {
         tasks = tasks.map((t) => t.id === editingTask.taskId ? {
           ...t,
           title: editingTask.title,
-          description: editingTask.description,
-          policyId: editingTask.policyId,
         } : t);
       } else {
         tasks.push({
           id: Math.random().toString(36).substr(2, 9),
           title: editingTask.title,
-          description: editingTask.description,
-          policyId: editingTask.policyId,
         });
       }
       return { ...s, tasks };
@@ -177,13 +157,6 @@ export function PositionPreparationSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-slate-800">Ажлын байр бэлтгэх</h2>
-        <p className="text-sm text-muted-foreground max-w-3xl">
-          Сул ажлын байрыг ажилтан томилогдохоос өмнө бэлтгэх үеийн таскуудын template-ийг эндээс удирдана.
-        </p>
-      </div>
-
       <Alert className="bg-indigo-50 border-indigo-100 text-indigo-800">
         <Info className="h-4 w-4 text-indigo-600" />
         <AlertTitle className="font-bold">Мэдээлэл</AlertTitle>
@@ -194,25 +167,14 @@ export function PositionPreparationSettings() {
 
       <Tabs defaultValue={stages[0]?.id} className="w-full">
         <div className="flex overflow-x-auto pb-2 scrollbar-hide">
-          <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl h-auto">
-            {stages.map((stage, idx) => {
-              const Icon = STAGE_ICONS[stage.icon] || Briefcase;
-              return (
-                <TabsTrigger
-                  key={stage.id}
-                  value={stage.id}
-                  className="px-4 py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm font-semibold transition-all flex items-center gap-2"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{stage.title}</span>
-                  <span className="sm:hidden">{idx + 1}</span>
-                  <Badge variant="secondary" className="ml-1 bg-slate-200 dark:bg-slate-700 text-[10px]">
-                    {(stage.tasks || []).length}
-                  </Badge>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+          <VerticalTabMenu
+            orientation="horizontal"
+            className="flex-nowrap"
+            items={stages.map((stage, idx) => ({
+              value: stage.id,
+              label: `${idx + 1}. ${stage.title} (${(stage.tasks || []).length})`,
+            }))}
+          />
         </div>
 
         {stages.map((stage) => {
@@ -229,9 +191,11 @@ export function PositionPreparationSettings() {
                       </div>
                       <CardDescription>{stage.description}</CardDescription>
                     </div>
-                    <Button onClick={() => addTask(stage.id)} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                      <Plus className="h-4 w-4 mr-2" /> Таск нэмэх
-                    </Button>
+                    <AddActionButton
+                      label="Таск нэмэх"
+                      description="Автоматаар үүсгэх таск нэр нэмэх"
+                      onClick={() => addTask(stage.id)}
+                    />
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -250,12 +214,6 @@ export function PositionPreparationSettings() {
                             <div className="flex items-center justify-between gap-3">
                               <div className="font-bold text-slate-800 flex items-center gap-2">
                                 {task.title}
-                                {task.policyId && (
-                                  <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 h-5 font-medium text-emerald-600 border-emerald-200 bg-emerald-50">
-                                    <FileText className="h-2.5 w-2.5" />
-                                    {policies?.find((p: any) => p.id === task.policyId)?.title || 'Холбоотой журам'}
-                                  </Badge>
-                                )}
                               </div>
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => editTask(stage.id, task)}>
@@ -266,7 +224,6 @@ export function PositionPreparationSettings() {
                                 </Button>
                               </div>
                             </div>
-                            {task.description && <p className="text-xs text-slate-500 mt-1">{task.description}</p>}
                           </div>
                         </div>
                       ))
@@ -284,33 +241,16 @@ export function PositionPreparationSettings() {
           <Card className="w-full max-w-md shadow-2xl rounded-2xl border-none">
             <CardHeader>
               <CardTitle className="text-lg">{editingTask.taskId ? 'Таск засах' : 'Шинэ таск нэмэх'}</CardTitle>
-              <CardDescription>Бэлтгэл үеийн таскны мэдээлэл.</CardDescription>
+              <CardDescription>Таск үүсгэхдээ зөвхөн нэр оруулна.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label>Гарчиг</Label>
-                <Input value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Тайлбар</Label>
-                <Input value={editingTask.description} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Холбогдох бодлого (optional)</Label>
-                <Select
-                  value={editingTask.policyId || '__none__'}
-                  onValueChange={(val) => setEditingTask({ ...editingTask, policyId: val === '__none__' ? undefined : val })}
-                >
-                  <SelectTrigger className={cn("bg-white", !editingTask.policyId && "text-muted-foreground")}>
-                    <SelectValue placeholder="Сонгох..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Сонгоогүй</SelectItem>
-                    {(policies || []).map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Таск нэр</Label>
+                <Input
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  placeholder="Ж: И-мэйл нээх"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEditingTask(null)}>Болих</Button>

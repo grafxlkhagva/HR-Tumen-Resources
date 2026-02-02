@@ -7,8 +7,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus, ProcessActivity } from '../types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
     Loader2, ArrowLeft, CheckCircle2, Circle, Clock,
     User, Briefcase, Building2, Send, Save, Undo2,
@@ -415,82 +415,83 @@ export default function DocumentDetailPage({ params }: PageProps) {
             <div className="bg-white border-b sticky top-0 z-30">
                 <div className="px-6 md:px-8">
                     {/* Top Row: Back + Title + Actions */}
-                    <div className="flex items-center justify-between py-4 gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                                <Link href="/dashboard/employment-relations">
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <div className="min-w-0">
+                    <div className="py-4">
+                        <PageHeader
+                            title={document.metadata?.templateName || 'Баримт'}
+                            description={[
+                                selectedEmployee
+                                    ? `${selectedEmployee.lastName || ''} ${selectedEmployee.firstName || ''}`.trim()
+                                    : document.metadata?.employeeName || 'Ажилтан сонгоогүй',
+                                document.metadata?.departmentName ? document.metadata.departmentName : null,
+                            ].filter(Boolean).join(' • ')}
+                            showBackButton
+                            hideBreadcrumbs
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard/employment-relations"
+                            actions={
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-lg font-semibold truncate">
-                                        {document.metadata?.templateName || 'Баримт'}
-                                    </h1>
                                     <Badge className={cn("shrink-0 text-[10px]", DOCUMENT_STATUSES[currentStatus].color)}>
                                         {DOCUMENT_STATUSES[currentStatus].label}
                                     </Badge>
+
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handlePrint && handlePrint()}
+                                        title="Хэвлэх"
+                                    >
+                                        <Printer className="h-4 w-4" />
+                                    </Button>
+
+                                    {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
+                                        <>
+                                            {currentStatus === 'DRAFT' && (template?.isDeletable ?? true) && (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            <Button variant="outline" size="sm" className="h-8" onClick={handleSaveDraft} disabled={isSaving}>
+                                                {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                                                Хадгалах
+                                            </Button>
+                                            {currentStatus === 'DRAFT' && (
+                                                <Button size="sm" className="h-8" onClick={handleSendForReview} disabled={isSaving}>
+                                                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                                                    Илгээх
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                                    {currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED' && (
+                                        <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
+                                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                                            Батлах
+                                        </Button>
+                                    )}
+                                    {currentStatus === 'REVIEWED' && (isOwner || isAdmin) && (
+                                        <>
+                                            <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} />
+                                            <Button variant="outline" size="sm" className="h-8" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                                                {isUploading ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-1.5" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
+                                                Эх хувь
+                                            </Button>
+                                            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleFinalApprove} disabled={isSaving || isUploading}>
+                                                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                                                Батлах
+                                            </Button>
+                                        </>
+                                    )}
+                                    {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
+                                        <Button variant="outline" size="sm" className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700" onClick={() => window.open(document.signedDocUrl, '_blank')}>
+                                            <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                            Эх хувь
+                                        </Button>
+                                    )}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {selectedEmployee ? `${selectedEmployee.lastName || ''} ${selectedEmployee.firstName || ''}`.trim() : document.metadata?.employeeName || 'Ажилтан сонгоогүй'}
-                                    {document.metadata?.departmentName && ` • ${document.metadata.departmentName}`}
-                                </p>
-                            </div>
-                        </div>
-                        
-                        {/* Header Actions */}
-                        <div className="flex items-center gap-2 shrink-0">
-                            {/* Print/Download */}
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrint && handlePrint()} title="Хэвлэх">
-                                <Printer className="h-4 w-4" />
-                            </Button>
-                            
-                            {/* Status-based actions */}
-                            {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
-                                <>
-                                    {currentStatus === 'DRAFT' && (template?.isDeletable ?? true) && (
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    <Button variant="outline" size="sm" className="h-8" onClick={handleSaveDraft} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-                                        Хадгалах
-                                    </Button>
-                                    {currentStatus === 'DRAFT' && (
-                                        <Button size="sm" className="h-8" onClick={handleSendForReview} disabled={isSaving}>
-                                            <Send className="h-3.5 w-3.5 mr-1.5" />
-                                            Илгээх
-                                        </Button>
-                                    )}
-                                </>
-                            )}
-                            {currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED' && (
-                                <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
-                                    <Check className="h-3.5 w-3.5 mr-1.5" />
-                                    Батлах
-                                </Button>
-                            )}
-                            {currentStatus === 'REVIEWED' && (isOwner || isAdmin) && (
-                                <>
-                                    <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} />
-                                    <Button variant="outline" size="sm" className="h-8" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                                        {isUploading ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-1.5" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
-                                        Эх хувь
-                                    </Button>
-                                    <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleFinalApprove} disabled={isSaving || isUploading}>
-                                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                                        Батлах
-                                    </Button>
-                                </>
-                            )}
-                            {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
-                                <Button variant="outline" size="sm" className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700" onClick={() => window.open(document.signedDocUrl, '_blank')}>
-                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                                    Эх хувь
-                                </Button>
-                            )}
-                        </div>
+                            }
+                        />
                     </div>
                     
                     {/* Progress Stepper Row */}

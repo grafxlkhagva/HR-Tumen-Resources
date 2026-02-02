@@ -24,7 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DynamicFieldSelector } from './dynamic-field-selector';
 import { RichTextEditor } from './rich-text-editor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     DndContext,
@@ -646,16 +647,13 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                             </CardHeader>
                             <CardContent>
                                 <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'visual' | 'preview')} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                                        <TabsTrigger value="visual" className="gap-2">
-                                            <Wand2 className="h-4 w-4" />
-                                            Засварлах
-                                        </TabsTrigger>
-                                        <TabsTrigger value="preview" className="gap-2">
-                                            <Eye className="h-4 w-4" />
-                                            Урьдчилан харах
-                                        </TabsTrigger>
-                                    </TabsList>
+                                    <VerticalTabMenu
+                                        orientation="horizontal"
+                                        items={[
+                                            { value: 'visual', label: 'Засварлах' },
+                                            { value: 'preview', label: 'Урьдчилан харах' },
+                                        ]}
+                                    />
 
                                     <TabsContent value="visual" className="mt-0">
                                         <RichTextEditor

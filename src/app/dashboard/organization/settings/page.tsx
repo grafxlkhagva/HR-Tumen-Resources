@@ -1,11 +1,12 @@
 'use client';
 
-import { PageHeader } from '@/components/page-header';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/patterns/page-layout';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Building2, Briefcase, FileText, Layers, Tag, Zap } from 'lucide-react';
 import { LookupManagement } from './components/lookup-management';
 import { OrganizationActionSettings } from './components/organization-action-settings';
 import { PositionPreparationSettings } from './components/position-preparation-settings';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 
 export default function OrganizationSettingsPage() {
     return (
@@ -14,39 +15,29 @@ export default function OrganizationSettingsPage() {
                 <PageHeader
                     title="Бүтэц, Ажлын байрны тохиргоо"
                     description="Байгууллагын бүтэц, албан тушаалтай холбоотой үндсэн тохиргоонууд."
-                    showBackButton
-                    backHref="/dashboard/organization"
+                    showBackButton={true}
+                    hideBreadcrumbs={true}
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/organization"
                 />
 
                 <Tabs defaultValue="dept-types" className="w-full">
-                    <TabsList className="bg-muted/50 p-1 rounded-xl w-full justify-start h-auto flex-wrap">
-                        <TabsTrigger value="dept-types" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <Building2 className="w-4 h-4" />
-                            Бүтцийн нэгжийн төрөл
-                        </TabsTrigger>
-                        <TabsTrigger value="job-categories" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <Layers className="w-4 h-4" />
-                            Ажил мэргэжлийн код
-                        </TabsTrigger>
-                        <TabsTrigger value="levels" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <Tag className="w-4 h-4" />
-                            Зэрэглэл
-                        </TabsTrigger>
-                        <TabsTrigger value="emp-types" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <FileText className="w-4 h-4" />
-                            Ажлын байрны төрөл
-                        </TabsTrigger>
-                        <TabsTrigger value="actions" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <Zap className="w-4 h-4" />
-                            Үйлдэл
-                        </TabsTrigger>
-                        <TabsTrigger value="position-prep" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4 py-2">
-                            <Briefcase className="w-4 h-4" />
-                            Ажлын байр бэлтгэх
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="mb-6">
+                        <VerticalTabMenu
+                            orientation="horizontal"
+                            items={[
+                                { value: 'dept-types', label: 'Бүтцийн нэгжийн төрөл' },
+                                { value: 'job-categories', label: 'Ажил мэргэжлийн код' },
+                                { value: 'levels', label: 'Зэрэглэл' },
+                                { value: 'emp-types', label: 'Ажлын байрны төрөл' },
+                                { value: 'actions', label: 'Үйлдэл' },
+                                { value: 'position-prep', label: 'Ажлын байр бэлтгэх' },
+                            ]}
+                        />
+                    </div>
 
-                    <div className="mt-8">
+                    <div>
                         <TabsContent value="actions" className="space-y-4 focus-visible:outline-none">
                             <OrganizationActionSettings />
                         </TabsContent>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
 import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, getDoc } from "firebase/firestore";
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle } from 'lucide-react';
 import { generateDocCode } from '../utils';
 import { DocumentHeader, NumberingConfig } from '../types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ERDocumentTypeReferenceItem = ReferenceItem & {
@@ -326,11 +327,14 @@ export default function ERDocumentTypesSettingsPage() {
                         </DialogHeader>
 
                         <Tabs defaultValue="basic" className="mt-4">
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="basic">Үндсэн</TabsTrigger>
-                                <TabsTrigger value="numbering">Дугаарлалт</TabsTrigger>
-                                <TabsTrigger value="header">Толгой</TabsTrigger>
-                            </TabsList>
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                items={[
+                                    { value: 'basic', label: 'Үндсэн' },
+                                    { value: 'numbering', label: 'Дугаарлалт' },
+                                    { value: 'header', label: 'Толгой' },
+                                ]}
+                            />
 
                             <TabsContent value="basic" className="space-y-4 mt-4">
                                 {/* Нэр */}

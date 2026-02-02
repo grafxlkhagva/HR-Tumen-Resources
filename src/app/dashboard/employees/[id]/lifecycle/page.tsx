@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, arrayUnion, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { Employee } from '@/types';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

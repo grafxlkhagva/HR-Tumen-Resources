@@ -7,7 +7,8 @@ import { collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { CoreValue, RecognitionPost } from '@/types/points';
 import { BarChart, Activity, Award, Target, Users, ShoppingBag, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { RewardManager } from './_components/reward-manager';
 import { PointConfigManager } from './_components/point-config-manager';
 import { BudgetRequestManager } from './_components/budget-request-manager';
@@ -15,7 +16,7 @@ import Link from 'next/link';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 
 interface PointTx {
@@ -109,23 +110,16 @@ export default function PointAdminPage() {
             />
 
             <Tabs defaultValue="overview" className="space-y-6">
-                <TabsList className="bg-muted/50 p-1">
-                    <TabsTrigger value="overview" className="gap-2">
-                        <Activity className="w-4 h-4" /> Ерөнхий мэдээлэл
-                    </TabsTrigger>
-                    <TabsTrigger value="rewards" className="gap-2">
-                        <ShoppingBag className="w-4 h-4" /> Дэлгүүр удирдах
-                    </TabsTrigger>
-                    <TabsTrigger value="requests" className="gap-2">
-                        <History className="w-4 h-4" /> Захиалгууд
-                    </TabsTrigger>
-                    <TabsTrigger value="budget-requests" className="gap-2">
-                        <Target className="w-4 h-4" /> Төсвийн хүсэлтүүд
-                    </TabsTrigger>
-                    <TabsTrigger value="settings" className="gap-2">
-                        <SettingsIcon className="w-4 h-4" /> Тохиргоо
-                    </TabsTrigger>
-                </TabsList>
+                <VerticalTabMenu
+                    orientation="horizontal"
+                    items={[
+                        { value: 'overview', label: 'Ерөнхий мэдээлэл' },
+                        { value: 'rewards', label: 'Дэлгүүр удирдах' },
+                        { value: 'requests', label: 'Захиалгууд' },
+                        { value: 'budget-requests', label: 'Төсвийн хүсэлтүүд' },
+                        { value: 'settings', label: 'Тохиргоо' },
+                    ]}
+                />
 
                 <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                     {/* KPI Cards — бодит өгөгдлөөс */}

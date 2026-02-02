@@ -42,7 +42,7 @@ import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { AddPolicyDialog, POLICY_TYPES } from './add-policy-dialog';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 
 import { CompanyPolicy } from './types';
 

@@ -22,9 +22,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import {
   MoreHorizontal,
-  PlusCircle,
   File,
   Download,
   Trash2,
@@ -98,18 +99,19 @@ export default function DocumentsPage() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard/employee-documents/settings">
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Тохиргоо</span>
-              </Link>
-            </Button>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Бичиг баримт байршуулах
-              </span>
-            </Button>
+            <ActionIconButton
+              label="Тохиргоо"
+              description="Баримтын тохиргоо"
+              href="/dashboard/employee-documents/settings"
+              icon={<Settings className="h-4 w-4" />}
+              variant="outline"
+              className="bg-white hover:bg-slate-50"
+            />
+            <AddActionButton
+              label="Бичиг баримт байршуулах"
+              description="Удахгүй нэмэгдэнэ"
+              disabled
+            />
           </div>
         </CardHeader>
         <CardContent>

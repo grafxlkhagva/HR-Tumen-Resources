@@ -8,7 +8,8 @@ import { collection } from "firebase/firestore";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -646,21 +647,12 @@ export default function QuestionnaireSettingsPage() {
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <div className="bg-white rounded-xl border p-1.5 mb-6 overflow-x-auto no-scrollbar">
-                    <TabsList className="bg-transparent h-auto w-full justify-start gap-1">
-                        {TABS.map((tab) => {
-                            const Icon = tab.icon;
-                            return (
-                                <TabsTrigger
-                                    key={tab.id}
-                                    value={tab.id}
-                                    className="h-9 px-4 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
-                                >
-                                    <Icon className="h-4 w-4" />
-                                    {tab.label}
-                                </TabsTrigger>
-                            );
-                        })}
-                    </TabsList>
+                    <VerticalTabMenu
+                        orientation="horizontal"
+                        className="flex-wrap gap-2"
+                        triggerClassName="text-sm"
+                        items={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+                    />
                 </div>
 
                 {/* Content */}

@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import {
-    PlusCircle,
     X,
     Zap,
     LayoutGrid,
@@ -332,14 +332,13 @@ export function PositionCompensation({
                                     <p className="text-xs text-muted-foreground italic py-4 text-center">Урамшуулал нэмээгүй</p>
                                 )}
                             </div>
-                            <Button
-                                variant="outline"
-                                onClick={handleAddIncentive}
-                                className="w-full h-10 border-dashed rounded-xl"
-                            >
-                                <PlusCircle className="w-4 h-4 mr-2" />
-                                Урамшуулал нэмэх
-                            </Button>
+                            <div className="flex justify-end">
+                                <AddActionButton
+                                    label="Урамшуулал нэмэх"
+                                    description="Шинэ урамшууллын мөр нэмэх"
+                                    onClick={handleAddIncentive}
+                                />
+                            </div>
                         </div>
                     }
                     onSave={saveIncentives}

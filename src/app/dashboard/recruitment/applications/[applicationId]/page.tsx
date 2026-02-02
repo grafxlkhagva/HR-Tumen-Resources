@@ -40,7 +40,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -58,6 +59,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { sendSMS } from '@/lib/notifications';
 import { InterviewScorecard, ScorecardCriteria } from '../../components/interview-scorecard';
@@ -456,47 +458,28 @@ export default function CandidateDetailPage() {
     return (
         <div className="flex h-screen w-full flex-col bg-[#F8FAFC] overflow-hidden text-slate-900 font-sans">
 
-            {/* Header: Fixed Height */}
-            <header className="h-20 shrink-0 border-b bg-white/80 backdrop-blur-md px-6 flex items-center justify-between z-30">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-slate-100">
-                        <ArrowLeft className="h-5 w-5 text-slate-600" />
-                    </Button>
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <Avatar className="h-12 w-12 border-2 border-white shadow-md">
-                                <AvatarImage src={candidate.resumeUrl} />
-                                <AvatarFallback className="bg-blue-600 text-white font-bold">{candidate.firstName?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className={cn(
-                                "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white",
-                                application.status === 'HIRED' ? "bg-emerald-500" :
-                                    application.status === 'REJECTED' ? "bg-red-500" : "bg-blue-500"
-                            )} />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-slate-900">{candidate.lastName} {candidate.firstName}</h1>
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                                <Briefcase className="h-3.5 w-3.5" />
-                                <span>{vacancy?.title}</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-blue-600 font-medium">{currentStage?.title}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <header className="shrink-0 border-b bg-white/80 backdrop-blur-md z-30">
+                <div className="px-6 py-4">
+                    <PageHeader
+                        title={`${candidate.lastName} ${candidate.firstName}`}
+                        description={[vacancy?.title || null, currentStage?.title || null].filter(Boolean).join(' • ')}
+                        showBackButton
+                        hideBreadcrumbs
+                        backButtonPlacement="inline"
+                        backBehavior="history"
+                        fallbackBackHref="/dashboard/recruitment"
+                        actions={
+                            <div className="flex items-center gap-3">
+                                <div className="flex bg-slate-100 p-1 rounded-lg border">
+                                    <Button variant={leftSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", leftSidebarOpen && "shadow-sm")} onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}>
+                                        <LayoutDashboard className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant={rightSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", rightSidebarOpen && "shadow-sm")} onClick={() => setRightSidebarOpen(!rightSidebarOpen)}>
+                                        <User className="h-4 w-4" />
+                                    </Button>
+                                </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex bg-slate-100 p-1 rounded-lg border">
-                        <Button variant={leftSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", leftSidebarOpen && "shadow-sm")} onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}>
-                            <LayoutDashboard className="h-4 w-4" />
-                        </Button>
-                        <Button variant={rightSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", rightSidebarOpen && "shadow-sm")} onClick={() => setRightSidebarOpen(!rightSidebarOpen)}>
-                            <User className="h-4 w-4" />
-                        </Button>
-                    </div>
-
-                    <DropdownMenu>
+                                <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button className="bg-slate-900 text-white gap-2 rounded-xl h-10 hover:bg-slate-800 shadow-lg shadow-slate-200">
                                 <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -525,7 +508,10 @@ export default function CandidateDetailPage() {
                                 <Trash2 className="h-4 w-4" /> Устгах
                             </DropdownMenuItem>
                         </DropdownMenuContent>
-                    </DropdownMenu>
+                                </DropdownMenu>
+                            </div>
+                        }
+                    />
                 </div>
             </header>
 
@@ -593,20 +579,16 @@ export default function CandidateDetailPage() {
                 <section className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
                         <div className="shrink-0 bg-white border-b px-6">
-                            <TabsList className="h-14 w-full justify-start gap-6 bg-transparent p-0">
-                                <TabsTrigger value="activity" className="h-full rounded-none border-b-2 border-transparent px-0 text-slate-500 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 bg-transparent shadow-none">
-                                    <History className="mr-2 h-4 w-4" /> Үйл ажиллагаа
-                                </TabsTrigger>
-                                <TabsTrigger value="messages" className="h-full rounded-none border-b-2 border-transparent px-0 text-slate-500 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 bg-transparent shadow-none">
-                                    <MessageSquare className="mr-2 h-4 w-4" /> Харилцаа холбоо
-                                </TabsTrigger>
-                                <TabsTrigger value="notes" className="h-full rounded-none border-b-2 border-transparent px-0 text-slate-500 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 bg-transparent shadow-none">
-                                    <FileText className="mr-2 h-4 w-4" /> Тэмдэглэл
-                                </TabsTrigger>
-                                <TabsTrigger value="evaluation" className="h-full rounded-none border-b-2 border-transparent px-0 text-slate-500 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 bg-transparent shadow-none">
-                                    <Star className="mr-2 h-4 w-4" /> Үнэлгээ ({scorecards.length})
-                                </TabsTrigger>
-                            </TabsList>
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                className="py-3"
+                                items={[
+                                    { value: 'activity', label: 'Үйл ажиллагаа' },
+                                    { value: 'messages', label: 'Харилцаа холбоо' },
+                                    { value: 'notes', label: 'Тэмдэглэл' },
+                                    { value: 'evaluation', label: `Үнэлгээ (${scorecards.length})` },
+                                ]}
+                            />
                         </div>
 
                         {/* Content Area - Where scrolling happens */}

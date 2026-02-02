@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, FileText, Pencil, X, Check, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ERTemplate } from '../../../employment-relations/types';
 
@@ -119,15 +119,7 @@ export function OrganizationActionSettings() {
 
     return (
         <Card className="border-none shadow-none bg-transparent">
-            <CardHeader className="px-0 pt-0">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="text-lg font-semibold">Системийн үйлдлүүд</CardTitle>
-                        <CardDescription>Байгууллагын бүтцийн өөрчлөлт, томилгоотой холбоотой автоматжуулсан үйлдлүүдийн тохиргоо.</CardDescription>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="px-0">
+            <CardContent className="px-0 pt-0">
                 <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
                     <Table>
                         <TableHeader>

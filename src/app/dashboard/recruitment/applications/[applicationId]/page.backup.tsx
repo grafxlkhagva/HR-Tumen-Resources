@@ -49,7 +49,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -849,24 +850,18 @@ export default function CandidateDetailPage() {
 
                                     <div className="flex-1 flex flex-col min-h-0 bg-[#F8FAFC]/30">
                                         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                                            <TabsList className="px-8 border-b justify-start rounded-none h-14 bg-white/50 backdrop-blur-sm gap-8">
-                                                <TabsTrigger value="activity" className="border-b-2 border-transparent data-[state=active]:border-blue-600 rounded-none px-0 bg-transparent shadow-none text-slate-500 data-[state=active]:text-slate-900 font-bold text-sm transition-all h-full gap-2">
-                                                    <History className="h-4 w-4" />
-                                                    Үйл ажиллагаа
-                                                </TabsTrigger>
-                                                <TabsTrigger value="messages" className="border-b-2 border-transparent data-[state=active]:border-blue-600 rounded-none px-0 bg-transparent shadow-none text-slate-500 data-[state=active]:text-slate-900 font-bold text-sm transition-all h-full gap-2">
-                                                    <MessageCircle className="h-4 w-4" />
-                                                    Харилцаа холбоо
-                                                </TabsTrigger>
-                                                <TabsTrigger value="notes" className="border-b-2 border-transparent data-[state=active]:border-blue-600 rounded-none px-0 bg-transparent shadow-none text-slate-500 data-[state=active]:text-slate-900 font-bold text-sm transition-all h-full gap-2">
-                                                    <FileText className="h-4 w-4" />
-                                                    Багийн тэмдэглэл
-                                                </TabsTrigger>
-                                                <TabsTrigger value="evaluation" className="border-b-2 border-transparent data-[state=active]:border-blue-600 rounded-none px-0 bg-transparent shadow-none text-slate-500 data-[state=active]:text-slate-900 font-bold text-sm transition-all h-full gap-2">
-                                                    <Star className="h-4 w-4" />
-                                                    Үнэлгээний түүх
-                                                </TabsTrigger>
-                                            </TabsList>
+                                            <div className="px-8 border-b bg-white/50 backdrop-blur-sm">
+                                                <VerticalTabMenu
+                                                    orientation="horizontal"
+                                                    className="py-3"
+                                                    items={[
+                                                        { value: 'activity', label: 'Үйл ажиллагаа' },
+                                                        { value: 'messages', label: 'Харилцаа холбоо' },
+                                                        { value: 'notes', label: 'Багийн тэмдэглэл' },
+                                                        { value: 'evaluation', label: 'Үнэлгээний түүх' },
+                                                    ]}
+                                                />
+                                            </div>
 
                                             <TabsContent value="activity" className="flex-1 flex flex-col min-h-0 m-0 pt-6 outline-none overflow-hidden">
                                                 <ScrollArea className="flex-1 w-full min-h-0">

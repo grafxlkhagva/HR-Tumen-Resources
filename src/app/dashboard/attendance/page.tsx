@@ -41,13 +41,14 @@ import { mn } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { calculateDuration } from '@/lib/attendance';
 import type { Employee } from '../employees/data';
 import type { Department } from '../organization/types';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { DateRange } from 'react-day-picker';
 
 // --- Type Definitions ---
@@ -850,11 +851,14 @@ export default function AttendanceAndRequestsPage() {
                 />
 
                 <Tabs defaultValue="history">
-                    <TabsList>
-                        <TabsTrigger value="history">Ирцийн түүх</TabsTrigger>
-                        <TabsTrigger value="report">Цагийн тайлан</TabsTrigger>
-                        <TabsTrigger value="requests">Чөлөөний хүсэлт</TabsTrigger>
-                    </TabsList>
+                    <VerticalTabMenu
+                        orientation="horizontal"
+                        items={[
+                            { value: 'history', label: 'Ирцийн түүх' },
+                            { value: 'report', label: 'Цагийн тайлан' },
+                            { value: 'requests', label: 'Чөлөөний хүсэлт' },
+                        ]}
+                    />
                     <TabsContent value="history" className="mt-6">
                         <AttendanceHistoryTab />
                     </TabsContent>

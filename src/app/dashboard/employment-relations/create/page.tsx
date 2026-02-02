@@ -20,9 +20,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { PageHeader } from '@/components/patterns/page-layout';
 
 export default function CreateDocumentPage() {
     const { firestore, user: firebaseUser } = useFirebase();
@@ -195,19 +195,16 @@ export default function CreateDocumentPage() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 p-6 md:p-8 space-y-8 overflow-y-auto">
-            <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Link href="/dashboard/employment-relations" className="hover:text-primary">
-                    Процесс удирдлага
-                </Link>
-                <ChevronRight className="h-4 w-4" />
-                <span className="text-foreground font-medium">Шинэ процесс эхлүүлэх</span>
-            </nav>
-
             <div className="max-w-4xl mx-auto w-full space-y-8">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Шинэ процесс эхлүүлэх</h1>
-                    <p className="text-muted-foreground">Баримтын загвар болон ажилтнаа сонгоод "Төлөвлөх" үе шатыг эхлүүлнэ үү.</p>
-                </div>
+                <PageHeader
+                    title="Шинэ процесс эхлүүлэх"
+                    description={'Баримтын загвар болон ажилтнаа сонгоод "Төлөвлөх" үе шатыг эхлүүлнэ үү.'}
+                    showBackButton
+                    hideBreadcrumbs
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/employment-relations"
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left Col: Setup */}

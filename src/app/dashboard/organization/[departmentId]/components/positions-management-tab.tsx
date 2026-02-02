@@ -28,7 +28,8 @@ import { Department, Position, PositionLevel, EmploymentType, JobCategory, WorkS
 import { PositionsListTable } from '../../components/positions-list-table';
 import { AddPositionDialog } from '../../add-position-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SettingsTab } from './settings-tab';
 import { PositionStructureChart } from './position-structure-chart';
@@ -573,22 +574,13 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                     <div className="flex items-center gap-3">
                         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-auto">
                             {!hideChart && (
-                                <TabsList className="justify-start border-none rounded-none bg-transparent h-auto p-0 transition-all flex items-center">
-                                    <TabsTrigger
-                                        value="chart"
-                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
-                                    >
-                                        <Network className="h-4 w-4" />
-                                        <span>Зураглал</span>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="list"
-                                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary py-3 px-4 text-sm font-medium gap-2 transition-all"
-                                    >
-                                        <LayoutList className="h-4 w-4" />
-                                        <span>Жагсаалт</span>
-                                    </TabsTrigger>
-                                </TabsList>
+                                <VerticalTabMenu
+                                    orientation="horizontal"
+                                    items={[
+                                        { value: 'chart', label: 'Зураглал' },
+                                        { value: 'list', label: 'Жагсаалт' },
+                                    ]}
+                                />
                             )}
                         </Tabs>
                     </div>

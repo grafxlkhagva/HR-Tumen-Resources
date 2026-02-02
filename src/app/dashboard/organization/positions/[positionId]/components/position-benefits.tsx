@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import {
-    PlusCircle,
     X,
     Coffee,
     Smartphone,
@@ -183,14 +183,13 @@ export function PositionBenefits({
                                     <p className="text-xs text-muted-foreground italic py-4 text-center">Хангамж нэмээгүй</p>
                                 )}
                             </div>
-                            <Button
-                                variant="outline"
-                                onClick={handleAddAllowance}
-                                className="w-full h-10 border-dashed rounded-lg"
-                            >
-                                <PlusCircle className="w-4 h-4 mr-2" />
-                                Хангамж нэмэх
-                            </Button>
+                            <div className="flex justify-end">
+                                <AddActionButton
+                                    label="Хангамж нэмэх"
+                                    description="Шинэ хангамжийн мөр нэмэх"
+                                    onClick={handleAddAllowance}
+                                />
+                            </div>
                         </div>
                     }
                     onSave={saveAllowances}

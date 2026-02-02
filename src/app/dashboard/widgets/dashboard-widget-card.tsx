@@ -187,16 +187,6 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'process':
-                return (
-                    <div className="relative z-10">
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-xl sm:text-2xl font-semibold text-white">Процесс</div>
-                        </div>
-                        <div className="text-xs text-slate-400 font-medium">Шат дамжлага, урсгал</div>
-                    </div>
-                );
-
             default:
                 return null;
         }
@@ -213,8 +203,6 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20';
             case 'er':
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
-            case 'process':
-                return 'bg-gradient-to-br from-pink-500/10 to-rose-500/10';
             default:
                 return '';
         }
@@ -281,8 +269,7 @@ export function DashboardWidgetCard({
                                 id === 'projects' && "text-violet-400",
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
-                                id === 'er' && "text-blue-500",
-                                id === 'process' && "text-pink-500"
+                                id === 'er' && "text-blue-500"
                             )}
                         />
                     </div>

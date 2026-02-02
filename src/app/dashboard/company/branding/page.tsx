@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -19,7 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { hexToHsl, checkWcagCompliance, getContrastTextColor } from '@/lib/color-utils';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandColor {
@@ -672,20 +673,14 @@ export default function BrandingPage() {
                     {/* Left Column: Color Management */}
                     <div className="lg:col-span-5 space-y-6">
                         <Tabs defaultValue="colors" className="w-full">
-                            <TabsList className="w-full grid grid-cols-3">
-                                <TabsTrigger value="colors" className="gap-1.5">
-                                    <Palette className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Өнгөнүүд</span>
-                                </TabsTrigger>
-                                <TabsTrigger value="mapping" className="gap-1.5">
-                                    <Paintbrush className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Mapping</span>
-                                </TabsTrigger>
-                                <TabsTrigger value="contrast" className="gap-1.5">
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Contrast</span>
-                                </TabsTrigger>
-                            </TabsList>
+                            <VerticalTabMenu
+                                orientation="horizontal"
+                                items={[
+                                    { value: 'colors', label: 'Өнгөнүүд' },
+                                    { value: 'mapping', label: 'Mapping' },
+                                    { value: 'contrast', label: 'Contrast' },
+                                ]}
+                            />
 
                             <TabsContent value="colors" className="mt-4 space-y-4">
                                 {/* Preset Palettes */}

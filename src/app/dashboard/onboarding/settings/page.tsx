@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Check, X, GripVertical, Info, FileText } from 'lucide-react';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
@@ -207,21 +208,14 @@ export default function OnboardingSettingsPage() {
 
             <Tabs defaultValue={stages[0]?.id} className="w-full">
                 <div className="flex overflow-x-auto pb-2 scrollbar-hide">
-                    <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl h-auto">
-                        {stages.map((stage, idx) => (
-                            <TabsTrigger
-                                key={stage.id}
-                                value={stage.id}
-                                className="px-6 py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm font-semibold transition-all"
-                            >
-                                <span className="mr-2 opacity-50">{idx + 1}.</span>
-                                {stage.title}
-                                <span className="ml-2 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">
-                                    {stage.tasks.length}
-                                </span>
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
+                    <VerticalTabMenu
+                        orientation="horizontal"
+                        className="flex-nowrap"
+                        items={stages.map((stage, idx) => ({
+                            value: stage.id,
+                            label: `${idx + 1}. ${stage.title} (${stage.tasks.length})`,
+                        }))}
+                    />
                 </div>
 
                 {stages.map(stage => (

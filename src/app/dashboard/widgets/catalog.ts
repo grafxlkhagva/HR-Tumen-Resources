@@ -8,7 +8,6 @@ import {
     Newspaper, 
     Handshake, 
     Sparkles, 
-    GitBranch,
     FolderKanban,
     LucideIcon
 } from 'lucide-react';
@@ -21,8 +20,7 @@ export type WidgetId =
     | 'posts' 
     | 'recruitment' 
     | 'points' 
-    | 'er' 
-    | 'process';
+    | 'er';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -131,16 +129,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         icon: Handshake,
         requiredData: [],
         category: 'core'
-    },
-
-    process: {
-        id: 'process',
-        label: 'Процесс',
-        description: 'Шат дамжлага, урсгал',
-        size: 'compact',
-        icon: GitBranch,
-        requiredData: [],
-        category: 'kpi'
     }
 };
 

@@ -11,7 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Employee } from '../data';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import Link from 'next/link';
 import { Project, Task, TaskStatus, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 
@@ -268,17 +269,15 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                         <div className="lg:col-span-7">
                             <Tabs defaultValue={projectsWithTasks[0]?.id} className="w-full">
                                 <div className="px-6 py-4 border-b border-slate-50 overflow-x-auto scrollbar-hide">
-                                    <TabsList className="bg-transparent h-auto gap-2 p-0">
-                                        {projectsWithTasks.map(project => (
-                                            <TabsTrigger
-                                                key={project.id}
-                                                value={project.id}
-                                                className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-slate-100 whitespace-nowrap"
-                                            >
-                                                {STAGE_LABELS[project.onboardingStageId || ''] || project.name.split(' - ').pop()}
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
+                                    <VerticalTabMenu
+                                        orientation="horizontal"
+                                        className="flex-nowrap gap-2"
+                                        triggerClassName="text-sm"
+                                        items={projectsWithTasks.map((project) => ({
+                                            value: project.id,
+                                            label: STAGE_LABELS[project.onboardingStageId || ''] || project.name.split(' - ').pop(),
+                                        }))}
+                                    />
                                 </div>
 
                                 {projectsWithTasks.map(project => (

@@ -40,7 +40,7 @@ import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types'
 import { EmployeeCard } from '@/components/employees/employee-card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 
 import { VacationTabContent } from './vacation-tab-content';

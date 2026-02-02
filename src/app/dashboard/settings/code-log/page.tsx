@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
   Card,
   CardContent,
@@ -18,8 +18,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MoreHorizontal } from 'lucide-react';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { MoreHorizontal } from 'lucide-react';
+import { useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Employee } from '../../employees/data';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,19 +38,16 @@ export default function CodeLogPage() {
 
   return (
     <div className="py-8">
-      <div className="mb-4 flex items-center gap-4">
-        <Button asChild variant="outline" size="icon">
-            <Link href="/dashboard/settings/employee-code">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Буцах</span>
-            </Link>
-        </Button>
-        <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Ажилтны кодын түүх</h1>
-            <p className="text-muted-foreground">
-                Системд үүсгэгдсэн бүх ажилтны код болон харгалзах ажилтны жагсаалт.
-            </p>
-        </div>
+      <div className="mb-4">
+        <PageHeader
+          title="Ажилтны кодын түүх"
+          description="Системд үүсгэгдсэн бүх ажилтны код болон харгалзах ажилтны жагсаалт."
+          showBackButton
+          hideBreadcrumbs
+          backButtonPlacement="inline"
+          backBehavior="history"
+          fallbackBackHref="/dashboard/settings/employee-code"
+        />
       </div>
       <Card>
         <CardHeader>

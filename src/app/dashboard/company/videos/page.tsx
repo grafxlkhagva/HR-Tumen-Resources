@@ -13,6 +13,7 @@ import {
     CardTitle,
     CardDescription,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -37,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, ArrowLeft, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
+import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -179,38 +180,37 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
             <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 pb-32">
                 {/* Header */}
                 <div className="bg-white border-b sticky top-0 z-20 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6">
-                    <div className="px-6 md:px-8">
-                        <div className="flex items-center justify-between py-4">
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" type="button" asChild>
-                                    <Link href="/dashboard/company">
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                                        <Video className="h-5 w-5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-lg font-semibold">Видео контент</h1>
-                                        <p className="text-xs text-muted-foreground">Компанийн танилцуулга, соёлын видеонууд</p>
-                                    </div>
+                    <div className="px-6 md:px-8 py-4">
+                        <PageHeader
+                            title="Видео контент"
+                            description="Компанийн танилцуулга, соёлын видеонууд"
+                            showBackButton
+                            hideBreadcrumbs
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard/company"
+                            actions={
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        onClick={() => router.push('/dashboard/company')}
+                                        disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}
+                                    >
+                                        Цуцлах
+                                    </Button>
+                                    <Button size="sm" type="submit" disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
+                                        {isSubmitting || Object.keys(uploadingVideos).length > 0 ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Save className="h-4 w-4 mr-2" />
+                                        )}
+                                        Хадгалах
+                                    </Button>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" type="button" onClick={() => router.push('/dashboard/company')} disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
-                                    Цуцлах
-                                </Button>
-                                <Button size="sm" type="submit" disabled={isSubmitting || Object.keys(uploadingVideos).length > 0}>
-                                    {isSubmitting || Object.keys(uploadingVideos).length > 0 ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                        <Save className="h-4 w-4 mr-2" />
-                                    )}
-                                    Хадгалах
-                                </Button>
-                            </div>
-                        </div>
+                            }
+                        />
                     </div>
                 </div>
                 <div className="bg-white rounded-xl border shadow-sm">

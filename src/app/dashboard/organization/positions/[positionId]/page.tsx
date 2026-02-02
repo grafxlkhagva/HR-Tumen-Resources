@@ -1,7 +1,7 @@
 'use client';
 
 import React, { use, useEffect, useRef, useState, useMemo } from 'react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/patterns/page-layout';
 import {
     useFirebase,
     useDoc,
@@ -231,10 +231,53 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         return { ...checks, isComplete: Object.values(checks).every(Boolean) };
     }, [position]);
 
+    /**
+     * Completion % for PositionStructureCard (equal weights).
+     * When a position is already approved, some fields become locked (non-editable).
+     * If a locked field is empty, we exclude it from the denominator so the remaining
+     * fields keep equal weight (prevents "stuck incomplete" states).
+     */
     const completionPercentage = useMemo(() => {
-        const keys = ['hasBasicInfo', 'hasReporting', 'hasAttributes', 'hasSettings'] as const;
-        return Math.round((keys.filter(k => validationChecklist[k]).length / keys.length) * 100);
-    }, [validationChecklist]);
+        if (!position) return 0;
+
+        const activeSalaryStepValue = (() => {
+            const steps = position.salarySteps?.items;
+            const idx = position.salarySteps?.activeIndex ?? 0;
+            const v = Array.isArray(steps) ? steps[idx]?.value : undefined;
+            return typeof v === 'number' ? v : 0;
+        })();
+
+        const hasSalary =
+            (typeof position.compensation?.salaryRange?.mid === 'number' && position.compensation.salaryRange.mid > 0) ||
+            activeSalaryStepValue > 0 ||
+            (typeof position.salaryRange?.min === 'number' && position.salaryRange.min > 0) ||
+            (typeof position.salaryRange?.max === 'number' && position.salaryRange.max > 0);
+
+        const hasAllowances = (position.allowances?.length || 0) > 0;
+        const hasIncentives = (position.incentives?.length || 0) > 0;
+
+        const criteria = [
+            { key: 'hasBasicInfo', filled: validationChecklist.hasBasicInfo, lockedWhenApproved: false },
+            { key: 'hasReporting', filled: validationChecklist.hasReporting, lockedWhenApproved: false },
+            { key: 'hasAttributes', filled: validationChecklist.hasAttributes, lockedWhenApproved: false },
+            { key: 'hasSettings', filled: validationChecklist.hasSettings, lockedWhenApproved: false },
+            // These sections are locked after approval in the UI
+            { key: 'hasSalary', filled: hasSalary, lockedWhenApproved: true },
+            { key: 'hasAllowances', filled: hasAllowances, lockedWhenApproved: true },
+            { key: 'hasIncentives', filled: hasIncentives, lockedWhenApproved: true },
+        ] as const;
+
+        const included = criteria.filter((c) => {
+            if (!position.isApproved) return true;
+            // If approved and the field is locked + empty, exclude from denominator (re-balance)
+            if (c.lockedWhenApproved && !c.filled) return false;
+            return true;
+        });
+
+        if (included.length === 0) return 0;
+        const filledCount = included.filter((c) => c.filled).length;
+        return Math.round((filledCount / included.length) * 100);
+    }, [position, validationChecklist]);
 
     if (isPositionLoading) return (
         <div className="p-8 space-y-4">

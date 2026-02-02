@@ -367,7 +367,7 @@ export function AddEmployeeDialog({
 
             toast({
                 title: 'Амжилттай хадгаллаа',
-                description: `${values.firstName} ${values.lastName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}.`,
+                description: `${values.lastName} ${values.firstName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}.`,
             });
             
             // Form-ийг цэвэрлэх

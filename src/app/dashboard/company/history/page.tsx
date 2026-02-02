@@ -6,6 +6,7 @@ import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking 
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -238,31 +239,22 @@ export default function CompanyHistoryPage() {
             <div className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
                 {/* Header */}
                 <div className="bg-white border-b sticky top-0 z-20 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6">
-                    <div className="px-6 md:px-8">
-                        <div className="flex items-center justify-between py-4">
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                    <Link href="/dashboard/company">
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Link>
+                    <div className="px-6 md:px-8 py-4">
+                        <PageHeader
+                            title="Түүхэн үйл явдал"
+                            description="Компанийн түүх, чухал үйл явдлууд"
+                            showBackButton
+                            hideBreadcrumbs
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard/company"
+                            actions={
+                                <Button size="sm" onClick={handleAddNew}>
+                                    <PlusCircle className="h-4 w-4 mr-2" />
+                                    Нэмэх
                                 </Button>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
-                                        <History className="h-5 w-5 text-amber-600" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-lg font-semibold">Түүхэн үйл явдал</h1>
-                                        <p className="text-xs text-muted-foreground">
-                                            Компанийн түүх, чухал үйл явдлууд
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <Button size="sm" onClick={handleAddNew}>
-                                <PlusCircle className="h-4 w-4 mr-2" />
-                                Нэмэх
-                            </Button>
-                        </div>
+                            }
+                        />
                     </div>
                 </div>
 
