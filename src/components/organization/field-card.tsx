@@ -11,6 +11,8 @@ interface FieldCardProps {
   icon: LucideIcon;
   /** Field label/title */
   title: string;
+  /** Optional helper text shown under title */
+  subtitle?: string;
   /** Current value to display */
   value: React.ReactNode;
   /** Show warning indicator when value is empty/missing */
@@ -36,6 +38,7 @@ interface FieldCardProps {
 export function FieldCard({
   icon: Icon,
   title,
+  subtitle,
   value,
   isEmpty = false,
   editable = true,
@@ -105,7 +108,10 @@ export function FieldCard({
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-semibold text-foreground pr-10 mb-2">{title}</h3>
+        <div className="pr-10 mb-2">
+          <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          {subtitle ? <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div> : null}
+        </div>
 
         {/* Value */}
         <div className={cn('text-sm flex-1', isEmpty ? 'text-muted-foreground italic' : 'text-muted-foreground')}>

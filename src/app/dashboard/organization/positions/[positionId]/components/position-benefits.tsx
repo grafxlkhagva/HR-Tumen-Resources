@@ -72,6 +72,10 @@ export function PositionBenefits({
 
     const saveAllowances = async () => {
         if (!firestore) return;
+        if (editAllowances.some((al) => (typeof al?.amount === 'number' ? al.amount : Number(al?.amount)) < 0)) {
+            toast({ title: 'Алдаа', description: 'Хангамжийн дүн 0-ээс бага байж болохгүй', variant: 'destructive' });
+            return;
+        }
         await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
             allowances: editAllowances.filter(al => al.type),
             updatedAt: new Date().toISOString(),
@@ -90,11 +94,13 @@ export function PositionBenefits({
 
     // Calculate total monthly value
     const totalMonthly = editAllowances.reduce((sum, al) => {
-        if (al.period === 'monthly') return sum + (al.amount || 0);
-        if (al.period === 'daily') return sum + (al.amount || 0) * 22;
-        if (al.period === 'quarterly') return sum + (al.amount || 0) / 3;
-        if (al.period === 'semi-annually') return sum + (al.amount || 0) / 6;
-        if (al.period === 'yearly') return sum + (al.amount || 0) / 12;
+        const raw = typeof al?.amount === 'number' ? al.amount : Number(al?.amount);
+        const amount = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+        if (al.period === 'monthly') return sum + amount;
+        if (al.period === 'daily') return sum + amount * 22;
+        if (al.period === 'quarterly') return sum + amount / 3;
+        if (al.period === 'semi-annually') return sum + amount / 6;
+        if (al.period === 'yearly') return sum + amount / 12;
         return sum;
     }, 0);
 
@@ -194,6 +200,7 @@ export function PositionBenefits({
                 <FieldCard
                     icon={Gift}
                     title="Сарын нийт хангамж"
+                    subtitle="Өдөрөөр тооцсон (өдөр бүрийн дүнг 22 ажлын өдрөөр үржүүлсэн)"
                     value={
                         totalMonthly > 0
                             ? `~${Math.round(totalMonthly).toLocaleString()}₮`

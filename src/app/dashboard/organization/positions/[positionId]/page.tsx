@@ -15,7 +15,7 @@ import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Dep
 import { ERDocument } from '../../../employment-relations/types';
 import { Badge } from '@/components/ui/badge';
 import {
-    Sparkles,
+    Stamp,
     XCircle,
     CheckCircle2,
     Calendar as CalendarIcon,
@@ -415,6 +415,34 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                     actions={
                                         <TooltipProvider delayDuration={150}>
                                         <>
+                                            {/* Delete (icon) */}
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className={cn(!!assignedEmployee && "cursor-not-allowed")}>
+                                                        <button
+                                                            type="button"
+                                                            className={cn(
+                                                                "h-8 w-8 rounded-lg flex items-center justify-center",
+                                                                "bg-rose-500/25 hover:bg-rose-500/35 text-white",
+                                                                !!assignedEmployee && "opacity-50"
+                                                            )}
+                                                            onClick={() => setIsDeleteConfirmOpen(true)}
+                                                            disabled={!!assignedEmployee}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <div className="space-y-0.5">
+                                                        <div className="text-xs font-semibold">Устгах</div>
+                                                        {assignedEmployee ? (
+                                                            <div className="text-xs text-muted-foreground">Ажилтан томилогдсон тул устгах боломжгүй</div>
+                                                        ) : null}
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
+
                                             {/* Approve / Disapprove (icon) */}
                                             {position.isApproved ? (
                                                 <Tooltip>
@@ -457,7 +485,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
                                                                 onClick={() => setIsApproveConfirmOpen(true)}
                                                                 disabled={!validationChecklist.isComplete}
                                                             >
-                                                                <Sparkles className="h-4 w-4" />
+                                                                <Stamp className="h-4 w-4" />
                                                             </button>
                                                         </span>
                                                     </TooltipTrigger>
@@ -733,7 +761,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
             <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>
                 <AlertDialogContent className="sm:max-w-md">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> Батлах</AlertDialogTitle>
+                        <AlertDialogTitle className="flex items-center gap-2"><Stamp className="w-5 h-5 text-primary" /> Батлах</AlertDialogTitle>
                         <AlertDialogDescription>Ажлын байрыг батлагдсан төлөвт шилжүүлнэ.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-4 py-4">
