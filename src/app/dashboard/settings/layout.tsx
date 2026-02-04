@@ -9,7 +9,6 @@ import {
     Clock,
     GraduationCap,
     MapPin,
-    Files,
     Shield
 } from 'lucide-react';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -48,11 +47,6 @@ const settingsNavItems = [
         title: "НДШТ лавлах",
         href: "/dashboard/settings/insurance-types",
         icon: Shield,
-    },
-    {
-        title: "Баримт бичиг",
-        href: "/dashboard/settings/documents",
-        icon: Files,
     },
     // Onboarding/Offboarding settings pages are moved to their own modules
     // (see /dashboard/onboarding/settings and /dashboard/offboarding/settings)

@@ -36,6 +36,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Employee } from '@/types';
 import { Priority, ProjectStatus } from '@/types/project';
 import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, Users } from 'lucide-react';
+import { useMobileContainer } from '../../hooks/use-mobile-container';
 
 const projectSchema = z
   .object({
@@ -54,6 +55,7 @@ const projectSchema = z
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function MobileCreateProjectPage() {
+  const container = useMobileContainer();
   const router = useRouter();
   const { firestore } = useFirebase();
   const { employeeProfile } = useEmployeeProfile();
@@ -261,7 +263,7 @@ export default function MobileCreateProjectPage() {
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent container={container} className="w-auto p-0" align="start">
                         <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                       </PopoverContent>
                     </Popover>
@@ -294,7 +296,7 @@ export default function MobileCreateProjectPage() {
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent container={container} className="w-auto p-0" align="start">
                         <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                       </PopoverContent>
                     </Popover>

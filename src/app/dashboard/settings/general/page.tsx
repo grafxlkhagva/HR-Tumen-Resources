@@ -5,7 +5,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from '@/components/patterns/page-layout';
-import { ClipboardList, Code, Network, FileText, CalendarClock, Activity, ArrowUpRight } from 'lucide-react';
+import { ClipboardList, Code, Network, CalendarClock, Activity, ArrowUpRight } from 'lucide-react';
 
 interface SettingsCardProps {
     icon: React.ElementType;
@@ -57,12 +57,6 @@ export default function GeneralSettingsPage() {
             title: "Бүтцийн тохиргоо",
             description: "Байгууллагын бүтэц, албан тушаалтай холбоотой лавлах сангуудыг тохируулах.",
             href: "/dashboard/settings/employee-code"
-        },
-        {
-            icon: FileText,
-            title: "Баримт бичгийн тохиргоо",
-            description: "Баримт бичгийн төрөл болон холбогдох тохиргоог удирдах.",
-            href: "/dashboard/settings/documents"
         },
         {
             icon: ClipboardList,

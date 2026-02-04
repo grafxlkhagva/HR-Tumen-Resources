@@ -176,7 +176,9 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
 }
 
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
-    const employee = data.employees[0];
+    const employee = data.employees[0]
+        ? ({ ...(data.employees[0] as any), attendanceStatus: data.attendanceStatus } as any)
+        : undefined;
     return (
         <div className="relative group">
             <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />

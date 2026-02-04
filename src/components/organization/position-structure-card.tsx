@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { ExternalLink, User } from 'lucide-react';
+import { CalendarCheck2, ExternalLink, LogIn, LogOut, MinusCircle, User } from 'lucide-react';
+import { format } from 'date-fns';
 
 export type PositionAttendanceStatus = {
   status: 'on-leave' | 'checked-in' | 'checked-out' | 'absent';
@@ -20,7 +21,50 @@ export type PositionCardEmployee = {
   photoURL?: string;
   questionnaireCompletion?: number;
   status?: string;
+  attendanceStatus?: PositionAttendanceStatus;
 };
+
+function AttendanceStatusPill({ status, isDarkBg }: { status: PositionAttendanceStatus; isDarkBg: boolean }) {
+  const cfg = {
+    'checked-in': {
+      icon: LogIn,
+      text: 'Ирсэн',
+      bgColor: 'bg-emerald-500/20',
+      textColor: isDarkBg ? 'text-emerald-200' : 'text-emerald-700',
+      time: status.checkInTime ? format(new Date(status.checkInTime), 'HH:mm') : '',
+    },
+    'checked-out': {
+      icon: LogOut,
+      text: 'Явсан',
+      bgColor: 'bg-rose-500/20',
+      textColor: isDarkBg ? 'text-rose-200' : 'text-rose-700',
+      time: status.checkOutTime ? format(new Date(status.checkOutTime), 'HH:mm') : '',
+    },
+    'on-leave': {
+      icon: CalendarCheck2,
+      text: 'Чөлөөтэй',
+      bgColor: 'bg-sky-500/20',
+      textColor: isDarkBg ? 'text-sky-200' : 'text-sky-700',
+      time: '',
+    },
+    'absent': {
+      icon: MinusCircle,
+      text: 'Ирээгүй',
+      bgColor: 'bg-slate-500/20',
+      textColor: isDarkBg ? 'text-white/75' : 'text-slate-700',
+      time: '',
+    },
+  }[status.status];
+
+  const Icon = cfg.icon;
+  return (
+    <div className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold', cfg.bgColor, cfg.textColor)}>
+      <Icon className="h-3 w-3" />
+      <span>{cfg.text}</span>
+      {cfg.time ? <span className="opacity-70">• {cfg.time}</span> : null}
+    </div>
+  );
+}
 
 function isColorDark(hex: string): boolean {
   if (!hex) return false;
@@ -175,7 +219,9 @@ export function PositionStructureCard({
   const hasEmployee = !!employee;
   const effectiveFooterMeta = footerMeta ?? topSlot;
   const effectiveFooterActions = footerActions ?? bottomSlot;
-  const hasFooter = typeof completionPct === 'number' || !!bottomLeftMeta || !!effectiveFooterMeta || !!effectiveFooterActions;
+  const hasAttendance = !!employee?.attendanceStatus;
+  const hasFooter =
+    typeof completionPct === 'number' || !!bottomLeftMeta || !!effectiveFooterMeta || !!effectiveFooterActions || hasAttendance;
   const companyAffiliationLabel =
     subsidiaryName?.trim()
       ? subsidiaryName.trim()
@@ -245,7 +291,7 @@ export function PositionStructureCard({
                 href={employee.id ? `/dashboard/employees/${employee.id}` : '#'}
                 className="block"
               >
-                <div className="flex items-baseline gap-2 min-w-0">
+                <div className="flex flex-col min-w-0 leading-tight">
                   <span className={cn('text-sm font-semibold truncate', isDarkBg ? 'text-white/70' : 'text-slate-600')}>
                     {employee.lastName || ''}
                   </span>
@@ -309,6 +355,13 @@ export function PositionStructureCard({
             {effectiveFooterActions ? (
               <div className={cn('flex flex-wrap items-center gap-2', effectiveFooterMeta || typeof completionPct === 'number' || bottomLeftMeta ? 'mt-2' : '')}>
                 {effectiveFooterActions}
+              </div>
+            ) : null}
+
+            {/* Attendance status (bottom-most) */}
+            {employee?.attendanceStatus ? (
+              <div className={cn('mt-2')}>
+                <AttendanceStatusPill status={employee.attendanceStatus} isDarkBg={isDarkBg} />
               </div>
             ) : null}
           </div>

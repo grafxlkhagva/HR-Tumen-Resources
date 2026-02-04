@@ -138,7 +138,8 @@ export default function DocumentDetailPage() {
     );
 
     const isAdmin = useMemo(() => {
-        return currentUserProfile?.role === 'ADMIN' || currentUserProfile?.role === 'HR';
+        const role = String(currentUserProfile?.role || '').toLowerCase();
+        return role === 'admin' || role === 'hr' || role === 'hr_manager' || role === 'director';
     }, [currentUserProfile]);
 
     const isApprover = useMemo(() => {
@@ -178,7 +179,9 @@ export default function DocumentDetailPage() {
         { id: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
         { id: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
         { id: 'REVIEWED', label: 'Хянагдсан', icon: CheckCircle2, color: 'text-blue-500' },
-        { id: 'APPROVED', label: 'Батлагдсан', icon: FileText, color: 'text-emerald-600' },
+        { id: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-700' },
+        { id: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
+        { id: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
     ];
 
     const restoreTemplateContent = () => {
@@ -336,7 +339,7 @@ export default function DocumentDetailPage() {
         setIsSaving(true);
         try {
             await updateDoc(docRef, {
-                status: 'APPROVED',
+                status: 'SIGNED',
                 updatedAt: Timestamp.now()
             });
 
@@ -365,13 +368,48 @@ export default function DocumentDetailPage() {
             await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
-                content: 'Баримт эцэслэн батлагдлаа',
+                content: 'Баримт баталгаажлаа (эх хувь хавсаргав)',
                 createdAt: Timestamp.now()
             });
 
-            toast({ title: "Батлагдлаа", description: "Баримт эцэслэн батлагдлаа" });
+            toast({ title: "Баталгаажлаа", description: "Баримт баталгаажлаа" });
         } catch (e) {
             toast({ title: "Алдаа", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSendToEmployeeForAcknowledgement = async () => {
+        if (!docRef) return;
+        if (!document?.employeeId) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Ажилтан сонгогдоогүй байна.' });
+            return;
+        }
+        if (!(currentStatus === 'SIGNED' || currentStatus === 'APPROVED')) return;
+
+        setIsSaving(true);
+        try {
+            await updateDoc(docRef, {
+                status: 'SENT_TO_EMPLOYEE',
+                employeeAckRequired: true,
+                employeeAckSentAt: Timestamp.now(),
+                employeeAckSentBy: currentUser?.uid || null,
+                updatedAt: Timestamp.now(),
+            });
+
+            const { addDoc } = await import('firebase/firestore');
+            await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
+                type: 'STATUS_CHANGE',
+                actorId: currentUser?.uid,
+                content: 'Ажилтанд танилцуулахаар илгээлээ',
+                createdAt: Timestamp.now()
+            });
+
+            toast({ title: 'Илгээгдлээ', description: 'Ажилтанд танилцуулахаар илгээлээ.' });
+        } catch (e: any) {
+            console.error(e);
+            toast({ variant: 'destructive', title: 'Алдаа', description: e?.message || 'Танилцуулахад алдаа гарлаа.' });
         } finally {
             setIsSaving(false);
         }
@@ -502,6 +540,20 @@ export default function DocumentDetailPage() {
                                             Эх хувь
                                         </Button>
                                     )}
+
+                                    {(currentStatus === 'SIGNED' || currentStatus === 'APPROVED') && (isOwner || isAdmin) && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                            onClick={handleSendToEmployeeForAcknowledgement}
+                                            disabled={isSaving}
+                                            title="Ажилтанд танилцуулахаар илгээх"
+                                        >
+                                            <Send className="h-3.5 w-3.5 mr-1.5" />
+                                            Танилцуулах
+                                        </Button>
+                                    )}
                                 </div>
                             }
                         />
@@ -510,7 +562,8 @@ export default function DocumentDetailPage() {
                     {/* Progress Stepper Row */}
                     <div className="flex items-center gap-1 pb-3 overflow-x-auto no-scrollbar">
                         {steps.map((step, idx) => {
-                            const isPast = steps.findIndex(s => s.id === currentStatus) > idx;
+                            const currentIdx = steps.findIndex(s => s.id === currentStatus);
+                            const isPast = (currentIdx === -1 ? false : currentIdx > idx);
                             const isCurrent = step.id === currentStatus;
                             const isLast = idx === steps.length - 1;
 

@@ -4,7 +4,7 @@ import React from 'react';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Calendar, User, Clock, CheckCircle2, Circle } from 'lucide-react';
+import { FileText, Calendar, Clock, CheckCircle2, Circle, Send } from 'lucide-react';
 import Link from 'next/link';
 import { formatDateTime } from '../utils';
 
@@ -18,7 +18,9 @@ const COLUMNS: { status: DocumentStatus; label: string; icon: any; color: string
     { status: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
     { status: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
     { status: 'REVIEWED', label: 'Хянагдсан', icon: CheckCircle2, color: 'text-blue-500' },
-    { status: 'APPROVED', label: 'Батлагдсан', icon: FileText, color: 'text-emerald-600' },
+    { status: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-600' },
+    { status: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
+    { status: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
 ];
 
 export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentPipelineProps) {
@@ -40,8 +42,9 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
             <div className="flex gap-4 min-w-max md:min-w-0 md:grid md:grid-cols-4 items-start">
                 {COLUMNS.map((column) => {
                     const columnDocs = documents.filter((doc) => {
-                        if (column.status === 'APPROVED') {
-                            return doc.status === 'APPROVED' || doc.status === 'SIGNED';
+                        if (column.status === 'SIGNED') {
+                            // Backward-compat: some docs may still be APPROVED (legacy) and should appear here.
+                            return doc.status === 'SIGNED' || doc.status === 'APPROVED';
                         }
                         return doc.status === column.status;
                     });

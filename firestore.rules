@@ -423,6 +423,42 @@ service cloud.firestore {
         // Creator finalizing approval when all reviewers approved
         (request.auth.uid == resource.data.creatorId && resource.data.status == 'REVIEWED' &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        // Admin/reviewer/creator sending SIGNED doc to employee for acknowledgement
+        (
+          resource.data.status in ['SIGNED', 'APPROVED'] &&
+          request.resource.data.status == 'SENT_TO_EMPLOYEE' &&
+          (
+            request.auth.uid == resource.data.creatorId ||
+            request.auth.uid in resource.data.get('reviewers', []) ||
+            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', [])
+            )
+          ) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'employeeAckRequired',
+            'employeeAckSentAt',
+            'employeeAckSentBy',
+            'updatedAt'
+          ]) &&
+          (request.resource.data.employeeAckRequired is bool) &&
+          (request.resource.data.employeeAckSentAt is timestamp) &&
+          (request.resource.data.employeeAckSentBy is string || request.resource.data.employeeAckSentBy == null)
+        ) ||
+        // Employee acknowledging SENT_TO_EMPLOYEE doc
+        (
+          resource.data.status == 'SENT_TO_EMPLOYEE' &&
+          request.auth.uid == resource.data.employeeId &&
+          request.resource.data.status == 'ACKNOWLEDGED' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'employeeAckAt',
+            'employeeAckBy',
+            'updatedAt'
+          ]) &&
+          (request.resource.data.employeeAckAt is timestamp) &&
+          (request.resource.data.employeeAckBy == request.auth.uid)
+        ) ||
         // Reviewer updating approval status
         (resource.data.status == 'IN_REVIEW' && 
          (request.auth.uid in resource.data.get('reviewers', []) ||
@@ -449,13 +485,20 @@ service cloud.firestore {
              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
         );
 
-        // Create: Reviewers and Creator can add comments/logs
+        // Create: Reviewers, Creator, and target Employee (ack) can add logs
         allow create: if isSignedIn() && (
             isAdmin() ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
             request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
             (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
+            ||
+            (
+              request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.employeeId &&
+              request.resource.data.keys().hasOnly(['type', 'actorId', 'content', 'createdAt']) &&
+              request.resource.data.type == 'STATUS_CHANGE' &&
+              request.resource.data.actorId == request.auth.uid
+            )
         );
       }
     }

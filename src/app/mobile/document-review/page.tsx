@@ -23,15 +23,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '../../dashboard/employment-relations/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function DocumentReviewPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const [searchTerm, setSearchTerm] = useState('');
+    const [tab, setTab] = useState<'review' | 'ack'>('review');
 
-    // Fetch documents based on the user's position
-    const docsQuery = useMemo(() => {
+    // Reviewer docs (position-based review)
+    const reviewDocsQuery = useMemo(() => {
         if (!firestore || !employeeProfile) return null;
 
         const reviewerIds = [employeeProfile.id];
@@ -45,7 +47,31 @@ export default function DocumentReviewPage() {
         );
     }, [firestore, employeeProfile]);
 
-    const { data: documents, isLoading, error: queryError } = useCollection<ERDocument>(docsQuery as any);
+    // Employee acknowledgement docs (ad-hoc): only those explicitly sent for acknowledgement
+    const ackDocsQuery = useMemo(() => {
+        if (!firestore || !employeeProfile?.id) return null;
+        return query(
+            collection(firestore, 'er_documents'),
+            where('employeeId', '==', employeeProfile.id),
+            where('status', '==', 'SENT_TO_EMPLOYEE'),
+            orderBy('updatedAt', 'desc')
+        );
+    }, [firestore, employeeProfile?.id]);
+
+    const {
+        data: reviewDocs,
+        isLoading: isLoadingReview,
+        error: reviewError,
+    } = useCollection<ERDocument>(reviewDocsQuery as any);
+    const {
+        data: ackDocs,
+        isLoading: isLoadingAck,
+        error: ackError,
+    } = useCollection<ERDocument>(ackDocsQuery as any);
+
+    const documents = tab === 'review' ? reviewDocs : ackDocs;
+    const isLoading = tab === 'review' ? isLoadingReview : isLoadingAck;
+    const queryError = tab === 'review' ? reviewError : ackError;
 
     const filteredDocs = useMemo(() => {
         if (!documents) return [];
@@ -69,8 +95,10 @@ export default function DocumentReviewPage() {
                         <ArrowLeft className="h-6 w-6 text-slate-600" />
                     </Button>
                     <div>
-                        <h1 className="text-xl font-bold text-slate-900 leading-tight">Хянах баримтууд</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Position-Based Review</p>
+                        <h1 className="text-xl font-bold text-slate-900 leading-tight">Баримтууд</h1>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {tab === 'review' ? 'Хянах' : 'Танилцах'}
+                        </p>
                     </div>
                 </div>
                 {documents && documents.length > 0 && (
@@ -78,6 +106,16 @@ export default function DocumentReviewPage() {
                         {documents.length}
                     </Badge>
                 )}
+            </div>
+
+            {/* Tabs */}
+            <div className="px-6 pt-4">
+                <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="review">Хянах</TabsTrigger>
+                        <TabsTrigger value="ack">Танилцах</TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
 
             {/* User Info / Position Badge */}
@@ -144,7 +182,9 @@ export default function DocumentReviewPage() {
                         <div className="space-y-1">
                             <h3 className="text-lg font-bold text-slate-900">Одоогоор баримт байхгүй</h3>
                             <p className="text-sm text-slate-500 max-w-[200px] mx-auto leading-relaxed text-balance">
-                                Таны албан тушаалд хамаарах хүлээгдэж буй баримт алга байна.
+                                {tab === 'review'
+                                    ? 'Таны албан тушаалд хамаарах хүлээгдэж буй баримт алга байна.'
+                                    : 'Танд танилцуулах шаардлагатай баримт алга байна.'}
                             </p>
                         </div>
                     </div>

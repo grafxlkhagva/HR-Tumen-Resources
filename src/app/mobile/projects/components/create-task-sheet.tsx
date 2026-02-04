@@ -42,6 +42,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Employee } from '@/types';
 import { TaskStatus, Priority } from '@/types/project';
+import { useMobileContainer } from '../../hooks/use-mobile-container';
 
 const taskSchema = z.object({
     title: z.string().min(1, 'Таскын нэр оруулна уу'),
@@ -64,6 +65,7 @@ export function CreateTaskSheet({ open, onOpenChange, projectId, teamMembers }: 
     const { firestore, user } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
+    const container = useMobileContainer();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [showAssigneePicker, setShowAssigneePicker] = React.useState(false);
 
@@ -206,7 +208,7 @@ export function CreateTaskSheet({ open, onOpenChange, projectId, teamMembers }: 
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent container={container} className="w-auto p-0" align="start">
                                                 <Calendar
                                                     mode="single"
                                                     selected={field.value}

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
@@ -42,6 +42,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
+import { ReferenceTable, type ReferenceItem } from '@/components/ui/reference-table';
 
 import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
@@ -217,6 +218,7 @@ function ProfileSkeleton() {
 
 const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
 
     const documentsQuery = useMemoFirebase(
         () =>
@@ -238,7 +240,72 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
     );
     const { data: allDocTypes, isLoading: isLoadingDocTypes } = useCollection<any>(mandatoryQuery);
 
+    const legacyDocTypesQuery = useMemoFirebase(
+        () => firestore ? collection(firestore, 'documentTypes') : null,
+        [firestore]
+    );
+    const { data: legacyDocTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
+
     const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
+    const [isDocTypeSettingsOpen, setIsDocTypeSettingsOpen] = React.useState(false);
+    const didImportLegacyRef = React.useRef(false);
+
+    React.useEffect(() => {
+        async function importLegacyTypesIfNeeded() {
+            if (!firestore) return;
+            if (!isDocTypeSettingsOpen) return;
+            if (didImportLegacyRef.current) return;
+
+            const legacy = legacyDocTypes || [];
+            const current = allDocTypes || [];
+            if (legacy.length === 0) {
+                didImportLegacyRef.current = true;
+                return;
+            }
+
+            const existingNames = new Set(
+                current.map((t: any) => String(t?.name || '').trim()).filter(Boolean)
+            );
+            const toImport = legacy.filter((t: any) => {
+                const name = String(t?.name || '').trim();
+                return !!name && !existingNames.has(name);
+            });
+
+            // Nothing to import
+            if (toImport.length === 0) {
+                didImportLegacyRef.current = true;
+                return;
+            }
+
+            try {
+                // Create missing legacy types in `er_document_types`
+                for (const t of toImport) {
+                    const name = String(t?.name || '').trim();
+                    await addDocumentNonBlocking(collection(firestore, 'er_document_types'), {
+                        name,
+                        isMandatory: t?.isMandatory === true,
+                        fields: Array.isArray(t?.fields) ? t.fields : [],
+                    });
+                }
+
+                toast({
+                    title: 'Төрлүүд импортлогдлоо',
+                    description: `${toImport.length} хуучин төрлийг шинэ тохиргоо руу автоматаар шилжүүллээ.`,
+                });
+            } catch (e: any) {
+                console.error('Import legacy document types error:', e);
+                toast({
+                    variant: 'destructive',
+                    title: 'Алдаа',
+                    description: e?.message || 'Хуучин төрлүүдийг импортлоход алдаа гарлаа.',
+                });
+            } finally {
+                didImportLegacyRef.current = true;
+            }
+        }
+
+        importLegacyTypesIfNeeded();
+    }, [firestore, isDocTypeSettingsOpen, legacyDocTypes, allDocTypes, toast]);
 
     const complianceStats = React.useMemo(() => {
         if (!allDocTypes || !documents) return null;
@@ -255,7 +322,7 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
         return { total, completed, percentage, missingDocs };
     }, [allDocTypes, documents]);
 
-    const isLoading = isLoadingDocs || isLoadingDocTypes;
+    const isLoading = isLoadingDocs || isLoadingDocTypes || isLoadingLegacyDocTypes;
 
     if (error) {
         return (
@@ -270,6 +337,44 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
     );
+
+    const docTypeColumns = [
+        { key: 'name', header: 'Нэр' },
+        {
+            key: 'isMandatory',
+            header: 'Заавал бүрдүүлэх',
+            render: (val: boolean | undefined) =>
+                val === true ? (
+                    <Badge variant="secondary" className="bg-indigo-600 text-white border-none text-[10px] font-bold uppercase tracking-tighter px-2 h-5">
+                        Шаардлагатай
+                    </Badge>
+                ) : (
+                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Үгүй</span>
+                ),
+        },
+        {
+            key: 'fields',
+            header: 'Талбарууд',
+            render: (value: any[] | undefined) => {
+                const fields = Array.isArray(value) ? value : [];
+                if (fields.length === 0) return <span className="text-muted-foreground">-</span>;
+                const labels = fields
+                    .map((f) => (typeof (f as any)?.label === 'string' ? String((f as any).label).trim() : ''))
+                    .filter(Boolean);
+                return (
+                    <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant="secondary" className="text-[10px] h-5">
+                            {fields.length}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground line-clamp-1">
+                            {labels.slice(0, 3).join(', ')}
+                            {labels.length > 3 ? ` +${labels.length - 3}` : ''}
+                        </span>
+                    </div>
+                );
+            },
+        },
+    ] as const;
 
     return (
         <div className="space-y-4">
@@ -304,10 +409,31 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-slate-600">Бичиг баримт</h3>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="h-8">
-                    <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
-                    Нэмэх
-                </Button>
+                <div className="flex items-center gap-2">
+                    <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setIsDocTypeSettingsOpen(true)}
+                                    aria-label="Баримт бичгийн төрөл тохируулах"
+                                >
+                                    <Settings className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <div className="text-xs font-semibold">Төрөл тохируулах</div>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="h-8">
+                        <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
+                        Нэмэх
+                    </Button>
+                </div>
             </div>
 
             {/* Documents List */}
@@ -381,6 +507,29 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
                 open={isAddDialogOpen}
                 onOpenChange={setIsAddDialogOpen}
             />
+
+            <Dialog open={isDocTypeSettingsOpen} onOpenChange={setIsDocTypeSettingsOpen}>
+                <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Баримт бичгийн төрөл</DialogTitle>
+                        <DialogDescription>
+                            Баримт бичгийн төрлийг эндээс нэмэх, засах, устгах боломжтой.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-0 flex-1">
+                        <ReferenceTable
+                            collectionName="er_document_types"
+                            columns={docTypeColumns as any}
+                            itemData={(allDocTypes || []) as ReferenceItem[]}
+                            isLoading={false}
+                            dialogTitle="Баримт бичгийн төрөл"
+                            enableFieldDefs={true}
+                            compact={false}
+                            maxVisibleItems={50}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

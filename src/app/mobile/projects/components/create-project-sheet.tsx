@@ -44,6 +44,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Employee } from '@/types';
 import { ProjectStatus, Priority } from '@/types/project';
+import { useMobileContainer } from '../../hooks/use-mobile-container';
 
 const projectSchema = z.object({
     name: z.string().min(1, 'Төслийн нэр оруулна уу'),
@@ -68,6 +69,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
     const { firestore, user } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
+    const container = useMobileContainer();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [showTeamPicker, setShowTeamPicker] = React.useState(false);
 
@@ -257,7 +259,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
                                                         </Button>
                                                     </FormControl>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <PopoverContent container={container} className="w-auto p-0" align="start">
                                                     <Calendar
                                                         mode="single"
                                                         selected={field.value}
@@ -292,7 +294,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
                                                         </Button>
                                                     </FormControl>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <PopoverContent container={container} className="w-auto p-0" align="start">
                                                     <Calendar
                                                         mode="single"
                                                         selected={field.value}

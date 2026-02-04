@@ -1,4 +1,13 @@
-export type DocumentStatus = 'DRAFT' | 'IN_REVIEW' | 'REVIEWED' | 'APPROVED' | 'SIGNED' | 'REJECTED' | 'ARCHIVED';
+export type DocumentStatus =
+    | 'DRAFT'
+    | 'IN_REVIEW'
+    | 'REVIEWED'
+    | 'APPROVED'
+    | 'SIGNED'
+    | 'SENT_TO_EMPLOYEE'
+    | 'ACKNOWLEDGED'
+    | 'REJECTED'
+    | 'ARCHIVED';
 export type ActionType = 'REVIEW' | 'APPROVE' | 'SIGN' | 'ARCHIVE' | 'CREATE' | 'UPDATE' | 'REJECT';
 export type ApproverRole = 'MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | 'EMPLOYEE' | 'SPECIFIC_USER' | 'POSITION';
 
@@ -137,6 +146,14 @@ export interface ERDocument {
     approverId?: string; // The final approver who uploads signed doc
     signedDocUrl?: string; // URL of the uploaded signed document
 
+    // Employee acknowledgement (optional per document)
+    employeeAckRequired?: boolean;
+    employeeAckSentAt?: any; // Timestamp
+    employeeAckSentBy?: string; // uid
+    employeeAckAt?: any; // Timestamp
+    employeeAckBy?: string; // uid (should match employeeId)
+    employeeAckComment?: string;
+
     // New: Real-time Activity Feed
     activity?: ProcessActivity[];
 }
@@ -191,6 +208,8 @@ export const DOCUMENT_STATUSES: Record<DocumentStatus, StatusConfig> = {
     REVIEWED: { label: 'Хянагдсан', color: 'bg-blue-100 text-blue-700' },
     APPROVED: { label: 'Батлагдсан', color: 'bg-green-100 text-green-700' },
     SIGNED: { label: 'Баталгаажсан', color: 'bg-emerald-100 text-emerald-800' },
+    SENT_TO_EMPLOYEE: { label: 'Танилцуулах', color: 'bg-amber-100 text-amber-800' },
+    ACKNOWLEDGED: { label: 'Танилцсан', color: 'bg-teal-100 text-teal-800' },
     REJECTED: { label: 'Татгалзсан', color: 'bg-red-100 text-red-700' },
     ARCHIVED: { label: 'Архивлагдсан', color: 'bg-gray-100 text-gray-700' },
 };

@@ -343,7 +343,7 @@ export function SystemSettingsTabContent({
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-muted-foreground">Нэвтрэх нэр:</span>
                         <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
-                            {employee.employeeCode}@example.com
+                            {employee.employeeCode}
                         </code>
                     </div>
                     <div className="flex items-center gap-2">

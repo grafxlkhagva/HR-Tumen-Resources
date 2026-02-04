@@ -72,7 +72,27 @@ export function AddEmployeeDocumentDialog({
     const docTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'er_document_types') : null), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<any>(docTypesQuery);
 
-    const isLoadingData = isLoadingDocTypes;
+    // Backward-compat: some admins used `/dashboard/settings/documents` which historically wrote to `documentTypes`.
+    // Merge both lists by name so the dropdown always shows what was configured.
+    const legacyDocTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documentTypes') : null), []);
+    const { data: legacyDocumentTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
+
+    const mergedDocumentTypes = React.useMemo(() => {
+        const map = new Map<string, any>();
+        for (const t of (documentTypes || [])) {
+            const name = String(t?.name || '').trim();
+            if (!name) continue;
+            map.set(name, { ...t, name });
+        }
+        for (const t of (legacyDocumentTypes || [])) {
+            const name = String(t?.name || '').trim();
+            if (!name) continue;
+            if (!map.has(name)) map.set(name, { ...t, name });
+        }
+        return Array.from(map.values());
+    }, [documentTypes, legacyDocumentTypes]);
+
+    const isLoadingData = isLoadingDocTypes || isLoadingLegacyDocTypes;
 
     const documentsCollectionRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'documents') : null),
@@ -240,12 +260,12 @@ export function AddEmployeeDocumentDialog({
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {documentTypes?.some((t: any) => t.isMandatory) && (
+                                                {mergedDocumentTypes?.some((t: any) => t.isMandatory) && (
                                                     <SelectGroup>
                                                         <SelectLabel className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 px-2 py-2 text-center md:text-left">
                                                             Заавал бүрдүүлэх (Шаардлагатай)
                                                         </SelectLabel>
-                                                        {documentTypes.filter((t: any) => t.isMandatory).map((type: any, idx: number) => (
+                                                        {mergedDocumentTypes.filter((t: any) => t.isMandatory).map((type: any, idx: number) => (
                                                             <SelectItem key={`mandatory-${type.id}-${idx}`} value={type.name}>
                                                                 {type.name}
                                                             </SelectItem>
@@ -257,7 +277,7 @@ export function AddEmployeeDocumentDialog({
                                                     <SelectLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 py-2 mt-2 text-center md:text-left">
                                                         Бусад төрлүүд
                                                     </SelectLabel>
-                                                    {documentTypes?.filter((type: any) => !type.isMandatory).map((type: any, idx: number) => (
+                                                    {mergedDocumentTypes?.filter((type: any) => !type.isMandatory).map((type: any, idx: number) => (
                                                         <SelectItem key={`${type.id}-${idx}`} value={type.name}>
                                                             {type.name}
                                                         </SelectItem>

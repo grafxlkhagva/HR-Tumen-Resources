@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection } from '@/firebase';
-import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Button } from '@/components/ui/button';
@@ -78,6 +78,7 @@ export default function DocumentReviewDetailPage() {
     const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
     const [actionType, setActionType] = useState<'APPROVE'>('APPROVE'); // Only Approve remaining for Dialog
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isAcknowledging, setIsAcknowledging] = useState(false);
 
     // Dynamic Data for resolution
     const [companyProfile, setCompanyProfile] = useState<any>(null);
@@ -114,6 +115,9 @@ export default function DocumentReviewDetailPage() {
 
     const isReviewer = !!myReviewStatus || (document?.reviewers?.includes(employeeProfile?.id || '') || (employeeProfile?.positionId && document?.reviewers?.includes(employeeProfile.positionId)));
     const hasDecided = myReviewStatus?.status === 'APPROVED' || myReviewStatus?.status === 'REJECTED';
+
+    const isTargetEmployee = !!employeeProfile?.id && employeeProfile.id === document?.employeeId;
+    const canAcknowledge = isTargetEmployee && document?.status === 'SENT_TO_EMPLOYEE';
 
 
     const handleSendComment = async () => {
@@ -198,6 +202,39 @@ export default function DocumentReviewDetailPage() {
         }
     };
 
+    const handleAcknowledge = async () => {
+        if (!employeeProfile || !firestore || !document || !id) return;
+        if (!canAcknowledge) return;
+        if (isAcknowledging) return;
+        setIsAcknowledging(true);
+        try {
+            const batch = writeBatch(firestore);
+            batch.update(doc(firestore, 'er_documents', document.id), {
+                status: 'ACKNOWLEDGED',
+                employeeAckAt: Timestamp.now(),
+                employeeAckBy: employeeProfile.id,
+                updatedAt: Timestamp.now(),
+            });
+            batch.set(doc(collection(firestore, `er_documents/${id}/activity`)), {
+                type: 'STATUS_CHANGE',
+                actorId: employeeProfile.id,
+                content: 'Ажилтан танилцлаа',
+                createdAt: Timestamp.now(),
+            });
+            await batch.commit();
+
+            toast({
+                title: 'Танилцсан гэж тэмдэглэлээ',
+                description: 'Таны танилцсан тэмдэглэл бүртгэгдлээ.',
+            });
+        } catch (e: any) {
+            console.error(e);
+            toast({ variant: 'destructive', title: 'Алдаа', description: e?.message || 'Тэмдэглэхэд алдаа гарлаа.' });
+        } finally {
+            setIsAcknowledging(false);
+        }
+    };
+
     if (isDocLoading || !document) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-4">
@@ -271,43 +308,45 @@ export default function DocumentReviewDetailPage() {
                         </div>
                     </div>
 
-                    {/* 2. Reviewers Status */}
-                    <Card className="mx-4 mb-4 border-none shadow-sm overflow-hidden bg-white">
-                        <CardContent className="p-4">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <Users className="h-3.5 w-3.5" /> Хянах бүрэлдэхүүн
-                            </h3>
-                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                {document.reviewers?.map((rid: string) => {
-                                    const status = document.approvalStatus?.[rid];
-                                    const user = getUserInfo(rid);
-                                    const displayName = user.name !== 'Хэрэглэгч' ? user.name.split(' ')[0] : (rid.length > 8 ? 'Албан тушаал' : rid);
+                    {/* 2. Reviewers Status (only when reviewers exist) */}
+                    {document.reviewers && document.reviewers.length > 0 && (
+                        <Card className="mx-4 mb-4 border-none shadow-sm overflow-hidden bg-white">
+                            <CardContent className="p-4">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <Users className="h-3.5 w-3.5" /> Хянах бүрэлдэхүүн
+                                </h3>
+                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                    {document.reviewers?.map((rid: string) => {
+                                        const status = document.approvalStatus?.[rid];
+                                        const user = getUserInfo(rid);
+                                        const displayName = user.name !== 'Хэрэглэгч' ? user.name.split(' ')[0] : (rid.length > 8 ? 'Албан тушаал' : rid);
 
-                                    return (
-                                        <div key={rid} className="flex flex-col items-center gap-1 min-w-[60px]">
-                                            <div className={cn(
-                                                "h-10 w-10 rounded-full flex items-center justify-center border-2 bg-slate-50 transition-all overflow-hidden",
-                                                status?.status === 'APPROVED' ? "border-emerald-500 text-emerald-600 bg-emerald-50" :
-                                                    status?.status === 'REJECTED' ? "border-rose-500 text-rose-600 bg-rose-50" :
-                                                        "border-slate-200 text-slate-400"
-                                            )}>
-                                                {user.avatar ? (
-                                                    <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                                                ) : (
-                                                    status?.status === 'APPROVED' ? <Check className="h-5 w-5" /> :
-                                                        status?.status === 'REJECTED' ? <X className="h-5 w-5" /> :
-                                                            <span className="text-[10px] font-bold">{user.initial}</span>
-                                                )}
+                                        return (
+                                            <div key={rid} className="flex flex-col items-center gap-1 min-w-[60px]">
+                                                <div className={cn(
+                                                    "h-10 w-10 rounded-full flex items-center justify-center border-2 bg-slate-50 transition-all overflow-hidden",
+                                                    status?.status === 'APPROVED' ? "border-emerald-500 text-emerald-600 bg-emerald-50" :
+                                                        status?.status === 'REJECTED' ? "border-rose-500 text-rose-600 bg-rose-50" :
+                                                            "border-slate-200 text-slate-400"
+                                                )}>
+                                                    {user.avatar ? (
+                                                        <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        status?.status === 'APPROVED' ? <Check className="h-5 w-5" /> :
+                                                            status?.status === 'REJECTED' ? <X className="h-5 w-5" /> :
+                                                                <span className="text-[10px] font-bold">{user.initial}</span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[70px]">
+                                                    {displayName}
+                                                </span>
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-600 truncate max-w-[70px]">
-                                                {displayName}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        )
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* 3. Activity Feed */}
                     <div className="px-4 pb-4">
@@ -406,6 +445,18 @@ export default function DocumentReviewDetailPage() {
                                 ) : (
                                     <Check className="h-5 w-5 text-white" />
                                 )}
+                            </Button>
+                        )}
+
+                        {/* Employee acknowledgement */}
+                        {canAcknowledge && (
+                            <Button
+                                className="h-11 px-4 shrink-0 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-lg"
+                                onClick={handleAcknowledge}
+                                disabled={isAcknowledging}
+                                title="Танилцсан гэж тэмдэглэх"
+                            >
+                                {isAcknowledging ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Танилцлаа'}
                             </Button>
                         )}
 

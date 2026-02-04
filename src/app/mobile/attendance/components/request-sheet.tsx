@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import type { ReferenceItem, Employee, Position } from '@/types/attendance';
+import { useMobileContainer } from '../../hooks/use-mobile-container';
 
 // Schemas
 const timeOffRequestSchema = z.object({
@@ -64,6 +65,7 @@ interface RequestSheetProps {
 export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: RequestSheetProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const container = useMobileContainer();
     const [requestType, setRequestType] = React.useState<'time-off' | 'attendance'>('time-off');
 
     const timeOffCollectionRef = useMemoFirebase(() => (
@@ -145,17 +147,32 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="rounded-t-[20px] max-h-[90vh] overflow-y-auto w-full p-6">
-                <SheetHeader className="mb-4 text-left">
-                    <SheetTitle>Шинэ хүсэлт</SheetTitle>
-                </SheetHeader>
-                <Tabs value={requestType} onValueChange={(value) => setRequestType(value as 'time-off' | 'attendance')} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
-                        <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
-                        <TabsTrigger value="attendance">Ирц</TabsTrigger>
-                    </TabsList>
+            <SheetContent
+                side="bottom"
+                container={container}
+                className={cn(
+                    // Use dvh so the sheet fits even with mobile browser bars/keyboard.
+                    "rounded-t-[20px] h-[92dvh] max-h-[92dvh] w-full overflow-hidden p-0"
+                )}
+            >
+                <div className="flex h-full flex-col px-6 pt-6 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+                    <SheetHeader className="mb-4 text-left shrink-0">
+                        <SheetTitle>Шинэ хүсэлт</SheetTitle>
+                    </SheetHeader>
+
+                    <Tabs
+                        value={requestType}
+                        onValueChange={(value) => setRequestType(value as 'time-off' | 'attendance')}
+                        className="w-full flex-1 min-h-0 flex flex-col"
+                    >
+                        <TabsList className="grid w-full grid-cols-2 mb-4 shrink-0">
+                            <TabsTrigger value="time-off">Чөлөө</TabsTrigger>
+                            <TabsTrigger value="attendance">Ирц</TabsTrigger>
+                        </TabsList>
+
+                        <div className="flex-1 min-h-0 overflow-y-auto">
                     
-                    <TabsContent value="time-off">
+                    <TabsContent value="time-off" className="mt-0">
                         <Form {...timeOffForm}>
                             <form onSubmit={timeOffForm.handleSubmit(onTimeOffSubmit)} className="space-y-4">
                                 <FormField control={timeOffForm.control} name="type" render={({ field }) => (
@@ -203,7 +220,7 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent container={container} className="w-auto p-0" align="start">
                                                 <Calendar 
                                                     initialFocus 
                                                     mode="range" 
@@ -250,7 +267,7 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                     </FormItem>
                                 )} />
                                 
-                                <div className="pt-4 flex gap-3 pb-8">
+                                <div className="pt-4 flex gap-3 pb-2">
                                     <Button type="button" variant="outline" className="flex-1 h-12" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                                         Цуцлах
                                     </Button>
@@ -263,7 +280,7 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                         </Form>
                     </TabsContent>
                     
-                    <TabsContent value="attendance">
+                    <TabsContent value="attendance" className="mt-0">
                         <Form {...attendanceForm}>
                             <form onSubmit={attendanceForm.handleSubmit(onAttendanceSubmit)} className="space-y-4">
                                 <FormField control={attendanceForm.control} name="type" render={({ field }) => (
@@ -312,7 +329,7 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent container={container} className="w-auto p-0" align="start">
                                                 <Calendar 
                                                     initialFocus 
                                                     mode="range" 
@@ -381,7 +398,7 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                     </FormItem>
                                 )} />
                                 
-                                <div className="pt-4 flex gap-3 pb-8">
+                                <div className="pt-4 flex gap-3 pb-2">
                                     <Button type="button" variant="outline" className="flex-1 h-12" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                                         Цуцлах
                                     </Button>
@@ -393,7 +410,9 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                             </form>
                         </Form>
                     </TabsContent>
-                </Tabs>
+                        </div>
+                    </Tabs>
+                </div>
             </SheetContent>
         </Sheet>
     );
