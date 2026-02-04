@@ -87,6 +87,8 @@ export interface Employee {
     };
     /** Нэвтрэх эрх идэвхгүй бол энэ талбар true. */
     loginDisabled?: boolean;
+    /** Анкет засах эрхийг түгжих (ажилтан засах боломжгүй). */
+    questionnaireLocked?: boolean;
     role?: 'admin' | 'employee';
 }
 

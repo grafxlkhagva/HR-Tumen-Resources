@@ -38,7 +38,9 @@ import {
     ChevronRight,
     Info,
     Sparkles,
-    Upload
+    Upload,
+    Lock,
+    Unlock
 } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -51,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import {
     FullQuestionnaireValues,
@@ -133,6 +136,17 @@ const transformDates = (data: any) => {
             });
         }
     });
+
+    // Family members: handle Firestore Timestamp -> Date
+    if (Array.isArray(transformedData.familyMembers)) {
+        transformedData.familyMembers = transformedData.familyMembers.map((m: any) => {
+            const mm = { ...m };
+            if (mm.birthDate && typeof mm.birthDate === 'object' && 'seconds' in mm.birthDate) {
+                mm.birthDate = mm.birthDate.toDate();
+            }
+            return mm;
+        });
+    }
 
     return transformedData;
 }
@@ -946,6 +960,37 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
                 )} />
             </FieldGroup>
 
+            <FieldGroup>
+                <SectionTitle icon={Users}>Гэрлэлтийн байдал</SectionTitle>
+                <FormField
+                    control={form.control}
+                    name="maritalStatus"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs text-slate-500">Гэрлэсэн эсэх (заавал биш)</FormLabel>
+                            <Select
+                                value={field.value || '__none__'}
+                                onValueChange={(val) => field.onChange(val === '__none__' ? undefined : val)}
+                            >
+                                <FormControl>
+                                    <SelectTrigger className="h-10">
+                                        <SelectValue placeholder="Сонгох" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Сонгоогүй</SelectItem>
+                                    <SelectItem value="Гэрлээгүй">Гэрлээгүй</SelectItem>
+                                    <SelectItem value="Гэрлэсэн">Гэрлэсэн</SelectItem>
+                                    <SelectItem value="Салсан">Салсан</SelectItem>
+                                    <SelectItem value="Бэлэвсэн">Бэлэвсэн</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </FieldGroup>
+
             <fieldset disabled={notApplicable} className="space-y-4">
                 {fields.map((field, index) => (
                     <FieldGroup key={field.id} className="relative group">
@@ -977,6 +1022,37 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
                                     <FormMessage />
                                 </FormItem>
                             )} />
+                            <FormField control={form.control} name={`familyMembers.${index}.birthDate`} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-xs text-slate-500">Төрсөн огноо (заавал биш)</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn("h-10 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                                                >
+                                                    {field.value ? format(new Date(field.value), "yyyy-MM-dd") : <span>Огноо сонгох</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                captionLayout="dropdown"
+                                                fromYear={1930}
+                                                toYear={new Date().getFullYear()}
+                                                selected={field.value || undefined}
+                                                onSelect={field.onChange}
+                                                disabled={(d) => d > new Date()}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
                             <FormField control={form.control} name={`familyMembers.${index}.phone`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-xs text-slate-500">Утас</FormLabel>
@@ -987,7 +1063,7 @@ function FamilyInfoForm({ form, isSubmitting, references }: { form: any, isSubmi
                         </div>
                     </FieldGroup>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', phone: '' })} className="gap-2">
+                <Button type="button" variant="outline" onClick={() => append({ relationship: '', lastName: '', firstName: '', birthDate: null, phone: '' })} className="gap-2">
                     <PlusCircle className="h-4 w-4" /> Гишүүн нэмэх
                 </Button>
             </fieldset>
@@ -1104,6 +1180,8 @@ export default function QuestionnairePage() {
 
     const { data: employeeData, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);
+    const [isTogglingLock, setIsTogglingLock] = React.useState(false);
+    const isLocked = !!employeeData?.questionnaireLocked;
 
     // References
     const { data: countries } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
@@ -1121,7 +1199,7 @@ export default function QuestionnairePage() {
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
             emergencyContacts: [], education: [], educationNotApplicable: false,
             languages: [], languagesNotApplicable: false, trainings: [], trainingsNotApplicable: false,
-            familyMembers: [], familyMembersNotApplicable: false, experiences: [], experienceNotApplicable: false
+            familyMembers: [], familyMembersNotApplicable: false, maritalStatus: undefined, experiences: [], experienceNotApplicable: false
         };
         const employeeInfo = { ...employeeData, workEmail: employeeData?.email, personalPhone: employeeData?.phoneNumber };
         return transformDates({ ...baseValues, ...employeeInfo, ...questionnaireData });
@@ -1131,6 +1209,31 @@ export default function QuestionnairePage() {
     const isLoading = isLoadingEmployee || isLoadingQuestionnaire;
     const completionPercent = Math.round(employeeData?.questionnaireCompletion || 0);
     const fullName = employeeData ? `${employeeData.lastName || ''} ${employeeData.firstName || ''}`.trim() : '';
+
+    const handleToggleQuestionnaireLock = React.useCallback(async () => {
+        if (!employeeDocRef) return;
+        if (isTogglingLock) return;
+        setIsTogglingLock(true);
+        try {
+            await updateDocumentNonBlocking(employeeDocRef, {
+                questionnaireLocked: !isLocked,
+            });
+            toast({
+                title: !isLocked ? 'Анкет түгжигдлээ' : 'Анкетийн түгжээ нээгдлээ',
+                description: !isLocked
+                    ? 'Ажилтан өөрийн анкетийг засах боломжгүй боллоо.'
+                    : 'Ажилтан өөрийн анкетийг засах боломжтой боллоо.',
+            });
+        } catch (e) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Түгжээний төлөв өөрчлөхөд алдаа гарлаа',
+            });
+        } finally {
+            setIsTogglingLock(false);
+        }
+    }, [employeeDocRef, isTogglingLock, isLocked, toast]);
 
     // Handle CV data extraction
     const handleCVDataExtracted = React.useCallback(async (cvData: any) => {
@@ -1254,6 +1357,37 @@ export default function QuestionnairePage() {
                             actions={
                                 <div className="flex items-center gap-3">
                                     <Badge variant="outline" className="shrink-0 text-[10px]">Анкет</Badge>
+
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className={cn(
+                                                        "h-9 w-9",
+                                                        isLocked ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : ""
+                                                    )}
+                                                    onClick={handleToggleQuestionnaireLock}
+                                                    disabled={isTogglingLock}
+                                                    aria-label={isLocked ? 'Анкетийн түгжээ нээх' : 'Анкет түгжих'}
+                                                >
+                                                    {isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-semibold">
+                                                        {isLocked ? 'Түгжигдсэн (зөвхөн админ засна)' : 'Нээлттэй (ажилтан засаж болно)'}
+                                                    </p>
+                                                    <p className="text-xs opacity-80">
+                                                        {isLocked ? 'Дарж түгжээ нээнэ' : 'Дарж анкетийг түгжинэ'}
+                                                    </p>
+                                                </div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
 
                                     <Button
                                         onClick={() => setIsCVDialogOpen(true)}

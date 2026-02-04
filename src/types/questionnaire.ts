@@ -85,12 +85,16 @@ export const familyMemberSchema = z.object({
     relationship: z.string().min(1, "Таны хэн болохыг сонгоно уу."),
     lastName: z.string().min(1, "Овог хоосон байж болохгүй."),
     firstName: z.string().min(1, "Нэр хоосон байж болохгүй."),
+    birthDate: z.date().optional().nullable(),
     phone: z.string().optional(),
 });
 
 export const familyInfoSchema = z.object({
     familyMembers: z.array(familyMemberSchema),
     familyMembersNotApplicable: z.boolean().default(false).optional(),
+    maritalStatus: z
+        .enum(['Гэрлээгүй', 'Гэрлэсэн', 'Салсан', 'Бэлэвсэн'])
+        .optional(),
 });
 
 export const workExperienceSchema = z.object({

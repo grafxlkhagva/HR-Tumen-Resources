@@ -116,13 +116,37 @@ export default function CreateDocumentPage() {
         }
 
         try {
-            // Автомат дугаар авах (атомик үйлдэл)
+            // Автомат дугаар авах (атомик үйлдэл) — server-side allocator so non-admin creators work too
             let documentNumber: string | undefined;
-            try {
+            const idToken = await firebaseUser?.getIdToken?.();
+            if (idToken) {
+                const res = await fetch('/api/employment-relations/next-document-number', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ documentTypeId: selectedType }),
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = String(json?.error || '');
+                    // Dev fallback: if Admin SDK env isn't configured, use client-side transaction.
+                    if (msg.includes('Firebase Admin env not configured')) {
+                        documentNumber = await getNextDocumentNumber(firestore, selectedType);
+                    } else {
+                        throw new Error(msg || 'Баримтын дугаар олгох үйлдэл амжилтгүй');
+                    }
+                } else {
+                    documentNumber = json?.documentNumber;
+                }
+            } else {
+                // Fallback (dev / unexpected auth state): try client transaction
                 documentNumber = await getNextDocumentNumber(firestore, selectedType);
-            } catch (numError) {
-                console.warn('Document numbering error:', numError);
-                // Дугаарлалт тохируулаагүй бол үргэлжлүүлнэ
+            }
+
+            if (!documentNumber) {
+                throw new Error('Баримтын дугаар олгогдсонгүй');
             }
 
             // Fetch full data for replacement
@@ -142,7 +166,7 @@ export default function CreateDocumentPage() {
                     month: format(new Date(), 'MM'),
                     day: format(new Date(), 'dd'),
                     user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
-                    documentNumber: documentNumber || '' // Баримтын дугаар
+                    documentNumber: documentNumber // Баримтын дугаар
                 },
                 customInputs: customInputValues
             });
@@ -172,7 +196,7 @@ export default function CreateDocumentPage() {
                     action: 'CREATE',
                     actorId: firebaseUser?.uid || 'SYSTEM',
                     timestamp: Timestamp.now(),
-                    comment: documentNumber ? `Баримт үүсгэв: ${documentNumber}` : 'Баримт төлөвлөж эхлэв'
+                    comment: `Баримт үүсгэв: ${documentNumber}`
                 }],
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
@@ -181,15 +205,17 @@ export default function CreateDocumentPage() {
             const docRef = await addDoc(collection(firestore, 'er_documents'), newDoc);
             toast({ 
                 title: "Амжилттай", 
-                description: documentNumber 
-                    ? `Баримт ${documentNumber} үүслээ` 
-                    : "Баримт үүслээ. Төлөвлөх хэсэг рүү шилжиж байна."
+                description: `Баримт ${documentNumber} үүслээ`
             });
             router.push(`/dashboard/employment-relations/${docRef.id}`);
 
         } catch (error) {
             console.error(error);
-            toast({ title: "Алдаа", description: "Баримт үүсгэхэд алдаа гарлаа", variant: "destructive" });
+            toast({
+                title: "Алдаа",
+                description: (error as any)?.message || "Баримт үүсгэхэд алдаа гарлаа",
+                variant: "destructive"
+            });
         }
     };
 
@@ -323,8 +349,8 @@ export default function CreateDocumentPage() {
                                         <div className="grid grid-cols-1 gap-4">
                                             {[...(selectedTemplateData.customInputs || [])]
                                                 .sort((a, b) => (a.order || 0) - (b.order || 0))
-                                                .map(input => (
-                                                    <div key={input.key} className="space-y-1.5">
+                                                .map((input, idx) => (
+                                                    <div key={`${input.key || 'input'}-${input.order ?? idx}`} className="space-y-1.5">
                                                         <Label className="text-xs font-semibold text-slate-600 flex items-center justify-between">
                                                             <span>{input.label} {input.required && <span className="text-rose-500">*</span>}</span>
                                                             {input.type === 'boolean' && (

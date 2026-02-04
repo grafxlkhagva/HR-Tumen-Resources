@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs } from 'firebase/firestore';
 import { generateNextPositionCode } from '@/lib/code-generator';
 import {
@@ -46,8 +46,9 @@ import { DepartmentStructureCard } from '@/components/organization/department-st
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-export default function DepartmentPage({ params }: { params: Promise<{ departmentId: string }> }) {
-    const { departmentId } = use(params);
+export default function DepartmentPage() {
+    const params = useParams<{ departmentId?: string | string[] }>();
+    const departmentId = Array.isArray(params?.departmentId) ? params.departmentId[0] : params?.departmentId;
     const router = useRouter();
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
@@ -71,11 +72,11 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
     // -- Queries --
-    const deptDocRef = useMemoFirebase(() => (firestore ? doc(firestore, 'departments', departmentId) : null), [firestore, departmentId]);
+    const deptDocRef = useMemoFirebase(() => (firestore && departmentId ? doc(firestore, 'departments', departmentId) : null), [firestore, departmentId]);
     const { data: department, isLoading: isDeptLoading } = useDoc<Department>(deptDocRef as any);
 
     const positionsColRef = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
+    const positionsQuery = useMemoFirebase(() => (firestore && departmentId ? query(collection(firestore, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
     const { data: positions } = useCollection<Position>(positionsQuery as any);
 
     // Lookups for Edit Form
@@ -97,7 +98,7 @@ export default function DepartmentPage({ params }: { params: Promise<{ departmen
 
     // -- Derived Data --
     const lookups = useMemo(() => {
-        const departmentMap = allDepartments?.reduce<Record<string, string>>((acc, d) => { acc[d.id] = d.name; return acc; }, {}) || { [departmentId]: department?.name || '' };
+        const departmentMap = allDepartments?.reduce<Record<string, string>>((acc, d) => { acc[d.id] = d.name; return acc; }, {}) || { [departmentId || '']: department?.name || '' };
         const departmentColorMap = allDepartments?.reduce<Record<string, string>>((acc, d) => {
             if (d.color) acc[d.id] = d.color;
             return acc;

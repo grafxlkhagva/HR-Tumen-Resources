@@ -42,6 +42,7 @@ export default function DocumentListPage() {
         if (!documents) return [];
         return documents.filter(doc => {
             const matchesSearch =
+                (doc.documentNumber?.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (doc.metadata?.employeeName?.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (docTypeMap[doc.documentTypeId]?.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (doc.id.toLowerCase().includes(searchQuery.toLowerCase()));

@@ -16,7 +16,7 @@ import {
     Search, Plus, Trash2, FileText, Sparkles, Users, XCircle, AlertCircle, Wand2, Edit3
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { formatDateTime, getReplacementMap, generateDocumentContent } from '../utils';
 import { format } from 'date-fns';
 import { TemplateBuilder } from '../components/template-builder';
@@ -38,20 +38,15 @@ import { cn } from '@/lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { PrintLayout } from '../components/print-layout';
 
-interface PageProps {
-    params: Promise<{ id: string }>;
-}
-
-export default function DocumentDetailPage({ params }: PageProps) {
+export default function DocumentDetailPage() {
     const { firestore, storage, user: currentUser } = useFirebase();
     const currentUserId = currentUser?.uid;
     const { toast } = useToast();
     const router = useRouter();
+    const params = useParams<{ id?: string | string[] }>();
+    const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
-    const resolvedParams = React.use(params);
-    const id = resolvedParams.id;
-
-    const docRef = useMemo(() => firestore ? doc(firestore, 'er_documents', id) : null, [firestore, id]);
+    const docRef = useMemo(() => (firestore && id ? doc(firestore, 'er_documents', id) : null), [firestore, id]);
     const { data: document, isLoading } = useDoc<ERDocument>(docRef as any);
 
     // Fetch template to check permissions
@@ -155,6 +150,22 @@ export default function DocumentDetailPage({ params }: PageProps) {
         );
     }, [document?.reviewers, currentUserProfile]);
 
+    const approveKeyForCurrentUser = useMemo(() => {
+        // Reviewers can be either Position IDs or User IDs (legacy/support).
+        const rid = reviewers.find((r) => r === currentUser?.uid || (currentUserProfile?.positionId && r === currentUserProfile.positionId));
+        return rid || currentUser?.uid || null;
+    }, [reviewers, currentUser?.uid, currentUserProfile?.positionId]);
+
+    const canApproveFromCommentBox = useMemo(() => {
+        const status = document?.status;
+        if (status !== 'IN_REVIEW') return false;
+        if (!(isApprover || isAdmin)) return false;
+        const key = approveKeyForCurrentUser;
+        if (!key) return false;
+        return document?.approvalStatus?.[key]?.status !== 'APPROVED';
+    }, [document?.status, isApprover, isAdmin, approveKeyForCurrentUser, document?.approvalStatus]);
+
+    if (!id) return <div className="p-10 text-center text-muted-foreground">Баримт олдсонгүй</div>;
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
 
@@ -256,7 +267,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
         }
     };
 
-    const handleApprove = async () => {
+    const handleApprove = async (comment?: string) => {
         if (!docRef || !currentUser) return;
         setIsSaving(true);
         try {
@@ -271,12 +282,14 @@ export default function DocumentDetailPage({ params }: PageProps) {
                 newApprovalStatus[matchedReviewerKey] = {
                     status: 'APPROVED',
                     actorId: currentUser.uid,
+                    ...(comment?.trim() ? { comment: comment.trim() } : {}),
                     updatedAt: Timestamp.now()
                 };
             } else {
                 // Fallback for direct UID if not found as PID
                 newApprovalStatus[currentUser.uid] = {
                     status: 'APPROVED',
+                    ...(comment?.trim() ? { comment: comment.trim() } : {}),
                     updatedAt: Timestamp.now()
                 };
             }
@@ -295,7 +308,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
             await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
                 type: 'APPROVE',
                 actorId: currentUser.uid,
-                content: 'Баримтыг зөвшөөрөв',
+                content: comment?.trim() ? `Батлав: ${comment.trim()}` : 'Баримтыг зөвшөөрөв',
                 createdAt: Timestamp.now()
             });
 
@@ -465,7 +478,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         </>
                                     )}
                                     {currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED' && (
-                                        <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={isSaving}>
+                                        <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove()} disabled={isSaving}>
                                             <Check className="h-3.5 w-3.5 mr-1.5" />
                                             Батлах
                                         </Button>
@@ -673,8 +686,8 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                 <div className="p-4 space-y-3">
                                     {[...(template.customInputs || [])]
                                         .sort((a, b) => (a.order || 0) - (b.order || 0))
-                                        .map(input => (
-                                            <div key={input.key} className="space-y-1">
+                                        .map((input, idx) => (
+                                            <div key={`${input.key || 'input'}-${input.order ?? idx}`} className="space-y-1">
                                                 <div className="flex items-center justify-between">
                                                     <Label className="text-xs text-slate-600">
                                                         {input.label} {input.required && <span className="text-rose-500">*</span>}
@@ -715,7 +728,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         employeesList={employeesList || []}
                                         isApprover={isApprover}
                                         isAdmin={isAdmin}
-                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED'}
+                                        canApprove={canApproveFromCommentBox}
                                         onApprove={handleApprove}
                                         canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}
@@ -864,7 +877,7 @@ export default function DocumentDetailPage({ params }: PageProps) {
                                         employeesList={employeesList || []}
                                         isApprover={isApprover}
                                         isAdmin={isAdmin}
-                                        canApprove={currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED'}
+                                        canApprove={canApproveFromCommentBox}
                                         onApprove={handleApprove}
                                         canFinalApprove={(isOwner || isAdmin) && currentStatus === 'REVIEWED'}
                                         onFinalApprove={handleFinalApprove}
@@ -914,7 +927,7 @@ function ActivityFeed({
     isApprover?: boolean,
     isAdmin?: boolean,
     canApprove?: boolean,
-    onApprove?: () => Promise<void>,
+    onApprove?: (comment?: string) => Promise<void>,
     canFinalApprove?: boolean,
     onFinalApprove?: () => Promise<void>
 }) {
@@ -922,6 +935,7 @@ function ActivityFeed({
     const [activities, setActivities] = useState<ProcessActivity[]>([]);
     const [commentText, setCommentText] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
     const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -958,6 +972,19 @@ function ActivityFeed({
             console.error(e);
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const handleApproveWithComment = async () => {
+        if (!canApprove || !onApprove) return;
+        if (isApproving) return;
+        setIsApproving(true);
+        try {
+            const c = commentText.trim();
+            await onApprove(c ? c : undefined);
+            setCommentText('');
+        } finally {
+            setIsApproving(false);
         }
     };
 
@@ -1045,8 +1072,15 @@ function ActivityFeed({
                         }}
                     />
                     {canApprove && (
-                        <Button size="icon" className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => onApprove?.()} title="Батлах">
-                            <Check className="h-3.5 w-3.5" />
+                        <Button
+                            size="sm"
+                            className="h-8 bg-emerald-600 hover:bg-emerald-700"
+                            onClick={handleApproveWithComment}
+                            disabled={isApproving}
+                            title="Батлах"
+                        >
+                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                            Батлах
                         </Button>
                     )}
                     {canFinalApprove && (
@@ -1054,7 +1088,7 @@ function ActivityFeed({
                             <CheckCircle2 className="h-3.5 w-3.5" />
                         </Button>
                     )}
-                    <Button size="icon" className="h-8 w-8" onClick={handleSendComment} disabled={!commentText.trim() || isSending}>
+                    <Button size="icon" className="h-8 w-8" onClick={handleSendComment} disabled={!commentText.trim() || isSending || isApproving}>
                         {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                     </Button>
                 </div>

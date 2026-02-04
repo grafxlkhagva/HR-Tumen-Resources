@@ -9,18 +9,21 @@ import { format } from 'date-fns';
 import { Calendar, Info, Calculator, ChevronRight, CalendarDays, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
-export function VacationTabContent({ employee }: { employee: Employee }) {
+export function VacationTabContent({ employee, effectiveHireDate }: { employee: Employee; effectiveHireDate?: string }) {
+    // Prefer appointment-based date (effectiveHireDate) for calculations, fallback to profile hireDate.
+    const baseHireDate = effectiveHireDate || employee.hireDate;
+
     // Calculate Work Year
     const workYear = React.useMemo(() => {
-        if (!employee.hireDate) return null;
-        return getCurrentWorkYear(employee.hireDate);
-    }, [employee.hireDate]);
+        if (!baseHireDate) return null;
+        return getCurrentWorkYear(baseHireDate);
+    }, [baseHireDate]);
 
     // Get vacation config
     const vacationConfig = employee.vacationConfig;
     const hasCalculatedVacation = !!(vacationConfig?.calculatedAt && vacationConfig?.baseDays);
 
-    if (!employee.hireDate) {
+    if (!baseHireDate) {
         return (
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
                 <CardContent className="py-12 flex flex-col items-center justify-center text-center">
@@ -28,7 +31,7 @@ export function VacationTabContent({ employee }: { employee: Employee }) {
                         <Info className="h-6 w-6" />
                     </div>
                     <p className="text-sm font-semibold text-slate-700 max-w-sm">
-                        Ажилтны "Ажилд орсон огноо" бүртгэгдээгүй тул ээлжийн амралт тооцох боломжгүй байна.
+                        Ажилтны "Томилогдсон огноо" / "Ажилд орсон огноо" бүртгэгдээгүй тул ээлжийн амралт тооцох боломжгүй байна.
                     </p>
                 </CardContent>
             </Card>

@@ -122,6 +122,25 @@ export async function POST(request: Request) {
 
             if (error) {
                 console.error('[API/Email] Resend Error:', error);
+                const rawMessage = (error as any)?.message || '';
+                const isTestingRecipientRestriction =
+                    /only send testing emails to your own email address/i.test(rawMessage) ||
+                    /verify a domain/i.test(rawMessage);
+
+                if (isTestingRecipientRestriction) {
+                    return NextResponse.json(
+                        {
+                            error: 'Resend domain not verified',
+                            code: 'RESEND_TEST_RECIPIENT_ONLY',
+                            details:
+                                'Resend дээр domain verify хийгээгүй тул зөвхөн өөрийн бүртгэлийн имэйл рүү “testing email” явуулна. Бусад ажилтнууд руу илгээхийн тулд Resend дээр domain-оо verify хийгээд (DNS records нэмнэ), дараа нь `RESEND_FROM_EMAIL`-ийг тухайн domain-тэй имэйлээр тохируулна уу (ж: noreply@yourdomain.com).',
+                            help: 'https://resend.com/domains',
+                            from: `${fromEmailName} <${usedFrom}>`,
+                            to,
+                        },
+                        { status: 400 }
+                    );
+                }
                 return NextResponse.json(
                     { 
                         error: 'Failed to send email',

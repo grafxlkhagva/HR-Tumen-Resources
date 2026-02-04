@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { PageHeader } from '@/components/patterns/page-layout';
 import {
     useFirebase,
@@ -41,7 +41,7 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { PositionStructureCard } from '@/components/organization/position-structure-card';
@@ -81,8 +81,9 @@ import { PositionBenefits } from './components/position-benefits';
 import { StartPositionPreparationWizardDialog } from './components/start-position-preparation-wizard-dialog';
 import type { Project, Task } from '@/types/project';
 
-export default function PositionDetailPage({ params }: { params: Promise<{ positionId: string }> }) {
-    const { positionId } = use(params);
+export default function PositionDetailPage() {
+    const params = useParams<{ positionId?: string | string[] }>();
+    const positionId = Array.isArray(params?.positionId) ? params.positionId[0] : params?.positionId;
     const { firestore, user } = useFirebase();
     const router = useRouter();
     const { toast } = useToast();
@@ -105,7 +106,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
     const [isPrepWizardOpen, setIsPrepWizardOpen] = useState(false);
 
     // Data Fetching
-    const positionRef = useMemoFirebase(() => (firestore ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
+    const positionRef = useMemoFirebase(() => (firestore && positionId ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
     const { data: position, isLoading: isPositionLoading } = useDoc<Position>(positionRef as any);
 
     const deptRef = useMemoFirebase(() => (firestore && position?.departmentId ? doc(firestore, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
@@ -279,6 +280,7 @@ export default function PositionDetailPage({ params }: { params: Promise<{ posit
         return Math.round((filledCount / included.length) * 100);
     }, [position, validationChecklist]);
 
+    if (!positionId) return <div className="p-10 text-center text-muted-foreground">Ажлын байр олдсонгүй</div>;
     if (isPositionLoading) return (
         <div className="p-8 space-y-4">
             <Skeleton className="h-12 w-64" />

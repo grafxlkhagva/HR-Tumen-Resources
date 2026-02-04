@@ -414,10 +414,42 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             return;
         }
 
+        // Validate custom inputs: keys must be non-empty and unique
+        const rawInputs = (formData.customInputs || []).map((i) => ({
+            ...i,
+            key: (i.key || '').trim(),
+        }));
+        const emptyKeyCount = rawInputs.filter((i) => !i.key).length;
+        if (emptyKeyCount > 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Нэмэлт талбарын key дутуу байна',
+                description: 'Custom input бүрийн key-г бөглөж өгнө үү (хоосон байж болохгүй).',
+            });
+            return;
+        }
+
+        const keyCounts = rawInputs.reduce<Record<string, number>>((acc, i) => {
+            acc[i.key] = (acc[i.key] || 0) + 1;
+            return acc;
+        }, {});
+        const duplicated = Object.entries(keyCounts)
+            .filter(([, count]) => count > 1)
+            .map(([key]) => key);
+        if (duplicated.length > 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Давхардсан custom input key байна',
+                description: `Дараах key-үүд давхардсан байна: ${duplicated.join(', ')}`,
+            });
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const templateData = {
                 ...formData,
+                customInputs: rawInputs,
                 updatedAt: Timestamp.now()
             };
 

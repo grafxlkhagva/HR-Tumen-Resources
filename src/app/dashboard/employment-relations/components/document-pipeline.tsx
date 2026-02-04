@@ -79,6 +79,13 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
                                                     <h4 className="font-bold text-[13px] text-slate-800 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
                                                         {doc.metadata?.templateName || docTypeMap[doc.documentTypeId] || 'Тодорхойгүй баримт'}
                                                     </h4>
+                                                    {doc.documentNumber && (
+                                                        <div className="inline-flex">
+                                                            <Badge variant="secondary" className="font-mono text-[10px] h-5 px-2 bg-slate-100 text-slate-700 border-none">
+                                                                {doc.documentNumber}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex items-center gap-2 pt-2 border-t border-slate-50">

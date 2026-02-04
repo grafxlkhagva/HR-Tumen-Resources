@@ -88,10 +88,11 @@ interface FormSectionProps<T extends z.ZodType<any, any>> {
     docRef: any;
     defaultValues: z.infer<T> | undefined;
     schema: T;
+    isLocked?: boolean;
     children: (form: any, isSubmitting: boolean) => React.ReactNode;
 }
 
-function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, schema, children }: FormSectionProps<T>) {
+function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, schema, isLocked, children }: FormSectionProps<T>) {
     const { toast } = useToast();
     const form = useForm<z.infer<T>>({
         resolver: zodResolver(schema),
@@ -101,6 +102,14 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, sch
     const { isSubmitting } = form.formState;
 
     const onSubmit = (data: z.infer<T>) => {
+        if (isLocked) {
+            toast({
+                variant: 'destructive',
+                title: 'Анкет түгжигдсэн байна',
+                description: 'Одоогоор өөрчлөлт хадгалах боломжгүй. Админтай холбогдоно уу.',
+            });
+            return;
+        }
         if (!docRef) return;
         setDocumentNonBlocking(docRef, data, { merge: true });
         toast({ title: 'Амжилттай хадгаллаа' });
@@ -109,7 +118,9 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, defaultValues, sch
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {children(form, isSubmitting)}
+                <fieldset disabled={!!isLocked || isSubmitting} className={cn((!!isLocked || isSubmitting) && "opacity-70")}>
+                    {children(form, isSubmitting)}
+                </fieldset>
             </form>
         </Form>
     );
@@ -392,6 +403,7 @@ function WorkExperienceForm({ form, isSubmitting, references }: { form: any; isS
 export default function MobileProfileEditPage() {
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const { firestore } = useFirebase();
+    const isLocked = !!employeeProfile?.questionnaireLocked;
 
     const questionnaireDocRef = useMemoFirebase(
         () => (firestore && employeeProfile ? doc(firestore, `employees/${employeeProfile.id}/questionnaire`, 'data') : null),
@@ -443,6 +455,16 @@ export default function MobileProfileEditPage() {
                 <h1 className="text-xl font-semibold">Анкет засах</h1>
             </header>
 
+            {isLocked && (
+                <Alert className="mb-4" variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Анкет түгжигдсэн</AlertTitle>
+                    <AlertDescription>
+                        Таны анкетийг засах эрх түгжигдсэн байна. Зөвхөн админ засвар хийх боломжтой.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             <div className="flex flex-col items-center gap-4 my-4">
                 <div className="relative">
                     <Avatar className="h-24 w-24">
@@ -462,7 +484,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="general" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Ерөнхий мэдээлэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={generalInfoSchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} />}
                         </FormSection>
                     </AccordionContent>
@@ -471,7 +493,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="contact" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Холбоо барих</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={contactInfoSchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={contactInfoSchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <ContactInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>
@@ -480,7 +502,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="education" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Боловсрол</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={educationHistorySchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={educationHistorySchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <EducationForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>
@@ -489,7 +511,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="language" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Гадаад хэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={languageSkillsSchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={languageSkillsSchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <LanguageForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>
@@ -498,7 +520,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="training" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Мэргэшлийн бэлтгэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={professionalTrainingSchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <TrainingForm form={form} isSubmitting={isSubmitting} />}
                         </FormSection>
                     </AccordionContent>
@@ -507,7 +529,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="family" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Гэр бүлийн мэдээлэл</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={familyInfoSchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={familyInfoSchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <FamilyInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>
@@ -516,7 +538,7 @@ export default function MobileProfileEditPage() {
                 <AccordionItem value="experience" className="rounded-lg border bg-card text-card-foreground shadow-sm">
                     <AccordionTrigger className="p-4 font-semibold text-base">Ажлын туршлага</AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
-                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema}>
+                        <FormSection docRef={questionnaireDocRef} defaultValues={defaultValues} schema={workExperienceHistorySchema} isLocked={isLocked}>
                             {(form, isSubmitting) => <WorkExperienceForm form={form} isSubmitting={isSubmitting} references={references} />}
                         </FormSection>
                     </AccordionContent>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection } from '@/firebase';
 import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
@@ -22,21 +22,17 @@ import { generateDocumentContent, formatDateTime } from '../../../dashboard/empl
 import { format } from 'date-fns';
 import { getDoc, getDocs } from 'firebase/firestore';
 
-interface PageProps {
-    params: Promise<{ id: string }>;
-}
-
-export default function DocumentReviewDetailPage({ params }: PageProps) {
+export default function DocumentReviewDetailPage() {
     const router = useRouter();
     const { firestore, auth } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
 
-    const resolvedParams = React.use(params);
-    const id = resolvedParams.id;
+    const params = useParams<{ id?: string | string[] }>();
+    const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
     // Document Data
-    const docRef = useMemo(() => firestore ? doc(firestore, 'er_documents', id) : null, [firestore, id]);
+    const docRef = useMemo(() => (firestore && id ? doc(firestore, 'er_documents', id) : null), [firestore, id]);
     const { data: document, isLoading: isDocLoading } = useDoc<ERDocument>(docRef as any);
 
     // Initial check for 404
@@ -56,7 +52,7 @@ export default function DocumentReviewDetailPage({ params }: PageProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!firestore) return;
+        if (!firestore || !id) return;
 
         const q = query(
             collection(firestore, `er_documents/${id}/activity`),

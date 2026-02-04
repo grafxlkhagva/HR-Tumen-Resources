@@ -31,9 +31,9 @@ RESEND_FROM_EMAIL=noreply@yourdomain.com
 - API key-г хэнтэй ч хуваалцахгүй байх
 - `.env.local` файлыг `.gitignore` дотор байх ёстой (аль хэдийн байгаа)
 
-## Алхам 4: Domain Verify хийх (Optional, гэхдээ зөвлөмж)
+## Алхам 4: Domain Verify хийх (Production дээр заавал)
 
-Production дээр ашиглахын тулд:
+Production дээр ажилтнууд руу бодит email илгээхийн тулд **заавал** domain verify хийх шаардлагатай (Resend-ийн “testing emails” хязгаарлалттай холбоотой).
 
 1. [Resend Domains](https://resend.com/domains) руу очоод
 2. "Add Domain" дээр дарах
@@ -41,7 +41,7 @@ Production дээр ашиглахын тулд:
 4. DNS records-ийг domain provider дээр нэмэх
 5. Verify хийх
 
-**Анхаар:** Domain verify хийгээгүй бол `onboarding@resend.dev` ашиглах болно (Resend-ийн default domain).
+**Анхаар:** Domain verify хийгээгүй бол Resend нь ихэвчлэн “testing emails” горимд ажиллаж, зөвхөн таны өөрийн бүртгэлийн имэйл рүү л илгээх хязгаарлалттай байдаг.
 
 ## Алхам 5: Server restart
 

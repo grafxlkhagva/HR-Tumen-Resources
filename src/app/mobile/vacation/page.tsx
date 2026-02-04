@@ -109,6 +109,10 @@ export default function MobileVacationPage() {
     const [requestToReject, setRequestToReject] = React.useState<VacationRequest | null>(null);
     const [managerRejectionReason, setManagerRejectionReason] = React.useState('');
 
+    // Cancel dialog state (employee cancel pending request)
+    const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
+    const [requestToCancel, setRequestToCancel] = React.useState<VacationRequest | null>(null);
+
     // Planning States
     const [isPlanning, setIsPlanning] = React.useState(false);
     const [planningStep, setPlanningStep] = React.useState<'splits' | 'overview' | 'calendar'>('splits');
@@ -414,14 +418,14 @@ export default function MobileVacationPage() {
                 }))
             };
 
+            // Employee cannot edit submitted requests (cancel-only flow). Always create a new request.
             if (editingRequest) {
-                const docRef = doc(firestore!, `employees/${employeeProfile.id}/vacationRequests`, editingRequest.id);
-                await updateDocumentNonBlocking(docRef, requestData);
-            } else {
-                await addDocumentNonBlocking(collection(firestore!, `employees/${employeeProfile.id}/vacationRequests`), requestData);
+                toast({ variant: "destructive", title: "Илгээсэн хүсэлтийг засах боломжгүй", description: "Шинэ хүсэлт үүсгэж илгээнэ үү." });
+                return;
             }
+            await addDocumentNonBlocking(collection(firestore!, `employees/${employeeProfile.id}/vacationRequests`), requestData);
 
-            toast({ title: editingRequest ? "Хүсэлт шинэчиллээ" : "Хүсэлтүүдийг илгээлээ" });
+            toast({ title: "Хүсэлтүүдийг илгээлээ" });
             setIsPlanning(false);
             setPlanningStep('splits');
             setEditingRequest(null);
@@ -452,9 +456,19 @@ export default function MobileVacationPage() {
                 status: newStatus,
                 decisionAt: newStatus === 'PENDING' ? null : new Date().toISOString(),
             };
-            if (rejectionReason) {
-                updateData.rejectionReason = rejectionReason;
+            if (newStatus === 'REJECTED') {
+                const rr = (rejectionReason || '').trim();
+                if (!rr) {
+                    toast({ variant: "destructive", title: "Татгалзах шалтгаан шаардлагатай" });
+                    return;
+                }
+                updateData.rejectionReason = rr;
+            } else {
+                // Clear rejection reason on approve/pending
+                updateData.rejectionReason = null;
             }
+            // Compat for dashboard
+            updateData.approvedAt = newStatus === 'PENDING' ? null : new Date().toISOString();
 
             await updateDocumentNonBlocking(docRef, updateData);
 
@@ -491,6 +505,28 @@ export default function MobileVacationPage() {
             setPlanningStep('splits');
         }
         setIsPlanning(true);
+    };
+
+    const handleCancelRequest = async () => {
+        if (!firestore || !employeeProfile || !requestToCancel) return;
+        const req = requestToCancel;
+        setIsSubmitting(true);
+        try {
+            const docRef = doc(firestore, 'employees', employeeProfile.id, 'vacationRequests', req.id);
+            const nowIso = new Date().toISOString();
+            await updateDocumentNonBlocking(docRef, {
+                status: 'CANCELLED',
+                decisionAt: nowIso,
+                updatedAt: nowIso,
+            } as any);
+            toast({ title: "Хүсэлтийг цуцаллаа" });
+        } catch {
+            toast({ variant: "destructive", title: "Цуцлахад алдаа гарлаа" });
+        } finally {
+            setIsSubmitting(false);
+            setIsCancelDialogOpen(false);
+            setRequestToCancel(null);
+        }
     };
 
     const handleResetPlanning = () => {
@@ -1025,26 +1061,19 @@ export default function MobileVacationPage() {
                                                     <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-none font-semibold px-3">
                                                         {req.totalDays} хоног
                                                     </Badge>
-                                                    {req.status === 'REJECTED' && (
+                                                    {/* Cancel-only: no editing after submission */}
+                                                    {req.status === 'PENDING' && (
                                                         <Button
-                                                            variant="ghost"
+                                                            variant="outline"
                                                             size="sm"
-                                                            className="h-7 px-3 text-[10px] font-semibold uppercase text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                                                            className="h-7 px-3 text-[10px] font-semibold uppercase text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setEditingRequest(req);
-                                                                setSplits([{
-                                                                    start: format(parseISO(req.startDate), 'yyyy-MM-dd'),
-                                                                    end: format(parseISO(req.endDate), 'yyyy-MM-dd'),
-                                                                    days: req.totalDays
-                                                                }]);
-                                                                setNumSplits(1);
-                                                                setReason(req.reason || '');
-                                                                setSelectedApproverId(req.approverId || '');
-                                                                setIsPlanning(true);
+                                                                setRequestToCancel(req);
+                                                                setIsCancelDialogOpen(true);
                                                             }}
                                                         >
-                                                            <RotateCcw className="w-3 h-3 mr-1" /> Засах
+                                                            Цуцлах
                                                         </Button>
                                                     )}
                                                 </div>
@@ -1065,6 +1094,41 @@ export default function MobileVacationPage() {
                         </div>
                     </div>
                 </TabsContent>
+
+                {/* Cancel confirmation dialog */}
+                <Dialog
+                    open={isCancelDialogOpen}
+                    onOpenChange={(o) => {
+                        if (!o) {
+                            setIsCancelDialogOpen(false);
+                            setRequestToCancel(null);
+                        }
+                    }}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Хүсэлт цуцлах уу?</DialogTitle>
+                            <DialogDescription>
+                                Энэ үйлдлийг хийснээр хүсэлт <span className="font-semibold">Цуцлагдсан</span> төлөвт орно.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsCancelDialogOpen(false);
+                                    setRequestToCancel(null);
+                                }}
+                                disabled={isSubmitting}
+                            >
+                                Болих
+                            </Button>
+                            <Button variant="destructive" onClick={handleCancelRequest} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Цуцлах'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* 2. TO APPROVE TAB */}
                 <TabsContent value="to-approve" className="p-6 space-y-6 animate-in slide-in-from-right-10 fade-in duration-500 outline-none">

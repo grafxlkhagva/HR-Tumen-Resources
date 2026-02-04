@@ -1070,7 +1070,7 @@ export default function EmployeeProfilePage() {
                             <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
                         </TabsContent>
                         <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
-                            <VacationTabContent employee={employee} />
+                            <VacationTabContent employee={employee} effectiveHireDate={effectiveHireDate || undefined} />
                         </TabsContent>
                         <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
                             <div className="bg-white rounded-xl border p-8 text-center">

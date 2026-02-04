@@ -41,12 +41,27 @@ service cloud.firestore {
         (exists(/databases/$(database)/documents/system/signup_config) &&
          get(/databases/$(database)/documents/system/signup_config).data.get('open', false) == true);
       allow create: if isSignedIn();
-      allow update: if isOwner(employeeId) || isAdmin();
+      // Owners can update their profile, but cannot change privileged fields.
+      allow update: if isAdmin() || (
+        isOwner(employeeId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'questionnaireLocked'])
+      );
     }
     
+    // Questionnaire subcollection: employees can write only when not locked.
+    match /employees/{employeeId}/questionnaire/{docId} {
+      allow read: if isOwner(employeeId) || isAdmin();
+      allow create, update, delete: if isAdmin() || (isOwner(employeeId) &&
+        !get(/databases/$(database)/documents/employees/$(employeeId)).data.get('questionnaireLocked', false)
+      );
+    }
+
     // Subcollections of employees
     match /employees/{employeeId}/{subcollection}/{docId} {
-       allow read, write: if isOwner(employeeId) || isAdmin();
+       allow read: if isOwner(employeeId) || isAdmin();
+       // Avoid over-broad writes for sensitive subcollections that have their own rules.
+       allow write: if (isOwner(employeeId) || isAdmin()) &&
+         !(subcollection in ['questionnaire', 'vacationRequests']);
     }
 
     // Onboarding / Offboarding процессууд
@@ -119,9 +134,56 @@ service cloud.firestore {
     // Vacation requests rules
     match /employees/{employeeId}/vacationRequests/{requestId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(employeeId);
-      allow update: if isOwner(employeeId) || isAdmin() || request.auth.uid == resource.data.approverId;
-      allow delete: if isAdmin() || isOwner(employeeId);
+      // Employee creates their own request (pending).
+      allow create: if isOwner(employeeId) &&
+        request.resource.data.employeeId == employeeId &&
+        request.resource.data.status == 'PENDING';
+
+      // Update rules:
+      // - Admin: any
+      // - Owner: cancel only (PENDING -> CANCELLED)
+      // - Approver: approve/reject/return-to-pending with limited fields
+      allow update: if isAdmin() ||
+        (
+          isOwner(employeeId) &&
+          resource.data.status == 'PENDING' &&
+          request.resource.data.status == 'CANCELLED' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
+        ) ||
+        (
+          isSignedIn() &&
+          request.auth.uid == resource.data.approverId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
+          (
+            // Approve
+            (request.resource.data.status == 'APPROVED' &&
+              request.resource.data.decisionAt is string &&
+              request.resource.data.approvedAt is string &&
+              (
+                !request.resource.data.keys().hasAny(['rejectionReason']) ||
+                request.resource.data.rejectionReason == null
+              )
+            )
+            ||
+            // Reject (reason required)
+            (request.resource.data.status == 'REJECTED' &&
+              request.resource.data.decisionAt is string &&
+              request.resource.data.approvedAt is string &&
+              request.resource.data.rejectionReason is string &&
+              request.resource.data.rejectionReason.size() > 0
+            )
+            ||
+            // Return to pending (clear decision fields)
+            (request.resource.data.status == 'PENDING' &&
+              (request.resource.data.decisionAt == null) &&
+              (request.resource.data.approvedAt == null) &&
+              (request.resource.data.rejectionReason == null)
+            )
+          )
+        );
+
+      // Delete: admin only (use cancel instead of delete)
+      allow delete: if isAdmin();
     }
     
     // Company profile and branding settings
@@ -212,7 +274,51 @@ service cloud.firestore {
 
     match /{path=**}/vacationRequests/{docId} {
         allow read: if isSignedIn();
-        allow write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.approverId);
+
+        // Create: owner creates pending request
+        allow create: if isSignedIn() &&
+          request.auth.uid == request.resource.data.employeeId &&
+          request.resource.data.status == 'PENDING';
+
+        // Update: mirror `employees/{employeeId}/vacationRequests/{requestId}`
+        allow update: if isAdmin() ||
+          (
+            isSignedIn() &&
+            request.auth.uid == resource.data.employeeId &&
+            resource.data.status == 'PENDING' &&
+            request.resource.data.status == 'CANCELLED' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
+          ) ||
+          (
+            isSignedIn() &&
+            request.auth.uid == resource.data.approverId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
+            (
+              (request.resource.data.status == 'APPROVED' &&
+                request.resource.data.decisionAt is string &&
+                request.resource.data.approvedAt is string &&
+                (
+                  !request.resource.data.keys().hasAny(['rejectionReason']) ||
+                  request.resource.data.rejectionReason == null
+                )
+              )
+              ||
+              (request.resource.data.status == 'REJECTED' &&
+                request.resource.data.decisionAt is string &&
+                request.resource.data.approvedAt is string &&
+                request.resource.data.rejectionReason is string &&
+                request.resource.data.rejectionReason.size() > 0
+              )
+              ||
+              (request.resource.data.status == 'PENDING' &&
+                (request.resource.data.decisionAt == null) &&
+                (request.resource.data.approvedAt == null) &&
+                (request.resource.data.rejectionReason == null)
+              )
+            )
+          );
+
+        allow delete: if isAdmin();
     }
     
     
@@ -238,7 +344,53 @@ service cloud.firestore {
     // ER процессын баримтын төрлүүд (employment-relations settings)
     match /er_process_document_types/{typeId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      // Admins manage settings. Signed-in users may only bump the numbering counter
+      // in a tightly validated way (so document creation can allocate numbers).
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && (
+        // Only allow updating counter-related fields
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'currentNumber',
+          'lastNumberYear',
+          'lastNumberMonth',
+          'lastNumberDay',
+          'updatedAt'
+        ]) &&
+        // Ensure numeric fields are numbers
+        (request.resource.data.currentNumber is int || request.resource.data.currentNumber is number) &&
+        (request.resource.data.lastNumberYear is int || request.resource.data.lastNumberYear is number) &&
+        (request.resource.data.lastNumberMonth is int || request.resource.data.lastNumberMonth is number) &&
+        (request.resource.data.lastNumberDay is int || request.resource.data.lastNumberDay is number) &&
+        // Ensure date parts match request.time
+        request.resource.data.lastNumberYear == request.time.year &&
+        request.resource.data.lastNumberMonth == request.time.month &&
+        request.resource.data.lastNumberDay == request.time.day &&
+        // Ensure counter increments by 1 OR resets to startNumber based on resetPeriod
+        (
+          // Increment path
+          request.resource.data.currentNumber == (resource.data.currentNumber + 1)
+          ||
+          // Reset path (yearly/monthly/daily) to startNumber
+          (
+            request.resource.data.currentNumber ==
+              (resource.data.numberingConfig.startNumber is int ? resource.data.numberingConfig.startNumber : 1)
+            &&
+            (
+              resource.data.numberingConfig.resetPeriod == 'yearly' && resource.data.lastNumberYear != request.time.year
+              ||
+              resource.data.numberingConfig.resetPeriod == 'monthly' && (
+                resource.data.lastNumberYear != request.time.year || resource.data.lastNumberMonth != request.time.month
+              )
+              ||
+              resource.data.numberingConfig.resetPeriod == 'daily' && (
+                resource.data.lastNumberYear != request.time.year ||
+                resource.data.lastNumberMonth != request.time.month ||
+                resource.data.lastNumberDay != request.time.day
+              )
+            )
+          )
+        )
+      ));
     }
 
     // Documents - Complex rules based on status and role

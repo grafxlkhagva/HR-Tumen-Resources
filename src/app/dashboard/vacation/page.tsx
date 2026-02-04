@@ -50,6 +50,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -65,6 +67,9 @@ export default function VacationPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('pending');
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+    const [requestToReject, setRequestToReject] = useState<VacationRequest | null>(null);
 
     // Queries
     const requestsQuery = useMemoFirebase(() =>
@@ -75,7 +80,7 @@ export default function VacationPage() {
         firestore ? collection(firestore, 'employees') : null
         , [firestore]);
 
-    const { data: requests, isLoading: isLoadingRequests } = useCollection<VacationRequest>(requestsQuery);
+    const { data: requests, isLoading: isLoadingRequests, error: requestsError } = useCollection<VacationRequest>(requestsQuery);
     const { data: employees, isLoading: isLoadingEmps } = useCollection<Employee>(employeesQuery);
 
     // Map employees for easy lookup
@@ -133,14 +138,42 @@ export default function VacationPage() {
         });
     }, [requests, employeeMap, searchTerm, activeTab]);
 
-    const handleStatusUpdate = async (req: VacationRequest, newStatus: 'APPROVED' | 'REJECTED') => {
+    const openRejectDialog = (req: VacationRequest) => {
+        setRequestToReject(req);
+        setRejectReason('');
+        setIsRejectDialogOpen(true);
+    };
+
+    const confirmReject = async () => {
+        if (!requestToReject) return;
+        const rr = rejectReason.trim();
+        await handleStatusUpdate(requestToReject, 'REJECTED', rr);
+        setIsRejectDialogOpen(false);
+        setRequestToReject(null);
+        setRejectReason('');
+    };
+
+    const handleStatusUpdate = async (req: VacationRequest, newStatus: 'APPROVED' | 'REJECTED', rejectionReason?: string) => {
         if (!firestore) return;
 
         try {
             const docRef = doc(firestore, 'employees', req.employeeId, 'vacationRequests', req.id);
+            if (newStatus === 'REJECTED' && !rejectionReason?.trim()) {
+                toast({
+                    variant: "destructive",
+                    title: "Татгалзах шалтгаан шаардлагатай",
+                    description: "Татгалзах үед шалтгаанаа заавал оруулна уу.",
+                });
+                return;
+            }
+
+            const nowIso = new Date().toISOString();
             await updateDocumentNonBlocking(docRef, {
                 status: newStatus,
-                approvedAt: new Date().toISOString(),
+                decisionAt: nowIso,
+                approvedAt: nowIso, // compat
+                rejectionReason: newStatus === 'REJECTED' ? rejectionReason?.trim() : null,
+                updatedAt: nowIso,
             });
 
             toast({
@@ -428,6 +461,16 @@ export default function VacationPage() {
                                                                 <CalendarIcon className="h-3.5 w-3.5 text-slate-400" />
                                                                 {format(parseISO(req.startDate), 'yyyy.MM.dd')} - {format(parseISO(req.endDate), 'yyyy.MM.dd')}
                                                             </div>
+                                                            {req.reason && (
+                                                                <div className="text-[11px] text-slate-500 mt-1 line-clamp-1" title={req.reason}>
+                                                                    {req.reason}
+                                                                </div>
+                                                            )}
+                                                            {req.status === 'REJECTED' && req.rejectionReason && (
+                                                                <div className="text-[11px] text-rose-700 mt-1 line-clamp-1" title={req.rejectionReason}>
+                                                                    Татгалзсан: “{req.rejectionReason}”
+                                                                </div>
+                                                            )}
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <Badge variant="outline" className="text-[10px] font-mono border-slate-200">
                                                                     {req.totalDays} хоног
@@ -465,7 +508,7 @@ export default function VacationPage() {
                                                                         variant="outline"
                                                                         size="sm"
                                                                         className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-                                                                        onClick={() => handleStatusUpdate(req, 'REJECTED')}
+                                                                        onClick={() => openRejectDialog(req)}
                                                                     >
                                                                         <XCircle className="h-4 w-4 mr-1" /> Татгалзах
                                                                     </Button>
@@ -497,6 +540,43 @@ export default function VacationPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Query error (e.g., missing index / permission) */}
+            {requestsError && (
+                <Card className="border border-rose-200 bg-rose-50/50">
+                    <CardHeader>
+                        <CardTitle className="text-sm text-rose-800">Хүсэлтүүдийг ачаалж чадсангүй</CardTitle>
+                        <CardDescription className="text-rose-700">
+                            {requestsError.message}
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            )}
+
+            {/* Reject dialog */}
+            <Dialog open={isRejectDialogOpen} onOpenChange={(o) => { if (!o) { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Хүсэлт татгалзах</DialogTitle>
+                        <DialogDescription>Татгалзах шалтгаанаа заавал бичнэ үү.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="Ж: Хуваарь давхцаж байна..."
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); }}>
+                            Болих
+                        </Button>
+                        <Button variant="destructive" onClick={confirmReject} disabled={!rejectReason.trim()}>
+                            Татгалзах
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
