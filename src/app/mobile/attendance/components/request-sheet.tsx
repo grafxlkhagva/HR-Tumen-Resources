@@ -220,7 +220,13 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent container={container} className="w-auto p-0" align="start">
+                                            <PopoverContent
+                                                container={container}
+                                                className="w-auto p-0"
+                                                align="start"
+                                                side="top"
+                                                sideOffset={8}
+                                            >
                                                 <Calendar 
                                                     initialFocus 
                                                     mode="range" 
@@ -329,7 +335,13 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent container={container} className="w-auto p-0" align="start">
+                                            <PopoverContent
+                                                container={container}
+                                                className="w-auto p-0"
+                                                align="start"
+                                                side="top"
+                                                sideOffset={8}
+                                            >
                                                 <Calendar 
                                                     initialFocus 
                                                     mode="range" 
