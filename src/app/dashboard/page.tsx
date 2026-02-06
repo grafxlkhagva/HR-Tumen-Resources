@@ -64,7 +64,8 @@ import {
     Position as JobPosition,
     Employee,
     AttendanceRecord,
-    ReferenceItem
+    ReferenceItem,
+    isActiveStatus
 } from '@/types';
 
 // Local types for the chart
@@ -477,8 +478,31 @@ const OrganizationChart = () => {
     // For visual skeleton of the chart
     const isLoading = isCriticalLoading;
 
+    // Fetch gender data from questionnaire subcollections
+    const [genderCounts, setGenderCounts] = useState<{ male: number; female: number }>({ male: 0, female: 0 });
+    useEffect(() => {
+        if (!firestore || !employees || employees.length === 0) return;
+        let cancelled = false;
+        (async () => {
+            let m = 0, f = 0;
+            const promises = employees.map(async (emp) => {
+                try {
+                    const snap = await getDoc(doc(firestore, 'employees', emp.id, 'questionnaire', 'data'));
+                    if (snap.exists()) {
+                        const g = snap.data()?.gender;
+                        if (g === 'male') m++;
+                        else if (g === 'female') f++;
+                    }
+                } catch { /* skip */ }
+            });
+            await Promise.all(promises);
+            if (!cancelled) setGenderCounts({ male: m, female: f });
+        })();
+        return () => { cancelled = true; };
+    }, [firestore, employees]);
+
     const unassignedEmployees = useMemo(() => {
-        return (employees || []).filter(e => !e.positionId && e.status === 'Идэвхтэй');
+        return (employees || []).filter(e => !e.positionId && isActiveStatus(e.status));
     }, [employees]);
 
     const onLeaveEmployees = useMemo(() => {
@@ -534,33 +558,40 @@ const OrganizationChart = () => {
     }, [erDocuments]);
 
     // Prepare widget data for the dashboard widgets bar
-    const widgetData: WidgetData = useMemo(() => ({
-        // Projects widget
-        activeProjectsCount: activeProjects?.length || 0,
-        overdueTasksCount,
+    const widgetData: WidgetData = useMemo(() => {
+        const empArr = employees || [];
+        return {
+            // Projects widget
+            activeProjectsCount: activeProjects?.length || 0,
+            overdueTasksCount,
 
-        // Employees widget
-        employeesCount: employees?.length || 0,
-        
-        // Structure widget
-        departmentsCount: departments?.length || 0,
-        positionsCount: positions?.length || 0,
-        
-        // Attendance widget
-        presentCount: presentEmployees.size,
-        onLeaveCount: onLeaveEmployees.size,
-        
-        // Vacation widget
-        vacationCount: onLeaveCount,
-        
-        // Posts widget
-        postsCount: posts?.length || 0,
+            // Employees widget
+            employeesCount: empArr.length,
+            permanentCount: empArr.filter(e => e.status === 'Идэвхтэй үндсэн').length,
+            probationCount: empArr.filter(e => e.status === 'Идэвхтэй туршилт').length,
+            maleCount: genderCounts.male,
+            femaleCount: genderCounts.female,
+            
+            // Structure widget
+            departmentsCount: departments?.length || 0,
+            positionsCount: positions?.length || 0,
+            
+            // Attendance widget
+            presentCount: presentEmployees.size,
+            onLeaveCount: onLeaveEmployees.size,
+            
+            // Vacation widget
+            vacationCount: onLeaveCount,
+            
+            // Posts widget
+            postsCount: posts?.length || 0,
 
-        // Employment Relations widget
-        erDocumentsCount: erDocuments?.length || 0,
-        erPendingCount,
-        erTemplatesCount: erTemplates?.length || 0,
-    }), [
+            // Employment Relations widget
+            erDocumentsCount: erDocuments?.length || 0,
+            erPendingCount,
+            erTemplatesCount: erTemplates?.length || 0,
+        };
+    }, [
         activeProjects,
         overdueTasksCount,
         employees,
@@ -573,6 +604,7 @@ const OrganizationChart = () => {
         erDocuments,
         erPendingCount,
         erTemplates,
+        genderCounts,
     ]);
 
 
@@ -886,7 +918,7 @@ const OrganizationChart = () => {
             <UnassignedEmployeesDialog
                 open={isUnassignedDialogOpen}
                 onOpenChange={setIsUnassignedDialogOpen}
-                employees={employees?.filter(e => !e.positionId && e.status === 'Идэвхтэй') || []}
+                employees={employees?.filter(e => !e.positionId && isActiveStatus(e.status)) || []}
                 onAssign={(emp) => {
                     setSelectedEmployeeForAppointment(emp);
                     setIsAppointDialogOpen(true);

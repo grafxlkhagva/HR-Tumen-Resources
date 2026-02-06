@@ -33,7 +33,7 @@ import {
 import { collection, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { Employee } from '@/types';
+import { Employee, isActiveStatus } from '@/types';
 import { Priority, ProjectStatus } from '@/types/project';
 import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, Users } from 'lucide-react';
 import { useMobileContainer } from '../../hooks/use-mobile-container';
@@ -72,7 +72,7 @@ export default function MobileCreateProjectPage() {
   const { data: employees } = useCollection<Employee>(employeesQuery);
 
   const activeEmployees = React.useMemo(() => {
-    return (employees || []).filter((e) => e.status === 'Идэвхтэй' && e.id);
+    return (employees || []).filter((e) => isActiveStatus(e.status) && e.id);
   }, [employees]);
 
   const form = useForm<ProjectFormValues>({

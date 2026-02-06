@@ -8,6 +8,7 @@ import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBloc
 import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
+import { isActiveStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -96,9 +97,9 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
     "Идэвхтэй бүрдүүлэлт": { variant: 'outline', className: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-50/80 border-indigo-200', label: 'Бүрдүүлэлт' },
     "Томилогдож буй": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Томилогдож буй' },
     "Идэвхтэй": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: 'Идэвхтэй' },
-    "Жирэмсний амралттай": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: 'Жирэмсний амралт' },
-    "Хүүхэд асрах чөлөөтэй": { variant: 'secondary', className: 'bg-purple-50 text-purple-700 hover:bg-purple-50/80 border-purple-200', label: 'Хүүхэд асаргаа' },
-    "Урт хугацааны чөлөөтэй": { variant: 'outline', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Чөлөөтэй' },
+    "Идэвхтэй туршилт": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Туршилт' },
+    "Идэвхтэй үндсэн": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: 'Үндсэн' },
+    "Түр эзгүй": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: 'Түр эзгүй' },
     "Ажлаас гарсан": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: 'Гарсан' },
     "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: 'Түдгэлзсэн' },
 };
@@ -1006,7 +1007,7 @@ export default function EmployeeProfilePage() {
     const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
     const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
-    const isActive = employee.status === 'Идэвхтэй';
+    const isActive = isActiveStatus(employee.status);
 
 
 

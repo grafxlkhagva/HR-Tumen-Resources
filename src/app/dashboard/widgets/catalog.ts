@@ -65,7 +65,7 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
     },
     employees: {
         id: 'employees',
-        label: 'Ажилчид',
+        label: 'Хамт олон',
         description: 'Нийт ажилтнууд',
         href: '/dashboard/employees',
         size: 'normal',

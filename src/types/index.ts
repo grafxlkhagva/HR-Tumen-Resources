@@ -66,7 +66,7 @@ export interface Employee {
     positionId?: string;
     email: string;
     phoneNumber?: string;
-    status: 'Идэвхтэй бүрдүүлэлт' | 'Томилогдож буй' | 'Идэвхтэй' | 'Жирэмсний амралттай' | 'Хүүхэд асрах чөлөөтэй' | 'Урт хугацааны чөлөөтэй' | 'Ажлаас гарсан' | 'Түр түдгэлзүүлсэн';
+    status: 'Идэвхтэй бүрдүүлэлт' | 'Томилогдож буй' | 'Идэвхтэй' | 'Идэвхтэй туршилт' | 'Идэвхтэй үндсэн' | 'Түр эзгүй' | 'Ажлаас гарсан' | 'Түр түдгэлзүүлсэн';
     hireDate: string;
     terminationDate?: string;
     skills?: string[];
@@ -92,7 +92,13 @@ export interface Employee {
     role?: 'admin' | 'employee';
 }
 
-
+/**
+ * "Идэвхтэй" төлөвийн бүх хувилбаруудыг шалгах helper.
+ * Хуучин 'Идэвхтэй', шинэ 'Идэвхтэй туршилт', 'Идэвхтэй үндсэн' бүгдийг хамарна.
+ */
+export function isActiveStatus(status: string | undefined | null): boolean {
+    return status === 'Идэвхтэй' || status === 'Идэвхтэй туршилт' || status === 'Идэвхтэй үндсэн';
+}
 
 export interface AttendanceRecord {
     id: string;

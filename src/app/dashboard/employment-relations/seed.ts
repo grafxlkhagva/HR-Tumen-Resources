@@ -1,6 +1,6 @@
-import { collection, query, where, getDocs, Timestamp, addDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { ERWorkflow, ERDocumentType, ERTemplate } from './types';
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 
 // Using the same firebase instance as the app
 import { initializeFirebase } from '@/firebase';
@@ -123,4 +123,249 @@ ____________________                     {{employee.firstName}}
     }
 
     return true;
+}
+
+
+// ─── System Templates (appointment_probation + appointment_permanent) ────────
+// These templates are auto-created on first load and cannot be deleted by users.
+// Their content IS editable so admins can customise the text.
+
+const SYSTEM_TEMPLATES = [
+    {
+        code: 'SYS_APPOINTMENT_PROBATION',
+        actionId: 'appointment_probation',
+        docTypeName: 'Туршилтын хугацаатай томилох тушаал',
+        docTypeCode: 'SYS_APPT_PROB',
+        docTypePrefix: 'ТТТ',
+        templateName: 'Туршилтын хугацаатай ажилд томилох тухай',
+        templateContent: `ТУШААЛ
+
+Туршилтын хугацаатай ажилд томилох тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалд {{date.probationStart}} өдрөөс {{date.probationEnd}} өдрийг хүртэл туршилтын хугацаагаар томилсугай.
+
+Цалин хөлс: {{salary.total}} төгрөг
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 66 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'probationStartDate', label: 'Туршилтын эхлэх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'probationEndDate', label: 'Туршилтын дуусах огноо', type: 'date' as const, required: true, order: 1 },
+        ],
+    },
+    {
+        code: 'SYS_APPOINTMENT_PERMANENT',
+        actionId: 'appointment_permanent',
+        docTypeName: 'Үндсэн ажилтнаар томилох тушаал',
+        docTypeCode: 'SYS_APPT_PERM',
+        docTypePrefix: 'ҮТТ',
+        templateName: 'Үндсэн ажилтнаар томилох тухай',
+        templateContent: `ТУШААЛ
+
+Үндсэн ажилтнаар томилох тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалд {{date.appointmentDate}} өдрөөс эхлэн үндсэн ажилтнаар томилсугай.
+
+Цалин хөлс: {{salary.total}} төгрөг
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 65 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'appointmentDate', label: 'Томилогдсон огноо', type: 'date' as const, required: true, order: 0 },
+        ],
+    },
+    {
+        code: 'SYS_RELEASE_TEMPORARY',
+        actionId: 'release_temporary',
+        docTypeName: 'Ажилтныг түр чөлөөлөх тушаал',
+        docTypeCode: 'SYS_REL_TEMP',
+        docTypePrefix: 'ТЧТ',
+        templateName: 'Ажилтныг түр чөлөөлөх тухай',
+        templateContent: `ТУШААЛ
+
+Ажилтныг түр чөлөөлөх тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалаас {{date.releaseDate}} өдрөөс эхлэн түр чөлөөлсүгэй.
+
+Шалтгаан: {{text.reason}}
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 78 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'releaseDate', label: 'Түр чөлөөлөх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'reason', label: 'Шалтгаан', type: 'text' as const, required: false, order: 1 },
+        ],
+    },
+    {
+        code: 'SYS_RELEASE_COMPANY',
+        actionId: 'release_company',
+        docTypeName: 'Ажил олгогчийн санаачилгаар чөлөөлөх тушаал',
+        docTypeCode: 'SYS_REL_COMP',
+        docTypePrefix: 'АЧТ',
+        templateName: 'Компанийн санаачилгаар ажлаас чөлөөлөх тухай',
+        templateContent: `ТУШААЛ
+
+Компанийн санаачилгаар ажлаас чөлөөлөх тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалаас {{date.releaseDate}} өдрөөс эхлэн ажил олгогчийн санаачилгаар чөлөөлсүгэй.
+
+Шалтгаан: {{text.reason}}
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 80 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'releaseDate', label: 'Ажлаас чөлөөлөх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'reason', label: 'Шалтгаан', type: 'text' as const, required: false, order: 1 },
+        ],
+    },
+    {
+        code: 'SYS_RELEASE_EMPLOYEE',
+        actionId: 'release_employee',
+        docTypeName: 'Ажилтны санаачилгаар чөлөөлөх тушаал',
+        docTypeCode: 'SYS_REL_EMP',
+        docTypePrefix: 'ХЧТ',
+        templateName: 'Ажилтны хүсэлтээр ажлаас чөлөөлөх тухай',
+        templateContent: `ТУШААЛ
+
+Ажилтны хүсэлтээр ажлаас чөлөөлөх тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалаас {{date.releaseDate}} өдрөөс эхлэн ажилтны хүсэлтээр чөлөөлсүгэй.
+
+Шалтгаан: {{text.reason}}
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 79 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'releaseDate', label: 'Ажлаас чөлөөлөх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'reason', label: 'Шалтгаан', type: 'text' as const, required: false, order: 1 },
+        ],
+    },
+];
+
+/**
+ * Ensures the system templates (appointment + release) exist.
+ * Safe to call multiple times – only creates if missing.
+ * Also links the created templates to organization_actions if not yet configured.
+ */
+export async function ensureSystemTemplates() {
+    const { firestore } = initializeFirebase();
+    if (!firestore) throw new Error('Firestore not initialized');
+
+    // First, ensure a default workflow exists (reuse if any exists)
+    const wfSnap = await getDocs(query(collection(firestore, 'er_workflows'), where('isActive', '==', true)));
+    let defaultWorkflowId = '';
+    if (!wfSnap.empty) {
+        defaultWorkflowId = wfSnap.docs[0].id;
+    } else {
+        // Create a minimal workflow
+        const wfRef = await addDoc(collection(firestore, 'er_workflows'), {
+            name: 'Томилгоо батлах',
+            description: 'Томилгооны баримт батлах урсгал',
+            steps: [
+                { id: crypto.randomUUID(), name: 'Хүний нөөц хянах', approverRole: 'HR_MANAGER', actionType: 'REVIEW', order: 0 },
+                { id: crypto.randomUUID(), name: 'Захирал батлах', approverRole: 'DIRECTOR', actionType: 'APPROVE', order: 1 },
+                { id: crypto.randomUUID(), name: 'Гарын үсэг зурах', approverRole: 'EMPLOYEE', actionType: 'SIGN', order: 2 },
+            ],
+            isActive: true,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+        });
+        defaultWorkflowId = wfRef.id;
+    }
+
+    for (const sys of SYSTEM_TEMPLATES) {
+        // 1. Check if template with this code already exists
+        const tmplSnap = await getDocs(
+            query(collection(firestore, 'er_templates'), where('isSystem', '==', true), where('name', '==', sys.templateName))
+        );
+        if (!tmplSnap.empty) {
+            console.log(`System template "${sys.templateName}" already exists`);
+            // Still ensure organization_action is linked
+            await linkOrgAction(firestore, sys.actionId, tmplSnap.docs[0].id);
+            continue;
+        }
+
+        // 2. Ensure document type exists
+        const dtSnap = await getDocs(
+            query(collection(firestore, 'er_process_document_types'), where('code', '==', sys.docTypeCode))
+        );
+        let docTypeId = '';
+        if (!dtSnap.empty) {
+            docTypeId = dtSnap.docs[0].id;
+        } else {
+            const dtRef = await addDoc(collection(firestore, 'er_process_document_types'), {
+                name: sys.docTypeName,
+                code: sys.docTypeCode,
+                prefix: sys.docTypePrefix,
+                description: sys.docTypeName,
+                workflowId: defaultWorkflowId,
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
+            });
+            docTypeId = dtRef.id;
+        }
+
+        // 3. Create the system template
+        const tmplRef = await addDoc(collection(firestore, 'er_templates'), {
+            name: sys.templateName,
+            documentTypeId: docTypeId,
+            content: sys.templateContent,
+            requiredFields: [],
+            version: 1,
+            isActive: true,
+            isDeletable: false,
+            isSystem: true,
+            customInputs: sys.customInputs,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+        });
+
+        console.log(`System template "${sys.templateName}" created (${tmplRef.id})`);
+
+        // 4. Link to organization_action if not yet configured
+        await linkOrgAction(firestore, sys.actionId, tmplRef.id);
+    }
+
+    return true;
+}
+
+/** Link a system template to an organization_action (only if not already configured) */
+async function linkOrgAction(firestore: any, actionId: string, templateId: string) {
+    const ACTION_NAMES: Record<string, string> = {
+        'appointment_probation': 'Туршилтын хугацаатай томилох',
+        'appointment_permanent': 'Үндсэн ажилтнаар томилох',
+        'release_temporary': 'Ажилтныг түр чөлөөлөх',
+        'release_company': 'Компанийн санаачилгаар чөлөөлөх',
+        'release_employee': 'Ажилтны хүсэлтээр чөлөөлөх',
+    };
+    const actionRef = doc(firestore, 'organization_actions', actionId);
+    const actionSnap = await getDoc(actionRef);
+    if (!actionSnap.exists() || !actionSnap.data()?.templateId) {
+        await setDoc(actionRef, {
+            templateId,
+            name: ACTION_NAMES[actionId] || actionId,
+            updatedAt: Timestamp.now(),
+        }, { merge: true });
+        console.log(`Linked organization_action "${actionId}" → template ${templateId}`);
+    }
 }

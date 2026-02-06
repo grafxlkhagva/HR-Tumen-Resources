@@ -77,6 +77,8 @@ export interface ERTemplate {
     version: number;
     isActive: boolean;
     isDeletable?: boolean;
+    /** Системийн загвар (устгаж, нэрийг өөрчилж болохгүй, агуулгыг засаж болно) */
+    isSystem?: boolean;
     includeHeader?: boolean;     // Толгой хэсэг оруулах эсэх
     printSettings?: PrintSettings;
     customInputs?: {

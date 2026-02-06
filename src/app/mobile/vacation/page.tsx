@@ -55,7 +55,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentWorkYear } from '@/lib/vacation-utils';
 import { VacationRequest } from '@/types/vacation';
-import { Employee, Position } from '@/types';
+import { Employee, Position, isActiveStatus } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -232,7 +232,7 @@ export default function MobileVacationPage() {
             emp.role === 'admin' || (!!emp.positionId && approverPosIds.includes(emp.positionId));
 
         return allEmployees
-            .filter(emp => emp.status === 'Идэвхтэй')
+            .filter(emp => isActiveStatus(emp.status))
             .filter(emp => !isMe(emp))
             .filter(hasVacApproveRole);
     }, [allEmployees, approverPosIds, employeeProfile?.id]);

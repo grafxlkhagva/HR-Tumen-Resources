@@ -17,6 +17,9 @@ export interface ParsedCVData {
   facebook?: string;
   instagram?: string;
   
+  // Family / Marital
+  maritalStatus?: string;
+  
   // Education
   education?: Array<{
     country?: string;
@@ -26,6 +29,7 @@ export interface ParsedCVData {
     entryDate?: string;
     gradDate?: string;
     diplomaNumber?: string;
+    isCurrent?: boolean;
   }>;
   
   // Languages
@@ -64,142 +68,231 @@ export interface ParsedCVData {
   driverLicenseCategories?: string[];
 }
 
-const CV_SYSTEM_PROMPT = `Та Монгол улсын HR мэргэжилтний туслах AI юм. Монгол хэл, соёл, нэр, регистрийн дугаарын форматыг сайн мэднэ.
+const CV_SYSTEM_PROMPT = `Та Монгол улсын HR системийн CV/Анкет задлагч AI юм. Монгол хэл, нэр, регистрийн дугаарын формат, Монголын боловсролын систем, ажлын зах зээлийг маш сайн мэднэ.
 
-Монгол хүний нэрний онцлог:
-- Овог: Бат, Дорж, Болд, Ган, Сүх гэх мэт
-- Нэр: Түвшинбаяр, Энхжаргал, Номин, Бат-Эрдэнэ гэх мэт
-- Зарим нэр нь "-" тэмдэгтэй холбогдсон байдаг
+=== МОНГОЛЫН НИЙТЛЭГ CV ЗАГВАРЫН БҮТЭЦ ===
+Монголд хамгийн түгээмэл CV загвар нь дараах бүтэцтэй байдаг:
 
-Регистрийн дугаар: 
-- Формат: 2 үсэг + 8 тоо (жишээ: УА88010123, ТА99050512)
-- Эхний 2 үсэг нь аймаг/хотын код
-- Дараагийн 2 тоо нь төрсөн он (жишээ: 88 = 1988)
-- Дараагийн 2 тоо нь төрсөн сар
-- Сүүлийн 4 тоо нь дугаар
+1. ТОЛГОЙ ХЭСЭГ:
+   - Овог Нэр (жишээ: "Билэгсайхан Баярцэцэг")
+   - Мэргэжлийн чиглэл (жишээ: "Хүний нөөцийн менежмент")  
+   - Утасны дугаар (жишээ: "88054099")
+   - И-мэйл (жишээ: "lt.tseegii@gmail.com")
+   - Хаяг (жишээ: "Баянзүрх дүүрэг")
+   - Англи нэр (жишээ: "bilegsaikhan bayartsetseg")
+   - Зорилго/Товч танилцуулга
 
-ТТД (Татвар төлөгчийн дугаар): Ихэвчлэн регистрийн дугаартай адил байдаг.
+2. ЕРӨНХИЙ МЭДЭЭЛЭЛ:
+   - "Төрсөн огноо: YYYY-MM-DD" формат
+   - "Хүйс: Эрэгтэй/Эмэгтэй"
+   - "Гэрлэлтийн байдал: Гэрлэсэн/Гэрлээгүй/Салсан/Бэлэвсэн"
+   - "Регистрийн дугаар: XX00000000"
+   - "Жолооны үнэмлэх: B" эсвэл "Жолооны үнэмлэх: B, C"
 
-Хүйс тодорхойлох: Регистрийн сүүлийн тоо тэгш бол эрэгтэй, сондгой бол эмэгтэй.
+3. АЖЛЫН ТУРШЛАГА:
+   Компани бүрт:
+   - Компанийн нэр (жишээ: "Жүр Үр ХХК")
+   - "• Албан тушаал ХУГАЦАА / YYYY-MM-DD - YYYY-MM-DD"
+   - Хэрэв зүүн тийш "-" тэмдэгтэй дуусвал одоо ажиллаж байна гэсэн үг
+   - Жишээ: "2017-06-01 -" = одоо ажиллаж байна (isCurrent: true)
 
-Боловсролын зэрэг:
-- Бакалавр, Магистр, Доктор (PhD), Диплом, Мэргэжлийн сертификат
+4. БОЛОВСРОЛ:
+   Сургууль бүрт:
+   - Сургуулийн бүтэн нэр (жишээ: "Шинжлэх Ухаан Технологийн Их Сургууль")
+   - "YYYY - YYYY" огноо
+   - "Зэрэг | Мэргэжил | Голч | Улс"
+   - Жишээ: "Магистр | Хүний нөөцийн менежмент | 3.6 голч | Монгол"
 
-Хэлний түвшин:
-- Анхан шат, Дунд шат, Ахисан шат, Мэргэжлийн түвшин
+5. СУРГАЛТ, СЕРТИФИКАТ:
+   Сургалт бүрт:
+   - Сургалтын нэр
+   - "YYYY - YYYY" огноо
+   - Зохион байгуулсан байгууллага
 
-Ажлын төрөл:
-- Үндсэн, Гэрээт, Цагийн, Хагас цагийн, Гэрээсээ`;
+6. УР ЧАДВАР:
+   - Хувийн ур чадвар
+   - Компьютерын мэдлэг
+   - Мэргэжлийн ур чадвар
+
+=== МОНГОЛ ХҮНИЙ НЭРНИЙ ДҮРЭМ ===
+- CV-ийн хамгийн дээд хэсэгт "Овог Нэр" форматаар бичигддэг
+- Эхний үг нь ОВОГ, хоёр дахь үг нь НЭР
+- Жишээ: "Билэгсайхан Баярцэцэг" → овог: "Билэгсайхан", нэр: "Баярцэцэг"
+- Жишээ: "Батболд Тэмүүлэн" → овог: "Батболд", нэр: "Тэмүүлэн"
+- Зарим нэр нь "-" тэмдэгтэй (жишээ: "Бат-Эрдэнэ")
+- АНГЛИ нэрээр бас тодорхойлж болно: "bilegsaikhan bayartsetseg" → овог: Билэгсайхан
+
+=== РЕГИСТРИЙН ДУГААР ===
+- Формат: 2 кирилл үсэг + 8 тоо (жишээ: ШГ85030868, УА88010123, ТА99050512)
+- Эхний 2 үсэг: аймаг/хотын код
+- Дараагийн 2 тоо: төрсөн оны сүүлийн 2 оронтой тоо (85 = 1985)
+- Дараагийн 2 тоо: төрсөн сар (03 = 3-р сар)
+- Сүүлийн 4 тоо: дугаар
+- Регистрийн СҮҮЛИЙН ТОО тэгш бол → ЭМЭГТЭЙ, сондгой бол → ЭРЭГТЭЙ
+- ТТД (Татвар төлөгчийн дугаар) нь регистрийн дугаартай ижил байдаг
+
+=== МОНГОЛЫН ИХ ДЭЭД СУРГУУЛИУДЫН НЭР ===
+CV-д бүтэн нэрээр бичигдсэн сургуулиудын товчлол:
+- "Шинжлэх Ухаан Технологийн Их Сургууль" → "Шинжлэх Ухаан Технологийн Их Сургууль"
+- "Монгол Улсын Их Сургууль" → "Монгол Улсын Их Сургууль"
+- "Хөдөө Аж Ахуйн Их Сургууль" → "Хөдөө Аж Ахуйн Их Сургууль"
+- "Монгол Улсын Боловсролын Их Сургууль" → "Монгол Улсын Боловсролын Их Сургууль"
+- Товчлол хэрэглэхгүй, CV-д яг бичигдсэн нэрийг ашигла
+- "Нийслэлийн Ерөнхий Боловсролын 34-р Сургууль" гэх мэт бага дунд сургууль бас байж болно
+
+=== ХЭЛНИЙ ТҮВШИН ===
+Манай системд хэлний түвшинг ЗААВАЛ дараах 4 утгын аль нэгээр бичнэ:
+- "Анхан" (beginner)
+- "Дунд" (intermediate)
+- "Ахисан" (advanced)
+- "Мэргэжлийн" (professional/native)
+АНХААРУУЛГА: "Анхан шат", "Дунд шат" гэж БИЧИХГҮЙ. Зөвхөн "Анхан", "Дунд", "Ахисан", "Мэргэжлийн" гэж бичнэ.
+
+=== ГЭРЛЭЛТИЙН БАЙДАЛ ===
+Манай системд ЗААВАЛ дараах 4 утгын аль нэгээр бичнэ:
+- "Гэрлээгүй"
+- "Гэрлэсэн"
+- "Салсан"
+- "Бэлэвсэн"`;
 
 const CV_EXTRACT_PROMPT = `
-CV/Анкет документаас дараах мэдээллийг задлан гарга. ЗӨВХӨН баримтад тодорхой харагдаж байгаа мэдээллийг л гарга.
+CV/Анкет документаас дараах БҮХИЙ Л мэдээллийг нарийвчлан задлан гарга. ЗӨВХӨН баримтад тодорхой харагдаж байгаа мэдээллийг л гарга.
 
-ЧУХАЛ ДҮРМҮҮД:
-1. Огноо YYYY-MM-DD форматтай байна (жишээ: 1990-05-15)
-2. Хүйс "male" эсвэл "female" 
-3. Хэлний түвшин: "Анхан шат", "Дунд шат", "Ахисан шат", "Мэргэжлийн түвшин"
-4. Мэдээлэл олдохгүй бол тэр талбарыг бүрэн орхи
-5. ЗӨВХӨН JSON буцаа, тайлбар бичих хэрэггүй
+=== ЧУХАЛ ДҮРМҮҮД ===
+1. Огноо YYYY-MM-DD форматтай байна (жишээ: 1990-05-15). Хэрэв зөвхөн жил байвал YYYY-01-01.
+2. Хүйс "male" эсвэл "female". Регистрийн сүүлийн тоо тэгш → "female", сондгой → "male".
+3. Хэлний түвшин ЗААВАЛ: "Анхан", "Дунд", "Ахисан", "Мэргэжлийн" гэсэн 4 утгын аль нэг байна. "шат", "түвшин" гэж НЭМЭХГҮЙ!
+4. Гэрлэлтийн байдал ЗААВАЛ: "Гэрлээгүй", "Гэрлэсэн", "Салсан", "Бэлэвсэн" гэсэн 4 утгын аль нэг.
+5. Мэдээлэл олдохгүй бол тэр талбарыг JSON-д бүрэн оруулахгүй (null, "", бичихгүй).
+6. ЗӨВХӨН JSON буцаа, тайлбар бичих хэрэггүй.
+7. CV-ийн хамгийн дээр байгаа нэрний ЭХНИЙ ҮГ нь ОВОГ, ХОЁР ДАХЬ ҮГ нь НЭР.
+
+=== ЗАДЛАХ ТАЛБАРУУД ===
 
 ХУВИЙН МЭДЭЭЛЭЛ:
-- lastName: Овог (жишээ: "Батболд")
-- firstName: Нэр (жишээ: "Энхжаргал")  
-- registrationNumber: Регистрийн дугаар (формат: XX00000000, жишээ: "УА90051234")
-- birthDate: Төрсөн огноо (YYYY-MM-DD)
-- gender: Хүйс ("male"/"female")
-- idCardNumber: ТТД эсвэл иргэний үнэмлэхний дугаар
+- lastName: Овог (CV-ийн толгой хэсгийн эхний үг)
+- firstName: Нэр (CV-ийн толгой хэсгийн хоёр дахь үг)
+- registrationNumber: Регистрийн дугаар (XX00000000 формат, кирилл 2 үсэг + 8 тоо)
+- birthDate: Төрсөн огноо (YYYY-MM-DD). Регистрээс тодорхойлж болно: XX850308xx → 1985-03-08
+- gender: "male" эсвэл "female". CV-д "Эрэгтэй" → "male", "Эмэгтэй" → "female". Эсвэл регистрийн сүүлийн тоо тэгш → "female", сондгой → "male"
+- idCardNumber: ТТД (Татвар төлөгчийн дугаар). Ихэвчлэн регистрийн дугаартай ижил
 
 ХОЛБОО БАРИХ:
-- personalPhone: Утасны дугаар (жишээ: "99001122", "8800-1234")
+- personalPhone: Утасны дугаар (зөвхөн цифрүүд, жишээ: "88054099")
 - personalEmail: И-мэйл хаяг
-- homeAddress: Гэрийн хаяг
+- homeAddress: Хаяг (дүүрэг, хороо гэх мэт)
 
-БОЛОВСРОЛ (education массив):
-Сургууль бүрт:
-- country: Улс (жишээ: "Монгол", "БНСУ", "АНУ")
-- school: Сургуулийн нэр (жишээ: "МУИС", "ШУТИС", "Отгонтэнгэр их сургууль")
-- degree: Мэргэжил (жишээ: "Мэдээллийн технологи", "Санхүү", "Эдийн засаг")
-- academicRank: Зэрэг (жишээ: "Бакалавр", "Магистр", "Доктор")
-- entryDate: Элссэн огноо (YYYY-MM-DD эсвэл YYYY)
-- gradDate: Төгссөн огноо (YYYY-MM-DD эсвэл YYYY)
-- diplomaNumber: Дипломын дугаар
+ГЭРЛЭЛТИЙН БАЙДАЛ:
+- maritalStatus: "Гэрлээгүй" | "Гэрлэсэн" | "Салсан" | "Бэлэвсэн"
 
-ГАДААД ХЭЛ (languages массив):
-Хэл бүрт:
-- language: Хэлний нэр (жишээ: "Англи хэл", "Орос хэл", "Хятад хэл", "Солонгос хэл", "Япон хэл")
-- listening: Сонсох чадвар (жишээ: "Ахисан шат")
-- reading: Унших чадвар
-- speaking: Ярих чадвар  
-- writing: Бичих чадвар
+БОЛОВСРОЛ (education массив) - Сургууль бүрт:
+- country: Улс (Монгол дотоодын сургууль бол "Монгол")
+- school: Сургуулийн нэр (CV-д яг бичигдсэн нэр, жишээ: "Шинжлэх Ухаан Технологийн Их Сургууль")
+- degree: Мэргэжил (жишээ: "Хүний нөөцийн менежмент", "Инженер эдийн засаг")
+- academicRank: Зэрэг ("Бакалавр", "Магистр", "Доктор", "Тусгай дунд")
+- entryDate: Элссэн огноо (YYYY-01-01)
+- gradDate: Төгссөн огноо (YYYY-01-01)
+- isCurrent: Одоо сурч байгаа эсэх (boolean)
+- diplomaNumber: Дипломын дугаар (хэрэв байвал)
+
+ЧУХАЛ: Ерөнхий боловсролын сургууль (бага, дунд сургууль) бас БОЛОВСРОЛД оруулна!
+  - academicRank: "Тусгай дунд" эсвэл "Ерөнхий боловсрол"
+  - degree: "Ерөнхий боловсрол"
+
+ГАДААД ХЭЛ (languages массив) - Хэл бүрт:
+- language: Хэлний нэр ("Англи хэл", "Орос хэл", "Хятад хэл", "Солонгос хэл", "Япон хэл")
+- listening: Сонсох чадвар ("Анхан" | "Дунд" | "Ахисан" | "Мэргэжлийн")
+- reading: Унших чадвар ("Анхан" | "Дунд" | "Ахисан" | "Мэргэжлийн")
+- speaking: Ярих чадвар ("Анхан" | "Дунд" | "Ахисан" | "Мэргэжлийн")
+- writing: Бичих чадвар ("Анхан" | "Дунд" | "Ахисан" | "Мэргэжлийн")
 - testScore: Шалгалтын оноо (жишээ: "IELTS 6.5", "TOEFL 90", "TOPIK 4")
 
-СУРГАЛТ/ГЭРЧИЛГЭЭ (trainings массив):
-Сургалт бүрт:
-- name: Сургалтын нэр
-- trainingType: Төрөл (жишээ: "Мэргэжил дээшлүүлэх", "Сертификат", "Онлайн курс")
-- organization: Зохион байгуулсан байгууллага
-- startDate: Эхэлсэн огноо
-- endDate: Дууссан огноо
-- certificateNumber: Гэрчилгээний дугаар
+АНХААР: CV-д хэлний мэдлэг тусад нь бичигдээгүй ч "Ур чадвар" хэсэгт компьютерын мэдлэгтэй хамт байж болно. Хэлний мэдлэг олдохгүй бол languages массив бүрэн орхи.
 
-АЖЛЫН ТУРШЛАГА (experiences массив):
-Ажил бүрт:
-- company: Байгууллагын нэр (жишээ: "Голомт банк", "МКС групп", "Монгол Телеком")
-- position: Албан тушаал (жишээ: "Программист", "Менежер", "Ня-бо")
-- startDate: Ажилд орсон огноо
-- endDate: Гарсан огноо (одоо ажиллаж байвал хоосон орхи)
-- employmentType: Ажлын төрөл ("Үндсэн", "Гэрээт", "Цагийн")
-- description: Хариуцсан ажил, гүйцэтгэсэн үүрэг
-- isCurrent: Одоо ажиллаж байгаа эсэх (true/false)
+СУРГАЛТ/ГЭРЧИЛГЭЭ (trainings массив) - Сургалт бүрт:
+- name: Сургалтын нэр (жишээ: "Хүний нөөцийн практик дадлага олгох сургалт")
+- organization: Зохион байгуулсан байгууллага (жишээ: "Хүний нөөцийн удирдлага шинэчлэлийн академи")
+- startDate: Эхэлсэн огноо (YYYY-01-01)
+- endDate: Дууссан огноо (YYYY-01-01)
+- certificateNumber: Гэрчилгээний дугаар (хэрэв байвал)
+
+АЖЛЫН ТУРШЛАГА (experiences массив) - ХАМГИЙН ЧУХАЛ ХЭСЭГ! Ажил бүрт:
+- company: Компанийн нэр (ХХК, ТББ гэх мэт хуулийн хэлбэрийг хадгална. Жишээ: "Жүр Үр ХХК")
+- position: Албан тушаал (жишээ: "Хүний хөгжлийн хэлтсийн захирал")
+- startDate: Ажилд орсон огноо (YYYY-MM-DD)
+- endDate: Гарсан огноо (YYYY-MM-DD). ЧУХАЛ: Хэрэв огноо "-" тэмдэгтэй дуусвал эсвэл endDate байхгүй бол ХООСОН ОРХИ - энэ нь одоо ажиллаж байна гэсэн үг
+- isCurrent: Одоо ажиллаж байгаа эсэх. endDate байхгүй эсвэл "-" тэмдэгтэй дуусвал true. Жишээ: "2017-06-01 -" → isCurrent: true
+- description: Ажлын тодорхойлолт (хэрэв байвал)
+
+ЧУХАЛ: Ажлын туршлагыг CV-д бичигдсэн ДАРААЛЛААР нь оруулна (хамгийн сүүлийн ажил эхэнд).
 
 ЖОЛООНЫ ҮНЭМЛЭХ:
 - hasDriversLicense: Жолооны үнэмлэхтэй эсэх (true/false)
-- driverLicenseCategories: Ангилал (жишээ: ["B", "C"])
+- driverLicenseCategories: Ангилал массив (жишээ: ["B"], ["B", "C"])
 
-ЖИШЭЭ ХАРИУ:
+=== ЖИШЭЭ: БОДИТ CV ЗАДЛАЛТ ===
+
+Оролт:
+"Билэгсайхан Баярцэцэг
+Хүний нөөцийн менежмент
+88054099
+lt.tseegii@gmail.com
+Баянзүрх дүүрэг
+...
+Төрсөн огноо: 1985-03-08 Хүйс: Эмэгтэй Гэрлэлтийн байдал: Гэрлэсэн
+Регистрийн дугаар: ШГ85030868 Жолооны үнэмлэх: B
+...
+Жүр Үр ХХК
+• Хүний хөгжлийн хэлтсийн захирал 2017-06-01 -
+Таван богд Менежмент ХХК
+• Хүний нөөцийн мэргэжилтэн 5 сар / 2016-08-01 - 2017-01-01
+...
+Шинжлэх Ухаан Технологийн Их Сургууль 2012 - 2015
+Магистр | Хүний нөөцийн менежмент | 3.6 голч | Монгол"
+
+Гаралт:
 {
-  "lastName": "Батболд",
-  "firstName": "Энхжаргал",
-  "registrationNumber": "УА90051234",
-  "birthDate": "1990-05-12",
+  "lastName": "Билэгсайхан",
+  "firstName": "Баярцэцэг",
+  "registrationNumber": "ШГ85030868",
+  "birthDate": "1985-03-08",
   "gender": "female",
-  "personalPhone": "99001122",
-  "personalEmail": "enkhjargal@email.com",
+  "idCardNumber": "ШГ85030868",
+  "personalPhone": "88054099",
+  "personalEmail": "lt.tseegii@gmail.com",
+  "homeAddress": "Баянзүрх дүүрэг",
+  "maritalStatus": "Гэрлэсэн",
   "education": [
     {
       "country": "Монгол",
-      "school": "МУИС",
-      "degree": "Мэдээллийн технологи",
-      "academicRank": "Бакалавр",
-      "entryDate": "2008-09-01",
-      "gradDate": "2012-06-15"
-    }
-  ],
-  "languages": [
-    {
-      "language": "Англи хэл",
-      "listening": "Ахисан шат",
-      "reading": "Ахисан шат",
-      "speaking": "Дунд шат",
-      "writing": "Дунд шат",
-      "testScore": "IELTS 6.0"
+      "school": "Шинжлэх Ухаан Технологийн Их Сургууль",
+      "degree": "Хүний нөөцийн менежмент",
+      "academicRank": "Магистр",
+      "entryDate": "2012-01-01",
+      "gradDate": "2015-01-01",
+      "isCurrent": false
     }
   ],
   "experiences": [
     {
-      "company": "Голомт банк",
-      "position": "Программист",
-      "startDate": "2015-03-01",
-      "employmentType": "Үндсэн",
-      "description": "Банкны дотоод систем хөгжүүлэлт",
+      "company": "Жүр Үр ХХК",
+      "position": "Хүний хөгжлийн хэлтсийн захирал",
+      "startDate": "2017-06-01",
       "isCurrent": true
+    },
+    {
+      "company": "Таван богд Менежмент ХХК",
+      "position": "Хүний нөөцийн мэргэжилтэн",
+      "startDate": "2016-08-01",
+      "endDate": "2017-01-01",
+      "isCurrent": false
     }
   ],
   "hasDriversLicense": true,
   "driverLicenseCategories": ["B"]
 }
 
-ОДОО ДЭЭРХ CV ДОКУМЕНТААС МЭДЭЭЛЭЛ ЗАДЛАН JSON БУЦАА:`;
+=== ОДОО ДЭЭРХ CV ДОКУМЕНТААС МЭДЭЭЛЭЛ ЗАДЛАН JSON БУЦАА ===`;
 
 function cleanJsonResponse(raw: string): string {
   let str = raw.trim();
@@ -219,6 +312,63 @@ function cleanJsonResponse(raw: string): string {
   return str.trim();
 }
 
+// Normalize language proficiency level to match form values exactly
+function normalizeProficiency(level: string | undefined): string | undefined {
+  if (!level) return undefined;
+  const normalized = level.trim();
+  
+  // Map common variations to exact system values
+  const map: Record<string, string> = {
+    'анхан шат': 'Анхан',
+    'анхан': 'Анхан',
+    'дунд шат': 'Дунд',
+    'дунд': 'Дунд',
+    'ахисан шат': 'Ахисан',
+    'ахисан': 'Ахисан',
+    'мэргэжлийн түвшин': 'Мэргэжлийн',
+    'мэргэжлийн': 'Мэргэжлийн',
+    'beginner': 'Анхан',
+    'elementary': 'Анхан',
+    'intermediate': 'Дунд',
+    'upper intermediate': 'Ахисан',
+    'advanced': 'Ахисан',
+    'proficient': 'Мэргэжлийн',
+    'professional': 'Мэргэжлийн',
+    'native': 'Мэргэжлийн',
+    'fluent': 'Мэргэжлийн',
+  };
+  
+  const key = normalized.toLowerCase();
+  return map[key] || normalized;
+}
+
+// Normalize marital status to match exact form enum values
+function normalizeMaritalStatus(status: string | undefined): string | undefined {
+  if (!status) return undefined;
+  const normalized = status.trim();
+  
+  const map: Record<string, string> = {
+    'гэрлээгүй': 'Гэрлээгүй',
+    'гэрлэсэн': 'Гэрлэсэн',
+    'салсан': 'Салсан',
+    'бэлэвсэн': 'Бэлэвсэн',
+    'single': 'Гэрлээгүй',
+    'married': 'Гэрлэсэн',
+    'divorced': 'Салсан',
+    'widowed': 'Бэлэвсэн',
+  };
+  
+  const key = normalized.toLowerCase();
+  const result = map[key];
+  
+  // Only return valid values that match the schema enum
+  const validValues = ['Гэрлээгүй', 'Гэрлэсэн', 'Салсан', 'Бэлэвсэн'];
+  if (result && validValues.includes(result)) return result;
+  if (validValues.includes(normalized)) return normalized;
+  
+  return undefined;
+}
+
 function parseJsonResponse(raw: string): ParsedCVData {
   const cleaned = cleanJsonResponse(raw);
   
@@ -230,12 +380,29 @@ function parseJsonResponse(raw: string): ParsedCVData {
       parsed.birthDate = normalizeDate(parsed.birthDate);
     }
     
-    // Normalize education dates
+    // Normalize marital status
+    if (parsed.maritalStatus) {
+      parsed.maritalStatus = normalizeMaritalStatus(parsed.maritalStatus);
+    }
+    
+    // Normalize education dates and fields
     if (parsed.education) {
       parsed.education = parsed.education.map(edu => ({
         ...edu,
         entryDate: edu.entryDate ? normalizeDate(edu.entryDate) : undefined,
         gradDate: edu.gradDate ? normalizeDate(edu.gradDate) : undefined,
+        country: edu.country || 'Монгол', // Default to Mongolia if not specified
+      }));
+    }
+    
+    // Normalize language proficiency levels
+    if (parsed.languages) {
+      parsed.languages = parsed.languages.map(lang => ({
+        ...lang,
+        listening: normalizeProficiency(lang.listening),
+        reading: normalizeProficiency(lang.reading),
+        speaking: normalizeProficiency(lang.speaking),
+        writing: normalizeProficiency(lang.writing),
       }));
     }
     
@@ -248,18 +415,41 @@ function parseJsonResponse(raw: string): ParsedCVData {
       }));
     }
     
-    // Normalize experience dates
+    // Normalize experience dates and isCurrent
     if (parsed.experiences) {
       parsed.experiences = parsed.experiences.map(exp => ({
         ...exp,
         startDate: exp.startDate ? normalizeDate(exp.startDate) : undefined,
         endDate: exp.endDate ? normalizeDate(exp.endDate) : undefined,
+        // If no endDate and isCurrent is not explicitly false, assume currently working
+        isCurrent: exp.isCurrent === true || (!exp.endDate && exp.isCurrent !== false),
       }));
     }
     
     // Normalize phone numbers
     if (parsed.personalPhone) {
       parsed.personalPhone = normalizePhone(parsed.personalPhone);
+    }
+    
+    // If gender not detected, try to infer from registration number
+    if (!parsed.gender && parsed.registrationNumber) {
+      const regNum = parsed.registrationNumber.replace(/[^0-9]/g, '');
+      if (regNum.length >= 1) {
+        const lastDigit = parseInt(regNum[regNum.length - 1], 10);
+        parsed.gender = lastDigit % 2 === 0 ? 'female' : 'male';
+      }
+    }
+    
+    // If birthDate not detected, try to infer from registration number
+    if (!parsed.birthDate && parsed.registrationNumber) {
+      const match = parsed.registrationNumber.match(/[А-Яа-яЁёҮүӨө]{2}(\d{2})(\d{2})(\d{2})\d{2}/);
+      if (match) {
+        const year = parseInt(match[1], 10);
+        const month = match[2];
+        const day = match[3];
+        const fullYear = year > 30 ? 1900 + year : 2000 + year;
+        parsed.birthDate = `${fullYear}-${month}-${day}`;
+      }
     }
     
     return parsed;

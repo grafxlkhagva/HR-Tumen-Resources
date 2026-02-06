@@ -19,6 +19,10 @@ export interface WidgetData {
     
     // Employees widget
     employeesCount?: number;
+    permanentCount?: number;
+    probationCount?: number;
+    maleCount?: number;
+    femaleCount?: number;
 
     // Structure widget
     departmentsCount?: number;
@@ -98,13 +102,70 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'employees':
+            case 'employees': {
+                const total = data.employeesCount ?? 0;
+                const permanent = data.permanentCount ?? 0;
+                const probation = data.probationCount ?? 0;
+                const male = data.maleCount ?? 0;
+                const female = data.femaleCount ?? 0;
+                const permPct = total > 0 ? Math.round((permanent / total) * 100) : 0;
+                const probPct = total > 0 ? Math.round((probation / total) * 100) : 0;
+                const genderTotal = male + female;
+                const malePct = genderTotal > 0 ? Math.round((male / genderTotal) * 100) : 0;
+                const femalePct = genderTotal > 0 ? 100 - malePct : 0;
                 return (
-                    <div>
-                        <div className="text-3xl sm:text-4xl font-semibold text-white mb-1">{data.employeesCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">нийт ажилтан</div>
+                    <div className="space-y-2.5">
+                        {/* Total */}
+                        <div className="flex items-end gap-2">
+                            <div className="text-3xl sm:text-4xl font-semibold text-white leading-none">{total}</div>
+                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide pb-0.5">Нийт</div>
+                        </div>
+
+                        {/* Permanent / Probation — graphical donut-style bar */}
+                        <div className="flex items-center gap-3">
+                            {/* Mini stacked bar */}
+                            <div className="flex-1 space-y-1">
+                                <div className="flex h-2 rounded-full overflow-hidden bg-slate-700/50">
+                                    {permanent > 0 && <div className="bg-emerald-400 transition-all" style={{ width: `${permPct}%` }} />}
+                                    {probation > 0 && <div className="bg-amber-400 transition-all" style={{ width: `${probPct}%` }} />}
+                                </div>
+                                <div className="flex justify-between text-[9px] text-slate-500">
+                                    <span className="flex items-center gap-1">
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                        Үндсэн {permanent}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                        Туршилт {probation}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Gender ratio */}
+                        {genderTotal > 0 && (
+                            <div className="pt-1.5 border-t border-slate-700/60">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="flex h-2 flex-1 rounded-full overflow-hidden bg-slate-700/50">
+                                        {male > 0 && <div className="bg-blue-400 transition-all" style={{ width: `${malePct}%` }} />}
+                                        {female > 0 && <div className="bg-pink-400 transition-all" style={{ width: `${femalePct}%` }} />}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between text-[9px] text-slate-500">
+                                    <span className="flex items-center gap-1">
+                                        <svg viewBox="0 0 24 24" className="w-3 h-3 text-blue-400" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+                                        {malePct}% ({male})
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <svg viewBox="0 0 24 24" className="w-3 h-3 text-pink-400" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+                                        {femalePct}% ({female})
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
+            }
 
             case 'structure':
                 return (

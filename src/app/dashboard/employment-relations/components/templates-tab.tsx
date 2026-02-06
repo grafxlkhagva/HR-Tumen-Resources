@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { ERTemplate, ERDocumentType } from '../types';
@@ -11,10 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, FileCode, Pencil, Trash2, Copy, Settings } from 'lucide-react';
+import { Search, FileCode, Pencil, Trash2, Copy, Settings, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { ensureSystemTemplates } from '../seed';
 
 interface TemplatesTabProps {
     docTypes: ERDocumentType[];
@@ -25,6 +36,14 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<string>('all');
+
+    // Ensure system templates exist on first render (idempotent — skips if already created)
+    const didInitRef = useRef(false);
+    useEffect(() => {
+        if (didInitRef.current || !firestore) return;
+        didInitRef.current = true;
+        ensureSystemTemplates().catch(e => console.warn('System template init:', e));
+    }, [firestore]);
 
     const templatesQuery = React.useMemo(() =>
         firestore ? query(collection(firestore, 'er_templates'), orderBy('updatedAt', 'desc')) : null
@@ -132,16 +151,23 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
                     filteredTemplates.map((template) => (
                         <Card key={template.id} className="group hover:shadow-lg transition-all border-none shadow-sm bg-white overflow-hidden relative">
                             {/* Status Indicator */}
-                            <div className={`absolute top-0 left-0 w-1 h-full ${template.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            <div className={`absolute top-0 left-0 w-1 h-full ${template.isSystem ? 'bg-blue-500' : template.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
 
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start gap-4">
-                                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                                        <FileCode className="h-5 w-5" />
+                                    <div className={`p-2.5 rounded-xl ${template.isSystem ? 'bg-blue-50 text-blue-600' : 'bg-blue-50 text-blue-600'}`}>
+                                        {template.isSystem ? <ShieldCheck className="h-5 w-5" /> : <FileCode className="h-5 w-5" />}
                                     </div>
-                                    <Badge variant={template.isActive ? "default" : "secondary"} className={template.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : ""}>
-                                        {template.isActive ? "Идэвхтэй" : "Идэвхгүй"}
-                                    </Badge>
+                                    <div className="flex gap-1.5">
+                                        {template.isSystem && (
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                                Системийн
+                                            </Badge>
+                                        )}
+                                        <Badge variant={template.isActive ? "default" : "secondary"} className={template.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : ""}>
+                                            {template.isActive ? "Идэвхтэй" : "Идэвхгүй"}
+                                        </Badge>
+                                    </div>
                                 </div>
                                 <CardTitle className="mt-4 line-clamp-1 text-lg">{template.name}</CardTitle>
                                 <CardDescription className="line-clamp-1">
@@ -161,39 +187,44 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
                                             <Pencil className="h-4 w-4" />
                                         </Link>
                                     </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDuplicate(template)} className="h-8 w-8 p-0 rounded-lg hover:bg-purple-50 hover:text-purple-600">
-                                        <Copy className="h-4 w-4" />
-                                    </Button>
+                                    {!template.isSystem && (
+                                        <Button variant="ghost" size="sm" onClick={() => handleDuplicate(template)} className="h-8 w-8 p-0 rounded-lg hover:bg-purple-50 hover:text-purple-600">
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    )}
 
                                     <div className="flex-1" />
 
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-600">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Устгахдаа итгэлтэй байна уу?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Энэ үйлдлийг буцаах боломжгүй бөгөөд загвар бүрмөсөн устах болно.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Болих</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(template.id)} className="bg-red-600 hover:bg-red-700">
-                                                    Устгах
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                    {!template.isSystem && (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-600">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Устгахдаа итгэлтэй байна уу?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Энэ үйлдлийг буцаах боломжгүй бөгөөд загвар бүрмөсөн устах болно.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Болих</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(template.id)} className="bg-red-600 hover:bg-red-700">
+                                                        Устгах
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
                     ))
                 )}
             </div>
+
         </div>
     );
 }

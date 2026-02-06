@@ -58,6 +58,7 @@ import { Switch } from '@/components/ui/switch';
 
 
 import { Position as JobPosition } from './types';
+import { isActiveStatus } from '@/types';
 
 const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
@@ -129,7 +130,7 @@ export function AssignEmployeeDialog({
     }, [open, selectedEmployee, form]);
 
     const assignableEmployees = React.useMemo(() => {
-        return employees.filter(emp => emp.status === 'Идэвхтэй' && !emp.positionId);
+        return employees.filter(emp => isActiveStatus(emp.status) && !emp.positionId);
     }, [employees]);
 
 

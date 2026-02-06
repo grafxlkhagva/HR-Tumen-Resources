@@ -27,9 +27,9 @@ import type { Employee, LifecycleStage } from '@/types';
 // Status config for detailed variant
 const statusConfig: Record<string, { variant: 'success' | 'info' | 'warning' | 'error' | 'muted'; label: string; color: string }> = {
   'Идэвхтэй': { variant: 'success', label: 'Идэвхтэй', color: 'emerald' },
-  'Жирэмсний амралттай': { variant: 'info', label: 'Жирэмсний амралт', color: 'blue' },
-  'Хүүхэд асрах чөлөөтэй': { variant: 'info', label: 'Хүүхэд асаргаа', color: 'blue' },
-  'Урт хугацааны чөлөөтэй': { variant: 'warning', label: 'Чөлөөтэй', color: 'amber' },
+  'Идэвхтэй туршилт': { variant: 'warning', label: 'Туршилт', color: 'amber' },
+  'Идэвхтэй үндсэн': { variant: 'success', label: 'Үндсэн', color: 'emerald' },
+  'Түр эзгүй': { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
   'Ажлаас гарсан': { variant: 'error', label: 'Гарсан', color: 'rose' },
   'Түр түдгэлзүүлсэн': { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
 };

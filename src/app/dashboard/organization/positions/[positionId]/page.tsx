@@ -13,6 +13,7 @@ import {
 import { doc, collection, arrayUnion, query, where } from 'firebase/firestore';
 import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
 import { ERDocument } from '../../../employment-relations/types';
+import { isActiveStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import {
     Stamp,
@@ -218,9 +219,14 @@ export default function PositionDetailPage() {
         setIsActionLoading(true);
         (async () => {
             try {
+                const aId = appointmentDoc?.metadata?.actionId || '';
+                const autoStatus =
+                    aId === 'appointment_probation' ? 'Идэвхтэй туршилт' :
+                    aId === 'appointment_permanent' ? 'Идэвхтэй үндсэн' :
+                    'Идэвхтэй үндсэн';
                 await writeBatch(firestore)
                     .update(doc(firestore, 'employees', assignedEmployee.id), { 
-                        status: 'Идэвхтэй',
+                        status: autoStatus,
                         lifecycleStage: 'active'
                     })
                     .commit();
@@ -468,7 +474,12 @@ export default function PositionDetailPage() {
         }
         setIsActionLoading(true);
         try {
-            await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: 'Идэвхтэй' }).commit();
+            const confirmActionId = appointmentDoc?.metadata?.actionId || '';
+            const confirmStatus =
+                confirmActionId === 'appointment_probation' ? 'Идэвхтэй туршилт' :
+                confirmActionId === 'appointment_permanent' ? 'Идэвхтэй үндсэн' :
+                'Идэвхтэй үндсэн';
+            await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: confirmStatus }).commit();
             toast({ title: "Томилгоо баталгаажлаа" });
             setIsConfirmAppointmentConfirmOpen(false);
         } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }

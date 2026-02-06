@@ -48,7 +48,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -1257,7 +1257,7 @@ export default function QuestionnairePage() {
                     ...edu,
                     entryDate: edu.entryDate ? new Date(edu.entryDate) : null,
                     gradDate: edu.gradDate ? new Date(edu.gradDate) : null,
-                    isCurrent: false,
+                    isCurrent: edu.isCurrent ?? false,
                 }));
             }
             
@@ -1270,13 +1270,24 @@ export default function QuestionnairePage() {
                 }));
             }
             
-            // Transform experience dates
+            // Transform experience dates, preserve isCurrent
             if (cvData.experiences?.length) {
                 transformedData.experiences = cvData.experiences.map((exp: any) => ({
                     ...exp,
                     startDate: exp.startDate ? new Date(exp.startDate) : null,
                     endDate: exp.endDate ? new Date(exp.endDate) : null,
+                    isCurrent: exp.isCurrent ?? false,
                 }));
+            }
+            
+            // Validate maritalStatus to match schema enum
+            if (cvData.maritalStatus) {
+                const validStatuses = ['Гэрлээгүй', 'Гэрлэсэн', 'Салсан', 'Бэлэвсэн'];
+                if (validStatuses.includes(cvData.maritalStatus)) {
+                    transformedData.maritalStatus = cvData.maritalStatus;
+                } else {
+                    delete transformedData.maritalStatus;
+                }
             }
 
             // Merge with existing data (don't overwrite existing values with empty ones)
@@ -1285,7 +1296,7 @@ export default function QuestionnairePage() {
             
             for (const [key, value] of Object.entries(transformedData)) {
                 if (value !== undefined && value !== null && value !== '') {
-                    // For arrays, merge if current is empty or append
+                    // For arrays, always set from CV (overwrite empty or replace)
                     if (Array.isArray(value) && value.length > 0) {
                         const currentArray = mergedData[key] || [];
                         if (currentArray.length === 0) {
@@ -1293,7 +1304,7 @@ export default function QuestionnairePage() {
                         }
                         // If current array has data, we don't overwrite
                     } else {
-                        // For non-arrays, only set if current is empty
+                        // For non-arrays, set if current is empty/falsy
                         if (!mergedData[key]) {
                             mergedData[key] = value;
                         }
@@ -1301,26 +1312,31 @@ export default function QuestionnairePage() {
                 }
             }
 
-            // Save to Firebase
-            await setDocumentNonBlocking(questionnaireDocRef, mergedData, { merge: true });
+            // Strip undefined values — Firestore rejects them
+            const cleanedData = Object.fromEntries(
+                Object.entries(mergedData).filter(([, v]) => v !== undefined)
+            );
+
+            // Use blocking setDoc/updateDoc to guarantee write completes before proceeding
+            await setDoc(questionnaireDocRef, cleanedData, { merge: true });
             
             // Update completion percentage
-            const newCompletion = calculateCompletionPercentage(mergedData);
-            await updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
+            const newCompletion = calculateCompletionPercentage(cleanedData);
+            await updateDoc(employeeDocRef, { questionnaireCompletion: newCompletion });
 
             toast({
                 title: 'Амжилттай!',
-                description: 'CV-ийн мэдээлэл анкетэд хадгалагдлаа. Хуудсыг refresh хийж шалгана уу.',
+                description: 'CV-ийн мэдээлэл анкетэд амжилттай хадгалагдлаа.',
             });
 
-            // Refresh the page to show updated data
+            // Refresh the page to show updated data (write is confirmed at this point)
             window.location.reload();
         } catch (error) {
             console.error('Error saving CV data:', error);
             toast({
                 variant: 'destructive',
                 title: 'Алдаа',
-                description: 'Мэдээлэл хадгалахад алдаа гарлаа',
+                description: 'Мэдээлэл хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
             });
         }
     }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast]);
@@ -1490,6 +1506,7 @@ export default function QuestionnairePage() {
                 open={isCVDialogOpen}
                 onOpenChange={setIsCVDialogOpen}
                 onDataExtracted={handleCVDataExtracted}
+                references={references}
             />
         </div>
     );

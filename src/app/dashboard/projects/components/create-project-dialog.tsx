@@ -51,7 +51,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Employee } from '@/types';
+import { Employee, isActiveStatus } from '@/types';
 import { ProjectStatus, Priority } from '@/types/project';
 
 const projectSchema = z.object({
@@ -89,7 +89,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
     const activeEmployees = React.useMemo(() => {
-        return (employees || []).filter(e => e.status === 'Идэвхтэй');
+        return (employees || []).filter(e => isActiveStatus(e.status));
     }, [employees]);
 
     const form = useForm<ProjectFormValues>({

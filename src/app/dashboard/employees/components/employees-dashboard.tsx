@@ -4,14 +4,10 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { cn } from '@/lib/utils';
 import {
-  Users,
-  UserCheck,
-  UserMinus,
-  FileText,
   FileBarChart2,
   ClipboardCheck,
+  GraduationCap,
 } from 'lucide-react';
 import {
   PieChart,
@@ -20,25 +16,25 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { Employee, Department } from '@/types';
+import { Employee, Department, isActiveStatus } from '@/types';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 // ─── Status colours (semantic, matching the page's statusConfig) ─────────────
 const STATUS_COLORS: Record<string, string> = {
   'Идэвхтэй': '#10b981',
-  'Жирэмсний амралттай': '#3b82f6',
-  'Хүүхэд асрах чөлөөтэй': '#6366f1',
-  'Урт хугацааны чөлөөтэй': '#f59e0b',
+  'Идэвхтэй туршилт': '#f59e0b',
+  'Идэвхтэй үндсэн': '#10b981',
+  'Түр эзгүй': '#3b82f6',
   'Ажлаас гарсан': '#f43f5e',
   'Түр түдгэлзүүлсэн': '#94a3b8',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   'Идэвхтэй': 'Идэвхтэй',
-  'Жирэмсний амралттай': 'Жирэмсний амралт',
-  'Хүүхэд асрах чөлөөтэй': 'Хүүхэд асаргаа',
-  'Урт хугацааны чөлөөтэй': 'Чөлөөтэй',
+  'Идэвхтэй туршилт': 'Туршилт',
+  'Идэвхтэй үндсэн': 'Үндсэн',
+  'Түр эзгүй': 'Түр эзгүй',
   'Ажлаас гарсан': 'Гарсан',
   'Түр түдгэлзүүлсэн': 'Түдгэлзсэн',
 };
@@ -61,6 +57,18 @@ const AGE_GROUPS = [
   { label: '46-55', min: 46, max: 55, color: '#fbbf24' },
   { label: '56+', min: 56, max: 999, color: '#fb923c' },
 ];
+
+// ─── Education level colours ─────────────────────────────────────────────────
+const EDUCATION_COLORS: Record<string, string> = {
+  'Доктор': '#8b5cf6',
+  'Магистр': '#6366f1',
+  'Бакалавр': '#3b82f6',
+  'Дипломын': '#06b6d4',
+  'Тусгай дунд': '#14b8a6',
+  'Бүрэн дунд': '#22c55e',
+  'Суурь': '#84cc16',
+};
+const EDUCATION_FALLBACK_COLOR = '#94a3b8';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface EmployeesDashboardProps {
@@ -104,7 +112,7 @@ export function EmployeesDashboard({
   // ── Fetch questionnaire data (gender + birthDate) per employee ──────────
   const { firestore } = useFirebase();
   const [questionnaireMap, setQuestionnaireMap] = React.useState<
-    Map<string, { gender?: string; birthDate?: any }>
+    Map<string, { gender?: string; birthDate?: any; education?: any[] }>
   >(new Map());
 
   React.useEffect(() => {
@@ -116,14 +124,18 @@ export function EmployeesDashboard({
     let cancelled = false;
 
     const fetchAll = async () => {
-      const map = new Map<string, { gender?: string; birthDate?: any }>();
+      const map = new Map<string, { gender?: string; birthDate?: any; education?: any[] }>();
       const promises = employees.map(async (emp) => {
         try {
           const docRef = doc(firestore, 'employees', emp.id, 'questionnaire', 'data');
           const snap = await getDoc(docRef);
           if (snap.exists()) {
             const d = snap.data();
-            map.set(emp.id, { gender: d?.gender, birthDate: d?.birthDate });
+            map.set(emp.id, {
+              gender: d?.gender,
+              birthDate: d?.birthDate,
+              education: Array.isArray(d?.education) ? d.education : [],
+            });
           }
         } catch {
           // Skip if doc doesn't exist or permission denied
@@ -143,24 +155,20 @@ export function EmployeesDashboard({
       return {
         total: 0,
         active: 0,
-        inactive: 0,
-        documentsCount: 0,
         avgQuestionnaire: 0,
         statusData: [] as { name: string; value: number; color: string }[],
-        genderData: [] as { name: string; value: number; color: string }[],
         maleCount: 0,
         femaleCount: 0,
         unknownGenderCount: 0,
-        ageData: [] as { name: string; value: number; color: string }[],
-        agePictogram: [] as { color: string }[],
+        pyramidData: [] as { label: string; male: number; female: number }[],
+        pyramidMax: 1,
+        educationData: [] as { name: string; value: number; color: string }[],
         lifecycleData: [] as { stage: string; count: number; color: string; label: string }[],
       };
     }
 
     const total = employees.length;
-    const active = employees.filter(e => e.status === 'Идэвхтэй').length;
-    const inactive = total - active;
-    const documentsCount = documents?.length || 0;
+    const active = employees.filter(e => isActiveStatus(e.status)).length;
 
     // Average questionnaire completion
     const withQuestionnaire = employees.filter(e => typeof e.questionnaireCompletion === 'number');
@@ -182,49 +190,80 @@ export function EmployeesDashboard({
       }))
       .sort((a, b) => b.value - a.value);
 
-    // Gender distribution
+    // Gender + Age → Population Pyramid
     let maleCount = 0;
     let femaleCount = 0;
     let unknownGenderCount = 0;
-    // Age distribution
-    const ageCounts: Record<string, number> = {};
-    AGE_GROUPS.forEach(g => { ageCounts[g.label] = 0; });
+    const pyramidCounts: Record<string, { male: number; female: number }> = {};
+    AGE_GROUPS.forEach(g => { pyramidCounts[g.label] = { male: 0, female: 0 }; });
 
     employees.forEach(e => {
       const q = questionnaireMap.get(e.id);
-      // Gender
-      if (q?.gender === 'male') maleCount++;
-      else if (q?.gender === 'female') femaleCount++;
+      const gender = q?.gender;
+      if (gender === 'male') maleCount++;
+      else if (gender === 'female') femaleCount++;
       else unknownGenderCount++;
-      // Age
+
       const age = calcAge(q?.birthDate);
-      if (age !== null) {
+      if (age !== null && (gender === 'male' || gender === 'female')) {
         const group = AGE_GROUPS.find(g => age >= g.min && age <= g.max);
-        if (group) ageCounts[group.label]++;
+        if (group) {
+          if (gender === 'male') pyramidCounts[group.label].male++;
+          else pyramidCounts[group.label].female++;
+        }
       }
     });
 
-    const genderData: { name: string; value: number; color: string }[] = [];
-    if (maleCount > 0) genderData.push({ name: 'Эрэгтэй', value: maleCount, color: '#3b82f6' });
-    if (femaleCount > 0) genderData.push({ name: 'Эмэгтэй', value: femaleCount, color: '#ec4899' });
-    if (unknownGenderCount > 0) genderData.push({ name: 'Тодорхойгүй', value: unknownGenderCount, color: '#94a3b8' });
+    // Pyramid data ordered from oldest (top) to youngest (bottom)
+    const pyramidData = [...AGE_GROUPS].reverse().map(g => ({
+      label: g.label,
+      male: pyramidCounts[g.label].male,
+      female: pyramidCounts[g.label].female,
+    }));
+    const pyramidMax = Math.max(
+      1,
+      ...pyramidData.map(d => Math.max(d.male, d.female))
+    );
 
-    const ageData = AGE_GROUPS
-      .map(g => ({ name: g.label, value: ageCounts[g.label], color: g.color }))
-      .filter(d => d.value > 0);
-
-    // Build pictogram data: one entry per employee with age-group color
-    const agePictogram: { color: string }[] = [];
+    // Education level distribution (highest rank per employee)
+    const educationRankOrder = ['Доктор', 'Магистр', 'Бакалавр', 'Дипломын', 'Тусгай дунд', 'Бүрэн дунд', 'Суурь'];
+    const educationCounts: Record<string, number> = {};
     employees.forEach(e => {
       const q = questionnaireMap.get(e.id);
-      const age = calcAge(q?.birthDate);
-      if (age !== null) {
-        const group = AGE_GROUPS.find(g => age >= g.min && age <= g.max);
-        agePictogram.push({ color: group?.color || '#94a3b8' });
-      } else {
-        agePictogram.push({ color: '#d1d5db' });
+      const eduList = q?.education;
+      if (eduList && eduList.length > 0) {
+        // Pick highest academic rank
+        let bestRank = '';
+        let bestIdx = educationRankOrder.length;
+        eduList.forEach((edu: any) => {
+          const rank = edu.academicRank || '';
+          if (rank) {
+            const idx = educationRankOrder.indexOf(rank);
+            if (idx !== -1 && idx < bestIdx) {
+              bestIdx = idx;
+              bestRank = rank;
+            } else if (idx === -1 && !bestRank) {
+              bestRank = rank; // unknown rank, use as fallback
+            }
+          }
+        });
+        if (bestRank) {
+          educationCounts[bestRank] = (educationCounts[bestRank] || 0) + 1;
+        }
       }
     });
+    // Sort by rank order, then any unknown ranks
+    const educationData = Object.entries(educationCounts)
+      .sort(([a], [b]) => {
+        const ia = educationRankOrder.indexOf(a);
+        const ib = educationRankOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      })
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: EDUCATION_COLORS[name] || EDUCATION_FALLBACK_COLOR,
+      }));
 
     // Lifecycle distribution
     const lifecycleCounts: Record<string, number> = {};
@@ -244,19 +283,17 @@ export function EmployeesDashboard({
     return {
       total,
       active,
-      inactive,
-      documentsCount,
       avgQuestionnaire,
       statusData,
-      genderData,
       maleCount,
       femaleCount,
       unknownGenderCount,
-      ageData,
-      agePictogram,
+      pyramidData,
+      pyramidMax,
+      educationData,
       lifecycleData,
     };
-  }, [employees, documents, questionnaireMap]);
+  }, [employees, questionnaireMap]);
 
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (isLoading) {
@@ -282,8 +319,7 @@ export function EmployeesDashboard({
   }
 
   const lifecycleTotal = metrics.lifecycleData.reduce((s, d) => s + d.count, 0);
-  const genderTotal = metrics.genderData.reduce((s, d) => s + d.value, 0);
-  const ageTotal = metrics.ageData.reduce((s, d) => s + d.value, 0);
+  const hasPyramidData = metrics.pyramidData.some(d => d.male > 0 || d.female > 0);
 
   return (
     <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -306,61 +342,26 @@ export function EmployeesDashboard({
           />
         </div>
 
-        {/* ── Main grid: Key numbers | Status donut | Gender & Age ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* ── Main grid: Status donut | Population Pyramid ──── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-          {/* ── Left: Key metric tiles ─────────────────────────── */}
-          <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2.5">
-            <MetricTile
-              icon={Users}
-              label="Нийт ажилтан"
-              value={metrics.total}
-              iconBg="bg-slate-100 dark:bg-slate-800"
-              iconColor="text-slate-600 dark:text-slate-400"
-            />
-            <MetricTile
-              icon={UserCheck}
-              label="Идэвхтэй"
-              value={metrics.active}
-              iconBg="bg-emerald-100 dark:bg-emerald-900/30"
-              iconColor="text-emerald-600 dark:text-emerald-400"
-              valueColor="text-emerald-600 dark:text-emerald-400"
-            />
-            <MetricTile
-              icon={UserMinus}
-              label="Чөлөө / Гарсан"
-              value={metrics.inactive}
-              iconBg="bg-amber-100 dark:bg-amber-900/30"
-              iconColor="text-amber-600 dark:text-amber-400"
-              valueColor="text-amber-600 dark:text-amber-400"
-            />
-            <MetricTile
-              icon={FileText}
-              label="Баримт бичиг"
-              value={metrics.documentsCount}
-              iconBg="bg-blue-100 dark:bg-blue-900/30"
-              iconColor="text-blue-600 dark:text-blue-400"
-              valueColor="text-blue-600 dark:text-blue-400"
-            />
-          </div>
-
-          {/* ── Center: Status donut ───────────────────────────── */}
-          <div className="lg:col-span-4">
+          {/* ── Left: Status donut (with total & active) ────── */}
+          <div>
             <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 h-full flex flex-col">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                Төлөв
+                Ажилтнуудын төлөв
               </p>
               {metrics.statusData.length > 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="w-full h-[160px] relative">
+                  <div className="w-full h-[170px] relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={metrics.statusData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={45}
-                          outerRadius={68}
+                          innerRadius={50}
+                          outerRadius={75}
                           paddingAngle={3}
                           dataKey="value"
                           stroke="none"
@@ -380,11 +381,11 @@ export function EmployeesDashboard({
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    {/* Center label */}
+                    {/* Center label – total + active */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="text-center">
-                        <div className="text-lg font-bold text-foreground leading-none">{metrics.total}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">нийт</div>
+                        <div className="text-2xl font-extrabold text-foreground leading-none">{metrics.total}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">нийт ажилтан</div>
                       </div>
                     </div>
                   </div>
@@ -411,112 +412,84 @@ export function EmployeesDashboard({
             </div>
           </div>
 
-          {/* ── Right: Gender & Age infographic ────────────────── */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            {/* Gender distribution - creative layout */}
-            <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 flex-1 flex flex-col">
+          {/* ── Right: Population Pyramid (Gender × Age) ─────── */}
+          <div>
+            <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 h-full flex flex-col">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                Хүйсийн харьцаа
+                Нас & Хүйсийн пирамид
               </p>
-              {genderTotal > 0 ? (
-                <div className="flex-1">
-                  {/* Two-panel gender cards */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Male */}
-                    <div className="relative rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/40 dark:to-sky-950/30 border border-blue-100/60 dark:border-blue-800/30 p-3 flex flex-col items-center overflow-hidden">
-                      <div className="absolute top-1 right-1.5 text-[10px] font-bold text-blue-400/60 dark:text-blue-500/40">
-                        {genderTotal > 0 ? Math.round((metrics.maleCount / genderTotal) * 100) : 0}%
-                      </div>
-                      <MaleFigure className="h-10 w-10 text-blue-500 dark:text-blue-400 mb-1.5" />
-                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none tabular-nums">
-                        {metrics.maleCount}
-                      </div>
-                      <div className="text-[10px] text-blue-500/70 dark:text-blue-400/60 font-medium mt-0.5">
-                        Эрэгтэй
-                      </div>
+              {hasPyramidData ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  {/* Legend row */}
+                  <div className="flex items-center justify-center gap-5 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <MaleFigure className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                        Эрэгтэй ({metrics.maleCount})
+                      </span>
                     </div>
-                    {/* Female */}
-                    <div className="relative rounded-xl bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-950/40 dark:to-rose-950/30 border border-pink-100/60 dark:border-pink-800/30 p-3 flex flex-col items-center overflow-hidden">
-                      <div className="absolute top-1 right-1.5 text-[10px] font-bold text-pink-400/60 dark:text-pink-500/40">
-                        {genderTotal > 0 ? Math.round((metrics.femaleCount / genderTotal) * 100) : 0}%
-                      </div>
-                      <FemaleFigure className="h-10 w-10 text-pink-500 dark:text-pink-400 mb-1.5" />
-                      <div className="text-xl font-bold text-pink-600 dark:text-pink-400 leading-none tabular-nums">
-                        {metrics.femaleCount}
-                      </div>
-                      <div className="text-[10px] text-pink-500/70 dark:text-pink-400/60 font-medium mt-0.5">
-                        Эмэгтэй
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <FemaleFigure className="h-4 w-4 text-pink-500 dark:text-pink-400" />
+                      <span className="text-[11px] font-semibold text-pink-600 dark:text-pink-400">
+                        Эмэгтэй ({metrics.femaleCount})
+                      </span>
                     </div>
                   </div>
-                  {/* Ratio bar */}
-                  <div className="flex h-1.5 rounded-full overflow-hidden mt-3 bg-slate-200 dark:bg-slate-700">
-                    {metrics.maleCount > 0 && (
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-500"
-                        style={{ width: `${(metrics.maleCount / genderTotal) * 100}%` }}
-                      />
-                    )}
-                    {metrics.femaleCount > 0 && (
-                      <div
-                        className="h-full bg-pink-500 transition-all duration-500"
-                        style={{ width: `${(metrics.femaleCount / genderTotal) * 100}%` }}
-                      />
-                    )}
-                    {metrics.unknownGenderCount > 0 && (
-                      <div
-                        className="h-full bg-slate-400 transition-all duration-500"
-                        style={{ width: `${(metrics.unknownGenderCount / genderTotal) * 100}%` }}
-                      />
-                    )}
+
+                  {/* Pyramid rows */}
+                  <div className="space-y-1.5">
+                    {metrics.pyramidData.map((row) => (
+                      <div key={row.label} className="flex items-center gap-1">
+                        {/* Male bar (right-aligned) */}
+                        <div className="flex-1 flex justify-end">
+                          <div className="flex items-center gap-1 w-full justify-end">
+                            {row.male > 0 && (
+                              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
+                                {row.male}
+                              </span>
+                            )}
+                            <div
+                              className="h-5 rounded-l-md bg-gradient-to-l from-blue-500 to-blue-400 dark:from-blue-500 dark:to-blue-600 transition-all duration-500 min-w-0"
+                              style={{
+                                width: row.male > 0 ? `${Math.max((row.male / metrics.pyramidMax) * 100, 8)}%` : '0%',
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Age label (center) */}
+                        <div className="w-12 text-center shrink-0">
+                          <span className="text-[11px] font-bold text-foreground tabular-nums">
+                            {row.label}
+                          </span>
+                        </div>
+
+                        {/* Female bar (left-aligned) */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1">
+                            <div
+                              className="h-5 rounded-r-md bg-gradient-to-r from-pink-500 to-pink-400 dark:from-pink-500 dark:to-pink-600 transition-all duration-500 min-w-0"
+                              style={{
+                                width: row.female > 0 ? `${Math.max((row.female / metrics.pyramidMax) * 100, 8)}%` : '0%',
+                              }}
+                            />
+                            {row.female > 0 && (
+                              <span className="text-[10px] font-semibold text-pink-600 dark:text-pink-400 tabular-nums">
+                                {row.female}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Unknown gender note */}
                   {metrics.unknownGenderCount > 0 && (
-                    <div className="text-[10px] text-muted-foreground mt-1.5 text-center">
-                      Тодорхойгүй: {metrics.unknownGenderCount}
+                    <div className="text-[10px] text-muted-foreground mt-3 text-center">
+                      Хүйс тодорхойгүй: {metrics.unknownGenderCount}
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-                  Анкет мэдээлэл байхгүй
-                </div>
-              )}
-            </div>
-
-            {/* Age distribution - pictogram style */}
-            <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 flex-1 flex flex-col">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                Насны бүлэг
-              </p>
-              {ageTotal > 0 ? (
-                <div className="flex-1">
-                  {/* People pictogram grid */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {metrics.agePictogram.map((person, i) => (
-                      <PersonFigure
-                        key={i}
-                        className="h-5 w-3.5 transition-all duration-300"
-                        style={{ color: person.color }}
-                      />
-                    ))}
-                  </div>
-                  {/* Age legend with counts */}
-                  <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-                    {metrics.ageData.map((group) => (
-                      <div key={group.name} className="flex items-center gap-1.5">
-                        <PersonFigure
-                          className="h-3.5 w-2.5 shrink-0"
-                          style={{ color: group.color }}
-                        />
-                        <span className="text-[11px] text-muted-foreground">
-                          {group.name}
-                        </span>
-                        <span className="text-[11px] font-semibold text-foreground tabular-nums">
-                          {group.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
@@ -527,8 +500,47 @@ export function EmployeesDashboard({
           </div>
         </div>
 
-        {/* ── Bottom row: Questionnaire + Lifecycle ────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        {/* ── Bottom row: Education + Questionnaire + Lifecycle ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+          {/* Education level distribution */}
+          <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Боловсролын зэрэг
+              </p>
+            </div>
+            {metrics.educationData.length > 0 ? (
+              <div className="space-y-2">
+                {metrics.educationData.map((item) => {
+                  const eduTotal = metrics.educationData.reduce((s, d) => s + d.value, 0);
+                  const pct = eduTotal > 0 ? Math.round((item.value / eduTotal) * 100) : 0;
+                  return (
+                    <div key={item.name}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] text-muted-foreground">{item.name}</span>
+                        <span className="text-[11px] font-semibold text-foreground tabular-nums">
+                          {item.value} <span className="text-muted-foreground font-normal">({pct}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: item.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">Мэдээлэл байхгүй</div>
+            )}
+          </div>
+
           {/* Questionnaire average */}
           <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -595,84 +607,41 @@ export function EmployeesDashboard({
 
 // ─── SVG Figure components ───────────────────────────────────────────────────
 
-/** Male standing figure silhouette */
+/** Male icon – stylised avatar with Mars arrow symbol */
 function MaleFigure({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 64 64" fill="currentColor" className={className} {...props}>
-      {/* Head */}
-      <circle cx="32" cy="12" r="8" />
-      {/* Body - broader shoulders */}
-      <path d="M20 24h24l2 20H18l2-20z" />
-      {/* Arms */}
-      <rect x="10" y="24" width="6" height="18" rx="3" />
-      <rect x="48" y="24" width="6" height="18" rx="3" />
-      {/* Legs */}
-      <rect x="22" y="46" width="7" height="18" rx="3" />
-      <rect x="35" y="46" width="7" height="18" rx="3" />
+    <svg viewBox="0 0 64 64" fill="none" className={className} {...props}>
+      {/* Head circle */}
+      <circle cx="32" cy="26" r="12" fill="currentColor" />
+      {/* Shoulders + torso */}
+      <path
+        d="M12 54a20 20 0 0 1 40 0"
+        fill="currentColor"
+      />
+      {/* Mars arrow ♂ top-right */}
+      <circle cx="48" cy="12" r="6" stroke="currentColor" strokeWidth="2.5" fill="none" />
+      <line x1="52.5" y1="7.5" x2="58" y2="2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <polyline points="53,2 58,2 58,7" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-/** Female standing figure silhouette */
+/** Female icon – stylised avatar with Venus cross symbol */
 function FemaleFigure({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 64 64" fill="currentColor" className={className} {...props}>
-      {/* Head */}
-      <circle cx="32" cy="12" r="8" />
-      {/* Body - A-line / dress shape */}
-      <path d="M24 24h16l6 24H18l6-24z" />
-      {/* Arms */}
-      <rect x="12" y="24" width="5.5" height="16" rx="2.75" />
-      <rect x="46.5" y="24" width="5.5" height="16" rx="2.75" />
-      {/* Legs */}
-      <rect x="24" y="49" width="6" height="15" rx="3" />
-      <rect x="34" y="49" width="6" height="15" rx="3" />
+    <svg viewBox="0 0 64 64" fill="none" className={className} {...props}>
+      {/* Head circle */}
+      <circle cx="32" cy="26" r="12" fill="currentColor" />
+      {/* Shoulders + torso */}
+      <path
+        d="M12 54a20 20 0 0 1 40 0"
+        fill="currentColor"
+      />
+      {/* Venus cross ♀ top-right */}
+      <circle cx="50" cy="10" r="6" stroke="currentColor" strokeWidth="2.5" fill="none" />
+      <line x1="50" y1="16" x2="50" y2="26" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="46" y1="22" x2="54" y2="22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** Generic person figure (for pictogram) */
-function PersonFigure({ className, style, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 40 64" fill="currentColor" className={className} style={style} {...props}>
-      <circle cx="20" cy="10" r="7" />
-      <path d="M10 22h20l3 22H7l3-22z" />
-      <rect x="12" y="46" width="6" height="16" rx="3" />
-      <rect x="22" y="46" width="6" height="16" rx="3" />
-    </svg>
-  );
-}
-
-// ─── Metric tile helper ──────────────────────────────────────────────────────
-function MetricTile({
-  icon: Icon,
-  label,
-  value,
-  iconBg,
-  iconColor,
-  valueColor,
-  suffix,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  iconBg: string;
-  iconColor: string;
-  valueColor?: string;
-  suffix?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 px-3 py-2.5">
-      <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0', iconBg)}>
-        <Icon className={cn('h-4 w-4', iconColor)} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground truncate leading-tight">{label}</p>
-        <div className="flex items-baseline gap-1">
-          <p className={cn('text-base font-bold leading-tight', valueColor || 'text-foreground')}>{value}</p>
-          {suffix && <span className="text-[10px] text-muted-foreground">{suffix}</span>}
-        </div>
-      </div>
-    </div>
-  );
-}

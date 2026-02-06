@@ -48,7 +48,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Employee } from '@/types';
+import { Employee, isActiveStatus } from '@/types';
 import { Task, TaskStatus, Priority } from '@/types/project';
 
 const taskSchema = z.object({
@@ -87,7 +87,7 @@ export function EditTaskDialog({ open, onOpenChange, projectId, task, teamMember
         if (!employees || !teamMemberIds) return [];
         return employees.filter(e => 
             e.id && 
-            e.status === 'Идэвхтэй' && 
+            isActiveStatus(e.status) && 
             teamMemberIds.includes(e.id)
         );
     }, [employees, teamMemberIds]);

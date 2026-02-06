@@ -149,9 +149,10 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
             if (allProjectsProgress.every(p => p === 100)) {
                 // All onboarding complete
+                // Only update lifecycleStage; the active sub-status (туршилт/үндсэн)
+                // was already set by the appointment document and should not be overwritten.
                 await updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
                     lifecycleStage: 'development',
-                    status: 'Идэвхтэй'
                 });
                 toast({ title: 'Onboarding дууслаа!', description: 'Ажилтан development шатанд шилжлээ.' });
             }

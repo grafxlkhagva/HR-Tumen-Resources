@@ -42,7 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Employee } from '@/types';
+import { Employee, isActiveStatus } from '@/types';
 import { ProjectStatus, Priority } from '@/types/project';
 import { useMobileContainer } from '../../hooks/use-mobile-container';
 
@@ -81,7 +81,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
     const activeEmployees = React.useMemo(() => {
-        return (employees || []).filter(e => e.status === 'Идэвхтэй' && e.id);
+        return (employees || []).filter(e => isActiveStatus(e.status) && e.id);
     }, [employees]);
 
     const form = useForm<ProjectFormValues>({
