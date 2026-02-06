@@ -81,7 +81,7 @@ export default function DocumentDetailPage() {
         return allPositions.map(pos => {
             const occupant = employeesList.find((emp: any) =>
                 (emp.positionId === pos.id || emp.id === pos.managerId) &&
-                ['Идэвхтэй', 'Томилогдож буй'].includes(emp.status || 'Идэвхтэй') // Ensure active/onboarding only
+                ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон'].includes(emp.status || 'Идэвхтэй') // Ensure active/onboarding/appointed only
             );
             return occupant ? { ...pos, occupant } : null;
         }).filter(Boolean);
@@ -356,6 +356,13 @@ export default function DocumentDetailPage() {
                         status: 'Ажлаас гарсан',
                         lifecycleStage: 'alumni',
                         ...(terminationDate ? { terminationDate } : {}),
+                        updatedAt: Timestamp.now()
+                    });
+                } else if (firestore && document?.employeeId && actionId.startsWith('appointment_')) {
+                    // Appointment documents: when SIGNED, employee becomes "Идэвхтэй" (fully active)
+                    await updateDoc(doc(firestore, 'employees', document.employeeId), {
+                        status: 'Идэвхтэй',
+                        lifecycleStage: 'active',
                         updatedAt: Timestamp.now()
                     });
                 }

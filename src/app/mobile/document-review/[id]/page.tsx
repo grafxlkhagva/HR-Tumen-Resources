@@ -118,6 +118,8 @@ export default function DocumentReviewDetailPage() {
 
     const isTargetEmployee = !!employeeProfile?.id && employeeProfile.id === document?.employeeId;
     const canAcknowledge = isTargetEmployee && document?.status === 'SENT_TO_EMPLOYEE';
+    const isEmployeeAcknowledgeView =
+        isTargetEmployee && (document?.status === 'SENT_TO_EMPLOYEE' || document?.status === 'ACKNOWLEDGED');
 
 
     const handleSendComment = async () => {
@@ -254,6 +256,18 @@ export default function DocumentReviewDetailPage() {
         };
     };
 
+    const signedUrl = String(document?.signedDocUrl || '');
+    const signedUrlPath = (() => {
+        if (!signedUrl) return '';
+        try {
+            const u = new URL(signedUrl);
+            return u.pathname.toLowerCase();
+        } catch {
+            return signedUrl.toLowerCase();
+        }
+    })();
+    const isPdf = signedUrlPath.includes('.pdf');
+
     return (
         // Full Screen Overlay: Covers the Layout's Bottom Nav
         // Using "fixed inset-0 z-[60]" ensures it sits ON TOP of the mobile layout navigation (z-50)
@@ -280,33 +294,86 @@ export default function DocumentReviewDetailPage() {
 
                 {/* Main Scrollable Content (Flex Grow) */}
                 <div className="flex-1 overflow-y-auto bg-slate-50 overscroll-y-contain px-0 relative">
-                    {/* 1. Document Content Section */}
-                    <div className="bg-white p-4 pb-8 mb-2 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
-                                <FileText className="h-4 w-4 text-slate-500" />
+                    {isEmployeeAcknowledgeView ? (
+                        <div className="p-4 space-y-3">
+                            <div className="bg-white rounded-2xl border shadow-sm p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center">
+                                        <FileText className="h-4 w-4 text-slate-500" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                            Эх хувь
+                                        </div>
+                                        <div className="text-sm font-bold text-slate-900 truncate">
+                                            {document.metadata?.templateName || 'Баримт'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {!signedUrl ? (
+                                    <div className="text-sm text-slate-600">
+                                        Эх хувь хавсаргагдаагүй байна.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full h-11 rounded-2xl"
+                                            onClick={() => window.open(signedUrl, '_blank')}
+                                        >
+                                            Эх хувь нээх
+                                        </Button>
+
+                                        <div className="rounded-2xl overflow-hidden border bg-slate-50">
+                                            {isPdf ? (
+                                                <iframe
+                                                    title="signed-document"
+                                                    src={signedUrl}
+                                                    className="w-full h-[70dvh]"
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={signedUrl}
+                                                    alt="signed document"
+                                                    className="w-full h-auto"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Баримтын агуулга</h2>
                         </div>
-                        <div className="prose prose-slate prose-sm max-w-none bg-slate-50/50 p-4 rounded-2xl border border-slate-100 min-h-[400px]">
-                            <div
-                                dangerouslySetInnerHTML={{
-                                    __html: generateDocumentContent(document.content || '', {
-                                        employee: targetEmployee,
-                                        company: companyProfile,
-                                        system: {
-                                            date: format(new Date(), 'yyyy-MM-dd'),
-                                            year: format(new Date(), 'yyyy'),
-                                            month: format(new Date(), 'MM'),
-                                            day: format(new Date(), 'dd'),
-                                            user: employeeProfile?.firstName || 'Системийн хэрэглэгч'
-                                        },
-                                        customInputs: document.customInputs
-                                    }).replace(/\n/g, '<br/>')
-                                }}
-                            />
-                        </div>
-                    </div>
+                    ) : (
+                        <>
+                            {/* 1. Document Content Section */}
+                            <div className="bg-white p-4 pb-8 mb-2 shadow-sm">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                        <FileText className="h-4 w-4 text-slate-500" />
+                                    </div>
+                                    <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Баримтын агуулга</h2>
+                                </div>
+                                <div className="prose prose-slate prose-sm max-w-none bg-slate-50/50 p-4 rounded-2xl border border-slate-100 min-h-[400px]">
+                                    <div
+                                        dangerouslySetInnerHTML={{
+                                            __html: generateDocumentContent(document.content || '', {
+                                                employee: targetEmployee,
+                                                company: companyProfile,
+                                                system: {
+                                                    date: format(new Date(), 'yyyy-MM-dd'),
+                                                    year: format(new Date(), 'yyyy'),
+                                                    month: format(new Date(), 'MM'),
+                                                    day: format(new Date(), 'dd'),
+                                                    user: employeeProfile?.firstName || 'Системийн хэрэглэгч'
+                                                },
+                                                customInputs: document.customInputs
+                                            }).replace(/\n/g, '<br/>')
+                                        }}
+                                    />
+                                </div>
+                            </div>
 
                     {/* 2. Reviewers Status (only when reviewers exist) */}
                     {document.reviewers && document.reviewers.length > 0 && (
@@ -414,62 +481,73 @@ export default function DocumentReviewDetailPage() {
                             <div ref={messagesEndRef} />
                         </div>
                     </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Footer: Chat Input & Actions */}
-                <div className="bg-white border-t p-3 pb-safe-area-bottom shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)] z-20 shrink-0">
-                    <div className="flex gap-2 items-end">
-                        <Textarea
-                            value={commentText}
-                            onChange={e => setCommentText(e.target.value)}
-                            placeholder="Коммент бичих..."
-                            className="min-h-[44px] max-h-[100px] bg-slate-50 border-slate-200 focus:ring-1 focus:ring-primary/20 resize-none py-3 rounded-2xl text-sm"
-                            onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSendComment();
-                                }
-                            }}
-                        />
+                {isEmployeeAcknowledgeView ? (
+                    <div className="bg-white border-t p-3 pb-safe-area-bottom shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)] z-20 shrink-0">
+                        <div className="flex gap-2">
+                            {document.status === 'ACKNOWLEDGED' ? (
+                                <Button className="w-full h-11 rounded-2xl" disabled>
+                                    Танилцсан
+                                </Button>
+                            ) : (
+                                <Button
+                                    className="w-full h-11 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-lg"
+                                    onClick={handleAcknowledge}
+                                    disabled={isAcknowledging || !canAcknowledge}
+                                    title="Танилцсан гэж тэмдэглэх"
+                                >
+                                    {isAcknowledging ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Танилцлаа'}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white border-t p-3 pb-safe-area-bottom shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)] z-20 shrink-0">
+                        <div className="flex gap-2 items-end">
+                            <Textarea
+                                value={commentText}
+                                onChange={e => setCommentText(e.target.value)}
+                                placeholder="Коммент бичих..."
+                                className="min-h-[44px] max-h-[100px] bg-slate-50 border-slate-200 focus:ring-1 focus:ring-primary/20 resize-none py-3 rounded-2xl text-sm"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendComment();
+                                    }
+                                }}
+                            />
 
-                        {/* Quick Action Button: Approve */}
-                        {isReviewer && !hasDecided && (
+                            {/* Quick Action Button: Approve */}
+                            {isReviewer && !hasDecided && (
+                                <Button
+                                    size="icon"
+                                    className="h-11 w-11 shrink-0 rounded-2xl bg-emerald-600 shadow-lg hover:bg-emerald-700 transition-all"
+                                    onClick={handleApprove}
+                                    disabled={isProcessing}
+                                >
+                                    {isProcessing ? (
+                                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                    ) : (
+                                        <Check className="h-5 w-5 text-white" />
+                                    )}
+                                </Button>
+                            )}
+
                             <Button
                                 size="icon"
-                                className="h-11 w-11 shrink-0 rounded-2xl bg-emerald-600 shadow-lg hover:bg-emerald-700 transition-all"
-                                onClick={handleApprove}
-                                disabled={isProcessing}
+                                className="h-11 w-11 shrink-0 rounded-2xl bg-slate-900 shadow-lg hover:bg-slate-800 transition-all"
+                                onClick={handleSendComment}
+                                disabled={!commentText.trim() || isProcessing}
                             >
-                                {isProcessing ? (
-                                    <Loader2 className="h-5 w-5 animate-spin text-white" />
-                                ) : (
-                                    <Check className="h-5 w-5 text-white" />
-                                )}
+                                <Send className="h-5 w-5 text-white" />
                             </Button>
-                        )}
-
-                        {/* Employee acknowledgement */}
-                        {canAcknowledge && (
-                            <Button
-                                className="h-11 px-4 shrink-0 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-lg"
-                                onClick={handleAcknowledge}
-                                disabled={isAcknowledging}
-                                title="Танилцсан гэж тэмдэглэх"
-                            >
-                                {isAcknowledging ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Танилцлаа'}
-                            </Button>
-                        )}
-
-                        <Button
-                            size="icon"
-                            className="h-11 w-11 shrink-0 rounded-2xl bg-slate-900 shadow-lg hover:bg-slate-800 transition-all"
-                            onClick={handleSendComment}
-                            disabled={!commentText.trim() || isProcessing}
-                        >
-                            <Send className="h-5 w-5 text-white" />
-                        </Button>
+                        </div>
                     </div>
-                </div>
+                )}
 
 
             </div>

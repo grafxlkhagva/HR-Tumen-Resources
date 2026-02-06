@@ -404,7 +404,7 @@ export function StartOffboardingWizardDialog({ open, onOpenChange }: StartOffboa
                                     )}
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dueDate ? format(new Date(dueDate), 'PPP', { locale: mn }) : 'Огноо сонгох'}
+                                    {dueDate ? format(new Date(dueDate), 'yyyy.MM.dd') : 'Огноо сонгох'}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">

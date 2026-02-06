@@ -16,11 +16,12 @@ import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X,
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
 import { generateDocumentContent } from '../../../../employment-relations/utils';
+import { getNextDocumentNumber } from '../../../../employment-relations/services/document-numbering';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -174,6 +175,27 @@ export function ReleaseEmployeeDialog({
     }, [firestore, employee?.id]);
     const { data: existingOffboardingProjects } = useCollection<any>(offboardingProjectsQuery as any);
 
+    // Check if employee has pending (unapproved) appointment documents
+    const pendingAppointmentDocsQuery = React.useMemo(() => {
+        if (!firestore || !employee?.id) return null;
+        return query(
+            collection(firestore, 'er_documents'),
+            where('employeeId', '==', employee.id),
+            where('metadata.actionId', 'in', ['appointment_new', 'appointment_internal', 'appointment_transfer'])
+        );
+    }, [firestore, employee?.id]);
+    const { data: pendingAppointmentDocs } = useCollection<ERDocument>(pendingAppointmentDocsQuery as any);
+
+    // Check if employee is in "Томилогдож буй" status with unapproved appointment
+    const hasPendingAppointment = React.useMemo(() => {
+        if (employee?.status !== 'Томилогдож буй') return false;
+        if (!pendingAppointmentDocs?.length) return false;
+        // Check if any appointment doc is not yet signed/approved
+        return pendingAppointmentDocs.some(doc => 
+            !['SIGNED', 'APPROVED', 'ACKNOWLEDGED', 'SENT_TO_EMPLOYEE'].includes(doc.status)
+        );
+    }, [employee?.status, pendingAppointmentDocs]);
+
     const offboardingConfigRef = React.useMemo(() => {
         if (!firestore) return null;
         return doc(firestore, 'settings', 'offboarding');
@@ -292,6 +314,85 @@ export function ReleaseEmployeeDialog({
         setCustomInputValues({});
     }, [normalizedCustomInputs]);
 
+    // Handle canceling pending appointment (no release document created)
+    const handleCancelPendingAppointment = async () => {
+        if (!firestore || !employee || !position || !firebaseUser) return;
+        
+        setIsSubmitting(true);
+        try {
+            const batch = writeBatch(firestore);
+            let deletedDocsCount = 0;
+            
+            // 1. Delete pending ER documents (appointment docs that are not signed/approved)
+            if (pendingAppointmentDocs?.length) {
+                for (const erDoc of pendingAppointmentDocs) {
+                    if (!['SIGNED', 'APPROVED', 'ACKNOWLEDGED', 'SENT_TO_EMPLOYEE'].includes(erDoc.status)) {
+                        const erDocRef = doc(firestore, 'er_documents', erDoc.id);
+                        batch.delete(erDocRef);
+                        deletedDocsCount++;
+                    }
+                }
+            }
+            
+            // 2. Delete onboarding processes and projects
+            const onboardingProcessQuery = query(
+                collection(firestore, 'onboarding_processes'),
+                where('employeeId', '==', employee.id)
+            );
+            const onboardingSnap = await getDocs(onboardingProcessQuery);
+            for (const onboardingDoc of onboardingSnap.docs) {
+                batch.delete(onboardingDoc.ref);
+            }
+            
+            const onboardingProjectsQuery = query(
+                collection(firestore, 'projects'),
+                where('type', '==', 'onboarding'),
+                where('onboardingEmployeeId', '==', employee.id)
+            );
+            const projectsSnap = await getDocs(onboardingProjectsQuery);
+            for (const projectDoc of projectsSnap.docs) {
+                batch.delete(projectDoc.ref);
+            }
+            
+            // 3. Update employee: revert to pre-appointment status
+            const empRef = doc(firestore, 'employees', employee.id);
+            batch.update(empRef, {
+                status: 'Идэвхтэй бүрдүүлэлт',
+                lifecycleStage: 'candidate',
+                positionId: null,
+                jobTitle: null,
+                departmentId: null,
+                updatedAt: Timestamp.now()
+            });
+            
+            // 4. Decrement position filled count
+            const posRef = doc(firestore, 'positions', position.id);
+            batch.update(posRef, {
+                filled: increment(-1),
+                updatedAt: Timestamp.now()
+            });
+            
+            await batch.commit();
+            
+            toast({
+                title: 'Томилгоо цуцлагдлаа',
+                description: `Ажилтан томилогдохын өмнөх төлөвт буцлаа.${deletedDocsCount > 0 ? ` ${deletedDocsCount} бичиг баримт устгагдлаа.` : ''}`,
+            });
+            
+            onOpenChange(false);
+            router.refresh();
+        } catch (err) {
+            console.error('Cancel appointment error:', err);
+            toast({
+                title: 'Алдаа гарлаа',
+                description: 'Томилгоо цуцлахад алдаа гарлаа.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleRelease = async (opts?: { createOffboarding?: boolean }) => {
         if (!firestore || !employee || !position || !firebaseUser) return;
 
@@ -347,16 +448,34 @@ export function ReleaseEmployeeDialog({
             // 3. Create ER Document if template is configured (optional)
             if (templateData) {
                 try {
+                    // Get document number if documentTypeId exists
+                    let documentNumber: string | undefined;
+                    if (templateData.documentTypeId) {
+                        try {
+                            documentNumber = await getNextDocumentNumber(firestore, templateData.documentTypeId);
+                        } catch (numErr) {
+                            console.warn("Document number generation failed:", numErr);
+                        }
+                    }
+
                     const docContent = generateDocumentContent(templateData.content || '', {
                         employee,
                         position,
                         customInputs: customInputsPayload,
                         company: null,
-                        system: null,
+                        system: {
+                            date: format(new Date(), 'yyyy-MM-dd'),
+                            year: format(new Date(), 'yyyy'),
+                            month: format(new Date(), 'MM'),
+                            day: format(new Date(), 'dd'),
+                            user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
+                            ...(documentNumber ? { documentNumber } : {})
+                        },
                     });
 
                     const erDocRef = doc(collection(firestore, 'er_documents'));
                     batch.set(erDocRef, {
+                        ...(documentNumber ? { documentNumber } : {}),
                         documentTypeId: templateData.documentTypeId || null,
                         templateId: templateData.id || null,
                         employeeId: employee.id,
@@ -370,14 +489,15 @@ export function ReleaseEmployeeDialog({
                             employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
                             positionTitle: position?.title || '',
                             templateName: templateData.name || '',
-                            actionId: selectedActionId
+                            actionId: selectedActionId,
+                            ...(documentNumber ? { documentNumber } : {})
                         },
                         customInputs: customInputsPayload,
                         history: [{
                             action: 'CREATE',
                             actorId: firebaseUser.uid,
                             timestamp: Timestamp.now(),
-                            note: 'Ажилтан чөлөөлөх үед системээс автоматаар үүсгэв.'
+                            note: documentNumber ? `Баримт ${documentNumber} үүсгэв (Чөлөөлөх)` : 'Ажилтан чөлөөлөх үед системээс автоматаар үүсгэв.'
                         }],
                         createdAt: Timestamp.now(),
                         updatedAt: Timestamp.now()
@@ -516,7 +636,7 @@ export function ReleaseEmployeeDialog({
                                                                 )}
                                                             >
                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                {plan.dueDate ? format(new Date(plan.dueDate), 'PPP', { locale: mn }) : <span>Огноо сонгох</span>}
+                                                                {plan.dueDate ? format(new Date(plan.dueDate), 'yyyy.MM.dd') : <span>Огноо сонгох</span>}
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto p-0" align="start">
@@ -585,6 +705,38 @@ export function ReleaseEmployeeDialog({
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-4">
+                                        {/* Show cancel appointment option when employee has pending (unapproved) appointment */}
+                                        {hasPendingAppointment && (
+                                            <button
+                                                onClick={handleCancelPendingAppointment}
+                                                disabled={isSubmitting}
+                                                className="flex items-center gap-4 p-5 rounded-2xl border-2 border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xl hover:shadow-amber-50 transition-all text-left group"
+                                            >
+                                                <div className="h-12 w-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 bg-amber-100 text-amber-600">
+                                                    {isSubmitting ? (
+                                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                                    ) : (
+                                                        <XCircle className="h-6 w-6" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-bold text-amber-900">Томилгоо цуцлах</div>
+                                                    <div className="text-xs text-amber-700 mt-0.5">
+                                                        Бичиг баримт баталгаажаагүй тул шууд цуцална
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="h-5 w-5 text-amber-300 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+                                            </button>
+                                        )}
+
+                                        {hasPendingAppointment && (
+                                            <div className="relative flex items-center py-2">
+                                                <div className="flex-1 border-t border-slate-200" />
+                                                <span className="px-3 text-xs text-muted-foreground font-medium">эсвэл бүрэн чөлөөлөх</span>
+                                                <div className="flex-1 border-t border-slate-200" />
+                                            </div>
+                                        )}
+
                                         {RELEASE_TYPES.map((type) => (
                                             <button
                                                 key={type.id}
@@ -661,7 +813,7 @@ export function ReleaseEmployeeDialog({
                                                                                 )}
                                                                             >
                                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                                {customInputValues[input.__normalizedKey] ? format(new Date(customInputValues[input.__normalizedKey]), "PPP", { locale: mn }) : <span>Огноо сонгох</span>}
+                                                                                {customInputValues[input.__normalizedKey] ? format(new Date(customInputValues[input.__normalizedKey]), "yyyy.MM.dd") : <span>Огноо сонгох</span>}
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0" align="start">

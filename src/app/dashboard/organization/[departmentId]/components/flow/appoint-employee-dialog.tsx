@@ -29,7 +29,8 @@ import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
 import { generateDocumentContent } from '../../../../employment-relations/utils';
-import { addDays, format } from 'date-fns';
+import { getNextDocumentNumber } from '../../../../employment-relations/services/document-numbering';
+import { addDays, addMonths, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -200,9 +201,23 @@ export function AppointEmployeeDialog({
         , [firestore, appointmentAction?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
 
+    // Stabilize customInputs dependency using JSON signature (Firestore snapshots return new array refs)
+    const customInputsJson = React.useMemo(() => {
+        try {
+            return JSON.stringify(templateData?.customInputs || []);
+        } catch {
+            return '[]';
+        }
+    }, [templateData?.customInputs]);
+
     // Normalize customInputs to guarantee unique keys in UI/state, even if template contains duplicates.
     const normalizedCustomInputs = React.useMemo(() => {
-        const inputs = templateData?.customInputs || [];
+        let inputs: any[];
+        try {
+            inputs = JSON.parse(customInputsJson);
+        } catch {
+            inputs = [];
+        }
         const counts = new Map<string, number>();
         return inputs.map((input: any, index: number) => {
             const baseKey = String(input?.key || '').trim();
@@ -220,7 +235,7 @@ export function AppointEmployeeDialog({
                 __index: index,
             };
         });
-    }, [templateData]);
+    }, [customInputsJson]);
 
     const assignableEmployees = React.useMemo(() => {
         if (!allEmployees) return [];
@@ -296,18 +311,132 @@ export function AppointEmployeeDialog({
         return max;
     };
 
-    // Initialize custom inputs when template loads
+    // Initialize custom inputs when template loads (idempotent; don't reset on every snapshot)
+    const expectedCustomInputKeys = React.useMemo(
+        () => normalizedCustomInputs.map((i: any) => String(i.__normalizedKey)),
+        [normalizedCustomInputs]
+    );
+    const expectedCustomInputKeysSig = React.useMemo(() => expectedCustomInputKeys.join('|'), [expectedCustomInputKeys]);
+    const customInputsTemplateId = String(appointmentAction?.templateId || '');
+
     React.useEffect(() => {
-        if (normalizedCustomInputs.length > 0) {
-            const initialValues: Record<string, any> = {};
-            normalizedCustomInputs.forEach((input: any) => {
-                initialValues[input.__normalizedKey] = '';
-            });
-            setCustomInputValues(initialValues);
+        // Derive keys from signature to avoid stale closure issues
+        const keys = expectedCustomInputKeysSig ? expectedCustomInputKeysSig.split('|').filter(Boolean) : [];
+        
+        // When no template is selected, clear (once)
+        if (!customInputsTemplateId || keys.length === 0) {
+            setCustomInputValues((prev) => (Object.keys(prev || {}).length === 0 ? prev : {}));
             return;
         }
-        setCustomInputValues({});
-    }, [normalizedCustomInputs]);
+
+        // Merge missing keys only; keep existing values
+        setCustomInputValues((prev) => {
+            const current = prev || {};
+            let changed = false;
+            const next: Record<string, any> = { ...current };
+            for (const key of keys) {
+                if (!(key in next)) {
+                    next[key] = '';
+                    changed = true;
+                }
+            }
+            // If we already have all keys, avoid re-setting state
+            return changed ? next : current;
+        });
+    }, [customInputsTemplateId, expectedCustomInputKeysSig]);
+
+    // Compute probation auto-fill keys as STABLE primitives (no object reference instability)
+    // Uses Mongolian labels to reliably identify fields
+    const probationAutoFillKeys = React.useMemo(() => {
+        if (selectedActionId !== 'appointment_probation') return null;
+        if (!normalizedCustomInputs || normalizedCustomInputs.length === 0) return null;
+
+        // Find inputs by their Mongolian labels (most reliable method)
+        const startInput = normalizedCustomInputs.find((i: any) => {
+            const label = String(i.label || '').toLowerCase();
+            return label.includes('томилох огноо') || label.includes('эхлэх огноо') || label.includes('ажилд орсон');
+        });
+        
+        const endInput = normalizedCustomInputs.find((i: any) => {
+            const label = String(i.label || '').toLowerCase();
+            return label.includes('дуусах огноо') || label.includes('дуусгавар');
+        });
+        
+        const durationInput = normalizedCustomInputs.find((i: any) => {
+            const label = String(i.label || '').toLowerCase();
+            return label.includes('туршилтын хугацаа') || label.includes('хугацаа');
+        });
+
+        // If label-based search fails, try dataMappings fallback
+        if (!startInput || !endInput || !durationInput) {
+            if (!appointmentAction?.dateMappings) return null;
+            const mappings = appointmentAction.dateMappings as Record<string, string>;
+            const startBaseKey = String(mappings.probationStartDate || '').trim();
+            const endBaseKey = String(mappings.probationEndDate || '').trim();
+            if (!startBaseKey || !endBaseKey) return null;
+
+            const fallbackStart = startInput || normalizedCustomInputs.find((i: any) => i.__baseKey === startBaseKey || i.__normalizedKey === startBaseKey);
+            const fallbackEnd = endInput || normalizedCustomInputs.find((i: any) => i.__baseKey === endBaseKey || i.__normalizedKey === endBaseKey);
+            const fallbackDuration = durationInput || 
+                normalizedCustomInputs.find((i: any) => ['probationDuration', 'probationPeriod', 'probationMonths', 'probationMonth'].includes(String(i.__baseKey || '')));
+            
+            if (!fallbackStart || !fallbackEnd || !fallbackDuration) return null;
+            
+            const hint = `${fallbackDuration.label || ''} ${fallbackDuration.description || ''} ${fallbackDuration.__baseKey || ''}`.toLowerCase();
+            const isDays = hint.includes('өдөр') || hint.includes('day');
+            return `${fallbackStart.__normalizedKey}|${fallbackEnd.__normalizedKey}|${fallbackDuration.__normalizedKey}|${isDays ? '1' : '0'}`;
+        }
+
+        const hint = `${durationInput.label || ''} ${durationInput.description || ''} ${durationInput.__baseKey || ''}`.toLowerCase();
+        const isDays = hint.includes('өдөр') || hint.includes('day');
+
+        // Return a stable string signature instead of object to avoid reference instability
+        return `${startInput.__normalizedKey}|${endInput.__normalizedKey}|${durationInput.__normalizedKey}|${isDays ? '1' : '0'}`;
+    }, [appointmentAction?.dateMappings, normalizedCustomInputs, selectedActionId]);
+
+    // Parse the stable keys signature into usable values
+    const probationStartKey = probationAutoFillKeys ? probationAutoFillKeys.split('|')[0] : '';
+    const probationEndKey = probationAutoFillKeys ? probationAutoFillKeys.split('|')[1] : '';
+    const probationDurationKey = probationAutoFillKeys ? probationAutoFillKeys.split('|')[2] : '';
+    const probationIsDays = probationAutoFillKeys ? probationAutoFillKeys.split('|')[3] === '1' : false;
+
+    const probationStartVal = probationStartKey ? String(customInputValues?.[probationStartKey] || '').trim() : '';
+    const probationDurationVal = probationDurationKey ? String(customInputValues?.[probationDurationKey] || '').trim() : '';
+    const probationCurrentEndVal = probationEndKey ? String(customInputValues?.[probationEndKey] || '').trim() : '';
+
+    // Handler for custom input changes - includes probation end date auto-fill logic
+    const handleCustomInputChange = React.useCallback((key: string, value: any) => {
+        setCustomInputValues(prev => {
+            const next = { ...prev, [key]: value };
+            
+            // Auto-fill probation end date if we have the config and relevant fields changed
+            if (probationAutoFillKeys && probationStartKey && probationEndKey && probationDurationKey) {
+                const isStartOrDurationChange = key === probationStartKey || key === probationDurationKey;
+                
+                if (isStartOrDurationChange) {
+                    const startVal = String(key === probationStartKey ? value : next[probationStartKey] || '').trim();
+                    const durationVal = String(key === probationDurationKey ? value : next[probationDurationKey] || '').trim();
+                    
+                    // Only compute if we have valid start date and duration
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(startVal)) {
+                        const durationNum = Number(String(durationVal).replace(/[^\d.]/g, ''));
+                        if (Number.isFinite(durationNum) && durationNum > 0) {
+                            const [y, m, d] = startVal.split('-').map((p) => Number(p));
+                            if (y && m && d) {
+                                const startDate = new Date(y, m - 1, d, 12, 0, 0, 0);
+                                const computedEnd = probationIsDays
+                                    ? addDays(startDate, Math.round(durationNum))
+                                    : addMonths(startDate, Math.round(durationNum));
+                                next[probationEndKey] = format(computedEnd, 'yyyy-MM-dd');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return next;
+        });
+    }, [probationAutoFillKeys, probationStartKey, probationEndKey, probationDurationKey, probationIsDays]);
 
     // Handle initial employee from dashboard drag & drop
     React.useEffect(() => {
@@ -671,10 +800,49 @@ export function AppointEmployeeDialog({
                     content = '';
                 }
 
-                // Create er_document
+                // Create er_document with document number
                 try {
+                    // Get document number if documentTypeId exists
+                    let documentNumber: string | undefined;
+                    if (templateData?.documentTypeId) {
+                        try {
+                            documentNumber = await getNextDocumentNumber(firestore, templateData.documentTypeId);
+                        } catch (numErr) {
+                            console.warn("Document number generation failed:", numErr);
+                        }
+                    }
+
+                    // Re-generate content with documentNumber if available
+                    if (documentNumber && templateData?.content) {
+                        try {
+                            content = generateDocumentContent(templateData.content, {
+                                employee: selectedEmployee,
+                                department: deptData,
+                                position: position,
+                                company: companyProfile,
+                                system: {
+                                    date: format(new Date(), 'yyyy-MM-dd'),
+                                    year: format(new Date(), 'yyyy'),
+                                    month: format(new Date(), 'MM'),
+                                    day: format(new Date(), 'dd'),
+                                    user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
+                                    documentNumber: documentNumber
+                                },
+                                customInputs: customInputsPayload,
+                                appointment: {
+                                    salaryStep: selectedSalary,
+                                    incentives: selectedIncentivesList,
+                                    allowances: selectedAllowancesList,
+                                }
+                            });
+                        } catch (e) {
+                            console.warn("Content regeneration with docNumber failed:", e);
+                        }
+                    }
+
                     const docRef = doc(collection(firestore, 'er_documents'));
                     batch.set(docRef, {
+                        ...(documentNumber ? { documentNumber } : {}),
                         documentTypeId: templateData?.documentTypeId || null,
                         templateId: templateData?.id || null,
                         employeeId: selectedEmployee.id,
@@ -702,14 +870,15 @@ export function AppointEmployeeDialog({
                             templateName: templateData?.name || '',
                             departmentName: (deptData as any)?.name || '',
                             positionName: position?.title || '',
-                            actionId: selectedActionId || ''
+                            actionId: selectedActionId || '',
+                            ...(documentNumber ? { documentNumber } : {})
                         },
                         history: [{
                             stepId: 'CREATE',
                             action: 'CREATE',
                             actorId: firebaseUser?.uid || null,
                             timestamp: Timestamp.now(),
-                            comment: 'Томилгооны процесс эхлүүлэв (Бүтэц зураглалаас)'
+                            comment: documentNumber ? `Баримт ${documentNumber} үүсгэв (Томилгоо)` : 'Томилгооны процесс эхлүүлэв (Бүтэц зураглалаас)'
                         }],
                         createdAt: Timestamp.now(),
                         updatedAt: Timestamp.now()
@@ -1408,7 +1577,7 @@ export function AppointEmployeeDialog({
                                                                                                 )}
                                                                                             >
                                                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                                                {dueDate ? format(new Date(dueDate), 'PPP', { locale: mn }) : 'Огноо сонгох'}
+                                                                                                {dueDate ? format(new Date(dueDate), 'yyyy.MM.dd') : 'Огноо сонгох'}
                                                                                             </Button>
                                                                                         </PopoverTrigger>
                                                                                         <PopoverContent className="w-auto p-0" align="start">
@@ -1518,7 +1687,7 @@ export function AppointEmployeeDialog({
                                                             >
                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                                     {customInputValues[input.__normalizedKey]
-                                                        ? format(new Date(customInputValues[input.__normalizedKey]), "PPP", { locale: mn })
+                                                        ? format(new Date(customInputValues[input.__normalizedKey]), "yyyy.MM.dd")
                                                                     : "Огноо сонгох"
                                                                 }
                                                             </Button>
@@ -1527,10 +1696,7 @@ export function AppointEmployeeDialog({
                                                             <Calendar
                                                                 mode="single"
                                                     selected={customInputValues[input.__normalizedKey] ? new Date(customInputValues[input.__normalizedKey]) : undefined}
-                                                    onSelect={(date) => setCustomInputValues(prev => ({
-                                                        ...prev,
-                                                        [input.__normalizedKey]: date ? format(date, 'yyyy-MM-dd') : ''
-                                                                }))}
+                                                    onSelect={(date) => handleCustomInputChange(input.__normalizedKey, date ? format(date, 'yyyy-MM-dd') : '')}
                                                                 initialFocus
                                                             />
                                                         </PopoverContent>
@@ -1539,7 +1705,7 @@ export function AppointEmployeeDialog({
                                                     <Input
                                                         type="number"
                                             value={customInputValues[input.__normalizedKey] || ''}
-                                            onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
+                                            onChange={(e) => handleCustomInputChange(input.__normalizedKey, e.target.value)}
                                                         placeholder={input.description || `${input.label} оруулна уу`}
                                                         className="h-10 rounded-xl"
                                                     />
@@ -1547,14 +1713,14 @@ export function AppointEmployeeDialog({
                                                     <div className="flex items-center space-x-2 h-10 px-4 bg-slate-50 rounded-xl border">
                                                         <Switch
                                                 checked={!!customInputValues[input.__normalizedKey]}
-                                                onCheckedChange={(checked) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: checked }))}
+                                                onCheckedChange={(checked) => handleCustomInputChange(input.__normalizedKey, checked)}
                                                         />
                                             <span className="text-sm">{customInputValues[input.__normalizedKey] ? 'Тийм' : 'Үгүй'}</span>
                                                     </div>
                                                 ) : (
                                                     <Input
                                             value={customInputValues[input.__normalizedKey] || ''}
-                                            onChange={(e) => setCustomInputValues(prev => ({ ...prev, [input.__normalizedKey]: e.target.value }))}
+                                            onChange={(e) => handleCustomInputChange(input.__normalizedKey, e.target.value)}
                                                         placeholder={input.description || `${input.label} оруулна уу`}
                                                         className="h-10 rounded-xl"
                                                     />

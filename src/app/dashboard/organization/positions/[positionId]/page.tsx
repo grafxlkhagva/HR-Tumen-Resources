@@ -128,7 +128,16 @@ export default function PositionDetailPage() {
     const { data: allPositions } = useCollection<Position>(allPositionsQuery);
 
     // Fetch assigned employee
-    const employeeQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('positionId', '==', positionId), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй'])) : null), [firestore, positionId]);
+    const employeeQuery = useMemoFirebase(
+        () => (firestore
+            ? query(
+                collection(firestore, 'employees'),
+                where('positionId', '==', positionId),
+                where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон'])
+            )
+            : null),
+        [firestore, positionId]
+    );
     const { data: employees } = useCollection<any>(employeeQuery as any);
     const assignedEmployee = employees?.[0];
 
@@ -196,10 +205,12 @@ export default function PositionDetailPage() {
     }, [prepProjects, prepTaskSummary]);
 
     // Auto-confirm appointment when ER doc is approved/signed
+    // Sets employee to 'Идэвхтэй' (Active) status
     const didAutoConfirmRef = useRef(false);
     useEffect(() => {
         if (!firestore || !assignedEmployee) return;
         if (didAutoConfirmRef.current) return;
+        // Only run if employee is still in pending status
         if (assignedEmployee.status !== 'Томилогдож буй') return;
         if (!appointmentDoc || !['APPROVED', 'SIGNED'].includes(appointmentDoc.status)) return;
 
@@ -208,9 +219,12 @@ export default function PositionDetailPage() {
         (async () => {
             try {
                 await writeBatch(firestore)
-                    .update(doc(firestore, 'employees', assignedEmployee.id), { status: 'Идэвхтэй' })
+                    .update(doc(firestore, 'employees', assignedEmployee.id), { 
+                        status: 'Идэвхтэй',
+                        lifecycleStage: 'active'
+                    })
                     .commit();
-                toast({ title: "Томилгоо автоматаар баталгаажлаа" });
+                toast({ title: "Томилгоо баталгаажлаа" });
             } catch (e) {
                 console.error(e);
                 didAutoConfirmRef.current = false;
@@ -363,34 +377,86 @@ export default function PositionDetailPage() {
         setIsActionLoading(true);
         try {
             const batch = writeBatch(firestore);
+            let deletedDocsCount = 0;
             
-            // 1. Delete ER documents (drafts only)
-            const docsQuery = query(collection(firestore, 'er_documents'), where('employeeId', '==', assignedEmployee.id), where('positionId', '==', positionId));
+            // 1. Delete ER documents (drafts only) - query by employeeId AND positionId
+            const docsQuery = query(
+                collection(firestore, 'er_documents'), 
+                where('employeeId', '==', assignedEmployee.id), 
+                where('positionId', '==', positionId)
+            );
             const docsSnap = await getDocs(docsQuery);
             docsSnap.forEach(docSnap => {
-                if (!['APPROVED', 'SIGNED'].includes(docSnap.data().status)) batch.delete(docSnap.ref);
+                const status = docSnap.data().status;
+                // Delete if not approved/signed
+                if (!['APPROVED', 'SIGNED', 'ACKNOWLEDGED'].includes(status)) {
+                    batch.delete(docSnap.ref);
+                    deletedDocsCount++;
+                }
             });
             
-            // 2. Delete onboarding process (if exists)
+            // 2. Also try to delete by metadata.actionId (appointment documents)
+            const appointmentDocsQuery = query(
+                collection(firestore, 'er_documents'),
+                where('employeeId', '==', assignedEmployee.id),
+                where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_reappoint'])
+            );
+            try {
+                const appointmentDocsSnap = await getDocs(appointmentDocsQuery);
+                appointmentDocsSnap.forEach(docSnap => {
+                    const status = docSnap.data().status;
+                    if (!['APPROVED', 'SIGNED', 'ACKNOWLEDGED'].includes(status)) {
+                        batch.delete(docSnap.ref);
+                        deletedDocsCount++;
+                    }
+                });
+            } catch (e) {
+                console.warn('Appointment docs query failed (index may be missing):', e);
+            }
+            
+            // 3. Delete onboarding process (if exists)
             const onboardingRef = doc(firestore, 'onboarding_processes', assignedEmployee.id);
             batch.delete(onboardingRef);
             
-            // 3. Update employee - clear position data and reset lifecycle
+            // 4. Delete onboarding projects (if any)
+            const onboardingProjectsQuery = query(
+                collection(firestore, 'projects'),
+                where('type', '==', 'onboarding'),
+                where('onboardingEmployeeId', '==', assignedEmployee.id)
+            );
+            try {
+                const projectsSnap = await getDocs(onboardingProjectsQuery);
+                projectsSnap.forEach(projectDoc => {
+                    batch.delete(projectDoc.ref);
+                });
+            } catch (e) {
+                console.warn('Onboarding projects query failed:', e);
+            }
+            
+            // 5. Update employee - clear position data and reset to recruitment status
             batch.update(doc(firestore, 'employees', assignedEmployee.id), { 
                 positionId: null, 
                 jobTitle: null, 
                 departmentId: null, 
-                status: 'Идэвхтэй',
-                lifecycleStage: null // Reset lifecycle stage
+                status: 'Идэвхтэй бүрдүүлэлт', // Back to recruitment pool
+                lifecycleStage: 'candidate' // Reset lifecycle stage to candidate
             });
             
-            // 4. Update position filled count
+            // 6. Update position filled count
             batch.update(doc(firestore, 'positions', positionId), { filled: firestoreIncrement(-1) });
             
             await batch.commit();
-            toast({ title: "Томилгоо цуцлагдлаа", description: "Onboarding хөтөлбөр устгагдлаа." });
+            toast({ 
+                title: "Томилгоо цуцлагдлаа", 
+                description: deletedDocsCount > 0 
+                    ? `${deletedDocsCount} баримт устгагдлаа.` 
+                    : "Onboarding хөтөлбөр устгагдлаа." 
+            });
             setIsCancelAppointmentConfirmOpen(false);
-        } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }
+        } catch (e) { 
+            console.error('Cancel appointment error:', e);
+            toast({ variant: 'destructive', title: 'Алдаа' });
+        }
         finally { setIsActionLoading(false); }
     };
 

@@ -108,7 +108,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй']));
+    return query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 
@@ -531,7 +531,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
                                     )}
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dueDate ? format(new Date(dueDate), 'PPP', { locale: mn }) : 'Огноо сонгох'}
+                                    {dueDate ? format(new Date(dueDate), 'yyyy.MM.dd') : 'Огноо сонгох'}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">

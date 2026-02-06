@@ -222,19 +222,20 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                             </PopoverTrigger>
                                             <PopoverContent
                                                 container={container}
-                                                className="w-auto p-0"
+                                                className="w-auto p-0 touch-manipulation"
                                                 align="start"
                                                 side="top"
                                                 sideOffset={8}
+                                                onOpenAutoFocus={(e) => e.preventDefault()}
                                             >
                                                 <Calendar 
-                                                    initialFocus 
                                                     mode="range" 
                                                     defaultMonth={field.value?.from} 
                                                     selected={{ from: field.value?.from, to: field.value?.to }} 
                                                     onSelect={field.onChange} 
                                                     numberOfMonths={1} 
-                                                    disabled={disabledDates} 
+                                                    disabled={disabledDates}
+                                                    className="touch-manipulation"
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -337,18 +338,19 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
                                             </PopoverTrigger>
                                             <PopoverContent
                                                 container={container}
-                                                className="w-auto p-0"
+                                                className="w-auto p-0 touch-manipulation"
                                                 align="start"
                                                 side="top"
                                                 sideOffset={8}
+                                                onOpenAutoFocus={(e) => e.preventDefault()}
                                             >
                                                 <Calendar 
-                                                    initialFocus 
                                                     mode="range" 
                                                     defaultMonth={field.value?.from} 
                                                     selected={field.value?.from ? { from: field.value.from, to: field.value.to } : undefined} 
                                                     onSelect={(range) => field.onChange(range as DateRange)} 
-                                                    numberOfMonths={1} 
+                                                    numberOfMonths={1}
+                                                    className="touch-manipulation"
                                                 />
                                             </PopoverContent>
                                         </Popover>

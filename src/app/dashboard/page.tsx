@@ -407,6 +407,17 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: activeProjects } = useCollection<any>(projectsQuery);
 
+    // Employment Relations queries (for ER widget)
+    const erDocumentsQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'er_documents') : null
+        , [firestore]);
+    const { data: erDocuments } = useCollection<any>(erDocumentsQuery);
+
+    const erTemplatesQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'er_templates') : null
+        , [firestore]);
+    const { data: erTemplates } = useCollection<any>(erTemplatesQuery);
+
     // All tasks query for overdue count (using collectionGroup)
     const allTasksQuery = useMemoFirebase(() =>
         firestore ? collectionGroup(firestore, 'tasks') : null
@@ -514,6 +525,14 @@ const OrganizationChart = () => {
         return activities.slice(0, 10);
     }, [attendanceData, employees]);
 
+    // Calculate ER pending documents count
+    const erPendingCount = useMemo(() => {
+        if (!erDocuments) return 0;
+        return erDocuments.filter((doc: any) => 
+            ['DRAFT', 'IN_REVIEW', 'REVIEWED', 'SENT_TO_EMPLOYEE'].includes(doc.status)
+        ).length;
+    }, [erDocuments]);
+
     // Prepare widget data for the dashboard widgets bar
     const widgetData: WidgetData = useMemo(() => ({
         // Projects widget
@@ -536,6 +555,11 @@ const OrganizationChart = () => {
         
         // Posts widget
         postsCount: posts?.length || 0,
+
+        // Employment Relations widget
+        erDocumentsCount: erDocuments?.length || 0,
+        erPendingCount,
+        erTemplatesCount: erTemplates?.length || 0,
     }), [
         activeProjects,
         overdueTasksCount,
@@ -546,6 +570,9 @@ const OrganizationChart = () => {
         onLeaveEmployees.size,
         onLeaveCount,
         posts,
+        erDocuments,
+        erPendingCount,
+        erTemplates,
     ]);
 
 

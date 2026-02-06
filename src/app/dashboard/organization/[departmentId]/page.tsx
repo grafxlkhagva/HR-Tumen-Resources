@@ -86,7 +86,12 @@ export default function DepartmentPage() {
     const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
     const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
     const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const deptEmployeesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй'])) : null), [firestore, departmentId]);
+    const deptEmployeesQuery = useMemoFirebase(
+        () => (firestore
+            ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон']))
+            : null),
+        [firestore, departmentId]
+    );
 
     const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
     const { data: allDepartments } = useCollection<Department>(deptsQuery);
