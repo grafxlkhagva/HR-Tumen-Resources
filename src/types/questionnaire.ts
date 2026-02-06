@@ -7,12 +7,12 @@ export const emergencyContactSchema = z.object({
 });
 
 export const generalInfoSchema = z.object({
-    lastName: z.string().min(1, "Овог хоосон байж болохгүй."),
-    firstName: z.string().min(1, "Нэр хоосон байж болохгүй."),
-    registrationNumber: z.string().min(1, "Регистрийн дугаар хоосон байж болохгүй."),
+    lastName: z.string().optional().or(z.literal('')),
+    firstName: z.string().optional().or(z.literal('')),
+    registrationNumber: z.string().optional().or(z.literal('')),
     citizenshipCountryId: z.string().optional(),
-    birthDate: z.date({ required_error: "Төрсөн огноо сонгоно уу." }).nullable(),
-    gender: z.string().min(1, "Хүйс сонгоно уу."),
+    birthDate: z.date().nullable().optional(),
+    gender: z.string().optional().or(z.literal('')),
     idCardNumber: z.string().optional(),
     insuranceTypeCode: z.string().optional(),
     hasDisability: z.boolean().default(false).optional(),

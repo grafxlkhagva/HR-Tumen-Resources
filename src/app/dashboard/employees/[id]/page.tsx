@@ -753,6 +753,13 @@ export default function EmployeeProfilePage() {
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef as any);
 
+    // Fetch questionnaire for gender & birthDate
+    const questionnaireDocRef = useMemoFirebase(
+        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null),
+        [firestore, employeeId]
+    );
+    const { data: questionnaireData } = useDoc<any>(questionnaireDocRef as any);
+
     const positionDocRef = useMemoFirebase(
         ({ firestore }) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
         [employee]
@@ -1065,7 +1072,11 @@ export default function EmployeeProfilePage() {
                 <div className="xl:col-span-1 space-y-4">
                     {/* Employee Card (replaces old profile + quick info cards) */}
                     <EmployeeCard
-                        employee={employee as any}
+                        employee={{
+                            ...(employee as any),
+                            gender: questionnaireData?.gender,
+                            birthDate: questionnaireData?.birthDate,
+                        }}
                         variant="detailed"
                         asLink={false}
                         departmentName={departmentName}

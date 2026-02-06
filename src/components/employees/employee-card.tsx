@@ -18,6 +18,8 @@ import {
   Phone,
   ScrollText,
   Trash2,
+  User,
+  Cake,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Employee, LifecycleStage } from '@/types';
@@ -55,7 +57,13 @@ export type EmployeeCardEmployee = Pick<
   | 'email'
   | 'phoneNumber'
   | 'hireDate'
-> & { departmentName?: string };
+> & {
+  departmentName?: string;
+  /** Gender from questionnaire: 'male' | 'female' */
+  gender?: string;
+  /** Birth date from questionnaire (string, Date, or Firestore Timestamp) */
+  birthDate?: any;
+};
 
 export interface EmployeeCardProps {
   employee: EmployeeCardEmployee;
@@ -439,6 +447,9 @@ export function EmployeeCard({
                 ) : null}
               </div>
             ) : null}
+
+            {/* Gender & Age from questionnaire */}
+            <GenderAgeBadge gender={employee.gender} birthDate={employee.birthDate} />
           </div>
         </div>
 
@@ -464,6 +475,60 @@ export function EmployeeCard({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Gender & Age badge helper ───────────────────────────────────────────────
+
+function calcAgeFromBirthDate(birthDate: any): number | null {
+  if (!birthDate) return null;
+  let d: Date;
+  if (typeof birthDate === 'string') {
+    d = new Date(birthDate);
+  } else if (birthDate instanceof Date) {
+    d = birthDate;
+  } else if (typeof birthDate === 'object' && 'seconds' in birthDate) {
+    d = new Date(birthDate.seconds * 1000);
+  } else {
+    return null;
+  }
+  if (isNaN(d.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
+function GenderAgeBadge({ gender, birthDate }: { gender?: string; birthDate?: any }) {
+  const age = calcAgeFromBirthDate(birthDate);
+  const hasGender = gender === 'male' || gender === 'female';
+  if (!hasGender && age === null) return null;
+
+  const isMale = gender === 'male';
+  const genderLabel = isMale ? 'Эрэгтэй' : 'Эмэгтэй';
+  const genderColor = isMale
+    ? 'text-blue-600 dark:text-blue-400'
+    : 'text-pink-600 dark:text-pink-400';
+  const genderBg = isMale
+    ? 'bg-blue-50 dark:bg-blue-950/30'
+    : 'bg-pink-50 dark:bg-pink-950/30';
+
+  return (
+    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+      {hasGender && (
+        <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium', genderBg, genderColor)}>
+          <User className="h-3 w-3" />
+          {genderLabel}
+        </span>
+      )}
+      {age !== null && (
+        <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+          <Cake className="h-3 w-3" />
+          {age} нас
+        </span>
+      )}
     </div>
   );
 }

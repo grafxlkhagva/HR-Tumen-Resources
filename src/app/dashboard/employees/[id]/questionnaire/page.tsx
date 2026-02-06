@@ -187,7 +187,11 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
 
     const onSubmit = (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
-        const currentData = { ...defaultValues, ...data };
+        const merged = { ...defaultValues, ...data };
+        // Firestore does not accept undefined values – strip them out
+        const currentData = Object.fromEntries(
+            Object.entries(merged).filter(([, v]) => v !== undefined)
+        );
         setDocumentNonBlocking(docRef, currentData, { merge: true });
         const newCompletion = calculateCompletionPercentage(currentData);
         updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });

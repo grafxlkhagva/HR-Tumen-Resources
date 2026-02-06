@@ -7,12 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/patterns/page-layout';
 import {
-  Plus,
   Search,
   Users,
-  UserPlus,
-  Briefcase,
-  FileText,
   Flag,
   LogOut,
   Building2,
@@ -39,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { EmployeeCard } from '@/components/employees/employee-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AddActionButton } from '@/components/ui/add-action-button';
+import { EmployeesDashboard } from './components/employees-dashboard';
 
 // Status badge configuration
 const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' | 'error' | 'muted', label: string, color: string } } = {
@@ -100,16 +97,6 @@ export default function EmployeesPage() {
     });
   }, [employees, searchQuery, statusFilter, deptFilter]);
 
-  const stats = React.useMemo(() => {
-    if (!employees) return { total: 0, active: 0, inactive: 0, documents: 0 };
-    return {
-      total: employees.length,
-      active: employees.filter(e => e.status === 'Идэвхтэй').length,
-      inactive: employees.filter(e => e.status !== 'Идэвхтэй').length,
-      documents: documents?.length || 0
-    };
-  }, [employees, documents]);
-
   const activeOnboardingCount = React.useMemo(() => {
     return (onboardingProcesses || []).length;
   }, [onboardingProcesses]);
@@ -163,66 +150,15 @@ export default function EmployeesPage() {
             }
           />
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Нийт</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{stats.total}</p>
-                  </div>
-                  <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Идэвхтэй</p>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.active}</p>
-                  </div>
-                  <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <UserPlus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Чөлөө/Гарсан</p>
-                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.inactive}</p>
-                  </div>
-                  <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <Briefcase className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Link href="/dashboard/employee-documents" className="block">
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-colors h-full">
-                <CardContent className="p-4 h-full">
-                  <div className="flex items-center justify-between h-full">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Баримт</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.documents}</p>
-                    </div>
-                    <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
+          {/* Unified Dashboard Infographic */}
+          <EmployeesDashboard
+            employees={employees ?? null}
+            departments={departments ?? null}
+            documents={documents ?? null}
+            onboardingProcesses={onboardingProcesses ?? null}
+            offboardingProjects={offboardingProjects ?? null}
+            isLoading={isLoading}
+          />
 
           {/* Quick Access Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
