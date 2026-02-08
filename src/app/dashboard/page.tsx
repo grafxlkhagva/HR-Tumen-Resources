@@ -478,25 +478,53 @@ const OrganizationChart = () => {
     // For visual skeleton of the chart
     const isLoading = isCriticalLoading;
 
-    // Fetch gender data from questionnaire subcollections
-    const [genderCounts, setGenderCounts] = useState<{ male: number; female: number }>({ male: 0, female: 0 });
+    // Fetch gender data + birth dates from questionnaire subcollections
+    const [genderCounts, setGenderCounts] = useState<{ male: number; female: number; averageAge: number }>({ male: 0, female: 0, averageAge: 0 });
     useEffect(() => {
         if (!firestore || !employees || employees.length === 0) return;
         let cancelled = false;
         (async () => {
             let m = 0, f = 0;
+            let totalAge = 0, ageCount = 0;
+            const today = new Date();
             const promises = employees.map(async (emp) => {
                 try {
                     const snap = await getDoc(doc(firestore, 'employees', emp.id, 'questionnaire', 'data'));
                     if (snap.exists()) {
-                        const g = snap.data()?.gender;
+                        const data = snap.data();
+                        const g = data?.gender;
                         if (g === 'male') m++;
                         else if (g === 'female') f++;
+
+                        // Calculate age from birthDate
+                        const birthDate = data?.birthDate;
+                        if (birthDate) {
+                            let d: Date | null = null;
+                            if (typeof birthDate === 'string') {
+                                d = new Date(birthDate);
+                            } else if (birthDate instanceof Date) {
+                                d = birthDate;
+                            } else if (typeof birthDate === 'object' && 'seconds' in birthDate) {
+                                d = new Date(birthDate.seconds * 1000);
+                            }
+                            if (d && !isNaN(d.getTime())) {
+                                let age = today.getFullYear() - d.getFullYear();
+                                const mDiff = today.getMonth() - d.getMonth();
+                                if (mDiff < 0 || (mDiff === 0 && today.getDate() < d.getDate())) age--;
+                                if (age >= 0) {
+                                    totalAge += age;
+                                    ageCount++;
+                                }
+                            }
+                        }
                     }
                 } catch { /* skip */ }
             });
             await Promise.all(promises);
-            if (!cancelled) setGenderCounts({ male: m, female: f });
+            if (!cancelled) {
+                const averageAge = ageCount > 0 ? Math.round((totalAge / ageCount) * 10) / 10 : 0;
+                setGenderCounts({ male: m, female: f, averageAge });
+            }
         })();
         return () => { cancelled = true; };
     }, [firestore, employees]);
@@ -571,6 +599,7 @@ const OrganizationChart = () => {
             probationCount: empArr.filter(e => e.status === 'Идэвхтэй туршилт').length,
             maleCount: genderCounts.male,
             femaleCount: genderCounts.female,
+            averageAge: genderCounts.averageAge,
             
             // Structure widget
             departmentsCount: departments?.length || 0,

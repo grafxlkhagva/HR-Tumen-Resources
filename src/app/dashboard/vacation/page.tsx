@@ -5,6 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking 
 import { collectionGroup, collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { VacationDashboard } from './components/vacation-dashboard';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -244,62 +245,38 @@ export default function VacationPage() {
     function endOfToday(date: Date) { return endOfDay(date); }
 
     return (
-        <div className="w-full py-6 px-page space-y-6">
-            <PageHeader
-                title="Ээлжийн амралт"
-                description="Ажилчдын ээлжийн амралтын хуваарь болон хүсэлтүүдийг удирдах хэсэг."
-                showBackButton={true}
-                hideBreadcrumbs={true}
-                backButtonPlacement="inline"
-                backBehavior="history"
-                fallbackBackHref="/dashboard"
-                actions={
-                    <AddActionButton
-                        label="Хуваарь нэмэх"
-                        description="Ээлжийн амралтын хуваарь нэмэх"
-                        onClick={() =>
-                            toast({
-                                title: 'Тун удахгүй',
-                                description: 'Хуваарь нэмэх үйлдэл одоогоор хөгжүүлэлт хийгдэж байна.',
-                            })
-                        }
-                    />
-                }
-            />
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto pb-32">
+                <div className="bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 dark:from-violet-500/5 dark:via-purple-500/5 dark:to-fuchsia-500/5">
+                    <div className="px-6 py-6 md:p-8">
+                        <PageHeader
+                            title="Ээлжийн амралт"
+                            description="Ажилчдын ээлжийн амралтын хуваарь болон хүсэлтүүдийг удирдах хэсэг."
+                            showBackButton={true}
+                            hideBreadcrumbs={true}
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard"
+                            actions={
+                                <AddActionButton
+                                    label="Хуваарь нэмэх"
+                                    description="Ээлжийн амралтын хуваарь нэмэх"
+                                    onClick={() =>
+                                        toast({
+                                            title: 'Тун удахгүй',
+                                            description: 'Хуваарь нэмэх үйлдэл одоогоор хөгжүүлэлт хийгдэж байна.',
+                                        })
+                                    }
+                                />
+                            }
+                        />
+                        <div className="mt-6">
+                            <VacationDashboard />
+                        </div>
+                    </div>
+                </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Нийт хүсэлт</CardTitle>
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-semibold">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">Бүх цаг үеийн</p>
-                    </CardContent>
-                </Card>
-                <Card className="hover:shadow-md transition-shadow border-l-4 border-l-yellow-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Шийдвэрлэх хүсэлт</CardTitle>
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-semibold">{stats.pending}</div>
-                        <p className="text-xs text-muted-foreground font-medium text-yellow-600">Шийдвэр хүлээж буй</p>
-                    </CardContent>
-                </Card>
-                <Card className="hover:shadow-md transition-shadow border-l-4 border-l-green-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Амарч байгаа</CardTitle>
-                        <Palmtree className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-semibold text-green-600">{stats.onLeave}</div>
-                        <p className="text-xs text-muted-foreground">Ажилтан амарч байна</p>
-                    </CardContent>
-                </Card>
-            </div>
-
+                <div className="px-6 py-6 md:p-8 space-y-6">
             <Tabs defaultValue="pending" onValueChange={setActiveTab} className="space-y-4">
                 <div className="flex items-center justify-between">
                     <VerticalTabMenu
@@ -541,42 +518,44 @@ export default function VacationPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Query error (e.g., missing index / permission) */}
-            {requestsError && (
-                <Card className="border border-rose-200 bg-rose-50/50">
-                    <CardHeader>
-                        <CardTitle className="text-sm text-rose-800">Хүсэлтүүдийг ачаалж чадсангүй</CardTitle>
-                        <CardDescription className="text-rose-700">
-                            {requestsError.message}
-                        </CardDescription>
-                    </CardHeader>
-                </Card>
-            )}
+                    {/* Query error (e.g., missing index / permission) */}
+                    {requestsError && (
+                        <Card className="border border-rose-200 bg-rose-50/50">
+                            <CardHeader>
+                                <CardTitle className="text-sm text-rose-800">Хүсэлтүүдийг ачаалж чадсангүй</CardTitle>
+                                <CardDescription className="text-rose-700">
+                                    {requestsError.message}
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    )}
 
-            {/* Reject dialog */}
-            <Dialog open={isRejectDialogOpen} onOpenChange={(o) => { if (!o) { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); } }}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Хүсэлт татгалзах</DialogTitle>
-                        <DialogDescription>Татгалзах шалтгаанаа заавал бичнэ үү.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                        <Textarea
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="Ж: Хуваарь давхцаж байна..."
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); }}>
-                            Болих
-                        </Button>
-                        <Button variant="destructive" onClick={confirmReject} disabled={!rejectReason.trim()}>
-                            Татгалзах
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    {/* Reject dialog */}
+                    <Dialog open={isRejectDialogOpen} onOpenChange={(o) => { if (!o) { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); } }}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Хүсэлт татгалзах</DialogTitle>
+                                <DialogDescription>Татгалзах шалтгаанаа заавал бичнэ үү.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-2">
+                                <Textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    placeholder="Ж: Хуваарь давхцаж байна..."
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => { setIsRejectDialogOpen(false); setRequestToReject(null); setRejectReason(''); }}>
+                                    Болих
+                                </Button>
+                                <Button variant="destructive" onClick={confirmReject} disabled={!rejectReason.trim()}>
+                                    Татгалзах
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </div>
         </div>
     );
 }

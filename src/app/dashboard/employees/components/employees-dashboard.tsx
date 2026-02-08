@@ -298,7 +298,7 @@ export function EmployeesDashboard({
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+      <Card className="bg-slate-900 dark:bg-slate-800 border-slate-700">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
             <Skeleton className="h-5 w-48" />
@@ -322,17 +322,16 @@ export function EmployeesDashboard({
   const hasPyramidData = metrics.pyramidData.some(d => d.male > 0 || d.female > 0);
 
   return (
-    <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-hidden">
-      <CardContent className="p-5 sm:p-6">
+    <Card className="bg-slate-900 dark:bg-slate-800 border-slate-700 overflow-hidden relative">
+      {/* Decorative gradient (matches dashboard employees widget) */}
+      <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10" />
+      <CardContent className="p-5 sm:p-6 relative z-10">
         {/* ── Header ───────────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-sm font-semibold text-foreground tracking-tight">
-              Ажилтнуудын ерөнхий мэдээлэл
+            <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              Dashboard | хамт олон
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Бүртгэлийн нэгдсэн харагдац
-            </p>
           </div>
           <AddActionButton
             label="Дэлгэрэнгүй тайлан"
@@ -347,8 +346,8 @@ export function EmployeesDashboard({
 
           {/* ── Left: Status donut (with total & active) ────── */}
           <div>
-            <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 h-full flex flex-col">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4 h-full flex flex-col">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
                 Ажилтнуудын төлөв
               </p>
               {metrics.statusData.length > 0 ? (
@@ -384,8 +383,8 @@ export function EmployeesDashboard({
                     {/* Center label – total + active */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="text-center">
-                        <div className="text-2xl font-extrabold text-foreground leading-none">{metrics.total}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">нийт ажилтан</div>
+                        <div className="text-2xl font-extrabold text-white leading-none">{metrics.total}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">нийт ажилтан</div>
                       </div>
                     </div>
                   </div>
@@ -397,7 +396,7 @@ export function EmployeesDashboard({
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ backgroundColor: item.color }}
                         />
-                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                        <span className="text-[11px] text-slate-400 whitespace-nowrap">
                           {item.name} ({item.value})
                         </span>
                       </div>
@@ -405,7 +404,7 @@ export function EmployeesDashboard({
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+                <div className="flex-1 flex items-center justify-center text-xs text-slate-500">
                   Мэдээлэл байхгүй
                 </div>
               )}
@@ -414,8 +413,8 @@ export function EmployeesDashboard({
 
           {/* ── Right: Population Pyramid (Gender × Age) ─────── */}
           <div>
-            <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4 h-full flex flex-col">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4 h-full flex flex-col">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
                 Нас & Хүйсийн пирамид
               </p>
               {hasPyramidData ? (
@@ -423,14 +422,14 @@ export function EmployeesDashboard({
                   {/* Legend row */}
                   <div className="flex items-center justify-center gap-5 mb-3">
                     <div className="flex items-center gap-1.5">
-                      <MaleFigure className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                      <MaleFigure className="h-4 w-4 text-blue-400" />
+                      <span className="text-[11px] font-semibold text-blue-400">
                         Эрэгтэй ({metrics.maleCount})
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <FemaleFigure className="h-4 w-4 text-pink-500 dark:text-pink-400" />
-                      <span className="text-[11px] font-semibold text-pink-600 dark:text-pink-400">
+                      <FemaleFigure className="h-4 w-4 text-pink-400" />
+                      <span className="text-[11px] font-semibold text-pink-400">
                         Эмэгтэй ({metrics.femaleCount})
                       </span>
                     </div>
@@ -444,7 +443,7 @@ export function EmployeesDashboard({
                         <div className="flex-1 flex justify-end">
                           <div className="flex items-center gap-1 w-full justify-end">
                             {row.male > 0 && (
-                              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
+                              <span className="text-[10px] font-semibold text-blue-400 tabular-nums">
                                 {row.male}
                               </span>
                             )}
@@ -459,7 +458,7 @@ export function EmployeesDashboard({
 
                         {/* Age label (center) */}
                         <div className="w-12 text-center shrink-0">
-                          <span className="text-[11px] font-bold text-foreground tabular-nums">
+                          <span className="text-[11px] font-bold text-white tabular-nums">
                             {row.label}
                           </span>
                         </div>
@@ -474,7 +473,7 @@ export function EmployeesDashboard({
                               }}
                             />
                             {row.female > 0 && (
-                              <span className="text-[10px] font-semibold text-pink-600 dark:text-pink-400 tabular-nums">
+                              <span className="text-[10px] font-semibold text-pink-400 tabular-nums">
                                 {row.female}
                               </span>
                             )}
@@ -486,13 +485,13 @@ export function EmployeesDashboard({
 
                   {/* Unknown gender note */}
                   {metrics.unknownGenderCount > 0 && (
-                    <div className="text-[10px] text-muted-foreground mt-3 text-center">
+                    <div className="text-[10px] text-slate-500 mt-3 text-center">
                       Хүйс тодорхойгүй: {metrics.unknownGenderCount}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+                <div className="flex-1 flex items-center justify-center text-xs text-slate-500">
                   Анкет мэдээлэл байхгүй
                 </div>
               )}
@@ -503,10 +502,10 @@ export function EmployeesDashboard({
         {/* ── Bottom row: Education + Questionnaire + Lifecycle ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
           {/* Education level distribution */}
-          <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4">
+          <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <GraduationCap className="h-3.5 w-3.5 text-slate-400" />
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                 Боловсролын зэрэг
               </p>
             </div>
@@ -518,12 +517,12 @@ export function EmployeesDashboard({
                   return (
                     <div key={item.name}>
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] text-muted-foreground">{item.name}</span>
-                        <span className="text-[11px] font-semibold text-foreground tabular-nums">
-                          {item.value} <span className="text-muted-foreground font-normal">({pct}%)</span>
+                        <span className="text-[11px] text-slate-400">{item.name}</span>
+                        <span className="text-[11px] font-semibold text-white tabular-nums">
+                          {item.value} <span className="text-slate-500 font-normal">({pct}%)</span>
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -537,39 +536,39 @@ export function EmployeesDashboard({
                 })}
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground">Мэдээлэл байхгүй</div>
+              <div className="text-xs text-slate-500">Мэдээлэл байхгүй</div>
             )}
           </div>
 
           {/* Questionnaire average */}
-          <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4">
+          <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <ClipboardCheck className="h-3.5 w-3.5 text-slate-400" />
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                 Анкет бөглөлт (дундаж)
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+              <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
                   style={{ width: `${metrics.avgQuestionnaire}%` }}
                 />
               </div>
-              <span className="text-sm font-semibold text-foreground tabular-nums w-10 text-right">
+              <span className="text-sm font-semibold text-white tabular-nums w-10 text-right">
                 {metrics.avgQuestionnaire}%
               </span>
             </div>
           </div>
 
           {/* Lifecycle stage bar */}
-          <div className="rounded-xl bg-slate-50/70 dark:bg-slate-800/40 p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
               Амьдралын мөчлөг
             </p>
             {lifecycleTotal > 0 ? (
               <>
-                <div className="flex h-2 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700">
+                <div className="flex h-2 rounded-full overflow-hidden bg-slate-700">
                   {metrics.lifecycleData.map((item) => (
                     <div
                       key={item.stage}
@@ -588,7 +587,7 @@ export function EmployeesDashboard({
                         className="inline-block h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: item.color }}
                       />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[10px] text-slate-400">
                         {item.label} ({item.count})
                       </span>
                     </div>
@@ -596,7 +595,7 @@ export function EmployeesDashboard({
                 </div>
               </>
             ) : (
-              <div className="text-xs text-muted-foreground">Мэдээлэл байхгүй</div>
+              <div className="text-xs text-slate-500">Мэдээлэл байхгүй</div>
             )}
           </div>
         </div>

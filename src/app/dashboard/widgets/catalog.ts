@@ -85,7 +85,7 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
     },
     attendance: {
         id: 'attendance',
-        label: 'Өнөөдрийн ирц',
+        label: 'Ирц ба цаг',
         description: 'Ажил дээрээ байгаа болон чөлөөтэй ажилтнууд',
         href: '/dashboard/attendance',
         size: 'normal',

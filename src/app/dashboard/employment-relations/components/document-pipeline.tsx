@@ -39,7 +39,7 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
 
     return (
         <div className="overflow-x-auto pb-6 -mx-6 px-6">
-            <div className="flex gap-4 min-w-max md:min-w-0 md:grid md:grid-cols-4 items-start">
+            <div className="flex gap-4 flex-nowrap min-w-max items-start">
                 {COLUMNS.map((column) => {
                     const columnDocs = documents.filter((doc) => {
                         if (column.status === 'SIGNED') {
@@ -51,7 +51,7 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
                     const Icon = column.icon;
 
                     return (
-                        <div key={column.status} className="flex flex-col gap-3 min-w-[280px] md:min-w-0">
+                        <div key={column.status} className="flex flex-col gap-3 min-w-[280px] shrink-0">
                             {/* Column Header */}
                             <div className="flex items-center justify-between px-2 py-1 shrink-0">
                                 <div className="flex items-center gap-2">

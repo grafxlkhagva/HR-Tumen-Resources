@@ -23,6 +23,7 @@ export interface WidgetData {
     probationCount?: number;
     maleCount?: number;
     femaleCount?: number;
+    averageAge?: number;
 
     // Structure widget
     departmentsCount?: number;
@@ -108,6 +109,7 @@ export function DashboardWidgetCard({
                 const probation = data.probationCount ?? 0;
                 const male = data.maleCount ?? 0;
                 const female = data.femaleCount ?? 0;
+                const avgAge = data.averageAge ?? 0;
                 const permPct = total > 0 ? Math.round((permanent / total) * 100) : 0;
                 const probPct = total > 0 ? Math.round((probation / total) * 100) : 0;
                 const genderTotal = male + female;
@@ -115,10 +117,18 @@ export function DashboardWidgetCard({
                 const femalePct = genderTotal > 0 ? 100 - malePct : 0;
                 return (
                     <div className="space-y-2.5">
-                        {/* Total */}
-                        <div className="flex items-end gap-2">
-                            <div className="text-3xl sm:text-4xl font-semibold text-white leading-none">{total}</div>
-                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide pb-0.5">Нийт</div>
+                        {/* Total + Average Age */}
+                        <div className="flex items-end justify-between">
+                            <div className="flex items-end gap-2">
+                                <div className="text-3xl sm:text-4xl font-semibold text-white leading-none">{total}</div>
+                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide pb-0.5">Нийт</div>
+                            </div>
+                            {avgAge > 0 && (
+                                <div className="flex items-end gap-1 pb-0.5">
+                                    <div className="text-lg sm:text-xl font-semibold text-cyan-400 leading-none">{avgAge}</div>
+                                    <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wide">Дундаж нас</div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Permanent / Probation — graphical donut-style bar */}

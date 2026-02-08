@@ -199,94 +199,100 @@ export function ProjectChatSection({ projectId, teamMembers, employeeMap }: Proj
     };
 
     return (
-        <Card className="border-0 shadow-sm mt-6">
-            <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                        <MessageCircle className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-semibold">Төслийн чат</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                            Багийн гишүүдтэй харилцах
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-                {/* Messages Area */}
-                <ScrollArea ref={scrollRef} className="h-[300px] pr-4 mb-4">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center h-full">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex flex-col min-h-[480px]">
+            {/* Chat Card — мессежүүд гүйлгэгддэг, хамгийн өндөр боломжит зай */}
+            <Card className="flex-1 flex flex-col min-h-0 border-0 shadow-sm overflow-hidden">
+                <CardHeader className="pb-3 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                            <MessageCircle className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                         </div>
-                    ) : messages && messages.length > 0 ? (
-                        <div className="space-y-4">
-                            {messages.map((msg) => {
-                                const sender = employeeMap.get(msg.senderId);
-                                const isCurrentUser = user?.uid === msg.senderId;
-
-                                return (
-                                    <div
-                                        key={msg.id}
-                                        className={cn(
-                                            "flex gap-3",
-                                            isCurrentUser && "flex-row-reverse"
-                                        )}
-                                    >
-                                        <Avatar className="h-8 w-8 shrink-0">
-                                            <AvatarImage src={sender?.photoURL} />
-                                            <AvatarFallback className="text-xs bg-violet-100 text-violet-600">
-                                                {sender?.firstName?.[0]}{sender?.lastName?.[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className={cn(
-                                            "max-w-[70%]",
-                                            isCurrentUser && "text-right"
-                                        )}>
-                                            <div className={cn(
-                                                "flex items-center gap-2 mb-1",
-                                                isCurrentUser && "flex-row-reverse"
-                                            )}>
-                                                <span className="text-sm font-medium">
-                                                    {sender ? `${sender.firstName} ${sender.lastName?.[0]}.` : 'Хэрэглэгч'}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {formatTime(msg.createdAt)}
-                                                </span>
-                                            </div>
-                                            <div className={cn(
-                                                "inline-block px-3 py-2 rounded-2xl text-sm",
-                                                isCurrentUser
-                                                    ? "bg-violet-600 text-white rounded-tr-sm"
-                                                    : "bg-slate-100 dark:bg-slate-800 rounded-tl-sm"
-                                            )}>
-                                                {formatMessageContent(msg.content, msg.mentions)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center">
-                            <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-2" />
-                            <p className="text-sm text-muted-foreground">
-                                Мессеж байхгүй байна
-                            </p>
+                        <div>
+                            <CardTitle className="text-lg font-semibold">Төслийн чат</CardTitle>
                             <p className="text-xs text-muted-foreground">
-                                Багийн гишүүдтэй харилцаж эхлээрэй
+                                Багийн гишүүдтэй харилцах
                             </p>
                         </div>
-                    )}
-                </ScrollArea>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-0 flex-1 min-h-0 overflow-hidden p-0 flex flex-col">
+                    <ScrollArea ref={scrollRef} className="h-[400px] pr-4 shrink-0">
+                        <div className="p-4 pt-0">
+                            {isLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : messages && messages.length > 0 ? (
+                                <div className="space-y-4">
+                                    {messages.map((msg) => {
+                                        const sender = employeeMap.get(msg.senderId);
+                                        const isCurrentUser = user?.uid === msg.senderId;
 
-                {/* Message Input */}
+                                        return (
+                                            <div
+                                                key={msg.id}
+                                                className={cn(
+                                                    "flex gap-3",
+                                                    isCurrentUser && "flex-row-reverse"
+                                                )}
+                                            >
+                                                <Avatar className="h-8 w-8 shrink-0">
+                                                    <AvatarImage src={sender?.photoURL} />
+                                                    <AvatarFallback className="text-xs bg-violet-100 text-violet-600">
+                                                        {sender?.firstName?.[0]}{sender?.lastName?.[0]}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className={cn(
+                                                    "max-w-[70%]",
+                                                    isCurrentUser && "text-right"
+                                                )}>
+                                                    <div className={cn(
+                                                        "flex items-center gap-2 mb-1",
+                                                        isCurrentUser && "flex-row-reverse"
+                                                    )}>
+                                                        <span className="text-sm font-medium">
+                                                            {sender ? `${sender.firstName} ${sender.lastName?.[0]}.` : 'Хэрэглэгч'}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {formatTime(msg.createdAt)}
+                                                        </span>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "inline-block px-3 py-2 rounded-2xl text-sm",
+                                                        isCurrentUser
+                                                            ? "bg-violet-600 text-white rounded-tr-sm"
+                                                            : "bg-slate-100 dark:bg-slate-800 rounded-tl-sm"
+                                                    )}>
+                                                        {formatMessageContent(msg.content, msg.mentions)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                    <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-2" />
+                                    <p className="text-sm text-muted-foreground">
+                                        Мессеж байхгүй байна
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Багийн гишүүдтэй харилцаж эхлээрэй
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+
+            {/* Чат бичдэг хэсэг — картны доор */}
+            <div className="mt-3 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                     <Popover open={mentionOpen} onOpenChange={setMentionOpen}>
                         <PopoverTrigger asChild>
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="icon"
                                 className="h-9 w-9 shrink-0"
                                 onClick={() => {
@@ -359,16 +365,15 @@ export function ProjectChatSection({ projectId, teamMembers, employeeMap }: Proj
                     </Button>
                 </div>
 
-                {/* Mentions indicator */}
                 {mentions.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2">
+                    <div className="flex items-center gap-1">
                         <AtSign className="h-3 w-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
                             {mentions.length} хүн дурдсан
                         </span>
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

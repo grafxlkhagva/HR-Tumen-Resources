@@ -93,7 +93,8 @@ export function PageHeader({
     const labelMap: Record<string, string> = {
       'dashboard': 'Хянах самбар',
       'employees': 'Ажилтнууд',
-      'attendance': 'Ирц',
+      'attendance': 'Цаг ба Ирц',
+      'report': 'Ирцийн тайлан',
       'settings': 'Тохиргоо',
       'organization': 'Бүтэц',
       'onboarding': 'Дасан зохицох',

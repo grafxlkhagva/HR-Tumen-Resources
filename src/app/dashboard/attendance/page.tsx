@@ -31,13 +31,12 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X, Search, Filter, FileSpreadsheet } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X, Search, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy, doc, collectionGroup, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, differenceInMinutes, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, isWeekend, getDay } from 'date-fns';
-import { mn } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -49,6 +48,7 @@ import { calculateDuration } from '@/lib/attendance';
 import type { Employee } from '../employees/data';
 import type { Department } from '../organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
+import { AttendanceDashboard } from './components/attendance-dashboard';
 import { DateRange } from 'react-day-picker';
 
 // --- Type Definitions ---
@@ -70,21 +70,6 @@ type TimeOffRequest = {
     reason: string;
     status: 'Хүлээгдэж буй' | 'Зөвшөөрсөн' | 'Татгалзсан';
     createdAt: string;
-};
-
-type WorkSchedule = {
-    id: string;
-    name: string;
-    workDays?: number[]; // 0-6, 0 = Sunday
-    workStartTime?: string;
-    workEndTime?: string;
-    dailyWorkHours?: number;
-};
-
-type Position = {
-    id: string;
-    title: string;
-    workScheduleId?: string;
 };
 
 const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
@@ -355,302 +340,6 @@ function AttendanceHistoryTab() {
     );
 }
 
-// --- Time Report Tab ---
-function TimeReportTab() {
-    const { toast } = useToast();
-    const [month, setMonth] = React.useState<Date>(new Date());
-    const [selectedDepartment, setSelectedDepartment] = React.useState<string>('all');
-    const [searchQuery, setSearchQuery] = React.useState('');
-
-    // Data fetching
-    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
-    const departmentsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'departments') : null, []);
-    const workSchedulesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'workSchedules') : null, []);
-    const positionsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'positions') : null, []);
-    const attendanceQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'attendance') : null, []);
-    const timeOffRequestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, []);
-
-    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
-    const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
-    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<WorkSchedule>(workSchedulesQuery);
-    const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery);
-    const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
-    const { data: timeOffRequests, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffRequestsQuery);
-
-    const isLoading = isLoadingEmployees || isLoadingDepartments || isLoadingSchedules || isLoadingAttendance || isLoadingPositions || isLoadingTimeOff;
-
-    // Data processing
-    const monthStart = startOfMonth(month);
-    const monthEnd = endOfMonth(month);
-    const workDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(d => !isWeekend(d)).length;
-
-    const { departmentMap, workScheduleMap, positionMap } = React.useMemo(() => {
-        const dMap = new Map(departments?.map(d => [d.id, d.name]));
-        const wsMap = new Map(workSchedules?.map(ws => [ws.id, ws]));
-        const pMap = new Map(positions?.map(p => [p.id, p]));
-        return { departmentMap: dMap, workScheduleMap: wsMap, positionMap: pMap };
-    }, [departments, workSchedules, positions]);
-
-    const reportData = React.useMemo(() => {
-        if (!employees || !attendanceRecords) return [];
-
-        const filteredAttendance = attendanceRecords.filter(r => {
-            const recordDate = new Date(r.date);
-            return isWithinInterval(recordDate, { start: monthStart, end: monthEnd });
-        });
-
-        // Get approved time-off requests for the month
-        const approvedTimeOff = timeOffRequests?.filter(req => {
-            if (req.status !== 'Зөвшөөрсөн') return false;
-            const startDate = new Date(req.startDate);
-            const endDate = new Date(req.endDate);
-            return isWithinInterval(startDate, { start: monthStart, end: monthEnd }) ||
-                   isWithinInterval(endDate, { start: monthStart, end: monthEnd });
-        }) || [];
-
-        return employees.map(emp => {
-            // Get employee's work schedule
-            const position = emp.positionId ? positionMap.get(emp.positionId) : null;
-            const workSchedule = position?.workScheduleId ? workScheduleMap.get(position.workScheduleId) : null;
-            const dailyWorkHours = workSchedule?.dailyWorkHours || 8;
-            const scheduledHours = workDaysInMonth * dailyWorkHours;
-
-            // Calculate worked minutes
-            const employeeAttendance = filteredAttendance.filter(r => r.employeeId === emp.id);
-            const workedMinutes = employeeAttendance.reduce((total, record) => {
-                if (record.checkInTime && record.checkOutTime) {
-                    return total + differenceInMinutes(new Date(record.checkOutTime), new Date(record.checkInTime));
-                }
-                return total;
-            }, 0);
-            const workedHours = Math.floor(workedMinutes / 60);
-            const workedMins = workedMinutes % 60;
-
-            // Calculate overtime (hours worked beyond scheduled)
-            const overtimeMinutes = Math.max(0, workedMinutes - (scheduledHours * 60));
-            const overtimeHours = Math.floor(overtimeMinutes / 60);
-
-            // Calculate time-off days for this employee
-            const employeeTimeOff = approvedTimeOff.filter(req => req.employeeId === emp.id);
-            const timeOffDays = employeeTimeOff.reduce((total, req) => {
-                const start = new Date(req.startDate);
-                const end = new Date(req.endDate);
-                const days = eachDayOfInterval({ start, end }).filter(d => 
-                    !isWeekend(d) && isWithinInterval(d, { start: monthStart, end: monthEnd })
-                ).length;
-                return total + days;
-            }, 0);
-
-            // Calculate paid hours (worked + time-off, capped at scheduled)
-            const timeOffHours = timeOffDays * dailyWorkHours;
-            const paidHours = Math.min(workedHours + timeOffHours, scheduledHours);
-
-            // Unpaid hours
-            const unpaidHours = Math.max(0, scheduledHours - paidHours);
-
-            // Attendance days count
-            const presentDays = employeeAttendance.length;
-
-            return {
-                ...emp,
-                departmentName: departmentMap.get(emp.departmentId) || 'Тодорхойгүй',
-                scheduledHours,
-                workedHours,
-                workedMins,
-                overtimeHours,
-                paidHours,
-                unpaidHours,
-                timeOffDays,
-                presentDays,
-            };
-        });
-    }, [employees, departmentMap, positionMap, workScheduleMap, attendanceRecords, timeOffRequests, monthStart, monthEnd, workDaysInMonth]);
-
-    // Apply filters
-    const filteredData = React.useMemo(() => {
-        return reportData.filter(emp => {
-            if (selectedDepartment !== 'all' && emp.departmentId !== selectedDepartment) return false;
-            if (searchQuery) {
-                const searchLower = searchQuery.toLowerCase();
-                const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-                const code = emp.employeeCode?.toLowerCase() || '';
-                if (!fullName.includes(searchLower) && !code.includes(searchLower)) return false;
-            }
-            return true;
-        });
-    }, [reportData, selectedDepartment, searchQuery]);
-
-    const handleExport = () => {
-        const exportData = filteredData.map(emp => ({
-            'Ажилтны код': emp.employeeCode,
-            'Овог': emp.lastName,
-            'Нэр': emp.firstName,
-            'Хэлтэс': emp.departmentName,
-            'Албан тушаал': emp.jobTitle,
-            'Ажиллах цаг': emp.scheduledHours,
-            'Ажилласан цаг': emp.workedHours,
-            'Илүү цаг': emp.overtimeHours,
-            'Цалинтай цаг': emp.paidHours,
-            'Цалингүй цаг': emp.unpaidHours,
-            'Чөлөөний өдөр': emp.timeOffDays,
-            'Ирцтэй өдөр': emp.presentDays,
-        }));
-
-        exportToCSV(exportData, `time_report_${format(month, 'yyyy-MM')}`, [
-            'Ажилтны код', 'Овог', 'Нэр', 'Хэлтэс', 'Албан тушаал', 
-            'Ажиллах цаг', 'Ажилласан цаг', 'Илүү цаг', 'Цалинтай цаг', 'Цалингүй цаг', 'Чөлөөний өдөр', 'Ирцтэй өдөр'
-        ]);
-        toast({ title: 'Тайлан экспортлогдлоо' });
-    };
-
-    // Summary stats
-    const summary = React.useMemo(() => {
-        const totalWorked = filteredData.reduce((sum, emp) => sum + emp.workedHours, 0);
-        const totalScheduled = filteredData.reduce((sum, emp) => sum + emp.scheduledHours, 0);
-        const totalOvertime = filteredData.reduce((sum, emp) => sum + emp.overtimeHours, 0);
-        return { totalWorked, totalScheduled, totalOvertime };
-    }, [filteredData]);
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>Цагийн тайлан</CardTitle>
-                        <CardDescription>
-                            {format(month, "yyyy оны MM-р сар", { locale: mn })} - {workDaysInMonth} ажлын өдөр
-                        </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button id="month" variant="outline" className={cn("w-full md:w-[200px] justify-start text-left font-normal")}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(month, "yyyy - MMMM", { locale: mn })}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar
-                                    initialFocus
-                                    mode="single"
-                                    selected={month}
-                                    onSelect={(day) => day && setMonth(day)}
-                                    captionLayout="dropdown"
-                                    fromYear={2020}
-                                    toYear={new Date().getFullYear() + 1}
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        <Button size="sm" variant="outline" onClick={handleExport} disabled={filteredData.length === 0}>
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />
-                            Excel
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Summary Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-muted/50 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold">{summary.totalWorked}</div>
-                        <div className="text-xs text-muted-foreground">Нийт ажилласан цаг</div>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold">{summary.totalScheduled}</div>
-                        <div className="text-xs text-muted-foreground">Ажиллах ёстой цаг</div>
-                    </div>
-                    <div className="bg-blue-50 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-blue-600">{summary.totalOvertime}</div>
-                        <div className="text-xs text-muted-foreground">Нийт илүү цаг</div>
-                    </div>
-                </div>
-
-                {/* Filters */}
-                <div className="flex flex-col md:flex-row gap-3">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Ажилтан хайх..." 
-                            className="pl-9"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                        <SelectTrigger className="w-full md:w-[200px]">
-                            <Filter className="mr-2 h-4 w-4" />
-                            <SelectValue placeholder="Хэлтэс" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Бүх хэлтэс</SelectItem>
-                            {departments?.map(dept => (
-                                <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Ажилтны код</TableHead>
-                            <TableHead>Овог/нэр</TableHead>
-                            <TableHead>Хэлтэс</TableHead>
-                            <TableHead className="text-right">Ажиллах</TableHead>
-                            <TableHead className="text-right">Ажилласан</TableHead>
-                            <TableHead className="text-right">Илүү цаг</TableHead>
-                            <TableHead className="text-right">Цалинтай</TableHead>
-                            <TableHead className="text-right">Цалингүй</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading && Array.from({ length: 5 }).map((_, i) => (
-                            <TableRow key={i}>
-                                {Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-16" /></TableCell>)}
-                            </TableRow>
-                        ))}
-                        {!isLoading && filteredData.map(emp => (
-                            <TableRow key={emp.id}>
-                                <TableCell className="font-mono text-sm">{emp.employeeCode}</TableCell>
-                                <TableCell>
-                                    <div className="font-medium">{emp.firstName} {emp.lastName}</div>
-                                    <div className="text-xs text-muted-foreground">{emp.jobTitle}</div>
-                                </TableCell>
-                                <TableCell>{emp.departmentName}</TableCell>
-                                <TableCell className="text-right">{emp.scheduledHours}ц</TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {emp.workedHours}ц {emp.workedMins > 0 && `${emp.workedMins}м`}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {emp.overtimeHours > 0 ? (
-                                        <Badge variant="outline" className="bg-blue-50 text-blue-700">{emp.overtimeHours}ц</Badge>
-                                    ) : '-'}
-                                </TableCell>
-                                <TableCell className="text-right text-green-600">{emp.paidHours}ц</TableCell>
-                                <TableCell className="text-right text-red-600">
-                                    {emp.unpaidHours > 0 ? `${emp.unpaidHours}ц` : '-'}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {!isLoading && filteredData.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center">
-                                    Ажилтны мэдээлэл олдсонгүй.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-                {!isLoading && filteredData.length > 0 && (
-                    <div className="mt-4 text-sm text-muted-foreground">
-                        Нийт {filteredData.length} ажилтан
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
 // --- Request Components ---
 function RequestRowSkeleton() {
     return (
@@ -841,34 +530,43 @@ function TimeOffRequestsTable() {
 export default function AttendanceAndRequestsPage() {
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 pb-32">
+            <div className="flex-1 overflow-y-auto pb-32">
+                {/* Header section */}
+                <div className="bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 dark:from-violet-500/5 dark:via-purple-500/5 dark:to-fuchsia-500/5">
+                    <div className="px-6 py-6 md:p-8">
+                        <PageHeader
+                            title="Цаг ба Ирц"
+                            description="Ажилтнуудын ирцийн түүх болон холбогдох хүсэлтүүдийг удирдах."
+                            showBackButton={true}
+                            hideBreadcrumbs={true}
+                            backButtonPlacement="inline"
+                            backBehavior="history"
+                            fallbackBackHref="/dashboard"
+                        />
+                        <div className="mt-6">
+                            <AttendanceDashboard />
+                        </div>
+                    </div>
+                </div>
 
-                <PageHeader
-                    title="Цаг ба Ирц"
-                    description="Ажилтнуудын ирцийн түүх болон холбогдох хүсэлтүүдийг удирдах."
-                    showBackButton={true}
-                    backHref="/dashboard"
-                />
-
+                {/* Main content */}
+                <div className="px-6 py-6 md:p-8 space-y-8">
                 <Tabs defaultValue="history">
                     <VerticalTabMenu
                         orientation="horizontal"
                         items={[
                             { value: 'history', label: 'Ирцийн түүх' },
-                            { value: 'report', label: 'Цагийн тайлан' },
                             { value: 'requests', label: 'Чөлөөний хүсэлт' },
                         ]}
                     />
                     <TabsContent value="history" className="mt-6">
                         <AttendanceHistoryTab />
                     </TabsContent>
-                    <TabsContent value="report" className="mt-6">
-                        <TimeReportTab />
-                    </TabsContent>
                     <TabsContent value="requests" className="mt-6">
                         <TimeOffRequestsTable />
                     </TabsContent>
                 </Tabs>
+                </div>
             </div>
         </div>
     );

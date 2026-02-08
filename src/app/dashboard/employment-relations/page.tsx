@@ -16,6 +16,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { DocumentPipeline } from './components/document-pipeline';
 import { OrdersTab } from './components/orders-tab';
+import { ERDashboard } from './components/er-dashboard';
 
 export default function DocumentListPage() {
     const { firestore } = useFirebase();
@@ -28,9 +29,11 @@ export default function DocumentListPage() {
         , [firestore]);
 
     const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
+    const templatesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_templates') : null, [firestore]);
 
     const { data: documents, isLoading } = useCollection<ERDocument>(documentsQuery);
     const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
+    const { data: templates } = useCollection<{ id: string; isSystem?: boolean }>(templatesQuery);
 
     const docTypeMap = React.useMemo(() => {
         return docTypes?.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>) || {};
@@ -82,7 +85,13 @@ export default function DocumentListPage() {
                     }
                 />
 
-
+                {/* Dashboard | хөдөлмөрийн харилцаа */}
+                <ERDashboard
+                    documents={documents ?? null}
+                    docTypes={docTypes ?? null}
+                    templates={templates ?? null}
+                    isLoading={isLoading}
+                />
 
                 <Tabs defaultValue="er" className="space-y-6">
                     <VerticalTabMenu

@@ -2,14 +2,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
 import {
     Select,
     SelectContent,
@@ -23,51 +20,30 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     FolderKanban,
     Search,
-    Calendar,
-    Clock,
-    CheckCircle2,
-    AlertCircle,
-    TrendingUp,
-    Target,
-    Users,
-    ArrowRight,
-    Timer,
     X,
     Filter,
     LayoutGrid,
     List,
-    Pencil,
+    GanttChart,
     Tag,
-    Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import { format, isPast, parseISO, differenceInDays } from 'date-fns';
-import { mn } from 'date-fns/locale';
-
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import { 
-    Project, 
-    ProjectStatus, 
-    PROJECT_STATUS_LABELS, 
-    PROJECT_STATUS_COLORS,
-    PRIORITY_LABELS,
-    PRIORITY_COLORS,
-    ProjectGroup,
-} from '@/types/project';
+import { Project, ProjectStatus, ProjectGroup } from '@/types/project';
 import { Employee } from '@/types';
 import { CreateProjectDialog } from './components/create-project-dialog';
-import { EditProjectDialog } from './components/edit-project-dialog';
 import { ProjectGroupsManagerDialog } from './components/project-groups-manager-dialog';
 import { AssignProjectGroupsDialog } from './components/assign-project-groups-dialog';
+import { ProjectsDashboard } from './components/projects-dashboard';
+import { ProjectsGanttView } from './components/projects-gantt-view';
+import { ProjectsListTable } from './components/projects-list-table';
 
 export default function ProjectsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [editingProject, setEditingProject] = useState<Project | null>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'gantt'>('grid');
     const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
     const [isGroupsManagerOpen, setIsGroupsManagerOpen] = useState(false);
     const [assignGroupsProject, setAssignGroupsProject] = useState<Project | null>(null);
@@ -143,22 +119,6 @@ export default function ProjectsPage() {
         });
     }, [projects, statusFilter, searchQuery, employeeMap, selectedGroupIds]);
 
-    // Calculate stats
-    const stats = useMemo(() => {
-        if (!projects) return { total: 0, active: 0, completed: 0, overdue: 0 };
-
-        const today = new Date();
-        return {
-            total: projects.length,
-            active: projects.filter(p => p.status === 'ACTIVE' || p.status === 'IN_PROGRESS').length,
-            completed: projects.filter(p => p.status === 'COMPLETED').length,
-            overdue: projects.filter(p => {
-                if (p.status === 'COMPLETED' || p.status === 'ARCHIVED' || p.status === 'CANCELLED') return false;
-                return isPast(parseISO(p.endDate));
-            }).length,
-        };
-    }, [projects]);
-
     const isLoading = isLoadingProjects || isLoadingEmployees || isLoadingGroups;
     const hasActiveFilters = searchQuery || statusFilter !== 'ALL' || selectedGroupIds.length > 0;
 
@@ -199,91 +159,12 @@ export default function ProjectsPage() {
                             }
                         />
 
-                        {/* Stats Cards */}
-                        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-0 shadow-sm hover:shadow-md transition-shadow">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Нийт төсөл</p>
-                                            {isLoading ? (
-                                                <Skeleton className="h-8 w-12 mt-1" />
-                                            ) : (
-                                                <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">{stats.total}</p>
-                                            )}
-                                        </div>
-                                        <div className="h-10 w-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                                            <FolderKanban className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-0 shadow-sm hover:shadow-md transition-shadow">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Идэвхтэй</p>
-                                            {isLoading ? (
-                                                <Skeleton className="h-8 w-12 mt-1" />
-                                            ) : (
-                                                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.active}</p>
-                                            )}
-                                        </div>
-                                        <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                            <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-0 shadow-sm hover:shadow-md transition-shadow">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Дууссан</p>
-                                            {isLoading ? (
-                                                <Skeleton className="h-8 w-12 mt-1" />
-                                            ) : (
-                                                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed}</p>
-                                            )}
-                                        </div>
-                                        <div className="h-10 w-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className={cn(
-                                "bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-0 shadow-sm hover:shadow-md transition-shadow",
-                                stats.overdue > 0 && "ring-2 ring-red-200 dark:ring-red-900/50"
-                            )}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Хэтэрсэн</p>
-                                            {isLoading ? (
-                                                <Skeleton className="h-8 w-12 mt-1" />
-                                            ) : (
-                                                <p className={cn(
-                                                    "text-2xl font-bold",
-                                                    stats.overdue > 0 ? "text-red-600 dark:text-red-400" : "text-slate-400"
-                                                )}>{stats.overdue}</p>
-                                            )}
-                                        </div>
-                                        <div className={cn(
-                                            "h-10 w-10 rounded-xl flex items-center justify-center",
-                                            stats.overdue > 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-slate-100 dark:bg-slate-800"
-                                        )}>
-                                            <AlertCircle className={cn(
-                                                "h-5 w-5",
-                                                stats.overdue > 0 ? "text-red-600 dark:text-red-400" : "text-slate-400"
-                                            )} />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                        {/* Dashboard | төсөл */}
+                        <div className="mt-6">
+                            <ProjectsDashboard
+                                projects={projects ?? null}
+                                isLoading={isLoading}
+                            />
                         </div>
                     </div>
                 </div>
@@ -409,7 +290,7 @@ export default function ProjectsPage() {
                                     size="sm"
                                     onClick={() => setViewMode('grid')}
                                     className={cn(
-                                        "rounded-r-none",
+                                        "rounded-r-none rounded-l-md",
                                         viewMode === 'grid' && "bg-muted"
                                     )}
                                 >
@@ -420,11 +301,22 @@ export default function ProjectsPage() {
                                     size="sm"
                                     onClick={() => setViewMode('list')}
                                     className={cn(
-                                        "rounded-l-none",
+                                        "rounded-none",
                                         viewMode === 'list' && "bg-muted"
                                     )}
                                 >
                                     <List className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setViewMode('gantt')}
+                                    className={cn(
+                                        "rounded-l-none rounded-r-md",
+                                        viewMode === 'gantt' && "bg-muted"
+                                    )}
+                                >
+                                    <GanttChart className="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>
@@ -483,64 +375,33 @@ export default function ProjectsPage() {
                         </p>
                     )}
 
-                    {/* Projects Grid/List */}
-                    <div className={cn(
-                        viewMode === 'grid' 
-                            ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                            : "flex flex-col gap-3"
-                    )}>
-                        {isLoading ? (
-                            // Loading skeletons
-                            Array.from({ length: 8 }).map((_, i) => (
-                                <Card key={i} className="overflow-hidden">
-                                    <CardContent className="p-5">
-                                        <Skeleton className="h-6 w-3/4 mb-3" />
-                                        <Skeleton className="h-4 w-full mb-2" />
-                                        <Skeleton className="h-4 w-2/3 mb-4" />
-                                        <div className="flex justify-between items-center">
-                                            <Skeleton className="h-8 w-8 rounded-full" />
-                                            <Skeleton className="h-4 w-20" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : filteredProjects.length === 0 ? (
-                            <div className="col-span-full">
-                                <Card className="border-dashed">
-                                    <CardContent className="p-12 text-center">
-                                        <div className="h-16 w-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-4">
-                                            <FolderKanban className="h-8 w-8 text-violet-600 dark:text-violet-400" />
-                                        </div>
-                                        <h3 className="text-lg font-semibold mb-2">Төсөл олдсонгүй</h3>
-                                        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                                            {hasActiveFilters
-                                                ? 'Хайлтын үр дүн олдсонгүй. Шүүлтүүрээ өөрчилж үзнэ үү.'
-                                                : 'Одоогоор төсөл байхгүй байна. Шинэ төсөл үүсгэж эхлэх үү?'}
-                                        </p>
-                                        <Button 
-                                            onClick={() => setIsCreateDialogOpen(true)}
-                                            className="bg-violet-600 hover:bg-violet-700"
-                                        >
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Шинэ төсөл үүсгэх
-                                        </Button>
-                                    </CardContent>
-                                </Card>
+                    {/* Projects Grid/List/Gantt */}
+                    {viewMode === 'gantt' ? (
+                        isLoading ? (
+                            <div className="space-y-2">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                                ))}
                             </div>
                         ) : (
-                            filteredProjects.map((project) => (
-                                <ProjectCard
-                                    key={project.id}
-                                    project={project}
-                                    owner={employeeMap.get(project.ownerId)}
-                                    viewMode={viewMode}
-                                    onEdit={setEditingProject}
-                                    groupsById={groupsById}
-                                    onEditGroups={(p) => setAssignGroupsProject(p)}
-                                />
-                            ))
-                        )}
-                    </div>
+                            <ProjectsGanttView projects={filteredProjects} />
+                        )
+                    ) : (
+                        <ProjectsListTable
+                            projects={filteredProjects}
+                            employeeMap={employeeMap}
+                            groupsById={groupsById}
+                            isLoading={isLoading}
+                            variant={viewMode === 'gantt' ? 'list' : viewMode}
+                            onEditGroups={(p) => setAssignGroupsProject(p)}
+                            onClearFilters={hasActiveFilters ? () => {
+                                setSearchQuery('');
+                                setStatusFilter('ALL');
+                                setSelectedGroupIds([]);
+                            } : undefined}
+                            onCreateProject={!hasActiveFilters ? () => setIsCreateDialogOpen(true) : undefined}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -548,14 +409,6 @@ export default function ProjectsPage() {
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
             />
-
-            {editingProject && (
-                <EditProjectDialog
-                    open={!!editingProject}
-                    onOpenChange={(open) => !open && setEditingProject(null)}
-                    project={editingProject}
-                />
-            )}
 
             <ProjectGroupsManagerDialog
                 open={isGroupsManagerOpen}
@@ -570,326 +423,5 @@ export default function ProjectsPage() {
                 groups={groups || []}
             />
         </div>
-    );
-}
-
-// Project Card Component
-interface ProjectCardProps {
-    project: Project;
-    owner?: Employee;
-    viewMode: 'grid' | 'list';
-    onEdit: (project: Project) => void;
-    groupsById: Map<string, ProjectGroup>;
-    onEditGroups: (project: Project) => void;
-}
-
-// Status colors mapping
-const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string; border: string }> = {
-    // New statuses
-    DRAFT: { bg: 'bg-slate-50 dark:bg-slate-800/50', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-400', border: 'border-l-slate-400' },
-    ACTIVE: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', border: 'border-l-emerald-500' },
-    ON_HOLD: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', border: 'border-l-amber-500' },
-    COMPLETED: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', dot: 'bg-blue-500', border: 'border-l-blue-500' },
-    ARCHIVED: { bg: 'bg-zinc-50 dark:bg-zinc-800/50', text: 'text-zinc-500 dark:text-zinc-400', dot: 'bg-zinc-400', border: 'border-l-zinc-400' },
-    // Legacy statuses (for backward compatibility with existing data)
-    PLANNING: { bg: 'bg-slate-50 dark:bg-slate-800/50', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-400', border: 'border-l-slate-400' },
-    IN_PROGRESS: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', border: 'border-l-emerald-500' },
-    CANCELLED: { bg: 'bg-zinc-50 dark:bg-zinc-800/50', text: 'text-zinc-500 dark:text-zinc-400', dot: 'bg-zinc-400', border: 'border-l-zinc-400' },
-};
-
-const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
-    LOW: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400' },
-    MEDIUM: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
-    HIGH: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
-    URGENT: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400' },
-};
-
-function ProjectCard({ project, owner, viewMode, onEdit, groupsById, onEditGroups }: ProjectCardProps) {
-    const daysLeft = differenceInDays(parseISO(project.endDate), new Date());
-    const isOverdue = daysLeft < 0 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED';
-    const totalDays = differenceInDays(parseISO(project.endDate), parseISO(project.startDate));
-    const elapsedDays = differenceInDays(new Date(), parseISO(project.startDate));
-    const progressPercent = project.status === 'COMPLETED' ? 100 : Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
-    
-    const statusStyle = STATUS_STYLES[project.status] || STATUS_STYLES.DRAFT;
-    const priorityStyle = PRIORITY_STYLES[project.priority] || PRIORITY_STYLES.MEDIUM;
-
-    const handleEdit = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onEdit(project);
-    };
-
-    const handleEditGroups = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onEditGroups(project);
-    };
-
-    const groupBadges = (project.groupIds || [])
-        .map((gid) => groupsById.get(gid))
-        .filter(Boolean) as ProjectGroup[];
-
-    if (viewMode === 'list') {
-        return (
-            <Link href={`/dashboard/projects/${project.id}`}>
-                <Card className={cn(
-                    "hover:shadow-md transition-all cursor-pointer group border-l-4",
-                    statusStyle.border
-                )}>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                            {/* Project Icon */}
-                            <div className={cn(
-                                "h-12 w-12 rounded-xl flex items-center justify-center shrink-0",
-                                statusStyle.bg
-                            )}>
-                                <FolderKanban className={cn("h-6 w-6", statusStyle.text)} />
-                            </div>
-
-                            {/* Project Info */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-semibold truncate group-hover:text-violet-600 transition-colors">
-                                        {project.name}
-                                    </h3>
-                                    <Badge className={cn('shrink-0 text-xs', statusStyle.bg, statusStyle.text)}>
-                                        {PROJECT_STATUS_LABELS[project.status]}
-                                    </Badge>
-                                </div>
-                                {groupBadges.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mb-1">
-                                        {groupBadges.slice(0, 3).map((g) => (
-                                            <Badge key={g.id} variant="secondary" className="text-[10px]">
-                                                {g.name}
-                                            </Badge>
-                                        ))}
-                                        {groupBadges.length > 3 && (
-                                            <Badge variant="secondary" className="text-[10px]">
-                                                +{groupBadges.length - 3}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                )}
-                                {project.goal && (
-                                    <p className="text-sm text-muted-foreground truncate">
-                                        <span className="font-medium">Зорилго:</span> {project.goal}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Meta Info */}
-                            <div className="hidden md:flex items-center gap-6 shrink-0">
-                                <div className="flex items-center gap-2">
-                                    <Avatar className="h-7 w-7">
-                                        <AvatarImage src={owner?.photoURL} />
-                                        <AvatarFallback className="text-xs bg-violet-100 text-violet-600">
-                                            {owner ? `${owner.firstName?.[0]}${owner.lastName?.[0]}` : '?'}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm text-muted-foreground max-w-[100px] truncate">
-                                        {owner ? `${owner.firstName}` : '-'}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                    <Calendar className="h-4 w-4" />
-                                    <span>{format(parseISO(project.endDate), 'MM/dd')}</span>
-                                </div>
-
-                                <div className={cn(
-                                    "text-sm font-medium min-w-[100px] text-right",
-                                    isOverdue ? "text-red-500" : daysLeft <= 7 ? "text-amber-500" : "text-muted-foreground"
-                                )}>
-                                    {project.status === 'COMPLETED' ? (
-                                        <span className="text-green-500 flex items-center gap-1 justify-end">
-                                            <CheckCircle2 className="h-4 w-4" />
-                                            Дууссан
-                                        </span>
-                                    ) : isOverdue ? (
-                                        <span className="flex items-center gap-1 justify-end">
-                                            <AlertCircle className="h-4 w-4" />
-                                            {Math.abs(daysLeft)} өдөр хэтэрсэн
-                                        </span>
-                                    ) : (
-                                        <span>{daysLeft} өдөр үлдсэн</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={handleEdit}
-                            >
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={handleEditGroups}
-                            >
-                                <Tag className="h-4 w-4" />
-                            </Button>
-
-                            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
-                        </div>
-                    </CardContent>
-                </Card>
-            </Link>
-        );
-    }
-    
-    return (
-        <Link href={`/dashboard/projects/${project.id}`}>
-            <Card className={cn(
-                "h-full hover:shadow-lg transition-all cursor-pointer group overflow-hidden border-t-4",
-                statusStyle.border.replace('border-l-', 'border-t-')
-            )}>
-                <CardContent className="p-5">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                        <div className={cn(
-                            "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
-                            statusStyle.bg
-                        )}>
-                            <FolderKanban className={cn("h-5 w-5", statusStyle.text)} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={handleEdit}
-                            >
-                                <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={handleEditGroups}
-                            >
-                                <Tag className="h-3.5 w-3.5" />
-                            </Button>
-                            <Badge className={cn('text-xs', priorityStyle.bg, priorityStyle.text)}>
-                                {PRIORITY_LABELS[project.priority]}
-                            </Badge>
-                        </div>
-                    </div>
-
-                    {/* Title & Goal */}
-                    <div className="mb-4">
-                        <h3 className="font-semibold text-lg truncate group-hover:text-violet-600 transition-colors mb-1">
-                            {project.name}
-                        </h3>
-                        {groupBadges.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-2">
-                                {groupBadges.slice(0, 3).map((g) => (
-                                    <Badge key={g.id} variant="secondary" className="text-[10px]">
-                                        {g.name}
-                                    </Badge>
-                                ))}
-                                {groupBadges.length > 3 && (
-                                    <Badge variant="secondary" className="text-[10px]">
-                                        +{groupBadges.length - 3}
-                                    </Badge>
-                                )}
-                            </div>
-                        )}
-                        {project.goal && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                                {project.goal}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Progress */}
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-muted-foreground">Хугацаа</span>
-                            <span className={cn(
-                                "font-medium",
-                                isOverdue ? "text-red-500" : statusStyle.text
-                            )}>
-                                {project.status === 'COMPLETED' ? '100%' : `${Math.round(progressPercent)}%`}
-                            </span>
-                        </div>
-                        <Progress 
-                            value={progressPercent} 
-                            className={cn(
-                                "h-1.5",
-                                isOverdue && "bg-red-100 dark:bg-red-900/30"
-                            )}
-                        />
-                    </div>
-
-                    {/* Dates */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>
-                            {format(parseISO(project.startDate), 'yyyy.MM.dd')} - {format(parseISO(project.endDate), 'yyyy.MM.dd')}
-                        </span>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-3 border-t">
-                        {/* Owner */}
-                        <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-slate-900">
-                                <AvatarImage src={owner?.photoURL} />
-                                <AvatarFallback className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
-                                    {owner ? `${owner.firstName?.[0]}${owner.lastName?.[0]}` : '?'}
-                                </AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs text-muted-foreground truncate max-w-[80px]">
-                                {owner ? `${owner.firstName}` : 'Хариуцагчгүй'}
-                            </span>
-                        </div>
-
-                        {/* Status & Days */}
-                        <div className={cn(
-                            "flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full",
-                            project.status === 'COMPLETED' 
-                                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                : (project.status === 'ARCHIVED' || project.status === 'CANCELLED')
-                                ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
-                                : isOverdue 
-                                ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                                : daysLeft <= 7 
-                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                        )}>
-                            {project.status === 'COMPLETED' ? (
-                                <>
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    <span>Дууссан</span>
-                                </>
-                            ) : (project.status === 'ARCHIVED' || project.status === 'CANCELLED') ? (
-                                <span>Архивласан</span>
-                            ) : isOverdue ? (
-                                <>
-                                    <AlertCircle className="h-3.5 w-3.5" />
-                                    <span>{Math.abs(daysLeft)}д хэтэрсэн</span>
-                                </>
-                            ) : daysLeft === 0 ? (
-                                <>
-                                    <Timer className="h-3.5 w-3.5" />
-                                    <span>Өнөөдөр</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Clock className="h-3.5 w-3.5" />
-                                    <span>{daysLeft}д үлдсэн</span>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </Link>
     );
 }
