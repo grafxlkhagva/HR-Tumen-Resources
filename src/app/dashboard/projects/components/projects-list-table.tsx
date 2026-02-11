@@ -203,77 +203,77 @@ export function ProjectsListTable({
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-white dark:bg-slate-900/50 rounded-xl border shadow-sm p-4 transition-shadow hover:shadow-md">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-violet-600 transition-colors">
-                                            {project.name}
+                    <div className={cn(
+                        "rounded-xl border px-4 py-3 transition-shadow hover:shadow-md",
+                        isOverdue
+                            ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/50"
+                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED')
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
+                                : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800/30"
+                    )}>
+                        <div className="flex items-center gap-4">
+                            {/* Title + Date */}
+                            <div className="min-w-0 flex-1">
+                                <h3 className={cn(
+                                    "text-sm font-semibold line-clamp-2 leading-snug transition-colors",
+                                    isOverdue
+                                        ? "text-red-900 dark:text-red-200 group-hover:text-red-700"
+                                        : "text-slate-900 dark:text-slate-100 group-hover:text-violet-600"
+                                )}>
+                                    {project.name}
+                                </h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className={cn(
+                                        "text-sm font-medium",
+                                        isOverdue
+                                            ? "text-red-600 dark:text-red-400"
+                                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED')
+                                                ? "text-amber-600 dark:text-amber-400"
+                                                : "text-muted-foreground"
+                                    )}>
+                                        {format(parseISO(project.startDate), 'MM.dd')} – {format(parseISO(project.endDate), 'MM.dd')}
+                                    </span>
+                                    {isOverdue ? (
+                                        <span className="text-[10px] text-red-600 dark:text-red-400 font-bold flex items-center gap-0.5">
+                                            <AlertCircle className="h-3 w-3" />{Math.abs(daysLeft)}д хэтэрсэн
                                         </span>
-                                        <Badge className={cn('text-[10px] py-0 h-5 font-semibold shrink-0', statusStyle.bg, statusStyle.text)}>
-                                            {PROJECT_STATUS_LABELS[project.status]}
-                                        </Badge>
-                                    </div>
-                                    {groupBadges.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                            {groupBadges.slice(0, 3).map((g) => (
-                                                <Badge key={g.id} variant="secondary" className="text-[10px]">{g.name}</Badge>
-                                            ))}
-                                            {groupBadges.length > 3 && <Badge variant="secondary" className="text-[10px]">+{groupBadges.length - 3}</Badge>}
-                                        </div>
-                                    )}
-                                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                        {project.goal && <span className="truncate max-w-[200px]">{project.goal}</span>}
-                                        <span className="flex items-center gap-1.5">
-                                            {teamMembers.length > 0 ? (
-                                                <>
-                                                    <Avatar className="h-4 w-4 ring-2 ring-white dark:ring-slate-900">
-                                                        <AvatarImage src={teamMembers[0]?.photoURL} />
-                                                        <AvatarFallback className="text-[8px]">{teamMembers[0] ? `${teamMembers[0].firstName?.[0]}${teamMembers[0].lastName?.[0]}` : '?'}</AvatarFallback>
-                                                    </Avatar>
-                                                    {teamMembers.length > 1 && (
-                                                        <span className="flex items-center -space-x-1.5 ml-2">
-                                                            {teamMembers.slice(1).map((emp) => (
-                                                                <Avatar key={emp.id} className="h-4 w-4 ring-2 ring-white dark:ring-slate-900">
-                                                                    <AvatarImage src={emp.photoURL} />
-                                                                    <AvatarFallback className="text-[8px]">{`${emp.firstName?.[0]}${emp.lastName?.[0]}`}</AvatarFallback>
-                                                                </Avatar>
-                                                            ))}
-                                                        </span>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <span className="text-muted-foreground">Багийн гишүүдгүй</span>
-                                            )}
+                                    ) : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED') ? (
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                                            <Clock className="h-3 w-3" />{daysLeft}д үлдсэн
                                         </span>
-                                        <span className="flex items-center gap-1">
-                                            <Calendar className="h-3.5 w-3.5" />
-                                            {format(parseISO(project.endDate), 'yyyy.MM.dd')}
-                                        </span>
-                                        <span className={cn(
-                                            "ml-auto",
-                                            project.status === 'COMPLETED' ? 'text-green-600' : isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-amber-600' : ''
-                                        )}>
-                                            {project.status === 'COMPLETED' ? (
-                                                <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Дууссан</span>
-                                            ) : isOverdue ? (
-                                                <span className="flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />{Math.abs(daysLeft)}д хэтэрсэн</span>
-                                            ) : daysLeft === 0 ? (
-                                                <span className="flex items-center gap-1"><Timer className="h-3.5 w-3.5" />Өнөөдөр</span>
-                                            ) : (
-                                                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{daysLeft}д үлдсэн</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.preventDefault(); onEditGroups(project); }}>
-                                        <Tag className="h-4 w-4" />
-                                    </Button>
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                    ) : null}
                                 </div>
                             </div>
+
+                            {/* Team Avatars */}
+                            <div className="flex items-center -space-x-1.5 shrink-0">
+                                {teamMembers.length > 0 ? (
+                                    <>
+                                        {teamMembers.slice(0, 4).map((emp) => (
+                                            <Avatar key={emp.id} className="h-6 w-6 ring-2 ring-white dark:ring-slate-900">
+                                                <AvatarImage src={emp.photoURL} />
+                                                <AvatarFallback className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
+                                                    {`${emp.firstName?.[0] || ''}${emp.lastName?.[0] || ''}`}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        ))}
+                                        {teamMembers.length > 4 && (
+                                            <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 flex items-center justify-center">
+                                                <span className="text-[9px] font-bold text-slate-500">+{teamMembers.length - 4}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <span className="text-[10px] text-muted-foreground">—</span>
+                                )}
+                            </div>
+
+                            {/* Status Badge */}
+                            <Badge className={cn('text-[10px] py-0.5 h-5 font-semibold shrink-0 whitespace-nowrap', statusStyle.bg, statusStyle.text)}>
+                                {PROJECT_STATUS_LABELS[project.status]}
+                            </Badge>
+
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         </div>
                     </div>
                 );

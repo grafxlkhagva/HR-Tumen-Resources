@@ -6,14 +6,9 @@ import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,11 +16,11 @@ import {
     FolderKanban,
     Search,
     X,
-    Filter,
     LayoutGrid,
     List,
     GanttChart,
     Tag,
+    Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
@@ -41,10 +36,12 @@ import { ProjectsListTable } from './components/projects-list-table';
 
 export default function ProjectsPage() {
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
+    const [statusFilter, setStatusFilter] = useState<ProjectStatus>('ACTIVE');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'gantt'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'gantt'>('list');
     const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+    const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
     const [isGroupsManagerOpen, setIsGroupsManagerOpen] = useState(false);
     const [assignGroupsProject, setAssignGroupsProject] = useState<Project | null>(null);
 
@@ -85,6 +82,31 @@ export default function ProjectsPage() {
         setSelectedGroupIds((prev) => checked ? Array.from(new Set([...prev, groupId])) : prev.filter((id) => id !== groupId));
     };
 
+    const toggleEmployeeFilter = (employeeId: string, checked: boolean) => {
+        setSelectedEmployeeIds((prev) => checked ? Array.from(new Set([...prev, employeeId])) : prev.filter((id) => id !== employeeId));
+    };
+
+    // Employees who participate in at least one project (as owner or team member)
+    const projectEmployees = useMemo(() => {
+        if (!projects || !employees) return [];
+        const idSet = new Set<string>();
+        projects.forEach(p => {
+            if (p.ownerId) idSet.add(p.ownerId);
+            (p.teamMemberIds || []).forEach(id => idSet.add(id));
+        });
+        return employees
+            .filter(e => idSet.has(e.id))
+            .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    }, [projects, employees]);
+
+    const filteredEmployeeList = useMemo(() => {
+        if (!employeeSearchQuery) return projectEmployees;
+        const q = employeeSearchQuery.toLowerCase();
+        return projectEmployees.filter(e =>
+            `${e.firstName} ${e.lastName}`.toLowerCase().includes(q)
+        );
+    }, [projectEmployees, employeeSearchQuery]);
+
     // Filter projects
     const filteredProjects = useMemo(() => {
         if (!projects) return [];
@@ -96,8 +118,14 @@ export default function ProjectsPage() {
                 if (!selectedGroupIds.some((gid) => ids.includes(gid))) return false;
             }
 
+            // Employee filter (multi) — match if employee is owner or team member
+            if (selectedEmployeeIds.length > 0) {
+                const allMembers = [project.ownerId, ...(project.teamMemberIds || [])];
+                if (!selectedEmployeeIds.some((eid) => allMembers.includes(eid))) return false;
+            }
+
             // Status filter
-            if (statusFilter !== 'ALL' && project.status !== statusFilter) {
+            if (project.status !== statusFilter) {
                 return false;
             }
             
@@ -116,15 +144,14 @@ export default function ProjectsPage() {
             }
             
             return true;
-        });
-    }, [projects, statusFilter, searchQuery, employeeMap, selectedGroupIds]);
+        }).sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+    }, [projects, statusFilter, searchQuery, employeeMap, selectedGroupIds, selectedEmployeeIds]);
 
     const isLoading = isLoadingProjects || isLoadingEmployees || isLoadingGroups;
-    const hasActiveFilters = searchQuery || statusFilter !== 'ALL' || selectedGroupIds.length > 0;
+    const hasActiveFilters = searchQuery || selectedGroupIds.length > 0 || selectedEmployeeIds.length > 0;
 
     // Status config with colors
     const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-        ALL: { label: 'Бүгд', color: 'text-slate-600', bgColor: 'bg-slate-100' },
         DRAFT: { label: 'Ноорог', color: 'text-slate-600', bgColor: 'bg-slate-100' },
         ACTIVE: { label: 'Идэвхтэй', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
         ON_HOLD: { label: 'Түр зогссон', color: 'text-amber-600', bgColor: 'bg-amber-50' },
@@ -171,8 +198,8 @@ export default function ProjectsPage() {
 
                 {/* Main Content */}
                 <div className="px-6 py-6">
-                    {/* Search & Filter Bar */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    {/* Search Bar */}
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -190,50 +217,64 @@ export default function ProjectsPage() {
                                 </button>
                             )}
                         </div>
-                        
+
                         <div className="flex gap-2">
-                            <Select
-                                value={statusFilter}
-                                onValueChange={(value) => setStatusFilter(value as ProjectStatus | 'ALL')}
-                            >
-                                <SelectTrigger className="w-[180px] bg-white dark:bg-slate-900">
-                                    <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-                                    <SelectValue placeholder="Төлөв сонгох" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">Бүгд</SelectItem>
-                                    <SelectItem value="DRAFT">
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-slate-400" />
-                                            Ноорог
-                                        </span>
-                                    </SelectItem>
-                                    <SelectItem value="ACTIVE">
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                            Идэвхтэй
-                                        </span>
-                                    </SelectItem>
-                                    <SelectItem value="ON_HOLD">
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                            Түр зогссон
-                                        </span>
-                                    </SelectItem>
-                                    <SelectItem value="COMPLETED">
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-blue-500" />
-                                            Дууссан
-                                        </span>
-                                    </SelectItem>
-                                    <SelectItem value="ARCHIVED">
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-zinc-400" />
-                                            Архивласан
-                                        </span>
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {/* Employee Filter */}
+                            <Popover onOpenChange={(open) => { if (!open) setEmployeeSearchQuery(''); }}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="bg-white dark:bg-slate-900">
+                                        <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+                                        Ажилтан
+                                        {selectedEmployeeIds.length > 0 && (
+                                            <Badge variant="secondary" className="ml-2">
+                                                {selectedEmployeeIds.length}
+                                            </Badge>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[320px] p-3" align="end">
+                                    <div className="text-sm font-semibold mb-2">Ажилтнаар шүүх</div>
+                                    <div className="relative mb-2">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Ажилтан хайх..."
+                                            value={employeeSearchQuery}
+                                            onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                                            className="h-8 pl-8 text-sm"
+                                        />
+                                    </div>
+                                    <ScrollArea className="h-[220px] pr-2">
+                                        <div className="space-y-1">
+                                            {filteredEmployeeList.length === 0 ? (
+                                                <div className="text-sm text-muted-foreground py-2">Ажилтан олдсонгүй</div>
+                                            ) : (
+                                                filteredEmployeeList.map((emp) => {
+                                                    const checked = selectedEmployeeIds.includes(emp.id);
+                                                    return (
+                                                        <label key={emp.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer">
+                                                            <Checkbox checked={checked} onCheckedChange={(v) => toggleEmployeeFilter(emp.id, !!v)} />
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarImage src={emp.photoURL} />
+                                                                <AvatarFallback className="text-[9px] bg-violet-100 text-violet-600">
+                                                                    {`${emp.firstName?.[0] || ''}${emp.lastName?.[0] || ''}`}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-sm font-medium truncate">{emp.firstName} {emp.lastName}</span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                    {selectedEmployeeIds.length > 0 && (
+                                        <div className="pt-2 flex justify-end">
+                                            <Button variant="outline" size="sm" onClick={() => setSelectedEmployeeIds([])}>
+                                                Цэвэрлэх
+                                            </Button>
+                                        </div>
+                                    )}
+                                </PopoverContent>
+                            </Popover>
 
                             {/* Group Filter */}
                             <Popover>
@@ -288,20 +329,9 @@ export default function ProjectsPage() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setViewMode('grid')}
-                                    className={cn(
-                                        "rounded-r-none rounded-l-md",
-                                        viewMode === 'grid' && "bg-muted"
-                                    )}
-                                >
-                                    <LayoutGrid className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
                                     onClick={() => setViewMode('list')}
                                     className={cn(
-                                        "rounded-none",
+                                        "rounded-r-none rounded-l-md",
                                         viewMode === 'list' && "bg-muted"
                                     )}
                                 >
@@ -312,61 +342,39 @@ export default function ProjectsPage() {
                                     size="sm"
                                     onClick={() => setViewMode('gantt')}
                                     className={cn(
-                                        "rounded-l-none rounded-r-md",
+                                        "rounded-none",
                                         viewMode === 'gantt' && "bg-muted"
                                     )}
                                 >
                                     <GanttChart className="h-4 w-4" />
                                 </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setViewMode('grid')}
+                                    className={cn(
+                                        "rounded-l-none rounded-r-md",
+                                        viewMode === 'grid' && "bg-muted"
+                                    )}
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                </Button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Active Filters */}
-                    {hasActiveFilters && (
-                        <div className="flex items-center gap-2 mb-4 flex-wrap">
-                            <span className="text-sm text-muted-foreground">Идэвхтэй шүүлтүүр:</span>
-                            {searchQuery && (
-                                <Badge variant="secondary" className="gap-1">
-                                    Хайлт: "{searchQuery}"
-                                    <button onClick={() => setSearchQuery('')}>
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            )}
-                            {statusFilter !== 'ALL' && (
-                                <Badge variant="secondary" className={cn("gap-1", statusConfig[statusFilter]?.color)}>
-                                    {statusConfig[statusFilter]?.label}
-                                    <button onClick={() => setStatusFilter('ALL')}>
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            )}
-                            {selectedGroupIds.map((gid) => {
-                                const g = groupsById.get(gid);
-                                return (
-                                    <Badge key={gid} variant="secondary" className="gap-1">
-                                        {g?.name || 'Бүлэг'}
-                                        <button onClick={() => setSelectedGroupIds((prev) => prev.filter((x) => x !== gid))}>
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                );
-                            })}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setStatusFilter('ALL');
-                                    setSelectedGroupIds([]);
-                                }}
-                                className="h-6 px-2 text-xs"
-                            >
-                                Бүгдийг цэвэрлэх
-                            </Button>
-                        </div>
-                    )}
+                    {/* Status Tabs */}
+                    <div className="mb-4">
+                        <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as ProjectStatus)}>
+                            <TabsList>
+                                <TabsTrigger value="ACTIVE">Идэвхтэй</TabsTrigger>
+                                <TabsTrigger value="COMPLETED">Дууссан</TabsTrigger>
+                                <TabsTrigger value="DRAFT">Ноорог</TabsTrigger>
+                                <TabsTrigger value="ON_HOLD">Түр зогссон</TabsTrigger>
+                                <TabsTrigger value="ARCHIVED">Архивласан</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
 
                     {/* Results Count */}
                     {!isLoading && (
@@ -396,8 +404,8 @@ export default function ProjectsPage() {
                             onEditGroups={(p) => setAssignGroupsProject(p)}
                             onClearFilters={hasActiveFilters ? () => {
                                 setSearchQuery('');
-                                setStatusFilter('ALL');
                                 setSelectedGroupIds([]);
+                                setSelectedEmployeeIds([]);
                             } : undefined}
                             onCreateProject={!hasActiveFilters ? () => setIsCreateDialogOpen(true) : undefined}
                         />

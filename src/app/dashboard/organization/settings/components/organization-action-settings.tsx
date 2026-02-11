@@ -1,6 +1,6 @@
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { useCollection, useFirebase, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, FileText, Pencil, X, Check, Zap } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ERTemplate } from '../../../employment-relations/types';
+import { ensureSystemTemplates } from '../../../employment-relations/seed';
 
 export function OrganizationActionSettings() {
     const { firestore, user } = useFirebase();
@@ -18,6 +19,14 @@ export function OrganizationActionSettings() {
         dateMappings: {} as Record<string, string>
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Ensure system templates exist on first render (idempotent — skips if already created)
+    const didInitRef = useRef(false);
+    useEffect(() => {
+        if (didInitRef.current || !firestore) return;
+        didInitRef.current = true;
+        ensureSystemTemplates().catch(e => console.warn('System template init:', e));
+    }, [firestore]);
 
     // Fixed System Actions
     const SYSTEM_ACTIONS = [
@@ -58,9 +67,9 @@ export function OrganizationActionSettings() {
     );
     const { data: configuredActions, isLoading: isLoadingActions } = useCollection<any>(actionsRef);
 
-    // Fetch Templates
+    // Fetch only system templates (isSystem === true) for action configuration
     const templatesRef = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'er_templates'), where('isActive', '==', true)) : null),
+        () => (firestore ? query(collection(firestore, 'er_templates'), where('isActive', '==', true), where('isSystem', '==', true)) : null),
         [firestore]
     );
     const { data: templates } = useCollection<ERTemplate>(templatesRef as any);

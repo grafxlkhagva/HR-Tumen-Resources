@@ -183,6 +183,31 @@ const SYSTEM_TEMPLATES = [
         ],
     },
     {
+        code: 'SYS_APPOINTMENT_REAPPOINT',
+        actionId: 'appointment_reappoint',
+        docTypeName: 'Эргүүлэн томилох тушаал',
+        docTypeCode: 'SYS_APPT_REAPPT',
+        docTypePrefix: 'ЭТТ',
+        templateName: 'Эргүүлэн томилох тухай',
+        templateContent: `ТУШААЛ
+
+Эргүүлэн томилох тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалд {{date.reappointmentDate}} өдрөөс эхлэн эргүүлэн томилсугай.
+
+Цалин хөлс: {{salary.total}} төгрөг
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 65 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'reappointmentDate', label: 'Эргүүлэн томилсон огноо', type: 'date' as const, required: true, order: 0 },
+        ],
+    },
+    {
         code: 'SYS_RELEASE_TEMPORARY',
         actionId: 'release_temporary',
         docTypeName: 'Ажилтныг түр чөлөөлөх тушаал',
@@ -354,6 +379,7 @@ async function linkOrgAction(firestore: any, actionId: string, templateId: strin
     const ACTION_NAMES: Record<string, string> = {
         'appointment_probation': 'Туршилтын хугацаатай томилох',
         'appointment_permanent': 'Үндсэн ажилтнаар томилох',
+        'appointment_reappoint': 'Эргүүлэн томилох',
         'release_temporary': 'Ажилтныг түр чөлөөлөх',
         'release_company': 'Компанийн санаачилгаар чөлөөлөх',
         'release_employee': 'Ажилтны хүсэлтээр чөлөөлөх',
