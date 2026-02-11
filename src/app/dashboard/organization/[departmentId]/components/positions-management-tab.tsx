@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Trash2, AlertTriangle, Save } from 'lucide-react';
 import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, arrayUnion } from 'firebase/firestore';
+import { addDepartmentHistoryEvent } from '../../department-history-log';
 import {
     Dialog,
     DialogContent,
@@ -250,7 +251,18 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const ref = await addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            if (ref && department?.id && user) {
+                addDepartmentHistoryEvent({
+                    firestore,
+                    departmentId: department.id,
+                    eventType: 'position_added',
+                    positionId: ref.id,
+                    positionTitle: newPositionData.title,
+                    performedBy: user.uid,
+                    performedByName: user.displayName || user.email || 'Систем',
+                }).catch(() => {});
+            }
             toast({ title: "Амжилттай хувиллаа" });
         } catch (e) {
             console.error('Хуулбарлах алдаа:', e);
@@ -376,7 +388,8 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
 
 
     const handleBulkDelete = async () => {
-        if (!firestore || selectedPositionIds.length === 0) return;
+        if (!firestore || selectedPositionIds.length === 0 || !department?.id || !user) return;
+        const toDelete = (positions || []).filter(p => selectedPositionIds.includes(p.id));
         setIsDeleting(true);
         try {
             const batch = writeBatch(firestore);
@@ -384,6 +397,17 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 batch.delete(doc(firestore, 'positions', id));
             });
             await batch.commit();
+            for (const pos of toDelete) {
+                addDepartmentHistoryEvent({
+                    firestore,
+                    departmentId: department.id,
+                    eventType: 'position_deleted',
+                    positionId: pos.id,
+                    positionTitle: pos.title || '',
+                    performedBy: user.uid,
+                    performedByName: user.displayName || user.email || 'Систем',
+                }).catch(() => {});
+            }
             toast({ title: "Сонгосон ажлын байрнуудыг устгалаа" });
             setIsDeleteConfirmOpen(false);
             setSelectedPositionIds([]);

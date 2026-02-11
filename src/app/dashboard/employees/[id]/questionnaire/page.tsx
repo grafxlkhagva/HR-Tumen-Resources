@@ -50,6 +50,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -162,15 +163,91 @@ const TABS = [
     { id: 'experience', label: 'Туршлага', icon: Briefcase },
 ];
 
+function normalizeRegistrationNumber(value: string): string {
+    return (value || '').trim().replace(/\s+/g, '');
+}
+
+/** РД шалгалт индекс шаардлагатай үед indexUrl-тэй алдаа */
+export class RegNoIndexError extends Error {
+    constructor(message: string, public indexUrl: string) {
+        super(message);
+        this.name = 'RegNoIndexError';
+    }
+}
+
+async function checkRegistrationNumberDuplicate(
+    registrationNumber: string,
+    currentEmployeeId: string
+): Promise<{ duplicate: boolean; existingEmployeeId?: string }> {
+    const normalized = normalizeRegistrationNumber(registrationNumber);
+    if (!normalized) return { duplicate: false };
+    const res = await fetch('/api/check-registration-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationNumber: normalized, currentEmployeeId }),
+    });
+    let json: { error?: string; duplicate?: boolean; detail?: string; indexUrl?: string; existingEmployeeId?: string } = {};
+    try {
+        json = await res.json();
+    } catch {
+        // Response body empty or invalid JSON
+    }
+    if (!res.ok) {
+        const errMsg = json.detail || json.error || 'Регистрийн дугаар шалгахад алдаа гарлаа.';
+        if (res.status === 503 && json.indexUrl) {
+            throw new RegNoIndexError(errMsg, json.indexUrl);
+        }
+        throw new Error(errMsg);
+    }
+    return {
+        duplicate: !!json.duplicate,
+        existingEmployeeId: json.existingEmployeeId,
+    };
+}
+
+function normalizeIdCardNumber(value: string): string {
+    return (value || '').trim().replace(/\s+/g, '');
+}
+
+async function checkIdCardNumberDuplicate(
+    idCardNumber: string,
+    currentEmployeeId: string
+): Promise<{ duplicate: boolean; existingEmployeeId?: string }> {
+    const normalized = normalizeIdCardNumber(idCardNumber);
+    if (!normalized) return { duplicate: false };
+    const res = await fetch('/api/check-id-card-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idCardNumber: normalized, currentEmployeeId }),
+    });
+    let json: { error?: string; duplicate?: boolean; detail?: string; indexUrl?: string; existingEmployeeId?: string } = {};
+    try {
+        json = await res.json();
+    } catch {}
+    if (!res.ok) {
+        const errMsg = json.detail || json.error || 'ТТД шалгахад алдаа гарлаа.';
+        if (res.status === 503 && json.indexUrl) {
+            throw new RegNoIndexError(errMsg, json.indexUrl);
+        }
+        throw new Error(errMsg);
+    }
+    return {
+        duplicate: !!json.duplicate,
+        existingEmployeeId: json.existingEmployeeId,
+    };
+}
+
 interface FormSectionProps<T extends z.ZodType<any, any>> {
     docRef: any;
     employeeDocRef: any;
     defaultValues: z.infer<T> | undefined;
     schema: T;
+    /** Optional: runs before save. Return error string or { error, indexUrl? } or { error, existingEmployeeId? } to abort, null to proceed. May mutate data. */
+    beforeSubmit?: (data: z.infer<T>) => Promise<string | { error: string; indexUrl?: string; existingEmployeeId?: string } | null>;
     children: (form: any, isSubmitting: boolean) => React.ReactNode;
 }
 
-function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, defaultValues, schema, children }: FormSectionProps<T>) {
+function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, defaultValues, schema, beforeSubmit, children }: FormSectionProps<T>) {
     const { toast } = useToast();
     const form = useForm<z.infer<T>>({
         resolver: zodResolver(schema),
@@ -185,13 +262,49 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
 
     const { isSubmitting } = form.formState;
 
-    const onSubmit = (data: z.infer<T>) => {
+    const onSubmit = async (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
         const merged = { ...defaultValues, ...data };
-        // Firestore does not accept undefined values – strip them out
         const currentData = Object.fromEntries(
             Object.entries(merged).filter(([, v]) => v !== undefined)
-        );
+        ) as Record<string, unknown>;
+
+        if (beforeSubmit) {
+            const err = await beforeSubmit(currentData as z.infer<T>);
+            if (err) {
+                if (typeof err === 'object' && err?.indexUrl) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Индекс шаардлагатай',
+                        description: err.error,
+                        action: (
+                            <ToastAction asChild altText="Индекс үүсгэх">
+                                <a href={err.indexUrl} target="_blank" rel="noopener noreferrer" className="font-medium">
+                                    Индекс үүсгэх
+                                </a>
+                            </ToastAction>
+                        ),
+                    });
+                } else if (typeof err === 'object' && err?.existingEmployeeId) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Алдаа',
+                        description: err.error,
+                        action: (
+                            <ToastAction asChild altText="Тэр ажилтан руу очих">
+                                <Link href={`/dashboard/employees/${err.existingEmployeeId}`} className="font-medium">
+                                    Тэр ажилтан руу очих
+                                </Link>
+                            </ToastAction>
+                        ),
+                    });
+                } else {
+                    toast({ variant: 'destructive', title: 'Алдаа', description: typeof err === 'string' ? err : err?.error });
+                }
+                return;
+            }
+        }
+
         setDocumentNonBlocking(docRef, currentData, { merge: true });
         const newCompletion = calculateCompletionPercentage(currentData);
         updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
@@ -229,10 +342,60 @@ const SaveButton = ({ isSubmitting }: { isSubmitting: boolean }) => (
 );
 
 // Form Components
-function GeneralInfoForm({ form, isSubmitting, references }: { form: any, isSubmitting: boolean, references: any }) {
+function GeneralInfoForm({ form, isSubmitting, references, employeeId }: { form: any, isSubmitting: boolean, references: any; employeeId: string }) {
     const hasDisability = form.watch("hasDisability");
     const hasDriversLicense = form.watch("hasDriversLicense");
     const driverLicenseCategoryItems = ["A", "B", "C", "D", "E", "M"];
+    const [isCheckingRegNo, setIsCheckingRegNo] = React.useState(false);
+    const [isCheckingTtd, setIsCheckingTtd] = React.useState(false);
+    const { toast } = useToast();
+
+    const [existingEmployeeIdForLink, setExistingEmployeeIdForLink] = React.useState<string | null>(null);
+    const [existingEmployeeIdForTtdLink, setExistingEmployeeIdForTtdLink] = React.useState<string | null>(null);
+
+    const handleRegistrationNumberBlur = React.useCallback(async () => {
+        const value = form.getValues('registrationNumber');
+        if (!value || !employeeId) {
+            setExistingEmployeeIdForLink(null);
+            return;
+        }
+        setIsCheckingRegNo(true);
+        form.clearErrors('registrationNumber');
+        setExistingEmployeeIdForLink(null);
+        try {
+            const result = await checkRegistrationNumberDuplicate(value, employeeId);
+            if (result.duplicate) {
+                form.setError('registrationNumber', { message: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна.' });
+                if (result.existingEmployeeId) setExistingEmployeeIdForLink(result.existingEmployeeId);
+            }
+        } catch {
+            // Network error – allow save, API will re-check on submit
+        } finally {
+            setIsCheckingRegNo(false);
+        }
+    }, [form, employeeId]);
+
+    const handleIdCardNumberBlur = React.useCallback(async () => {
+        const value = form.getValues('idCardNumber');
+        if (!value || !employeeId) {
+            setExistingEmployeeIdForTtdLink(null);
+            return;
+        }
+        setIsCheckingTtd(true);
+        form.clearErrors('idCardNumber');
+        setExistingEmployeeIdForTtdLink(null);
+        try {
+            const result = await checkIdCardNumberDuplicate(value, employeeId);
+            if (result.duplicate) {
+                form.setError('idCardNumber', { message: 'Энэ ТТД өөр ажилтанд бүртгэгдсэн байна.' });
+                if (result.existingEmployeeId) setExistingEmployeeIdForTtdLink(result.existingEmployeeId);
+            }
+        } catch {
+            // Network error – allow save, API will re-check on submit
+        } finally {
+            setIsCheckingTtd(false);
+        }
+    }, [form, employeeId]);
 
     return (
         <>
@@ -256,8 +419,30 @@ function GeneralInfoForm({ form, isSubmitting, references }: { form: any, isSubm
                     <FormField control={form.control} name="registrationNumber" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-xs text-slate-500">Регистрийн дугаар</FormLabel>
-                            <FormControl><Input placeholder="АА00112233" {...field} value={field.value || ''} className="h-10 font-mono" /></FormControl>
+                            <FormControl>
+                                <div className="relative">
+                                    <Input
+                                        placeholder="АА00112233"
+                                        {...field}
+                                        value={field.value || ''}
+                                        className="h-10 font-mono pr-10"
+                                        onBlur={() => { field.onBlur(); handleRegistrationNumberBlur(); }}
+                                    />
+                                    {isCheckingRegNo && (
+                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                                    )}
+                                </div>
+                            </FormControl>
                             <FormMessage />
+                            {existingEmployeeIdForLink && (
+                                <div className="mt-2">
+                                    <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                                        <Link href={`/dashboard/employees/${existingEmployeeIdForLink}`}>
+                                            Бүртгэгдсэн ажилтан руу очих
+                                        </Link>
+                                    </Button>
+                                </div>
+                            )}
                         </FormItem>
                     )} />
                     <FormField control={form.control} name="citizenshipCountryId" render={({ field }) => (
@@ -325,8 +510,30 @@ function GeneralInfoForm({ form, isSubmitting, references }: { form: any, isSubm
                     <FormField control={form.control} name="idCardNumber" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-xs text-slate-500">ТТД (Татвар төлөгчийн дугаар)</FormLabel>
-                            <FormControl><Input placeholder="Татвар төлөгчийн дугаар" {...field} value={field.value || ''} className="h-10" /></FormControl>
+                            <FormControl>
+                                <div className="relative">
+                                    <Input
+                                        placeholder="Татвар төлөгчийн дугаар"
+                                        {...field}
+                                        value={field.value || ''}
+                                        className="h-10 font-mono pr-10"
+                                        onBlur={() => { field.onBlur(); handleIdCardNumberBlur(); }}
+                                    />
+                                    {isCheckingTtd && (
+                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                                    )}
+                                </div>
+                            </FormControl>
                             <FormMessage />
+                            {existingEmployeeIdForTtdLink && (
+                                <div className="mt-2">
+                                    <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                                        <Link href={`/dashboard/employees/${existingEmployeeIdForTtdLink}`}>
+                                            Бүртгэгдсэн ажилтан руу очих
+                                        </Link>
+                                    </Button>
+                                </div>
+                            )}
                         </FormItem>
                     )} />
                 </div>
@@ -1317,6 +1524,22 @@ export default function QuestionnairePage() {
                 Object.entries(mergedData).filter(([, v]) => v !== undefined)
             );
 
+            // РД давхардлыг шалгах (CV-ээс хадгалахын өмнө)
+            const regNo = cleanedData.registrationNumber as string | undefined;
+            if (regNo && employeeId) {
+                const normalized = normalizeRegistrationNumber(regNo);
+                cleanedData.registrationNumber = normalized;
+                const duplicate = await checkRegistrationNumberDuplicate(normalized, employeeId);
+                if (duplicate) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Регистрийн дугаар давхардсан',
+                        description: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна. CV-ийн мэдээллийг засаад дахин оролдоно уу.',
+                    });
+                    return;
+                }
+            }
+
             // Use blocking setDoc/updateDoc to guarantee write completes before proceeding
             await setDoc(questionnaireDocRef, cleanedData, { merge: true });
             
@@ -1339,7 +1562,7 @@ export default function QuestionnairePage() {
                 description: 'Мэдээлэл хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
             });
         }
-    }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast]);
+    }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast, employeeId]);
 
     if (isLoading) {
         return (
@@ -1463,8 +1686,51 @@ export default function QuestionnairePage() {
                         </div>
 
                         <TabsContent value="general" className="mt-0">
-                            <FormSection docRef={questionnaireDocRef} employeeDocRef={employeeDocRef} defaultValues={defaultValues} schema={generalInfoSchema}>
-                                {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} references={references} />}
+                            <FormSection
+                                docRef={questionnaireDocRef}
+                                employeeDocRef={employeeDocRef}
+                                defaultValues={defaultValues}
+                                schema={generalInfoSchema}
+                                beforeSubmit={async (data) => {
+                                    const d = data as any;
+                                    const regNo = d.registrationNumber;
+                                    const ttd = d.idCardNumber;
+                                    if (regNo) {
+                                        const normalized = normalizeRegistrationNumber(regNo);
+                                        d.registrationNumber = normalized;
+                                        try {
+                                            const result = await checkRegistrationNumberDuplicate(normalized, employeeId ?? '');
+                                            if (result.duplicate) {
+                                                return {
+                                                    error: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна.',
+                                                    existingEmployeeId: result.existingEmployeeId,
+                                                };
+                                            }
+                                        } catch (e) {
+                                            if (e instanceof RegNoIndexError) return { error: e.message, indexUrl: e.indexUrl };
+                                            return (e instanceof Error ? e.message : 'Регистрийн дугаар шалгахад алдаа гарлаа. Дахин оролдоно уу.');
+                                        }
+                                    }
+                                    if (ttd) {
+                                        const normalizedTtd = normalizeIdCardNumber(ttd);
+                                        d.idCardNumber = normalizedTtd;
+                                        try {
+                                            const resultTtd = await checkIdCardNumberDuplicate(normalizedTtd, employeeId ?? '');
+                                            if (resultTtd.duplicate) {
+                                                return {
+                                                    error: 'Энэ ТТД өөр ажилтанд бүртгэгдсэн байна.',
+                                                    existingEmployeeId: resultTtd.existingEmployeeId,
+                                                };
+                                            }
+                                        } catch (e) {
+                                            if (e instanceof RegNoIndexError) return { error: e.message, indexUrl: e.indexUrl };
+                                            return (e instanceof Error ? e.message : 'ТТД шалгахад алдаа гарлаа. Дахин оролдоно уу.');
+                                        }
+                                    }
+                                    return null;
+                                }}
+                            >
+                                {(form, isSubmitting) => <GeneralInfoForm form={form} isSubmitting={isSubmitting} references={references} employeeId={employeeId ?? ''} />}
                             </FormSection>
                         </TabsContent>
                         <TabsContent value="contact" className="mt-0">

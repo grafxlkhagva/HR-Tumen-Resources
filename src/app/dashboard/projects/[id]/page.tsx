@@ -33,6 +33,13 @@ import {
     FolderKanban,
     Sparkles,
 } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { format, isPast, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
@@ -43,6 +50,7 @@ import {
     Project,
     Task,
     TaskStatus,
+    ProjectStatus,
     PROJECT_STATUS_LABELS,
     PROJECT_STATUS_COLORS,
 } from '@/types/project';
@@ -61,11 +69,72 @@ import { ProjectChatSection } from '../components/project-chat-section';
 import { AiGenerateTasksDialog } from '../components/ai-generate-tasks-dialog';
 import { ProjectDetailDashboard } from './components/project-detail-dashboard';
 
+const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+    { value: 'DRAFT', label: 'Ноорог' },
+    { value: 'ACTIVE', label: 'Идэвхтэй' },
+    { value: 'ON_HOLD', label: 'Түр зогссон' },
+    { value: 'COMPLETED', label: 'Дууссан' },
+    { value: 'ARCHIVED', label: 'Архивласан' },
+];
+
+function normalizeStatusForSelect(s: ProjectStatus): string {
+    if (s === 'IN_PROGRESS') return 'ACTIVE';
+    if (s === 'CANCELLED') return 'ARCHIVED';
+    return s;
+}
+
+function ProjectStatusSelect({
+    projectId,
+    value,
+    onUpdated,
+    onError,
+}: {
+    projectId: string;
+    value: ProjectStatus;
+    onUpdated: () => void;
+    onError: () => void;
+}) {
+    const { firestore } = useFirebase();
+    const [isUpdating, setIsUpdating] = useState(false);
+    const selectValue = normalizeStatusForSelect(value);
+
+    const handleChange = async (newValue: string) => {
+        if (!firestore || newValue === selectValue) return;
+        setIsUpdating(true);
+        try {
+            await updateDocumentNonBlocking(doc(firestore, 'projects', projectId), {
+                status: newValue as ProjectStatus,
+                updatedAt: Timestamp.now(),
+            });
+            onUpdated();
+        } catch {
+            onError();
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    return (
+        <Select value={selectValue} onValueChange={handleChange} disabled={isUpdating}>
+            <SelectTrigger className={cn('w-full max-w-[180px] h-8 text-xs', PROJECT_STATUS_COLORS[value] || 'bg-slate-100 text-slate-700')}>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
 export default function ProjectDetailPage() {
     const params = useParams();
     const router = useRouter();
     const projectId = params.id as string;
-    const { firestore } = useFirebase();
+    const { firestore, user: currentUser } = useFirebase();
     const { toast } = useToast();
 
     const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
@@ -83,6 +152,7 @@ export default function ProjectDetailPage() {
         [firestore, projectId]
     );
     const { data: project, isLoading: isLoadingProject } = useDoc<Project>(projectRef);
+    const isOwner = !!project && !!currentUser && project.ownerId === currentUser.uid;
 
     // Fetch tasks
     const tasksQuery = useMemoFirebase(
@@ -356,7 +426,7 @@ export default function ProjectDetailPage() {
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             </TooltipTrigger>
-                                            <TooltipContent><p>Засах</p></TooltipContent>
+                                            <TooltipContent><p>Хугацаа засах</p></TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
                                 </div>
@@ -370,9 +440,18 @@ export default function ProjectDetailPage() {
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Төлөв</p>
-                                    <Badge className={cn('text-xs', PROJECT_STATUS_COLORS[project.status] || 'bg-slate-100 text-slate-700')}>
-                                        {PROJECT_STATUS_LABELS[project.status]}
-                                    </Badge>
+                                    {isOwner ? (
+                                        <ProjectStatusSelect
+                                            projectId={project.id}
+                                            value={project.status}
+                                            onUpdated={() => toast({ title: 'Төлөв шинэчлэгдлээ.' })}
+                                            onError={() => toast({ title: 'Алдаа', variant: 'destructive' })}
+                                        />
+                                    ) : (
+                                        <Badge className={cn('text-xs', PROJECT_STATUS_COLORS[project.status] || 'bg-slate-100 text-slate-700')}>
+                                            {PROJECT_STATUS_LABELS[project.status]}
+                                        </Badge>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

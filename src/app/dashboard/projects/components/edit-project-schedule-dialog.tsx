@@ -21,13 +21,6 @@ import {
     FormLabel,
     FormMessage,
 } from '@/components/ui/form';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import {
     Popover,
@@ -41,24 +34,17 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Project, ProjectStatus } from '@/types/project';
+import { Project } from '@/types/project';
 
 const schema = z.object({
     startDate: z.date({ required_error: 'Эхлэх огноо сонгоно уу.' }),
     endDate: z.date({ required_error: 'Дуусах огноо сонгоно уу.' }),
-    status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']),
 }).refine((data) => data.endDate >= data.startDate, {
     message: 'Дуусах огноо эхлэх огноогоос өмнө байж болохгүй.',
     path: ['endDate'],
 });
 
 type FormValues = z.infer<typeof schema>;
-
-function normalizeStatus(s: ProjectStatus): FormValues['status'] {
-    if (s === 'IN_PROGRESS') return 'ACTIVE';
-    if (s === 'CANCELLED') return 'ARCHIVED';
-    return s as FormValues['status'];
-}
 
 interface EditProjectScheduleDialogProps {
     open: boolean;
@@ -76,7 +62,6 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
         defaultValues: {
             startDate: parseISO(project.startDate),
             endDate: parseISO(project.endDate),
-            status: normalizeStatus(project.status),
         },
     });
 
@@ -85,7 +70,6 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
             form.reset({
                 startDate: parseISO(project.startDate),
                 endDate: parseISO(project.endDate),
-                status: normalizeStatus(project.status),
             });
         }
     }, [project, open, form]);
@@ -97,10 +81,9 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
             await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), {
                 startDate: format(values.startDate, 'yyyy-MM-dd'),
                 endDate: format(values.endDate, 'yyyy-MM-dd'),
-                status: values.status as ProjectStatus,
                 updatedAt: Timestamp.now(),
             });
-            toast({ title: 'Амжилттай', description: 'Хугацаа болон төлөв шинэчлэгдлээ.' });
+            toast({ title: 'Амжилттай', description: 'Хугацаа шинэчлэгдлээ.' });
             onOpenChange(false);
         } catch (error) {
             toast({ title: 'Алдаа', description: 'Шинэчлэхэд алдаа гарлаа.', variant: 'destructive' });
@@ -113,8 +96,8 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[420px]">
                 <DialogHeader>
-                    <DialogTitle>Хугацаа & Төлөв</DialogTitle>
-                    <DialogDescription>Төслийн хугацаа болон төлөвийг засна уу.</DialogDescription>
+                    <DialogTitle>Хугацаа</DialogTitle>
+                    <DialogDescription>Төслийн эхлэх болон дуусах огноог засна уу.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -172,30 +155,6 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
                                 )}
                             />
                         </div>
-                        <FormField
-                            control={form.control}
-                            name="status"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Төлөв</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Төлөв сонгох" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="DRAFT">Ноорог</SelectItem>
-                                            <SelectItem value="ACTIVE">Идэвхтэй</SelectItem>
-                                            <SelectItem value="ON_HOLD">Түр зогссон</SelectItem>
-                                            <SelectItem value="COMPLETED">Дууссан</SelectItem>
-                                            <SelectItem value="ARCHIVED">Архивласан</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Болих</Button>
                             <Button type="submit" disabled={isSubmitting}>

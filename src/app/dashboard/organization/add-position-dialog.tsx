@@ -45,7 +45,6 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  addDocumentNonBlocking,
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
@@ -53,6 +52,7 @@ import {
   deleteDocumentNonBlocking,
   useCollection,
 } from '@/firebase';
+import { addDepartmentHistoryEvent } from './department-history-log';
 import {
   collection, doc, query, where, getDocs,
   updateDoc,
@@ -133,9 +133,11 @@ export function AddPositionDialog({
   parentPositionId,
   initialMode = 'full',
 }: AddPositionDialogProps) {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
+  const performedByName = user?.displayName || user?.email || 'Систем';
+  const performedBy = user?.uid ?? '';
   const isEditMode = !!editingPosition;
   const [mode, setMode] = React.useState<'quick' | 'full'>(initialMode);
 
@@ -364,13 +366,35 @@ export function AddPositionDialog({
 
       if (isEditMode && editingPosition) {
         await updateDoc(doc(firestore, 'positions', editingPosition.id), cleanBaseData);
+        if (finalDepartmentId && performedBy) {
+          addDepartmentHistoryEvent({
+            firestore,
+            departmentId: finalDepartmentId,
+            eventType: 'position_updated',
+            positionId: editingPosition.id,
+            positionTitle: data.title?.trim() || editingPosition.title,
+            performedBy,
+            performedByName,
+          }).catch(() => {});
+        }
       } else {
-        await addDoc(collection(firestore, 'positions'), {
+        const ref = await addDoc(collection(firestore, 'positions'), {
           ...cleanBaseData,
           filled: 0,
           isApproved: false,
           createdAt: new Date().toISOString()
         });
+        if (finalDepartmentId && performedBy) {
+          addDepartmentHistoryEvent({
+            firestore,
+            departmentId: finalDepartmentId,
+            eventType: 'position_added',
+            positionId: ref.id,
+            positionTitle: data.title?.trim() || '',
+            performedBy,
+            performedByName,
+          }).catch(() => {});
+        }
       }
 
       toast({ title: isEditMode ? 'Амжилттай шинэчлэгдлээ' : 'Амжилттай нэмэгдлээ' });
@@ -399,12 +423,26 @@ export function AddPositionDialog({
 
 
     const docRef = doc(firestore, 'positions', editingPosition.id);
+    const deptId = editingPosition.departmentId;
+    const title = editingPosition.title || '';
+
     deleteDocumentNonBlocking(docRef);
+    if (deptId && performedBy) {
+      addDepartmentHistoryEvent({
+        firestore,
+        departmentId: deptId,
+        eventType: 'position_deleted',
+        positionId: editingPosition.id,
+        positionTitle: title,
+        performedBy,
+        performedByName,
+      }).catch(() => {});
+    }
 
     toast({
       variant: 'destructive',
       title: 'Амжилттай устгагдлаа',
-      description: `"${editingPosition.title}" ажлын байр устгагдлаа.`,
+      description: `"${title}" ажлын байр устгагдлаа.`,
     });
 
     onOpenChange(false);

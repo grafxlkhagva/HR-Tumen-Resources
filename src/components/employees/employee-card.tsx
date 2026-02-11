@@ -30,6 +30,7 @@ const statusConfig: Record<string, { variant: 'success' | 'info' | 'warning' | '
   'Идэвхтэй туршилт': { variant: 'warning', label: 'Туршилт', color: 'amber' },
   'Идэвхтэй үндсэн': { variant: 'success', label: 'Үндсэн', color: 'emerald' },
   'Түр эзгүй': { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
+  'Чөлөөлөгдөж буй': { variant: 'warning', label: 'Чөлөөлөгдөж буй', color: 'orange' },
   'Ажлаас гарсан': { variant: 'error', label: 'Гарсан', color: 'rose' },
   'Түр түдгэлзүүлсэн': { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
 };

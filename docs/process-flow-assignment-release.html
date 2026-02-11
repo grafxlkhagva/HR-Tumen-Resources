@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Томилох / Чөлөөлөх процессийн зураглал (v2 — Аудит)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+            theme: 'neutral',
+            securityLevel: 'loose'
+        });
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f1f5f9; color: #1e293b; }
+        .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fff; padding: 2.5rem 2rem 2rem; }
+        .header h1 { font-size: 1.6rem; margin: 0 0 0.5rem; font-weight: 800; }
+        .header p { color: #94a3b8; margin: 0; font-size: 0.9rem; }
+        .header .badge { display: inline-block; background: #f59e0b; color: #1e293b; font-size: 0.7rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 999px; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+        .section-title { font-size: 1.15rem; font-weight: 800; margin: 2.5rem 0 0.5rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }
+        .section-title .num { background: #3b82f6; color: #fff; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+        .section-desc { color: #64748b; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
+        .diagram-wrap { background: #fff; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); overflow-x: auto; border: 1px solid #e2e8f0; }
+        .mermaid { display: flex; justify-content: center; }
+        .bug-card { background: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+        .bug-card h4 { color: #991b1b; margin: 0 0 0.5rem; font-size: 0.95rem; }
+        .bug-card p { color: #7f1d1d; margin: 0; font-size: 0.85rem; line-height: 1.6; }
+        .warn-card { background: #fffbeb; border: 2px solid #fcd34d; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+        .warn-card h4 { color: #92400e; margin: 0 0 0.5rem; font-size: 0.95rem; }
+        .warn-card p { color: #78350f; margin: 0; font-size: 0.85rem; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 1.5rem; }
+        th { background: #f8fafc; text-align: left; padding: 0.6rem 0.75rem; border: 1px solid #e2e8f0; font-weight: 700; color: #475569; }
+        td { padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; color: #334155; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        .status-flow { background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 1.25rem; margin: 1.5rem 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; line-height: 2; white-space: pre-wrap; color: #166534; }
+        .divider { border: 0; border-top: 2px dashed #cbd5e1; margin: 2.5rem 0; }
+        @media (max-width: 768px) { .container { padding: 1rem; } .header { padding: 1.5rem 1rem; } .header h1 { font-size: 1.3rem; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="badge">v2 — Аудит</div>
+        <h1>Ажилтан албан тушаалд томилох болон чөлөөлөх процессийн зураглал</h1>
+        <p>HR систем — кодын аудитад тулгуурлан бүх нөхцөл, алдааны гарц, edge case-ийг тусгасан процессын flowchart.</p>
+    </div>
+
+    <div class="container">
+
+        <!-- ============================================================ -->
+        <!-- SECTION 1: APPOINTMENT ENTRY POINTS -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">1</span> Томилох — Оролтын цэгүүд</h2>
+        <p class="section-desc">Оролтын цэг тус бүр ялгаатай урьдчилсан шалгалт хийдэг. Dialog өөрөө isApproved, filled, бэлтгэл шалгахгүй — дуудагч тал хариуцна.</p>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    subgraph dashboardEntry ["Dashboard: Чирж буулгах"]
+        D1[Ажилтан node-г Position node руу чирэх]
+        D1 --> D2{source=unassigned, target=position уу?}
+        D2 -->|Үгүй| D2stop([Чимээгүй зогсох])
+        D2 -->|Тийм| D3{filled gte 1 уу?}
+        D3 -->|Тийм| D3err["Toast: Орон тоо дүүрсэн"]
+        D3 -->|Үгүй| D4{position_preparation project байгаа уу?}
+        D4 -->|Байхгүй| D4err["Toast: Ажлын байр бэлтгэгдээгүй"]
+        D4 -->|Байгаа| D5{Бүх таск DONE уу?}
+        D5 -->|Үгүй| D5err["Toast: Бэлтгэл дуусаагүй"]
+        D5 -->|Тийм| D6[AppointEmployeeDialog нээх]
+        D4 -.->|Query алдаа| D4qerr["Toast: Бэлтгэл шалгах алдаа"]
+    end
+
+    subgraph posPageEntry ["Position Page: Томилох товч"]
+        P1{position.isApproved уу?}
+        P1 -->|Үгүй| P1hide([Товч харагдахгүй])
+        P1 -->|Тийм| P2{isPrepCompleted уу?}
+        P2 -->|Үгүй| P2alt["Бэлтгэх товч харуулах"]
+        P2 -->|Тийм| P3[Томилох товч идэвхтэй]
+        P3 --> P4[AppointEmployeeDialog нээх]
+    end
+
+    subgraph flowCanvasEntry ["Flow Canvas: Томилох"]
+        FC1[Байр дээрх Томилох товч дарах]
+        FC1 --> FC2{position.isApproved уу?}
+        FC2 -->|Үгүй| FC2err["Toast: Ажлын байр батлагдаагүй"]
+        FC2 -->|Тийм| FC3{filled gte 1 уу?}
+        FC3 -->|Тийм| FC3err["Toast: Орон тоо дүүрсэн"]
+        FC3 -->|Үгүй| FC4[AppointEmployeeDialog нээх]
+    end
+
+    subgraph companyEntry ["Company Page: CEO томилох"]
+        CO1[CEO байр дээр Томилох товч]
+        CO1 --> CO2[AppointEmployeeDialog нээх]
+    end
+            </pre>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 2: APPOINTMENT WIZARD -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">2</span> Томилох — Dialog дотоод урсгал (Wizard)</h2>
+        <p class="section-desc">AppointEmployeeDialog нь multi-step wizard. Offboarding шалгалт 2 удаа хийгддэг: сонгоход + submit үед.</p>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    Start([Dialog нээгдсэн]) --> InitCheck{initialEmployee дамжуулсан уу?}
+    InitCheck -->|Тийм| OffbCheck1{Offboarding шалгалт 1-р удаа}
+    InitCheck -->|Үгүй| Step1[Step 1: Ажилтан сонгох]
+
+    OffbCheck1 -->|Идэвхтэй| OffbWarn1["Toast: Offboarding идэвхтэй - status=active"]
+    OffbCheck1 -->|Check алдаа| OffbSkip1["console.error, status=none - ҮРГЭЛЖИЛНЭ"]
+    OffbCheck1 -->|Үгүй| Step2
+    OffbWarn1 --> OffbBlock([Ажилтан сонголт хориглогдоно])
+
+    Step1 --> EmpSelect[Шүүлт: status=Идэвхтэй, positionId хоосон]
+    EmpSelect --> SelEmp[Ажилтан сонгох]
+    SelEmp --> OffbCheck1b{Offboarding шалгалт}
+    OffbCheck1b -->|Идэвхтэй| OffbWarn1b["Toast: Offboarding идэвхтэй"]
+    OffbCheck1b -->|Үгүй| Step2
+
+    Step2[Step 2: Томилгооны төрөл сонгох]
+    Step2 --> TypeSelect{Сонголт}
+    TypeSelect --> T1[appointment_permanent: Үндсэн ажилтнаар]
+    TypeSelect --> T2[appointment_probation: Туршилтын хугацаатай]
+    TypeSelect --> T3[appointment_reappoint: Эргүүлэн томилох]
+
+    T1 --> ActionCheck{organization_actions тохиргоо шалгах}
+    T2 --> ActionCheck
+    T3 --> ActionCheck
+
+    ActionCheck -->|templateId байхгүй| ActErr1["Toast: Загвар тохируулаагүй - ЗОГСОНО"]
+    ActionCheck -->|dateMappings дутуу| ActErr2["Toast: Огнооны талбар холбоогүй - ЗОГСОНО"]
+    ActionCheck -->|Тийм| Step3
+
+    Step3{Цалингийн шат байгаа уу?}
+    Step3 -->|Тийм| SalStep[Step 3: Цалингийн шат сонгох]
+    Step3 -->|Үгүй| Step4
+    SalStep --> Step4
+
+    Step4{Урамшуулал байгаа уу?}
+    Step4 -->|Тийм| IncStep[Step 4: Урамшуулал сонгох]
+    Step4 -->|Үгүй| Step5
+    IncStep --> Step5
+
+    Step5{Хангамж байгаа уу?}
+    Step5 -->|Тийм| AllStep[Step 5: Хангамж сонгох]
+    Step5 -->|Үгүй| Step6
+    AllStep --> Step6
+
+    Step6[Step 6: Onboarding идэвхжүүлэх эсэх]
+    Step6 --> OnbQ{Onboarding сонгосон уу?}
+    OnbQ -->|Тийм| OnbStages["Step 7-10: 4 үе шат бүрт таск, огноо, эзэмшигч"]
+    OnbQ -->|Үгүй| DocInputQ
+
+    OnbStages --> OnbValid{Таск бүрт dueDate + ownerId бөглөгдсөн уу?}
+    OnbValid -->|Үгүй| OnbBlock(["Дараах товч идэвхгүй"])
+    OnbValid -->|Тийм| DocInputQ
+
+    DocInputQ{Template-д customInputs байгаа уу?}
+    DocInputQ -->|Тийм| DocInputs[Step 11: Баримтын талбарууд бөглөх]
+    DocInputQ -->|Үгүй| SubmitBtn
+
+    DocInputs --> CIValid{Required талбарууд бүгд бөглөгдсөн уу?}
+    CIValid -->|Үгүй| CIBlock(["Баталгаажуулах товч идэвхгүй"])
+    CIValid -->|Тийм| SubmitBtn
+
+    SubmitBtn[Баталгаажуулах дарах]
+            </pre>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3: APPOINTMENT SUBMIT + POST-SUBMIT -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">3</span> Томилох — Submit ба Post-Submit урсгал</h2>
+        <p class="section-desc">Batch, onboarding projects, авто-баталгаажуулалт, цуцлах зам бүгд энд тусгагдсан. Алдааны зогсоох/үргэлжлүүлэх ялгааг тэмдэглэсэн.</p>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    Submit([Баталгаажуулах дарсан]) --> Guard1{firestore, position, employee, user null уу?}
+    Guard1 -->|Null| SilentReturn([Чимээгүй return])
+    Guard1 -->|OK| Guard2{employee.id, position.id null уу?}
+    Guard2 -->|Null| ErrToast1["Toast: Мэдээлэл дутуу - ЗОГСОНО"]
+    Guard2 -->|OK| OffbCheck2{Offboarding 2-р удаа шалгах}
+
+    OffbCheck2 -->|Идэвхтэй| ErrToast2["Toast: Offboarding идэвхтэй - ЗОГСОНО"]
+    OffbCheck2 -->|Check алдаа| OffbWarnSkip["console.warn - АЛГАСАЖ ҮРГЭЛЖИЛНЭ!"]
+    OffbCheck2 -->|Үгүй| FetchData
+    OffbWarnSkip --> FetchData
+
+    FetchData["Company profile + Department data татах"]
+    FetchData -.->|Алдаа| FetchWarn["console.warn - ҮРГЭЛЖИЛНЭ"]
+    FetchData --> ERDocTry
+
+    ERDocTry{Template data байгаа уу?}
+    ERDocTry -->|Үгүй| EmpUpdate
+    ERDocTry -->|Тийм| DocNumGen[Document number үүсгэх]
+    DocNumGen -.->|Алдаа| DocNumWarn["console.warn - дугааргүй үргэлжилнэ"]
+    DocNumGen --> ContentGen[Контент генерац]
+    ContentGen -.->|Алдаа| ContentWarn["console.error - хоосон контент"]
+    ContentGen --> ERDocCreate["batch.set: ER баримт DRAFT"]
+    ERDocCreate -.->|Алдаа| ERDocFail["console.error - ER doc-ГҮЙ ҮРГЭЛЖИЛНЭ!"]
+    ERDocCreate --> EmpUpdate
+
+    EmpUpdate["batch.update: Employee"]
+    EmpUpdate --> EmpFields["positionId, jobTitle, departmentId,
+    status=Томилогдож буй,
+    lifecycleStage=onboarding,
+    appointedCompensation"]
+    EmpFields -.->|Алдаа| EmpFail["throw - ЗОГСОНО"]
+    EmpFields --> PosUpdate
+
+    PosUpdate["batch.update: Position filled +1"]
+    PosUpdate -.->|Алдаа| PosFail["throw - ЗОГСОНО"]
+
+    PosUpdate --> BatchCommit{batch.commit}
+    BatchCommit -->|Алдаа| CommitFail["Toast: Алдаа - ЗОГСОНО"]
+    BatchCommit -->|OK| OnbCheck{Onboarding сонгосон уу?}
+
+    OnbCheck -->|Үгүй| Success
+    OnbCheck -->|Тийм| OnbStagesCheck{onboardingStages хоосон уу?}
+    OnbStagesCheck -->|Хоосон| OnbSkip["Чимээгүй алгасна"]
+    OnbStagesCheck -->|Байгаа| OnbTaskCheck{Сонгосон таск тоо = 0 уу?}
+    OnbTaskCheck -->|0 таск| OnbWarnToast["Toast: Onboarding алдаа - ТОМИЛГОО ХЭВЭЭР"]
+    OnbTaskCheck -->|1+ таск| OnbCreate[createOnboardingProjects]
+    OnbCreate -.->|Алдаа| OnbCreateFail["Toast: Onboarding алдаа - ТОМИЛГОО ХЭВЭЭР"]
+    OnbCreate --> Success
+    OnbSkip --> Success
+    OnbWarnToast --> Success
+    OnbCreateFail --> Success
+
+    Success["Toast: Томилгоо эхэллээ"]
+    Success --> PostSubmit
+
+    PostSubmit[Ажилтан: Томилогдож буй]
+    PostSubmit --> WaitDoc[ER баримт гадаад процессоор шилжинэ]
+    WaitDoc --> AutoCheck{"Position page нээгдэхэд:
+    appointmentDoc.status = APPROVED/SIGNED уу?"}
+    AutoCheck -->|Тийм| AutoConfirm["AUTO-CONFIRM:
+    status = Идэвхтэй туршилт / Идэвхтэй үндсэн
+    lifecycleStage = active"]
+    AutoCheck -->|Үгүй| ManualChoice{Хэрэглэгч юу дарах вэ?}
+
+    ManualChoice -->|Баталгаажуулах| ManualConfirmCheck{Doc status APPROVED/SIGNED уу?}
+    ManualConfirmCheck -->|Үгүй| ConfirmBlock["Toast: Баталгаажуулах боломжгүй"]
+    ManualConfirmCheck -->|Тийм| ManualConfirm["status = Идэвхтэй туршилт / Идэвхтэй үндсэн"]
+
+    ManualChoice -->|Цуцлах| CancelCheck{Doc status APPROVED/SIGNED уу?}
+    CancelCheck -->|Тийм| CancelBlock["Toast: Цуцлах боломжгүй, баримт батлагдсан"]
+    CancelCheck -->|Үгүй| CancelOps
+
+    ManualChoice -->|Хүлээх| WaitDoc
+
+    AutoConfirm --> ActiveEnd(["Ажилтан идэвхтэй"])
+    ManualConfirm --> ActiveEnd
+
+    CancelOps["Цуцлах batch:
+    1. ER docs устгах DRAFT
+    2. actionId-аар appointment docs устгах
+    3. Onboarding process устгах
+    4. Onboarding projects устгах
+    5. Employee: positionId=null, status=Идэвхтэй бүрдүүлэлт
+    6. Position: filled -1"]
+    CancelOps --> CancelEnd(["Томилгоо цуцлагдлаа"])
+            </pre>
+        </div>
+
+        <hr class="divider">
+
+        <!-- ============================================================ -->
+        <!-- SECTION 4: RELEASE DIALOG FLOW -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">4</span> Чөлөөлөх — Dialog дотоод урсгал</h2>
+        <p class="section-desc">Position page-аас "Чөлөөлөх" товч дарахад нээгддэг. Томилогдож буй ажилтны хувьд "Томилгоо цуцлах" нэмэлт сонголт гарна.</p>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    Start2([Position page: Чөлөөлөх товч]) --> DialogOpen[Dialog нээгдэнэ]
+    DialogOpen --> Step1R[Step 1: Төрөл сонгох]
+
+    Step1R --> PendingCheck{"hasPendingAppointment:
+    status=Томилогдож буй
+    AND docs not SIGNED/APPROVED/
+    ACKNOWLEDGED/SENT?"}
+
+    PendingCheck -->|Тийм| ShowCancel["Томилгоо цуцлах товч харуулах"]
+    PendingCheck -->|Үгүй| ShowRelease[Зөвхөн чөлөөлөх сонголтууд]
+    PendingCheck -.-> PendingNote["Query: appointment_permanent,
+    appointment_probation, appointment_reappoint + legacy IDs"]
+
+    ShowCancel --> CancelOrRelease{Хэрэглэгч юу сонгох вэ?}
+    CancelOrRelease -->|Томилгоо цуцлах| CancelPending
+
+    CancelPending["handleCancelPendingAppointment:
+    1. ER docs устгах not-SIGNED/APPROVED
+    2. Onboarding processes устгах
+    3. Onboarding projects устгах
+    4. Employee: status=Идэвхтэй бүрдүүлэлт,
+    lifecycleStage=candidate, position=null
+    5. Position: filled -1"]
+    CancelPending --> CPCommit{batch.commit}
+    CPCommit -->|OK| CPSuccess["Toast: Томилгоо цуцлагдлаа + refresh"]
+    CPCommit -->|Алдаа| CPFail["Toast: Алдаа гарлаа"]
+    CPSuccess --> DialogClose([Dialog хаагдана])
+
+    CancelOrRelease -->|Чөлөөлөх| ShowRelease
+
+    ShowRelease --> TypeSelect2{Чөлөөлөх төрөл}
+    TypeSelect2 --> RT1["release_company: Компанийн санаачилгаар"]
+    TypeSelect2 --> RT2["release_employee: Ажилтны санаачилгаар"]
+    TypeSelect2 --> RT3["release_temporary: Түр чөлөөлөх"]
+
+    RT1 --> ActionCheck2{handleSelectReleaseType: organization_actions шалгах}
+    RT2 --> ActionCheck2
+    RT3 --> ActionCheck2
+
+    ActionCheck2 -->|templateId байхгүй| RActErr1["Toast: Загвар тохируулаагүй - ЗОГСОНО step1"]
+    ActionCheck2 -->|dateMappings дутуу| RActErr2["Toast: Огнооны талбар холбоогүй - ЗОГСОНО"]
+    ActionCheck2 -->|Query алдаа| RActErr3["Toast: Тохиргоо шалгах алдаа - ЗОГСОНО"]
+    ActionCheck2 -->|OK| Step2R[Step 2 руу шилжих]
+
+    Step2R --> TemplateLoad{templateData ачаалагдсан уу?}
+    TemplateLoad -->|Ачаалж байна| LoadSpin[Loader харуулах]
+    TemplateLoad -->|Template байгаа| CustomInputs[Custom inputs бөглөх]
+    TemplateLoad -->|Template null| NoTemplateWarn["Анхааруулга: Баримт загвар тохируулаагүй
+    - ЧӨЛӨӨЛӨХ БОЛОМЖТОЙ ХЭВЭЭР"]
+
+    CustomInputs --> CIValid2{Required талбарууд бөглөгдсөн уу?}
+    CIValid2 -->|Үгүй| CIBlock2(["Баталгаажуулах товч идэвхгүй"])
+    CIValid2 -->|Тийм| OffbToggle
+
+    NoTemplateWarn --> OffbToggle
+
+    OffbToggle[Offboarding хөтөлбөр toggle]
+    OffbToggle --> OffbOn{Toggle ON болгох уу?}
+    OffbOn -->|ON| OffbExist{existingOffboardingProjects байгаа уу?}
+    OffbExist -->|Тийм| OffbExistWarn["Toast: Offboarding аль хэдийн үүссэн - toggle=OFF"]
+    OffbExist -->|Үгүй| OffbEnabled[Offboarding идэвхжсэн]
+    OffbOn -->|OFF| ReadySubmit
+
+    OffbEnabled --> OffbConfigCheck{offboardingStages хоосон уу?}
+    OffbConfigCheck -->|Хоосон| OffbEmptyErr["Toast: Offboarding тохиргоо хоосон - ЗОГСОНО"]
+    OffbConfigCheck -->|Байгаа| OffbSteps["Step 3+: Үе бүрт таск, огноо, хариуцагч"]
+    OffbSteps --> OffbStageValid{Таск бүрт dueDate + ownerId уу?}
+    OffbStageValid -->|Үгүй| OffbBlock(["Дараах товч идэвхгүй"])
+    OffbStageValid -->|Тийм| ReadySubmit
+
+    ReadySubmit[Чөлөөлөх баталгаажуулах дарах]
+            </pre>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: RELEASE SUBMIT + POST-SUBMIT -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">5</span> Чөлөөлөх — Submit ба Post-Submit урсгал</h2>
+        <p class="section-desc">Batch commit-ийн дараа offboarding projects тусдаа үүсгэгддэг. Offboarding алдаатай бол чөлөөлөлт аль хэдийн хийгдсэн.</p>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    Submit2([Чөлөөлөх баталгаажуулах]) --> Guard2a{firestore, employee, position, user null уу?}
+    Guard2a -->|Null| SilentRet2([Чимээгүй return])
+    Guard2a -->|OK| Guard2b{employee.id, position.id null уу?}
+    Guard2b -->|Null| ErrThrow2["throw: Мэдээлэл дутуу"]
+    Guard2b -->|OK| BuildPayload[customInputs payload бэлтгэх]
+
+    BuildPayload --> HistEntry["departureHistoryEntry:
+    type, date, position, positionId,
+    departmentId, reason, lastWorkingDate, note"]
+
+    HistEntry --> StatusDecide{Чөлөөлөх төрөл + ER template}
+
+    StatusDecide -->|"Бүрэн + template"| StatusTransit["status = Чөлөөлөгдөж буй"]
+    StatusDecide -->|"Бүрэн + template-ГҮЙ"| StatusDirect["status = Ажлаас гарсан"]
+    StatusDecide -->|"Түр + template"| StatusTempTransit["status = Түр түдгэлзүүлсэн"]
+    StatusDecide -->|"Түр + template-ГҮЙ"| StatusTempDirect["status = Түр эзгүй"]
+
+    StatusTransit --> EmpUpd
+    StatusDirect --> EmpUpd
+    StatusTempTransit --> EmpUpd
+    StatusTempDirect --> EmpUpd
+
+    EmpUpd["batch.update Employee:
+    positionId=null, jobTitle=null, departmentId=null,
+    status = дээрх шийдвэрээр,
+    lifecycleStage=offboarding,
+    employmentHistory += departure"]
+
+    EmpUpd --> PosUpd["batch.update Position: filled -1"]
+
+    PosUpd --> ERCheck{templateData байгаа уу?}
+    ERCheck -->|Үгүй| BatchReady
+    ERCheck -->|Тийм| DocNum2[Document number үүсгэх]
+    DocNum2 -.->|Алдаа| DocNumSkip2["console.warn - дугааргүй"]
+    DocNum2 --> Content2[Контент генерац]
+    Content2 --> ERSet["batch.set: ER баримт DRAFT"]
+    ERSet -.->|Алдаа| ERSkip2["console.error - ER doc-ГҮЙ ҮРГЭЛЖИЛНЭ"]
+    ERSet --> BatchReady
+    BatchReady[Batch бэлэн]
+
+    BatchReady --> BatchCommit2{batch.commit}
+    BatchCommit2 -->|Алдаа| CommitFail2["Toast: Алдаа - ЗОГСОНО"]
+    BatchCommit2 -->|OK| OffbDecision{Offboarding үүсгэх сонгосон уу?}
+
+    OffbDecision -->|Үгүй| ReleaseSuccess
+    OffbDecision -->|Тийм| OffbStagesExist{offboardingStages хоосон уу?}
+    OffbStagesExist -->|Хоосон| OffbEmptyToast["Toast: Тохиргоо хоосон - ЧӨЛӨӨЛӨЛТ ХЭВЭЭР"]
+    OffbStagesExist -->|Байгаа| OffbProjExist{Ажилтанд offboarding төсөл байгаа уу?}
+    OffbProjExist -->|Тийм| OffbDupToast["Toast: Аль хэдийн үүссэн - ЧӨЛӨӨЛӨЛТ ХЭВЭЭР"]
+    OffbProjExist -->|Үгүй| CreateOffb[createOffboardingProjects]
+    CreateOffb --> ReleaseSuccess
+
+    OffbEmptyToast --> ReleaseSuccess
+    OffbDupToast --> ReleaseSuccess
+
+    ReleaseSuccess["Toast: Ажилтан чөлөөлөгдлөө"]
+    ReleaseSuccess --> Redirect{Offboarding project үүссэн уу?}
+    Redirect -->|Тийм| NavProject["router.push: project хуудас руу"]
+    Redirect -->|Үгүй| DialogClose2([Dialog хаагдана])
+    NavProject --> DialogClose2
+
+    subgraph postRelease ["Чөлөөлөлтийн дараах автомат урсгал"]
+        PR1["Ажилтан: Чөлөөлөгдөж буй / Түр түдгэлзүүлсэн"]
+        PR1 --> PR2[ER баримт гадаад процессоор шилжинэ]
+        PR2 --> PR3{"ER doc status = APPROVED/SIGNED уу?"}
+        PR3 -->|Тийм| PR4{actionId = release_temporary уу?}
+        PR4 -->|Тийм| PR5["status = Түр эзгүй, lifecycleStage = retention"]
+        PR4 -->|Үгүй| PR6["status = Ажлаас гарсан, lifecycleStage = alumni"]
+        PR3 -->|Үгүй| PR7["Хүлээх — status хэвээр"]
+        PR5 --> PR8(["Чөлөөлөлт дууссан"])
+        PR6 --> PR8
+    end
+            </pre>
+        </div>
+
+        <hr class="divider">
+
+        <!-- ============================================================ -->
+        <!-- SECTION 6: REFERENCE TABLES -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">6</span> Товч лавлагаа</h2>
+
+        <h3 style="font-size:0.95rem; font-weight:700; margin:1.5rem 0 0.75rem;">Оролтын цэгийн шалгалтын ялгаа</h3>
+        <table>
+            <thead>
+                <tr><th>Шалгалт</th><th>Dashboard</th><th>Position Page</th><th>Flow Canvas</th><th>Dialog дотор</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>isApproved</td><td>UI-д шүүгддэг, handler-д <b>БАЙХГҮЙ</b></td><td>Товч харагдах нөхцөл</td><td><b style="color:#16a34a">ЗАСАГДСАН: Toast</b></td><td><b>БАЙХГҮЙ</b></td></tr>
+                <tr><td>filled &lt; 1</td><td>Handler-д шалгадаг</td><td>UI-д шалгадаг</td><td><b style="color:#16a34a">ЗАСАГДСАН: Toast</b></td><td><b>БАЙХГҮЙ</b></td></tr>
+                <tr><td>Бэлтгэл дууссан</td><td>Handler-д query-ээр</td><td>Товч харагдах нөхцөл</td><td>— (бэлтгэл системд холбогдоогүй)</td><td><b>БАЙХГҮЙ</b></td></tr>
+                <tr><td>Offboarding check</td><td><b>БАЙХГҮЙ</b></td><td><b>БАЙХГҮЙ</b></td><td><b>БАЙХГҮЙ</b></td><td>Dialog дотор 2 удаа</td></tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-size:0.95rem; font-weight:700; margin:1.5rem 0 0.75rem;">Error handling стратеги</h3>
+        <table>
+            <thead>
+                <tr><th>Алхам</th><th>Алдааны зан авир</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>ER баримт үүсгэх</td><td>catch + console.error → <b>ҮРГЭЛЖИЛНЭ</b></td></tr>
+                <tr><td>Employee update</td><td>throw → <b>ЗОГСОНО</b></td></tr>
+                <tr><td>Position update</td><td>throw → <b>ЗОГСОНО</b></td></tr>
+                <tr><td>Batch commit</td><td>throw → <b>ЗОГСОНО</b></td></tr>
+                <tr><td>Onboarding projects</td><td>catch + toast → <b>ҮРГЭЛЖИЛНЭ</b> (томилгоо хэвээр)</td></tr>
+                <tr><td>Document number</td><td>catch + console.warn → <b>ҮРГЭЛЖИЛНЭ</b></td></tr>
+                <tr><td>Offboarding 2-р шалгалт</td><td>catch + console.warn → <b>АЛГАСАЖ ҮРГЭЛЖИЛНЭ</b></td></tr>
+                <tr><td>Company/Dept fetch</td><td>catch + console.warn → <b>ҮРГЭЛЖИЛНЭ</b></td></tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-size:0.95rem; font-weight:700; margin:1.5rem 0 0.75rem;">Статусын урсгал</h3>
+        <div class="status-flow">Идэвхтэй бүрдүүлэлт → [Томилох] → Томилогдож буй → [ER doc батлагдах / Авто-confirm] → Идэвхтэй туршилт / Идэвхтэй үндсэн
+                          ↑ [Цуцлах]                    ↑ [Авто-confirm]
+                          └──────────────────────────────┘
+
+Идэвхтэй → [Бүрэн чөлөөлөх + template]  → Чөлөөлөгдөж буй  → [ER doc батлагдах] → Ажлаас гарсан (alumni)
+Идэвхтэй → [Бүрэн чөлөөлөх, template-гүй] → Ажлаас гарсан (offboarding)
+Идэвхтэй → [Түр чөлөөлөх + template]    → Түр түдгэлзүүлсэн → [ER doc батлагдах] → Түр эзгүй (retention)
+Идэвхтэй → [Түр чөлөөлөх, template-гүй]  → Түр эзгүй (offboarding)</div>
+
+        <hr class="divider">
+
+        <!-- ============================================================ -->
+        <!-- SECTION 7: BUGS -->
+        <!-- ============================================================ -->
+        <h2 class="section-title"><span class="num">7</span> Аудитаар илэрсэн алдаанууд — ЗАСВАРЫН ТЭМДЭГЛЭЛ</h2>
+
+        <div style="background:#f0fdf4; border:2px solid #86efac; border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
+            <h4 style="color:#166534; margin:0 0 0.5rem;">&#10003; BUG-1: hasPendingAppointment query — ЗАСАГДСАН</h4>
+            <p style="color:#15803d; margin:0; font-size:0.85rem; line-height:1.6;">
+                <b>Асуудал:</b> Release dialog query <code>['appointment_new', 'appointment_internal', 'appointment_transfer']</code> actionId-аар хайж байсан ч, Appoint dialog <code>['appointment_permanent', 'appointment_probation', 'appointment_reappoint']</code> үүсгэдэг байсан.<br>
+                <b>Засвар:</b> Query-д зөв actionId-уудыг нэмж, legacy ID-уудыг ч хадгалсан. Файл: <code>release-employee-dialog.tsx</code>.
+            </p>
+        </div>
+
+        <div style="background:#f0fdf4; border:2px solid #86efac; border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
+            <h4 style="color:#166534; margin:0 0 0.5rem;">&#10003; BUG-2: Flow canvas шалгалтгүй — ЗАСАГДСАН</h4>
+            <p style="color:#15803d; margin:0; font-size:0.85rem; line-height:1.6;">
+                <b>Асуудал:</b> <code>onAppoint</code> callback шууд dialog нээж байсан.<br>
+                <b>Засвар:</b> <code>isApproved</code> болон <code>filled</code> шалгалт нэмсэн. Toast мэдэгдэл харуулна. Файл: <code>position-structure-flow-canvas.tsx</code>.
+            </p>
+        </div>
+
+        <div style="background:#f0fdf4; border:2px solid #86efac; border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
+            <h4 style="color:#166534; margin:0 0 0.5rem;">&#10003; АНХААРУУЛГА: Чөлөөлөхийн status — ЗАСАГДСАН</h4>
+            <p style="color:#15803d; margin:0; font-size:0.85rem; line-height:1.6;">
+                <b>Асуудал:</b> Чөлөөлөх үед <code>status</code> өөрчлөгддөггүй байсан.<br>
+                <b>Засвар (бүтэн урсгал):</b><br>
+                1. Чөлөөлөх үед: ER template байвал <code>status = 'Чөлөөлөгдөж буй'</code>, байхгүй бол <code>'Ажлаас гарсан'</code> шууд.<br>
+                2. Түр чөлөөлөх: template байвал <code>'Түр түдгэлзүүлсэн'</code>, байхгүй бол <code>'Түр эзгүй'</code>.<br>
+                3. ER doc батлагдахад: <code>employment-relations</code> page ба <code>offboarding-tab-content</code>-д авто-баталгаажуулалт ажиллана.<br>
+                4. Шинэ <code>'Чөлөөлөгдөж буй'</code> статус Employee type, UI badge, dashboard-д нэмэгдсэн.
+            </p>
+        </div>
+
+        <p style="margin-top:2rem; font-size:0.82rem; color:#94a3b8;">Дэлгэрэнгүй: <a href="process-flow-assignment-release.md" style="color:#60a5fa;">process-flow-assignment-release.md</a></p>
+    </div>
+</body>
+</html>

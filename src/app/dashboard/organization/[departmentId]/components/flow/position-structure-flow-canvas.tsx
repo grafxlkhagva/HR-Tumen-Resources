@@ -21,6 +21,7 @@ import { Position, Department } from '../../../types';
 import { Button } from '@/components/ui/button';
 import { LayoutTemplate } from 'lucide-react';
 import { AppointEmployeeDialog } from './appoint-employee-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const NODE_TYPES = {
     positionNode: PositionFlowNode,
@@ -132,6 +133,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
     const { positions = [], employees = [], department, lookups, onPositionClick, onAddChild, onDuplicate } = props;
     const [isAppointDialogOpen, setIsAppointDialogOpen] = React.useState(false);
     const [selectedPosition, setSelectedPosition] = React.useState<Position | null>(null);
+    const { toast } = useToast();
 
     const { initialNodes, initialEdges } = useMemo(() => {
         const nodes: Node[] = [];
@@ -167,6 +169,15 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
                     onAddChild,
                     onDuplicate,
                     onAppoint: (pos: Position) => {
+                        // Validate before opening appoint dialog
+                        if (!pos.isApproved) {
+                            toast({ variant: 'destructive', title: 'Томилох боломжгүй', description: 'Ажлын байр батлагдаагүй байна.' });
+                            return;
+                        }
+                        if ((pos.filled || 0) >= 1) {
+                            toast({ variant: 'destructive', title: 'Орон тоо дүүрсэн', description: `"${pos.title}" ажлын байранд ажилтан томилогдсон байна.` });
+                            return;
+                        }
                         setSelectedPosition(pos);
                         setIsAppointDialogOpen(true);
                     }

@@ -192,13 +192,17 @@ export type SalaryRangeVersion = {
     currency: string;
 }
 
+/** Төлөв: бүтцийн бүрэн snapshot (татан буулгах) эсвэл нэг үйлдлийн лог */
+export type DepartmentHistoryEventType = 'position_added' | 'position_updated' | 'position_deleted';
+
 export type DepartmentHistory = {
     id: string;
     departmentId: string;
     approvedAt: string;
     validTo?: string;
     isDissolution?: boolean;
-    snapshot: {
+    /** Бүтцийн бүрэн зураглал (татан буулгах үед) */
+    snapshot?: {
         departmentName?: string;
         disbandReason?: string;
         disbandedAt?: string;
@@ -212,5 +216,11 @@ export type DepartmentHistory = {
                 employeeCode: string;
             }[];
         })[];
-    }
+    };
+    /** Үйлдлийн төрөл: ажлын байр нэмсэн/зассан/устгасан */
+    eventType?: DepartmentHistoryEventType;
+    positionId?: string;
+    positionTitle?: string;
+    performedBy?: string;
+    performedByName?: string;
 };

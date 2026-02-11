@@ -181,7 +181,7 @@ export function ReleaseEmployeeDialog({
         return query(
             collection(firestore, 'er_documents'),
             where('employeeId', '==', employee.id),
-            where('metadata.actionId', 'in', ['appointment_new', 'appointment_internal', 'appointment_transfer'])
+            where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_reappoint', 'appointment_new', 'appointment_internal', 'appointment_transfer'])
         );
     }, [firestore, employee?.id]);
     const { data: pendingAppointmentDocs } = useCollection<ERDocument>(pendingAppointmentDocsQuery as any);
@@ -428,12 +428,24 @@ export function ReleaseEmployeeDialog({
                 note: `${new Date().getFullYear()} онд ажлаас гарсан`
             };
 
+            // Determine the transitional or final status based on release type and whether ER doc will be created
+            const willCreateERDoc = !!templateData;
+            let releaseStatus: string;
+            if (selectedActionId === 'release_temporary') {
+                // Түр чөлөөлөх: баримт байвал түр түдгэлзүүлсэн, баримтгүй бол шууд Түр эзгүй
+                releaseStatus = willCreateERDoc ? 'Түр түдгэлзүүлсэн' : 'Түр эзгүй';
+            } else {
+                // Бүрэн чөлөөлөх: баримт байвал Чөлөөлөгдөж буй (баталгаажихыг хүлээнэ), баримтгүй бол шууд Ажлаас гарсан
+                releaseStatus = willCreateERDoc ? 'Чөлөөлөгдөж буй' : 'Ажлаас гарсан';
+            }
+
             const empRef = doc(firestore, 'employees', employee.id);
             batch.update(empRef, {
                 positionId: null,
                 jobTitle: null,
                 departmentId: null,
-                lifecycleStage: 'offboarding', // Set to offboarding stage
+                status: releaseStatus,
+                lifecycleStage: 'offboarding',
                 employmentHistory: arrayUnion(departureHistoryEntry),
                 updatedAt: Timestamp.now()
             });

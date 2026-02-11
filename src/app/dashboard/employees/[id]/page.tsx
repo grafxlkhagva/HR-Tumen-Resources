@@ -100,6 +100,7 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
     "Идэвхтэй туршилт": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Туршилт' },
     "Идэвхтэй үндсэн": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: 'Үндсэн' },
     "Түр эзгүй": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: 'Түр эзгүй' },
+    "Чөлөөлөгдөж буй": { variant: 'secondary', className: 'bg-orange-50 text-orange-700 hover:bg-orange-50/80 border-orange-200', label: 'Чөлөөлөгдөж буй' },
     "Ажлаас гарсан": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: 'Гарсан' },
     "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: 'Түдгэлзсэн' },
 };
@@ -1054,6 +1055,15 @@ export default function EmployeeProfilePage() {
                             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                             <p className="text-sm font-medium text-amber-900">
                                 Энэ ажилтан <strong>томилогдож буй</strong> төлөвтэй байна. Томилох бичиг баримт баталгаажсан үед идэвхтэй болно.
+                            </p>
+                        </div>
+                    )}
+                    {/* Releasing employee info */}
+                    {employee.status === 'Чөлөөлөгдөж буй' && (
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
+                            <p className="text-sm font-medium text-orange-900">
+                                Энэ ажилтан <strong>чөлөөлөгдөж буй</strong> төлөвтэй байна. Чөлөөлөх бичиг баримт баталгаажсан үед &quot;Ажлаас гарсан&quot; болно.
                             </p>
                         </div>
                     )}

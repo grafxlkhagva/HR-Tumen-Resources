@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { Employee, Department } from '@/types';
+import { Employee, Department, Position } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteEmployeeDialog } from './delete-employee-dialog';
 import { AddEmployeeDialog } from './add-employee-dialog';
@@ -43,6 +43,7 @@ const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' |
   "Идэвхтэй туршилт": { variant: 'warning', label: 'Туршилт', color: 'amber' },
   "Идэвхтэй үндсэн": { variant: 'success', label: 'Үндсэн', color: 'emerald' },
   "Түр эзгүй": { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
+  "Чөлөөлөгдөж буй": { variant: 'warning', label: 'Чөлөөлөгдөж буй', color: 'orange' },
   "Ажлаас гарсан": { variant: 'error', label: 'Гарсан', color: 'rose' },
   "Түр түдгэлзүүлсэн": { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
 };
@@ -57,6 +58,7 @@ export default function EmployeesPage() {
 
   const employeesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'employees') : null), []);
   const departmentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'departments') : null), []);
+  const positionsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'positions') : null), []);
   const documentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documents') : null), []);
   const onboardingQuery = useMemoFirebase(
     ({ firestore }) => (firestore ? query(collection(firestore, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null),
@@ -69,6 +71,7 @@ export default function EmployeesPage() {
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
   const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
+  const { data: positions } = useCollection<Position>(positionsQuery);
   const { data: documents } = useCollection<any>(documentsQuery);
   const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
   const { data: offboardingProjects } = useCollection<any>(offboardingQuery as any);
@@ -81,6 +84,21 @@ export default function EmployeesPage() {
     }, new Map<string, string>());
   }, [departments]);
 
+  // positionId -> departmentId (алба position-оос тодорхойлогддог)
+  const positionDeptMap = React.useMemo(() => {
+    if (!positions) return new Map<string, string>();
+    return positions.reduce((map, pos) => {
+      if (pos.departmentId) map.set(pos.id, pos.departmentId);
+      return map;
+    }, new Map<string, string>());
+  }, [positions]);
+
+  const getEffectiveDepartmentId = (emp: Employee) =>
+    emp.departmentId || (emp.positionId ? positionDeptMap.get(emp.positionId) : undefined);
+
+  const getDepartmentName = (emp: Employee) =>
+    departmentMap.get(getEffectiveDepartmentId(emp) ?? '') || 'Тодорхойгүй';
+
   const filteredEmployees = React.useMemo(() => {
     if (!employees) return [];
     return employees.filter(emp => {
@@ -91,11 +109,12 @@ export default function EmployeesPage() {
         emp.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
-      const matchesDept = deptFilter === 'all' || emp.departmentId === deptFilter;
+      const effectiveDeptId = getEffectiveDepartmentId(emp);
+      const matchesDept = deptFilter === 'all' || effectiveDeptId === deptFilter;
 
       return matchesSearch && matchesStatus && matchesDept;
     });
-  }, [employees, searchQuery, statusFilter, deptFilter]);
+  }, [employees, searchQuery, statusFilter, deptFilter, positionDeptMap]);
 
   const activeOnboardingCount = React.useMemo(() => {
     return (onboardingProcesses || []).length;
@@ -344,7 +363,7 @@ export default function EmployeesPage() {
                   employee={employee}
                   variant="detailed"
                   asLink={false}
-                  departmentName={departmentMap.get(employee.departmentId) || 'Тодорхойгүй'}
+                  departmentName={getDepartmentName(employee)}
                   showQuestionnaireAction={false}
                   topRightActions={
                     <TooltipProvider delayDuration={150}>

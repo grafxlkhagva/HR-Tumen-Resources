@@ -13,6 +13,7 @@ import {
     deleteDocumentNonBlocking,
     updateDocumentNonBlocking
 } from '@/firebase';
+import { addDepartmentHistoryEvent } from '@/app/dashboard/organization/department-history-log';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,6 +53,8 @@ export default function DepartmentPage() {
     const router = useRouter();
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
+    const performedByName = user?.displayName || user?.email || 'Систем';
+    const performedBy = user?.uid ?? '';
 
     // -- State --
     const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -353,7 +356,19 @@ export default function DepartmentPage() {
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const ref = await addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const deptId = newPositionData.departmentId || department?.id;
+            if (ref && deptId && performedBy) {
+                addDepartmentHistoryEvent({
+                    firestore,
+                    departmentId: deptId,
+                    eventType: 'position_added',
+                    positionId: ref.id,
+                    positionTitle: newPositionData.title,
+                    performedBy,
+                    performedByName,
+                }).catch(() => {});
+            }
             toast({ title: "Амжилттай хувиллаа" });
         } catch (e) {
             console.error('Хуулбарлах алдаа:', e);

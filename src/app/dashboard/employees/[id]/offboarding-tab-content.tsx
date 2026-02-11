@@ -62,7 +62,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     if (!finalDoc) return;
 
     // If already finalized, do nothing
-    if (employee.status === 'Ажлаас гарсан' && employee.lifecycleStage === 'alumni') {
+    if ((employee.status === 'Ажлаас гарсан' || employee.status === 'Түр эзгүй') && (employee.lifecycleStage === 'alumni' || employee.lifecycleStage === 'retention')) {
       finalizedRef.current = true;
       return;
     }
@@ -70,12 +70,23 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     const terminationDate = extractReleaseDate(finalDoc);
     finalizedRef.current = true;
 
-    updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
-      status: 'Ажлаас гарсан',
-      lifecycleStage: 'alumni',
-      ...(terminationDate ? { terminationDate } : {}),
-      updatedAt: Timestamp.now(),
-    });
+    const actionId = String((finalDoc as any)?.metadata?.actionId || '');
+    if (actionId === 'release_temporary') {
+      // Түр чөлөөлөлт: Түр эзгүй статус, retention lifecycle
+      updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+        status: 'Түр эзгүй',
+        lifecycleStage: 'retention',
+        updatedAt: Timestamp.now(),
+      });
+    } else {
+      // Бүрэн чөлөөлөлт: Ажлаас гарсан статус, alumni lifecycle
+      updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+        status: 'Ажлаас гарсан',
+        lifecycleStage: 'alumni',
+        ...(terminationDate ? { terminationDate } : {}),
+        updatedAt: Timestamp.now(),
+      });
+    }
   }, [firestore, employeeId, employee, releaseDocs]);
 
   // --- 2) Offboarding projects progress ---

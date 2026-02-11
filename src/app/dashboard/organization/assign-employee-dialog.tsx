@@ -140,11 +140,12 @@ export function AssignEmployeeDialog({
         try {
             const batch = writeBatch(firestore);
 
-            // 1. Update employee's document
+            // 1. Update employee's document (departmentId from position to show алба correctly)
             const employeeDocRef = doc(firestore, 'employees', localSelectedEmployee.id);
             batch.update(employeeDocRef, {
                 positionId: position.id,
                 jobTitle: position.title,
+                departmentId: position.departmentId ?? null,
             });
 
             // 2. Update position's filled count
