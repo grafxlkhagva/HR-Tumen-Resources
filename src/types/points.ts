@@ -44,7 +44,18 @@ export interface UserPointProfile {
 }
 
 export interface PointsConfig {
+    /** Тохиргоо хамаарах жил */
+    year: number;
+    /** Сар бүрийн бэлэглэх оноо (ажилчин бүрт) */
     monthlyAllowanceBase: number;
+    /** Нийт төсөлийн гүйцэтгэлд олгох жилийн оноо */
+    projectPointsBudget: number;
+    /** Оноо зарцуулах эрхтэй удирдлагын нийт жилийн төсөв */
+    managerBudgetTotal: number;
+    /** 1 оноо = хэдэн төгрөг */
+    pointToMNT: number;
+    /** Системээс авто тооцоолсон: Нийт жилийн төсөв */
+    yearlyTotalBudget?: number;
     updatedAt: any;
 }
 
