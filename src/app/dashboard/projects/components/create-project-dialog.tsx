@@ -44,7 +44,7 @@ import {
     addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, Timestamp } from 'firebase/firestore';
-import { Loader2, CalendarIcon, Users, Star } from 'lucide-react';
+import { Loader2, CalendarIcon, Users, Star, Tag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +52,7 @@ import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Employee, isActiveStatus } from '@/types';
-import { ProjectStatus, Priority } from '@/types/project';
+import { ProjectStatus, Priority, ProjectGroup } from '@/types/project';
 
 const projectSchema = z.object({
     name: z.string().min(1, 'Төслийн нэр хоосон байж болохгүй.'),
@@ -65,6 +65,7 @@ const projectSchema = z.object({
     status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
     pointBudget: z.coerce.number().min(0, 'Оноо 0-ээс бага байж болохгүй.').optional(),
+    groupIds: z.array(z.string()).optional(),
 }).refine((data) => data.endDate >= data.startDate, {
     message: 'Дуусах огноо эхлэх огноогоос өмнө байж болохгүй.',
     path: ['endDate'],
@@ -75,9 +76,10 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface CreateProjectDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    groups?: ProjectGroup[];
 }
 
-export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateProjectDialogProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -103,10 +105,12 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             priority: 'MEDIUM',
             ownerId: '',
             teamMemberIds: [],
+            groupIds: [],
         },
     });
 
     const watchedTeamMembers = form.watch('teamMemberIds');
+    const watchedGroupIds = form.watch('groupIds');
 
     const toggleTeamMember = (employeeId: string) => {
         const current = form.getValues('teamMemberIds') || [];
@@ -114,6 +118,15 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             form.setValue('teamMemberIds', current.filter(id => id !== employeeId), { shouldValidate: true });
         } else {
             form.setValue('teamMemberIds', [...current, employeeId], { shouldValidate: true });
+        }
+    };
+
+    const toggleGroup = (groupId: string) => {
+        const current = form.getValues('groupIds') || [];
+        if (current.includes(groupId)) {
+            form.setValue('groupIds', current.filter(id => id !== groupId), { shouldValidate: true });
+        } else {
+            form.setValue('groupIds', [...current, groupId], { shouldValidate: true });
         }
     };
 
@@ -140,6 +153,10 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             if (values.pointBudget && values.pointBudget > 0) {
                 projectData.pointBudget = values.pointBudget;
                 projectData.pointsDistributed = false;
+            }
+
+            if (values.groupIds && values.groupIds.length > 0) {
+                projectData.groupIds = values.groupIds;
             }
 
             await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
@@ -385,6 +402,53 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                                 </FormItem>
                             )}
                         />
+
+                        {/* Group Selection */}
+                        {groups.length > 0 && (
+                            <FormField
+                                control={form.control}
+                                name="groupIds"
+                                render={() => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Tag className="h-4 w-4" />
+                                            Бүлэг
+                                        </FormLabel>
+                                        <FormDescription>
+                                            Төслийг олон бүлэгт зэрэг хамааруулж болно
+                                        </FormDescription>
+                                        <ScrollArea className="h-[120px] rounded-md border p-3">
+                                            <div className="space-y-2">
+                                                {groups.map((g) => (
+                                                    <div
+                                                        key={g.id}
+                                                        className="flex items-center space-x-3 rounded-md p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                                    >
+                                                        <Checkbox
+                                                            id={`group-${g.id}`}
+                                                            checked={watchedGroupIds?.includes(g.id)}
+                                                            onCheckedChange={() => toggleGroup(g.id)}
+                                                        />
+                                                        <label
+                                                            htmlFor={`group-${g.id}`}
+                                                            className="flex items-center gap-2 flex-1 text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: g.color || '#94a3b8' }} />
+                                                            {g.name}
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                        {watchedGroupIds && watchedGroupIds.length > 0 && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {watchedGroupIds.length} бүлэг сонгогдсон
+                                            </p>
+                                        )}
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         {/* Point Budget */}
                         <FormField

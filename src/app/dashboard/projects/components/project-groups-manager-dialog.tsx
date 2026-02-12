@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,6 +60,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
   const [editing, setEditing] = React.useState<ProjectGroup | null>(null);
   const [editName, setEditName] = React.useState('');
   const [editColor, setEditColor] = React.useState<string>(COLOR_PRESETS[0]);
+  const [deletingGroup, setDeletingGroup] = React.useState<ProjectGroup | null>(null);
 
   React.useEffect(() => {
     if (!open) {
@@ -118,8 +129,10 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
     }
   };
 
-  const handleDelete = async (g: ProjectGroup) => {
-    if (!firestore) return;
+  const handleDelete = async () => {
+    const g = deletingGroup;
+    if (!firestore || !g) return;
+    setDeletingGroup(null);
     setIsSaving(true);
     try {
       // Remove group reference from projects first (best-effort)
@@ -195,33 +208,26 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
             </Button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Бүлгүүд</span>
               <Badge variant="secondary">{groups.length}</Badge>
             </div>
-            <ScrollArea className="h-[320px] pr-3">
-              <div className="space-y-2">
+            <ScrollArea className="h-[320px] w-full">
+              <div className="space-y-2 pr-1">
                 {groups.length === 0 ? (
                   <div className="text-sm text-muted-foreground">Одоогоор бүлэг алга.</div>
                 ) : (
                   groups.map((g) => (
-                    <div key={g.id} className="flex items-center justify-between gap-2 p-3 rounded-xl border bg-white">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: g.color || '#94a3b8' }} />
-                          <span className="font-medium truncate">{g.name}</span>
-                        </div>
-                        <div className="text-[10px] text-muted-foreground truncate">{g.id}</div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => startEdit(g)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-rose-600" onClick={() => handleDelete(g)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <div key={g.id} className="flex items-center gap-3 p-3 rounded-xl border bg-white dark:bg-slate-900">
+                      <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: g.color || '#94a3b8' }} />
+                      <span className="font-medium truncate flex-1 min-w-0">{g.name}</span>
+                      <Button variant="ghost" size="sm" className="h-8 shrink-0" onClick={() => startEdit(g)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 shrink-0 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400" onClick={() => setDeletingGroup(g)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))
                 )}
@@ -231,7 +237,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
         </div>
 
         {editing && (
-          <div className="mt-2 p-4 rounded-xl border bg-slate-50">
+          <div className="mt-2 p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/50">
             <div className="font-semibold mb-3">Засах: {editing.name}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -254,9 +260,15 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setEditing(null)} disabled={isSaving}>Болих</Button>
-              <Button onClick={handleSaveEdit} disabled={isSaving}>Хадгалах</Button>
+            <div className="flex justify-between mt-4">
+              <Button variant="outline" className="text-rose-600 border-rose-200 hover:bg-rose-50" onClick={() => setDeletingGroup(editing)} disabled={isSaving}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Устгах
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setEditing(null)} disabled={isSaving}>Болих</Button>
+                <Button onClick={handleSaveEdit} disabled={isSaving}>Хадгалах</Button>
+              </div>
             </div>
           </div>
         )}
@@ -265,6 +277,26 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
           <Button variant="outline" onClick={() => onOpenChange(false)}>Хаах</Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={!!deletingGroup} onOpenChange={(open) => !open && setDeletingGroup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Бүлэг устгах</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deletingGroup?.name}&quot; бүлгийг устгахдаа итгэлтэй байна уу? Энэ бүлэгт холбогдсон төслүүдээс бүлгийн холбоос арилна.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Болих</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Устгах
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

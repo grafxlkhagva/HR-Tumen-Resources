@@ -25,6 +25,9 @@ interface PointTx {
     amount: number;
     type: string;
     refId?: string;
+    projectId?: string;
+    description?: string;
+    fromUserId?: string;
     createdAt?: { toDate?: () => Date } | string;
 }
 
@@ -204,35 +207,53 @@ export default function PointAdminPage() {
                         <Card className="col-span-3">
                             <CardHeader>
                                 <CardTitle>Сүүлийн гүйлгээнүүд</CardTitle>
-                                <CardDescription>Системд хийгдсэн сүүлийн талархлууд</CardDescription>
+                                <CardDescription>Пойнтын бүх гүйлгээ: талархал, төслийн хуваарилалт, худалдан авалт</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {(recognitionPosts || []).slice(0, 5).map((p) => {
-                                        const fromName = empMap.get((p as { fromUserId?: string }).fromUserId || '') || '—';
-                                        const toIds = (p as { toUserId?: string[] }).toUserId || [];
-                                        const toNames = toIds.map(id => empMap.get(id) || id).join(', ');
-                                        const valueTitle = values?.find(v => v.id === (p as { valueId?: string }).valueId)?.title || '—';
-                                        const amt = (p as { pointAmount?: number }).pointAmount ?? 0;
-                                        const created = (p as { createdAt?: { toDate?: () => Date } | string }).createdAt;
+                                    {(transactions || []).slice(0, 10).map((tx, idx) => {
+                                        const userName = empMap.get(tx.userId) || tx.userId;
+                                        const created = tx.createdAt;
                                         const when = created
                                             ? (typeof created === 'object' && 'toDate' in created ? formatDistanceToNow(created.toDate!(), { addSuffix: true, locale: mn }) : formatDistanceToNow(new Date(created as string), { addSuffix: true, locale: mn }))
                                             : '—';
+                                        const amt = Number(tx.amount);
+                                        const isPositive = amt > 0;
+                                        let label = '';
+                                        if (tx.type === 'RECEIVED' && tx.projectId) {
+                                            label = tx.description || 'Төслийн оноо хүлээн авсан';
+                                        } else if (tx.type === 'RECEIVED' && tx.fromUserId) {
+                                            const fromName = empMap.get(tx.fromUserId) || tx.fromUserId;
+                                            label = `${fromName}-аас талархал`;
+                                        } else if (tx.type === 'GIVEN') {
+                                            label = 'Талархал өгсөн';
+                                        } else if (tx.type === 'REDEEMED') {
+                                            label = tx.description || 'Худалдан авалт';
+                                        } else if (tx.type === 'ADJUSTMENT' || tx.type === 'PENALTY') {
+                                            label = tx.description || tx.type;
+                                        } else {
+                                            label = tx.description || tx.type;
+                                        }
                                         return (
-                                            <div key={(p as { id?: string }).id || Math.random().toString(36)} className="flex items-center gap-3">
+                                            <div key={tx.id || `tx-${idx}`} className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                                                    {fromName.charAt(0) || '?'}
+                                                    {userName.charAt(0) || '?'}
                                                 </div>
                                                 <div className="flex-1 min-w-0 space-y-1">
-                                                    <p className="text-sm font-medium leading-none truncate">{fromName} → {toNames}</p>
-                                                    <p className="text-xs text-muted-foreground">{valueTitle} (+{amt} оноо)</p>
+                                                    <p className="text-sm font-medium leading-none truncate">{userName}</p>
+                                                    <p className="text-xs text-muted-foreground truncate" title={label}>
+                                                        {label}
+                                                        <span className={isPositive ? 'text-emerald-600 dark:text-emerald-400 ml-1' : 'text-rose-600 dark:text-rose-400 ml-1'}>
+                                                            {isPositive ? '+' : ''}{amt} оноо
+                                                        </span>
+                                                    </p>
                                                 </div>
                                                 <div className="text-[10px] text-muted-foreground shrink-0">{when}</div>
                                             </div>
                                         );
                                     })}
-                                    {(!recognitionPosts || recognitionPosts.length === 0) && (
-                                        <div className="text-center py-6 text-muted-foreground text-sm">Одоогоор талархал байхгүй.</div>
+                                    {(!transactions || transactions.length === 0) && (
+                                        <div className="text-center py-6 text-muted-foreground text-sm">Одоогоор гүйлгээ байхгүй.</div>
                                     )}
                                 </div>
                             </CardContent>

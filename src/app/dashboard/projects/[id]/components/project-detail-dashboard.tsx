@@ -28,7 +28,7 @@ export function ProjectDetailDashboard({
   const elapsedDays = differenceInDays(new Date(), startDate);
   const daysLeft = differenceInDays(endDate, new Date());
   const timelinePercent = project.status === 'COMPLETED' ? 100 : Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
-  const isOverdue = daysLeft < 0 && !['COMPLETED', 'ARCHIVED', 'CANCELLED'].includes(project.status);
+  const isOverdue = daysLeft < 0 && !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'ON_HOLD'].includes(project.status);
 
   // Point budget calculations
   const hasPointBudget = !!project.pointBudget && project.pointBudget > 0;

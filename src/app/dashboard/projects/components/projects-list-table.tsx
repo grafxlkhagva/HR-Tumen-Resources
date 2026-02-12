@@ -102,7 +102,7 @@ export function ProjectsListTable({
                 const owner = employeeMap.get(project.ownerId);
                 const taskCount = taskCountByProjectId.get(project.id) ?? 0;
                 const daysLeft = differenceInDays(parseISO(project.endDate), new Date());
-                const isOverdue = daysLeft < 0 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED';
+                const isOverdue = daysLeft < 0 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED' && project.status !== 'ON_HOLD';
                 const totalDays = differenceInDays(parseISO(project.endDate), parseISO(project.startDate));
                 const elapsedDays = differenceInDays(new Date(), parseISO(project.startDate));
                 const progressPercent = project.status === 'COMPLETED' ? 100 : Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
@@ -215,9 +215,9 @@ export function ProjectsListTable({
                 ) : (
                     <div className={cn(
                         "rounded-xl border px-4 py-3 transition-shadow hover:shadow-md",
-                        isOverdue
+                                isOverdue
                             ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/50"
-                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED')
+                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED' && project.status !== 'ON_HOLD')
                                 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
                                 : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800/30"
                     )}>
@@ -241,7 +241,7 @@ export function ProjectsListTable({
                                         "text-sm font-medium",
                                         isOverdue
                                             ? "text-red-600 dark:text-red-400"
-                                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED')
+                                            : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED' && project.status !== 'ON_HOLD')
                                                 ? "text-amber-600 dark:text-amber-400"
                                                 : "text-muted-foreground"
                                     )}>
@@ -251,7 +251,7 @@ export function ProjectsListTable({
                                         <span className="text-[10px] text-red-600 dark:text-red-400 font-bold flex items-center gap-0.5">
                                             <AlertCircle className="h-3 w-3" />{Math.abs(daysLeft)}д хэтэрсэн
                                         </span>
-                                    ) : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED') ? (
+                                    ) : (daysLeft <= 7 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED' && project.status !== 'ON_HOLD') ? (
                                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
                                             <Clock className="h-3 w-3" />{daysLeft}д үлдсэн
                                         </span>

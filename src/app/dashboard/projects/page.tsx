@@ -210,7 +210,6 @@ export default function ProjectsPage() {
                             <ProjectsDashboard
                                 projects={projects ?? null}
                                 isLoading={isLoading}
-                                onManageGroups={() => setIsGroupsManagerOpen(true)}
                             />
                         </div>
                     </div>
@@ -396,49 +395,6 @@ export default function ProjectsPage() {
                         </Tabs>
                     </div>
 
-                    {/* Бүлэг сонгох */}
-                    <div className="mb-4">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Бүлэгээр шүүх</p>
-                        <div className="flex flex-wrap gap-2">
-                            {(groups || []).length === 0 ? (
-                                <span className="text-sm text-muted-foreground">Бүлэг алга.</span>
-                            ) : (
-                                (groups || []).map((g) => {
-                                    const isSelected = selectedGroupIds.includes(g.id);
-                                    return (
-                                        <button
-                                            key={g.id}
-                                            type="button"
-                                            onClick={() => toggleGroupFilter(g.id, !isSelected)}
-                                            className={cn(
-                                                'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                                                isSelected
-                                                    ? 'bg-violet-600 text-white hover:bg-violet-700'
-                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                            )}
-                                        >
-                                            <span
-                                                className="h-2.5 w-2.5 rounded-full shrink-0"
-                                                style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.9)' : (g.color || '#94a3b8') }}
-                                            />
-                                            {g.name}
-                                        </button>
-                                    );
-                                })
-                            )}
-                            {selectedGroupIds.length > 0 && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 text-xs text-muted-foreground"
-                                    onClick={() => setSelectedGroupIds([])}
-                                >
-                                    Цэвэрлэх
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
                     {/* Results Count */}
                     {!isLoading && (
                         <p className="text-sm text-muted-foreground mb-4">
@@ -480,6 +436,7 @@ export default function ProjectsPage() {
             <CreateProjectDialog
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
+                groups={groups || []}
             />
 
             <ProjectGroupsManagerDialog

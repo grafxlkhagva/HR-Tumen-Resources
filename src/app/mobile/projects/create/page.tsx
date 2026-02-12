@@ -30,12 +30,12 @@ import {
   useCollection,
   addDocumentNonBlocking,
 } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Employee, isActiveStatus } from '@/types';
 import { Priority, ProjectStatus } from '@/types/project';
-import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, Users } from 'lucide-react';
+import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, Users, Tag } from 'lucide-react';
 import { useMobileContainer } from '../../hooks/use-mobile-container';
 
 const projectSchema = z
@@ -46,6 +46,7 @@ const projectSchema = z
     startDate: z.date({ required_error: 'Эхлэх огноо сонгоно уу' }),
     endDate: z.date({ required_error: 'Дуусах огноо сонгоно уу' }),
     teamMemberIds: z.array(z.string()).min(1, 'Багийн гишүүн сонгоно уу'),
+    groupIds: z.array(z.string()).optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: 'Дуусах огноо эхлэх огноогоос өмнө байж болохгүй',
@@ -63,6 +64,7 @@ export default function MobileCreateProjectPage() {
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showTeamPicker, setShowTeamPicker] = React.useState(false);
+  const [showGroupPicker, setShowGroupPicker] = React.useState(false);
 
   // Fetch employees
   const employeesQuery = useMemoFirebase(
@@ -75,6 +77,13 @@ export default function MobileCreateProjectPage() {
     return (employees || []).filter((e) => isActiveStatus(e.status) && e.id);
   }, [employees]);
 
+  // Fetch project groups
+  const groupsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null),
+    [firestore]
+  );
+  const { data: groups } = useCollection<{ id: string; name: string; color?: string }>(groupsQuery as any);
+
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -82,6 +91,7 @@ export default function MobileCreateProjectPage() {
       goal: '',
       expectedOutcome: '',
       teamMemberIds: employeeProfile?.id ? [employeeProfile.id] : [],
+      groupIds: [],
     },
   });
 
@@ -111,6 +121,16 @@ export default function MobileCreateProjectPage() {
     }
   };
 
+  const watchedGroupIds = form.watch('groupIds');
+  const toggleGroup = (groupId: string) => {
+    const current = form.getValues('groupIds') || [];
+    if (current.includes(groupId)) {
+      form.setValue('groupIds', current.filter((id) => id !== groupId), { shouldValidate: true });
+    } else {
+      form.setValue('groupIds', [...current, groupId], { shouldValidate: true });
+    }
+  };
+
   const selectedMembers = React.useMemo(() => {
     return activeEmployees.filter((e) => watchedTeamMembers?.includes(e.id!));
   }, [activeEmployees, watchedTeamMembers]);
@@ -120,7 +140,7 @@ export default function MobileCreateProjectPage() {
 
     setIsSubmitting(true);
     try {
-      const projectData = {
+      const projectData: Record<string, unknown> = {
         name: values.name,
         goal: values.goal,
         expectedOutcome: values.expectedOutcome,
@@ -134,6 +154,9 @@ export default function MobileCreateProjectPage() {
         updatedAt: Timestamp.now(),
         createdBy: employeeProfile.id,
       };
+      if (values.groupIds && values.groupIds.length > 0) {
+        projectData.groupIds = values.groupIds;
+      }
 
       await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
 
@@ -393,6 +416,67 @@ export default function MobileCreateProjectPage() {
                 </FormItem>
               )}
             />
+
+            {(groups || []).length > 0 && (
+              <FormField
+                control={form.control}
+                name="groupIds"
+                render={() => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Бүлэг
+                    </FormLabel>
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupPicker((p) => !p)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white"
+                    >
+                      <span className="text-sm text-slate-600">
+                        {watchedGroupIds && watchedGroupIds.length > 0
+                          ? `${watchedGroupIds.length} бүлэг сонгогдсон`
+                          : 'Бүлэг сонгох'}
+                      </span>
+                      <ChevronRight
+                        className={cn(
+                          'h-4 w-4 text-slate-400 transition-transform',
+                          showGroupPicker && 'rotate-90'
+                        )}
+                      />
+                    </button>
+                    {showGroupPicker && (
+                      <div className="border rounded-xl p-3 max-h-44 overflow-y-auto space-y-1 bg-slate-50 animate-in slide-in-from-top-2">
+                        {(groups || []).map((g) => {
+                          const isSelected = watchedGroupIds?.includes(g.id);
+                          return (
+                            <div
+                              key={g.id}
+                              className={cn(
+                                'flex items-center gap-3 p-2 rounded-lg transition-colors',
+                                isSelected ? 'bg-indigo-50' : 'hover:bg-white'
+                              )}
+                            >
+                              <Checkbox
+                                id={`group-${g.id}`}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleGroup(g.id)}
+                              />
+                              <span
+                                className="h-3 w-3 rounded-full shrink-0"
+                                style={{ backgroundColor: g.color || '#94a3b8' }}
+                              />
+                              <label htmlFor={`group-${g.id}`} className="flex-1 text-sm cursor-pointer">
+                                {g.name}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex gap-3 pt-2">
               <Button
