@@ -43,6 +43,11 @@ export interface WidgetData {
     erDocumentsCount?: number;
     erPendingCount?: number;
     erTemplatesCount?: number;
+
+    // Training widget
+    trainingCoursesCount?: number;
+    trainingActivePlansCount?: number;
+    trainingCompletionRate?: number;
 }
 
 interface DashboardWidgetCardProps {
@@ -269,6 +274,31 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
+            case 'training':
+                return (
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Сургалт хөгжил
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.trainingCoursesCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Сургалт</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-teal-400">{data.trainingActivePlansCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Идэвхтэй</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-cyan-400">{data.trainingCompletionRate ?? 0}%</div>
+                                <div className="text-[10px] text-slate-400">Дуусгалт</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+
             default:
                 return null;
         }
@@ -287,6 +317,8 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20';
             case 'er':
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
+            case 'training':
+                return 'bg-gradient-to-br from-teal-500/10 to-cyan-500/10';
             default:
                 return '';
         }
@@ -354,7 +386,8 @@ export function DashboardWidgetCard({
                                 id === 'employees' && "text-emerald-400",
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
-                                id === 'er' && "text-blue-500"
+                                id === 'er' && "text-blue-500",
+                                id === 'training' && "text-teal-400"
                             )}
                         />
                     </div>

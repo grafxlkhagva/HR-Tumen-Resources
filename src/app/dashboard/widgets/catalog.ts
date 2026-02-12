@@ -10,6 +10,7 @@ import {
     Handshake, 
     Sparkles, 
     FolderKanban,
+    GraduationCap,
     LucideIcon
 } from 'lucide-react';
 
@@ -22,7 +23,8 @@ export type WidgetId =
     | 'posts' 
     | 'recruitment' 
     | 'points' 
-    | 'er';
+    | 'er'
+    | 'training';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -47,7 +49,8 @@ export const DEFAULT_ORDER: WidgetId[] = [
     'posts',
     'recruitment',
     'points',
-    'er'
+    'er',
+    'training'
 ];
 
 // Widget catalog with all available widgets
@@ -140,6 +143,16 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         href: '/dashboard/employment-relations',
         size: 'compact',
         icon: Handshake,
+        requiredData: [],
+        category: 'core'
+    },
+    training: {
+        id: 'training',
+        label: 'Сургалт хөгжил',
+        description: 'Сургалт, хөгжлийн хөтөлбөрүүд',
+        href: '/dashboard/training',
+        size: 'compact',
+        icon: GraduationCap,
         requiredData: [],
         category: 'core'
     }

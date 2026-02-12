@@ -419,6 +419,17 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: erTemplates } = useCollection<any>(erTemplatesQuery);
 
+    // Training queries (for Training widget)
+    const trainingCoursesQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'training_courses') : null
+        , [firestore]);
+    const { data: trainingCourses } = useCollection<any>(trainingCoursesQuery);
+
+    const trainingPlansQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'training_plans') : null
+        , [firestore]);
+    const { data: trainingPlans } = useCollection<any>(trainingPlansQuery);
+
     // All tasks query for overdue count (using collectionGroup)
     const allTasksQuery = useMemoFirebase(() =>
         firestore ? collectionGroup(firestore, 'tasks') : null
@@ -619,6 +630,15 @@ const OrganizationChart = () => {
             erDocumentsCount: erDocuments?.length || 0,
             erPendingCount,
             erTemplatesCount: erTemplates?.length || 0,
+
+            // Training widget
+            trainingCoursesCount: trainingCourses?.filter((c: any) => c.status === 'active').length || 0,
+            trainingActivePlansCount: trainingPlans?.filter((p: any) => p.status === 'assigned' || p.status === 'in_progress').length || 0,
+            trainingCompletionRate: (() => {
+                const total = trainingPlans?.filter((p: any) => p.status !== 'cancelled').length || 0;
+                const completed = trainingPlans?.filter((p: any) => p.status === 'completed').length || 0;
+                return total > 0 ? Math.round((completed / total) * 100) : 0;
+            })(),
         };
     }, [
         activeProjects,
@@ -634,6 +654,8 @@ const OrganizationChart = () => {
         erPendingCount,
         erTemplates,
         genderCounts,
+        trainingCourses,
+        trainingPlans,
     ]);
 
 
