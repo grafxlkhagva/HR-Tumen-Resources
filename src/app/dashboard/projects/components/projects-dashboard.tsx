@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FolderKanban, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FolderKanban, TrendingUp, CheckCircle2, AlertCircle, Tag } from 'lucide-react';
 import {
   PieChart,
   Pie,
@@ -41,9 +42,10 @@ const STATUS_ORDER: ProjectStatus[] = ['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED'
 interface ProjectsDashboardProps {
   projects: Project[] | null;
   isLoading: boolean;
+  onManageGroups?: () => void;
 }
 
-export function ProjectsDashboard({ projects, isLoading }: ProjectsDashboardProps) {
+export function ProjectsDashboard({ projects, isLoading, onManageGroups }: ProjectsDashboardProps) {
   const metrics = React.useMemo(() => {
     if (!projects) {
       return {
@@ -113,10 +115,21 @@ export function ProjectsDashboard({ projects, isLoading }: ProjectsDashboardProp
     <Card className="bg-slate-900 dark:bg-slate-800 border-slate-700 overflow-hidden relative">
       <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl bg-gradient-to-br from-violet-500/10 to-purple-500/10" />
       <CardContent className="p-5 sm:p-6 relative z-10">
-        <div className="mb-5">
+        <div className="mb-5 flex items-center justify-between">
           <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
             Dashboard | төсөл
           </h3>
+          {onManageGroups && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-slate-400 hover:text-slate-200"
+              onClick={onManageGroups}
+            >
+              <Tag className="h-3.5 w-3.5 mr-1.5" />
+              Бүлэг удирдах
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

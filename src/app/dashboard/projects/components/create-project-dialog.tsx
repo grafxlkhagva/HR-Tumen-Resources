@@ -44,7 +44,7 @@ import {
     addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, Timestamp } from 'firebase/firestore';
-import { Loader2, CalendarIcon, Users } from 'lucide-react';
+import { Loader2, CalendarIcon, Users, Star } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +64,7 @@ const projectSchema = z.object({
     teamMemberIds: z.array(z.string()).min(1, 'Багийн гишүүн сонгоно уу.'),
     status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+    pointBudget: z.coerce.number().min(0, 'Оноо 0-ээс бага байж болохгүй.').optional(),
 }).refine((data) => data.endDate >= data.startDate, {
     message: 'Дуусах огноо эхлэх огноогоос өмнө байж болохгүй.',
     path: ['endDate'],
@@ -121,7 +122,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
         setIsSubmitting(true);
         try {
-            const projectData = {
+            const projectData: Record<string, any> = {
                 name: values.name,
                 goal: values.goal,
                 expectedOutcome: values.expectedOutcome,
@@ -135,6 +136,11 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                 updatedAt: Timestamp.now(),
                 createdBy: values.ownerId, // TODO: Use current user ID
             };
+
+            if (values.pointBudget && values.pointBudget > 0) {
+                projectData.pointBudget = values.pointBudget;
+                projectData.pointsDistributed = false;
+            }
 
             await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
 
@@ -159,8 +165,8 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
                     <DialogTitle>Шинэ төсөл үүсгэх</DialogTitle>
                     <DialogDescription>
                         Төслийн мэдээллийг оруулна уу.
@@ -168,7 +174,9 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 flex-1">
+                        <div className="overflow-y-auto overflow-x-hidden max-h-[55vh]">
+                            <div className="space-y-4 px-6 py-4">
                         <FormField
                             control={form.control}
                             name="name"
@@ -378,6 +386,33 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                             )}
                         />
 
+                        {/* Point Budget */}
+                        <FormField
+                            control={form.control}
+                            name="pointBudget"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                        <Star className="h-4 w-4" />
+                                        Төслийн оноо
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            placeholder="0"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Хугацаандаа дуусвал бүрэн оноо, хоцорсон өдөр тутам 1%-аар хасагдана. 100+ хоног хоцорвол 0 оноо.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -426,8 +461,10 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                                 )}
                             />
                         </div>
+                            </div>
+                        </div>
 
-                        <DialogFooter className="pt-4">
+                        <DialogFooter className="px-6 py-4 border-t shrink-0">
                             <Button
                                 type="button"
                                 variant="outline"

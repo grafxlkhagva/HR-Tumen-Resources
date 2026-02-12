@@ -32,6 +32,7 @@ import {
     ArrowRight,
     FolderKanban,
     Sparkles,
+    Tag,
 } from 'lucide-react';
 import {
     Select,
@@ -46,11 +47,13 @@ import { mn } from 'date-fns/locale';
 
 import { useCollection, useDoc, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { AssignProjectGroupsDialog } from '../components/assign-project-groups-dialog';
 import {
     Project,
     Task,
     TaskStatus,
     ProjectStatus,
+    ProjectGroup,
     PROJECT_STATUS_LABELS,
     PROJECT_STATUS_COLORS,
 } from '@/types/project';
@@ -68,6 +71,7 @@ import { TasksListTable } from '../components/tasks-list-table';
 import { ProjectChatSection } from '../components/project-chat-section';
 import { AiGenerateTasksDialog } from '../components/ai-generate-tasks-dialog';
 import { ProjectDetailDashboard } from './components/project-detail-dashboard';
+import { ProjectPointsService } from '@/lib/points/project-points-service';
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
     { value: 'DRAFT', label: 'Ноорог' },
@@ -84,28 +88,72 @@ function normalizeStatusForSelect(s: ProjectStatus): string {
 }
 
 function ProjectStatusSelect({
-    projectId,
-    value,
+    project,
     onUpdated,
     onError,
+    onPointsDistributed,
 }: {
-    projectId: string;
-    value: ProjectStatus;
+    project: Project;
     onUpdated: () => void;
     onError: () => void;
+    onPointsDistributed?: (message: string) => void;
 }) {
     const { firestore } = useFirebase();
     const [isUpdating, setIsUpdating] = useState(false);
-    const selectValue = normalizeStatusForSelect(value);
+    const selectValue = normalizeStatusForSelect(project.status);
 
     const handleChange = async (newValue: string) => {
         if (!firestore || newValue === selectValue) return;
         setIsUpdating(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'projects', projectId), {
+            const completionDate = format(new Date(), 'yyyy-MM-dd');
+
+            // Update the project status
+            const updateData: Record<string, any> = {
                 status: newValue as ProjectStatus,
                 updatedAt: Timestamp.now(),
-            });
+            };
+
+            // If completing the project, record the completion date
+            if (newValue === 'COMPLETED') {
+                updateData.completedAt = completionDate;
+            }
+
+            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), updateData);
+
+            // If completing and project has point budget, distribute points
+            if (
+                newValue === 'COMPLETED' &&
+                project.pointBudget &&
+                project.pointBudget > 0 &&
+                !project.pointsDistributed
+            ) {
+                try {
+                    const result = await ProjectPointsService.distributeProjectPoints(
+                        firestore,
+                        project.id,
+                        completionDate
+                    );
+
+                    if (result.pointsPerMember > 0) {
+                        const penaltyMsg = result.overdueDays > 0
+                            ? ` (${result.overdueDays} хоног хоцорсон, ${result.penaltyPercent}% хасагдсан)`
+                            : ' (хугацаандаа дууссан)';
+                        onPointsDistributed?.(
+                            `Гишүүн бүрт ${result.pointsPerMember} оноо олгогдлоо${penaltyMsg}`
+                        );
+                    } else {
+                        onPointsDistributed?.(
+                            `100+ хоног хоцорсон тул оноо олгогдсонгүй`
+                        );
+                    }
+                } catch (pointError) {
+                    console.error('Point distribution error:', pointError);
+                    // Don't fail the status change because of point distribution error
+                    onPointsDistributed?.('Оноо хуваарилахад алдаа гарлаа');
+                }
+            }
+
             onUpdated();
         } catch {
             onError();
@@ -116,7 +164,7 @@ function ProjectStatusSelect({
 
     return (
         <Select value={selectValue} onValueChange={handleChange} disabled={isUpdating}>
-            <SelectTrigger className={cn('w-full max-w-[180px] h-8 text-xs', PROJECT_STATUS_COLORS[value] || 'bg-slate-100 text-slate-700')}>
+            <SelectTrigger className={cn('w-full max-w-[180px] h-8 text-xs', PROJECT_STATUS_COLORS[project.status] || 'bg-slate-100 text-slate-700')}>
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -142,6 +190,7 @@ export default function ProjectDetailPage() {
     const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
     const [isEditTeamOpen, setIsEditTeamOpen] = useState(false);
     const [isEditScheduleOpen, setIsEditScheduleOpen] = useState(false);
+    const [isAssignGroupsOpen, setIsAssignGroupsOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'ALL' | 'OVERDUE'>('ALL');
     const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -176,6 +225,24 @@ export default function ProjectDetailPage() {
     const employeeMap = useMemo(() => {
         return new Map((employees || []).map(e => [e.id, e]));
     }, [employees]);
+
+    // Fetch project groups
+    const groupsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null,
+        [firestore]
+    );
+    const { data: groups } = useCollection<ProjectGroup>(groupsQuery as any);
+
+    const groupsById = useMemo(() => {
+        return new Map((groups || []).map(g => [g.id, g]));
+    }, [groups]);
+
+    const projectGroups = useMemo(() => {
+        if (!project?.groupIds) return [];
+        return project.groupIds
+            .map(id => groupsById.get(id))
+            .filter((g): g is ProjectGroup => !!g);
+    }, [project?.groupIds, groupsById]);
 
     // Get team members with details
     const teamMembers = useMemo(() => {
@@ -442,16 +509,56 @@ export default function ProjectDetailPage() {
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Төлөв</p>
                                     {isOwner ? (
                                         <ProjectStatusSelect
-                                            projectId={project.id}
-                                            value={project.status}
+                                            project={project}
                                             onUpdated={() => toast({ title: 'Төлөв шинэчлэгдлээ.' })}
                                             onError={() => toast({ title: 'Алдаа', variant: 'destructive' })}
+                                            onPointsDistributed={(msg) => toast({ title: 'Төслийн оноо', description: msg })}
                                         />
                                     ) : (
                                         <Badge className={cn('text-xs', PROJECT_STATUS_COLORS[project.status] || 'bg-slate-100 text-slate-700')}>
                                             {PROJECT_STATUS_LABELS[project.status]}
                                         </Badge>
                                     )}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Бүлэг</p>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {projectGroups.length > 0 ? (
+                                            <>
+                                                {projectGroups.map((g) => (
+                                                    <Badge key={g.id} variant="secondary" className="text-[10px]">
+                                                        <span className="h-2 w-2 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: g.color || '#94a3b8' }} />
+                                                        {g.name}
+                                                    </Badge>
+                                                ))}
+                                                {isOwner && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-7 text-xs"
+                                                        onClick={() => setIsAssignGroupsOpen(true)}
+                                                    >
+                                                        <Tag className="h-3 w-3 mr-1" />
+                                                        Засах
+                                                    </Button>
+                                                )}
+                                            </>
+                                        ) : (
+                                            isOwner ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    onClick={() => setIsAssignGroupsOpen(true)}
+                                                >
+                                                    <Tag className="h-3.5 w-3.5 mr-1.5" />
+                                                    Бүлэг тохируулах
+                                                </Button>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -612,6 +719,13 @@ export default function ProjectDetailPage() {
                 open={isEditScheduleOpen}
                 onOpenChange={setIsEditScheduleOpen}
                 project={project}
+            />
+
+            <AssignProjectGroupsDialog
+                open={isAssignGroupsOpen}
+                onOpenChange={setIsAssignGroupsOpen}
+                project={project}
+                groups={groups || []}
             />
 
             {editingTask && (

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, orderBy } from 'firebase/firestore';
 import { Project, ProjectStatus, ProjectGroup } from '@/types/project';
 import { Employee } from '@/types';
 import { CreateProjectDialog } from './components/create-project-dialog';
@@ -66,6 +66,25 @@ export default function ProjectsPage() {
     const groupsById = useMemo(() => {
         return new Map((groups || []).map(g => [g.id, g]));
     }, [groups]);
+
+    // Fetch all tasks (collectionGroup) to count per project
+    const allTasksQuery = useMemoFirebase(
+        () => firestore ? collectionGroup(firestore, 'tasks') : null,
+        [firestore]
+    );
+    const { data: allTasks } = useCollection<{ projectId?: string }>(allTasksQuery);
+
+    const taskCountByProjectId = useMemo(() => {
+        const map = new Map<string, number>();
+        if (!allTasks) return map;
+        for (const task of allTasks) {
+            const pid = task.projectId ?? (task as any).ref?.parent?.parent?.id;
+            if (pid) {
+                map.set(pid, (map.get(pid) ?? 0) + 1);
+            }
+        }
+        return map;
+    }, [allTasks]);
 
     // Fetch employees for owner display
     const employeesQuery = useMemoFirebase(
@@ -191,6 +210,7 @@ export default function ProjectsPage() {
                             <ProjectsDashboard
                                 projects={projects ?? null}
                                 isLoading={isLoading}
+                                onManageGroups={() => setIsGroupsManagerOpen(true)}
                             />
                         </div>
                     </div>
@@ -368,12 +388,55 @@ export default function ProjectsPage() {
                         <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as ProjectStatus)}>
                             <TabsList>
                                 <TabsTrigger value="ACTIVE">Идэвхтэй</TabsTrigger>
-                                <TabsTrigger value="COMPLETED">Дууссан</TabsTrigger>
                                 <TabsTrigger value="DRAFT">Ноорог</TabsTrigger>
+                                <TabsTrigger value="COMPLETED">Дууссан</TabsTrigger>
                                 <TabsTrigger value="ON_HOLD">Түр зогссон</TabsTrigger>
                                 <TabsTrigger value="ARCHIVED">Архивласан</TabsTrigger>
                             </TabsList>
                         </Tabs>
+                    </div>
+
+                    {/* Бүлэг сонгох */}
+                    <div className="mb-4">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Бүлэгээр шүүх</p>
+                        <div className="flex flex-wrap gap-2">
+                            {(groups || []).length === 0 ? (
+                                <span className="text-sm text-muted-foreground">Бүлэг алга.</span>
+                            ) : (
+                                (groups || []).map((g) => {
+                                    const isSelected = selectedGroupIds.includes(g.id);
+                                    return (
+                                        <button
+                                            key={g.id}
+                                            type="button"
+                                            onClick={() => toggleGroupFilter(g.id, !isSelected)}
+                                            className={cn(
+                                                'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                                                isSelected
+                                                    ? 'bg-violet-600 text-white hover:bg-violet-700'
+                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            )}
+                                        >
+                                            <span
+                                                className="h-2.5 w-2.5 rounded-full shrink-0"
+                                                style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.9)' : (g.color || '#94a3b8') }}
+                                            />
+                                            {g.name}
+                                        </button>
+                                    );
+                                })
+                            )}
+                            {selectedGroupIds.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-xs text-muted-foreground"
+                                    onClick={() => setSelectedGroupIds([])}
+                                >
+                                    Цэвэрлэх
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Results Count */}
@@ -399,6 +462,7 @@ export default function ProjectsPage() {
                             projects={filteredProjects}
                             employeeMap={employeeMap}
                             groupsById={groupsById}
+                            taskCountByProjectId={taskCountByProjectId}
                             isLoading={isLoading}
                             variant={viewMode === 'gantt' ? 'list' : viewMode}
                             onEditGroups={(p) => setAssignGroupsProject(p)}

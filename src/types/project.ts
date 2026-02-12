@@ -63,6 +63,11 @@ export interface Project {
   positionPreparationGroupId?: string;     // Ажлын байр бэлтгэх бүлгийн ID (олон үе шатны төслүүдийг холбоно)
   positionPreparationStageId?: string;     // Үе шатны ID (workspace, access, etc.)
   positionPreparationPositionId?: string;  // Аль ажлын байранд зориулсан бэлтгэл вэ
+
+  // Points integration fields (optional)
+  pointBudget?: number;            // Төслийн нийт оноо (project total point budget)
+  completedAt?: string;            // ISO date string (YYYY-MM-DD) - when project was marked COMPLETED
+  pointsDistributed?: boolean;     // true = points already distributed to team members (prevents double-distribution)
 }
 
 // Task interface

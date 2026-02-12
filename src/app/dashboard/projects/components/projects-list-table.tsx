@@ -18,6 +18,7 @@ import {
     Clock,
     Timer,
     ChevronRight,
+    ListTodo,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Project, ProjectGroup, PROJECT_STATUS_LABELS, PRIORITY_LABELS } from '@/types/project';
@@ -44,6 +45,7 @@ interface ProjectsListTableProps {
     projects: Project[];
     employeeMap: Map<string, Employee>;
     groupsById: Map<string, ProjectGroup>;
+    taskCountByProjectId?: Map<string, number>;
     isLoading: boolean;
     variant?: 'list' | 'grid';
     onEditGroups: (project: Project) => void;
@@ -55,6 +57,7 @@ export function ProjectsListTable({
     projects,
     employeeMap,
     groupsById,
+    taskCountByProjectId = new Map(),
     isLoading,
     variant = 'list',
     onEditGroups,
@@ -97,6 +100,7 @@ export function ProjectsListTable({
         )}>
             {projects.map((project) => {
                 const owner = employeeMap.get(project.ownerId);
+                const taskCount = taskCountByProjectId.get(project.id) ?? 0;
                 const daysLeft = differenceInDays(parseISO(project.endDate), new Date());
                 const isOverdue = daysLeft < 0 && project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && project.status !== 'CANCELLED';
                 const totalDays = differenceInDays(parseISO(project.endDate), parseISO(project.startDate));
@@ -144,6 +148,12 @@ export function ProjectsListTable({
                                 </div>
                             )}
                             {project.goal && <p className="text-sm text-muted-foreground line-clamp-2">{project.goal}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <span className="flex items-center gap-1">
+                                <ListTodo className="h-3.5 w-3.5" />
+                                {taskCount} таск
+                            </span>
                         </div>
                         <div className="mb-4">
                             <div className="flex items-center justify-between text-xs mb-1.5">
@@ -222,7 +232,11 @@ export function ProjectsListTable({
                                 )}>
                                     {project.name}
                                 </h3>
-                                <div className="flex items-center gap-2 mt-1">
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <ListTodo className="h-3 w-3" />
+                                        {taskCount} таск
+                                    </span>
                                     <span className={cn(
                                         "text-sm font-medium",
                                         isOverdue

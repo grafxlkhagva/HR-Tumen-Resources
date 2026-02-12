@@ -20,12 +20,13 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc, Timestamp } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Project } from '@/types/project';
 
@@ -33,6 +34,7 @@ const schema = z.object({
     name: z.string().min(1, 'Төслийн нэр хоосон байж болохгүй.'),
     goal: z.string().min(1, 'Зорилго хоосон байж болохгүй.'),
     expectedOutcome: z.string().min(1, 'Хүлээгдэж буй үр дүн хоосон байж болохгүй.'),
+    pointBudget: z.coerce.number().min(0, 'Оноо 0-ээс бага байж болохгүй.').optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -48,12 +50,15 @@ export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProje
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    const canEditPoints = project.status !== 'COMPLETED' && !project.pointsDistributed;
+
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
             name: project.name,
             goal: project.goal || '',
             expectedOutcome: project.expectedOutcome || '',
+            pointBudget: project.pointBudget || undefined,
         },
     });
 
@@ -63,6 +68,7 @@ export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProje
                 name: project.name,
                 goal: project.goal || '',
                 expectedOutcome: project.expectedOutcome || '',
+                pointBudget: project.pointBudget || undefined,
             });
         }
     }, [project, open, form]);
@@ -71,12 +77,25 @@ export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProje
         if (!firestore || !project.id) return;
         setIsSubmitting(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), {
+            const updateData: Record<string, any> = {
                 name: values.name,
                 goal: values.goal,
                 expectedOutcome: values.expectedOutcome,
                 updatedAt: Timestamp.now(),
-            });
+            };
+
+            if (canEditPoints) {
+                if (values.pointBudget && values.pointBudget > 0) {
+                    updateData.pointBudget = values.pointBudget;
+                    if (!project.pointBudget) {
+                        updateData.pointsDistributed = false;
+                    }
+                } else {
+                    updateData.pointBudget = 0;
+                }
+            }
+
+            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), updateData);
             toast({ title: 'Амжилттай', description: 'Төслийн мэдээлэл шинэчлэгдлээ.' });
             onOpenChange(false);
         } catch (error) {
@@ -134,6 +153,41 @@ export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProje
                                 </FormItem>
                             )}
                         />
+
+                        {/* Point Budget */}
+                        <FormField
+                            control={form.control}
+                            name="pointBudget"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                        <Star className="h-4 w-4" />
+                                        Төслийн оноо
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            placeholder="0"
+                                            disabled={!canEditPoints}
+                                            {...field}
+                                            value={field.value ?? ''}
+                                        />
+                                    </FormControl>
+                                    {!canEditPoints ? (
+                                        <FormDescription>
+                                            Төсөл дууссан тул оноог өөрчлөх боломжгүй.
+                                        </FormDescription>
+                                    ) : (
+                                        <FormDescription>
+                                            Хугацаандаа дуусвал бүрэн оноо, хоцорсон өдөр тутам 1%-аар хасагдана.
+                                        </FormDescription>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Болих</Button>
                             <Button type="submit" disabled={isSubmitting}>

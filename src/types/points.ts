@@ -16,6 +16,7 @@ export interface PointTransaction {
     amount: number; // Positive or negative
     type: PointTransactionType;
     refId: string; // ID of the Post or Reward request
+    projectId?: string; // Project ID (for project-based point distributions)
     createdAt: string;
     description?: string; // Optional context
 }

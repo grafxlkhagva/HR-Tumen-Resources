@@ -37,7 +37,7 @@ import {
     addDocumentNonBlocking,
 } from '@/firebase';
 import { collection, Timestamp } from 'firebase/firestore';
-import { Loader2, CalendarIcon, Users, ChevronRight } from 'lucide-react';
+import { Loader2, CalendarIcon, Users, ChevronRight, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { format } from 'date-fns';
@@ -53,6 +53,7 @@ const projectSchema = z.object({
     startDate: z.date({ required_error: 'Эхлэх огноо сонгоно уу' }),
     endDate: z.date({ required_error: 'Дуусах огноо сонгоно уу' }),
     teamMemberIds: z.array(z.string()).min(1, 'Багийн гишүүн сонгоно уу'),
+    pointBudget: z.coerce.number().min(0, 'Оноо 0-ээс бага байж болохгүй').optional(),
 }).refine((data) => data.endDate >= data.startDate, {
     message: 'Дуусах огноо эхлэх огноогоос өмнө байж болохгүй',
     path: ['endDate'],
@@ -122,7 +123,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
 
         setIsSubmitting(true);
         try {
-            const projectData = {
+            const projectData: Record<string, any> = {
                 name: values.name,
                 goal: values.goal,
                 expectedOutcome: values.expectedOutcome,
@@ -136,6 +137,11 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
                 updatedAt: Timestamp.now(),
                 createdBy: employeeProfile.id,
             };
+
+            if (values.pointBudget && values.pointBudget > 0) {
+                projectData.pointBudget = values.pointBudget;
+                projectData.pointsDistributed = false;
+            }
 
             await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
 
@@ -308,6 +314,34 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
                                     )}
                                 />
                             </div>
+
+                            {/* Point Budget */}
+                            <FormField
+                                control={form.control}
+                                name="pointBudget"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                            <Star className="h-4 w-4" />
+                                            Төслийн оноо
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                placeholder="0"
+                                                className="h-11 rounded-xl border-slate-200"
+                                                {...field}
+                                                value={field.value ?? ''}
+                                            />
+                                        </FormControl>
+                                        <p className="text-xs text-slate-500">
+                                            Хугацаандаа дуусвал бүрэн оноо, хоцорсон өдөр тутам 1%-аар хасагдана.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             {/* Team Members */}
                             <FormField
