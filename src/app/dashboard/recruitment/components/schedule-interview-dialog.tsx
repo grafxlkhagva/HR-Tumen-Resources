@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,11 +31,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Loader2, CalendarIcon, Plus } from 'lucide-react';
+import { Loader2, CalendarIcon, Plus, DoorOpen, AlertTriangle } from 'lucide-react';
 import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Interview, Vacancy, Candidate } from '@/types/recruitment';
+import { MeetingRoom, RoomBooking } from '@/types/meeting';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -48,13 +49,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 const interviewSchema = z.object({
     title: z.string().min(2, 'Гарчиг оруулна уу'),
     vacancyId: z.string().min(1, 'Ажлын байр сонгоно уу'),
-    candidateId: z.string().optional(), // Can be optional if we allow entering just a name
+    candidateId: z.string().optional(),
     candidateName: z.string().min(2, 'Горилогчийн нэр'),
     date: z.date({ required_error: "Огноо сонгоно уу" }),
     startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Цаг (HH:mm) форматтай оруулна уу"),
     endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Цаг (HH:mm) форматтай оруулна уу"),
+    roomId: z.string().optional(),
     location: z.string().optional(),
-    interviewers: z.array(z.string()).optional(), // User IDs
+    interviewers: z.array(z.string()).optional(),
 });
 
 type InterviewFormValues = z.infer<typeof interviewSchema>;
@@ -104,6 +106,14 @@ export function ScheduleInterviewDialog({
     );
     const { data: employees } = useCollection<Employee>(employeesQuery as any);
 
+    // Fetch meeting rooms
+    const roomsQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'meeting_rooms') : null),
+        [firestore]
+    );
+    const { data: meetingRooms } = useCollection<MeetingRoom>(roomsQuery as any);
+    const activeRooms = useMemo(() => meetingRooms?.filter(r => r.isActive) || [], [meetingRooms]);
+
     const filteredEmployees = employees?.filter(emp =>
         `${emp.lastName} ${emp.firstName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -119,9 +129,33 @@ export function ScheduleInterviewDialog({
             date: preselectedDate || new Date(),
             startTime: '10:00',
             endTime: '11:00',
+            roomId: '',
             location: '',
         },
     });
+
+    // Watch form fields for room overlap checking
+    const watchedDate = form.watch('date');
+    const selectedDateStr = watchedDate ? format(watchedDate, 'yyyy-MM-dd') : '';
+    const watchedRoomId = form.watch('roomId');
+    const watchedStartTime = form.watch('startTime');
+    const watchedEndTime = form.watch('endTime');
+
+    // Fetch bookings for selected date to check overlaps
+    const bookingsQuery = useMemoFirebase(
+        () => (firestore && selectedDateStr ? query(collection(firestore, 'room_bookings'), where('date', '==', selectedDateStr), where('status', '==', 'active')) : null),
+        [firestore, selectedDateStr]
+    );
+    const { data: existingBookings } = useCollection<RoomBooking>(bookingsQuery as any);
+
+    // Check for room overlap
+    const roomOverlaps = useMemo(() => {
+        if (!watchedRoomId || watchedRoomId === 'none' || !selectedDateStr || !watchedStartTime || !watchedEndTime || !existingBookings) return [];
+        return existingBookings.filter(b => {
+            if (b.roomId !== watchedRoomId) return false;
+            return watchedStartTime < b.endTime && watchedEndTime > b.startTime;
+        });
+    }, [watchedRoomId, selectedDateStr, watchedStartTime, watchedEndTime, existingBookings]);
 
     // Update form when candidate/vacancy changes
     useEffect(() => {
@@ -136,6 +170,11 @@ export function ScheduleInterviewDialog({
 
     const onSubmit = async (data: InterviewFormValues) => {
         if (!firestore) return;
+        if (roomOverlaps.length > 0) {
+            toast({ title: 'Өрөөний давхцал байна', description: 'Өөр цаг эсвэл өрөө сонгоно уу.', variant: 'destructive' });
+            return;
+        }
+        if (data.roomId === 'none') data.roomId = '';
         setIsLoading(true);
 
         try {
@@ -150,6 +189,9 @@ export function ScheduleInterviewDialog({
 
             const selectedVacancy = vacancy || vacancies?.find(v => v.id === data.vacancyId);
 
+            const selectedRoom = data.roomId ? activeRooms.find(r => r.id === data.roomId) : null;
+            const locationText = selectedRoom ? selectedRoom.name : (data.location || 'Online');
+
             const newInterviewData: Omit<Interview, 'id'> = {
                 title: data.title,
                 vacancyId: data.vacancyId,
@@ -158,13 +200,30 @@ export function ScheduleInterviewDialog({
                 candidateName: data.candidateName,
                 startTime: startDateTime.toISOString(),
                 endTime: endDateTime.toISOString(),
-                location: data.location || 'Online',
+                location: locationText,
                 status: 'SCHEDULED',
                 interviewerIds: selectedInterviewerIds.length > 0 ? selectedInterviewerIds : (user ? [user.uid] : []),
                 applicationId: applicationId || 'temp-app-id'
             };
 
             const docRef = await addDoc(collection(firestore, 'interviews'), newInterviewData);
+
+            if (selectedRoom) {
+                await addDoc(collection(firestore, 'room_bookings'), {
+                    roomId: selectedRoom.id,
+                    roomName: selectedRoom.name,
+                    title: `Ярилцлага: ${data.candidateName}`,
+                    description: `${selectedVacancy?.title || ''} - ${data.title}`,
+                    date: format(data.date, 'yyyy-MM-dd'),
+                    startTime: data.startTime,
+                    endTime: data.endTime,
+                    organizer: user?.uid || '',
+                    organizerName: user?.displayName || '',
+                    attendees: selectedInterviewerIds,
+                    status: 'active',
+                    createdAt: new Date().toISOString(),
+                });
+            }
 
             if (onScheduled) {
                 onScheduled({ id: docRef.id, ...newInterviewData } as Interview);
@@ -348,14 +407,65 @@ export function ScheduleInterviewDialog({
                             </div>
                         </div>
 
+                        {/* Room Booking */}
+                        {activeRooms.length > 0 && (
+                            <FormField
+                                control={form.control}
+                                name="roomId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-1.5">
+                                            <DoorOpen className="h-3.5 w-3.5" />
+                                            Уулзалтын өрөө (Заавал биш)
+                                        </FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Өрөө сонгох..." />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="none">Өрөө сонгохгүй</SelectItem>
+                                                {activeRooms.map((room) => (
+                                                    <SelectItem key={room.id} value={room.id}>
+                                                        <span className="flex items-center gap-2">
+                                                            <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: room.color }} />
+                                                            {room.name}
+                                                            <span className="text-muted-foreground text-xs">({room.capacity} хүн)</span>
+                                                        </span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {/* Room overlap warning */}
+                        {roomOverlaps.length > 0 && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                                <div className="text-sm text-destructive">
+                                    <p className="font-medium">Өрөөний давхцал байна!</p>
+                                    {roomOverlaps.map(o => (
+                                        <p key={o.id} className="text-xs mt-1">
+                                            {o.title} ({o.startTime}–{o.endTime})
+                                        </p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <FormField
                             control={form.control}
                             name="location"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Байршил / Холбоос</FormLabel>
+                                    <FormLabel>Байршил / Холбоос {watchedRoomId && watchedRoomId !== 'none' ? '(Нэмэлт)' : ''}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Жишээ: Google Meet link эсвэл Уулзалтын өрөө 1" {...field} />
+                                        <Input placeholder={watchedRoomId && watchedRoomId !== 'none' ? 'Google Meet link нэмэх (заавал биш)...' : 'Жишээ: Google Meet link эсвэл Уулзалтын өрөө 1'} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
