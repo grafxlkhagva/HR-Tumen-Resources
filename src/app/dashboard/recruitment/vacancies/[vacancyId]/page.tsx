@@ -232,6 +232,7 @@ export default function VacancyDetailPage() {
                                 vacancy={{ ...vacancy, stages: globalStages }}
                                 open={addCandidateOpen}
                                 onOpenChange={setAddCandidateOpen}
+                                onSuccess={fetchCandidates}
                             />
                         </>
                     }

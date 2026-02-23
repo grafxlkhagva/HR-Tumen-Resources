@@ -36,6 +36,9 @@ import { useFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Vacancy, RecruitmentStage, VacancyStatus } from '@/types/recruitment';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 function buildAutoDescription(position: any): string {
     const purpose = typeof position?.purpose === 'string' ? position.purpose.trim() : '';
@@ -99,6 +102,10 @@ export function CreateVacancyDialog({
     const [approvedPositions, setApprovedPositions] = useState<any[]>([]);
     const [isLoadingPositions, setIsLoadingPositions] = useState(false);
 
+    const [allStages, setAllStages] = useState<RecruitmentStage[]>([]);
+    const [selectedStageIds, setSelectedStageIds] = useState<Set<string>>(new Set());
+    const [isLoadingStages, setIsLoadingStages] = useState(false);
+
     const isControlled = typeof controlledOpen === 'boolean';
     const open = isControlled ? controlledOpen : internalOpen;
     const setOpen = React.useCallback(
@@ -109,7 +116,7 @@ export function CreateVacancyDialog({
         [onOpenChange, isControlled]
     );
 
-    // Fetch approved positions when dialog opens
+    // Fetch approved positions and default stages when dialog opens
     React.useEffect(() => {
         if (open && firestore) {
             const fetchPositions = async () => {
@@ -131,6 +138,27 @@ export function CreateVacancyDialog({
                 }
             };
             fetchPositions();
+
+            const fetchStages = async () => {
+                setIsLoadingStages(true);
+                try {
+                    const settingsRef = doc(firestore, 'recruitment_settings', 'default');
+                    const settingsSnap = await getDoc(settingsRef);
+                    let stages = DEFAULT_STAGES;
+                    if (settingsSnap.exists() && settingsSnap.data().defaultStages) {
+                        stages = settingsSnap.data().defaultStages;
+                    }
+                    const sorted = [...stages].sort((a, b) => a.order - b.order);
+                    setAllStages(sorted);
+                    setSelectedStageIds(new Set(sorted.map(s => s.id)));
+                } catch (_) {
+                    setAllStages(DEFAULT_STAGES);
+                    setSelectedStageIds(new Set(DEFAULT_STAGES.map(s => s.id)));
+                } finally {
+                    setIsLoadingStages(false);
+                }
+            };
+            fetchStages();
         }
     }, [open, firestore]);
 
@@ -144,28 +172,56 @@ export function CreateVacancyDialog({
         },
     });
 
+    const toggleStage = (stageId: string) => {
+        setSelectedStageIds(prev => {
+            const next = new Set(prev);
+            if (next.has(stageId)) {
+                next.delete(stageId);
+            } else {
+                next.add(stageId);
+            }
+            return next;
+        });
+    };
+
+    const stageTypeLabel: Record<string, string> = {
+        SCREENING: 'Шүүлт',
+        INTERVIEW: 'Ярилцлага',
+        CHALLENGE: 'Даалгавар',
+        OFFER: 'Санал',
+        HIRED: 'Авсан',
+        REJECTED: 'Татгалзсан',
+    };
+
+    const stageTypeColor: Record<string, string> = {
+        SCREENING: 'bg-blue-50 text-blue-600 border-blue-200',
+        INTERVIEW: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+        CHALLENGE: 'bg-amber-50 text-amber-600 border-amber-200',
+        OFFER: 'bg-green-50 text-green-600 border-green-200',
+        HIRED: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+        REJECTED: 'bg-red-50 text-red-600 border-red-200',
+    };
+
     const onSubmit = async (data: VacancyFormValues) => {
         if (!firestore) return;
+
+        if (selectedStageIds.size === 0) {
+            toast({ title: 'Алдаа', description: 'Дор хаяж нэг үе шат сонгоно уу.', variant: 'destructive' });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            // 1. Get Default Stages from Settings
-            let stagesToUse = DEFAULT_STAGES;
-            try {
-                const settingsRef = doc(firestore, 'recruitment_settings', 'default');
-                const settingsSnap = await getDoc(settingsRef);
-                if (settingsSnap.exists() && settingsSnap.data().defaultStages) {
-                    stagesToUse = settingsSnap.data().defaultStages;
-                }
-            } catch (e) {
-                console.warn("Could not fetch default stages, using hardcoded defaults", e);
-            }
+            const stagesToUse = allStages
+                .filter(s => selectedStageIds.has(s.id))
+                .map((s, idx) => ({ ...s, order: idx }));
 
             const newVacancy: Omit<Vacancy, 'id'> = {
                 title: data.title,
                 departmentId: data.departmentId,
                 status: data.status as VacancyStatus,
-                hiringManagerId: 'CURRENT_USER_ID', // TODO: Get actual user ID
+                hiringManagerId: 'CURRENT_USER_ID',
                 description: data.description || '',
                 requirements: [],
                 stages: stagesToUse,
@@ -181,6 +237,7 @@ export function CreateVacancyDialog({
             });
             setOpen(false);
             form.reset();
+            setSelectedStageIds(new Set(allStages.map(s => s.id)));
         } catch (error) {
             console.error(error);
             toast({
@@ -228,12 +285,11 @@ export function CreateVacancyDialog({
                                         </div>
                                     ) : approvedPositions.length > 0 ? (
                                         <Select
-                                            onValueChange={(val) => {
-                                                const selectedPos = approvedPositions.find(p => p.title === val);
-                                                field.onChange(val);
+                                            onValueChange={(posId) => {
+                                                const selectedPos = approvedPositions.find(p => p.id === posId);
                                                 if (selectedPos) {
+                                                    field.onChange(selectedPos.title);
                                                     form.setValue('departmentId', selectedPos.departmentId || '');
-                                                    // Optional: auto-fill description
                                                     const currentDesc = form.getValues('description') || '';
                                                     if (!currentDesc.trim()) {
                                                         const next = buildAutoDescription(selectedPos);
@@ -241,7 +297,7 @@ export function CreateVacancyDialog({
                                                     }
                                                 }
                                             }}
-                                            defaultValue={field.value}
+                                            defaultValue={approvedPositions.find(p => p.title === field.value)?.id}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
@@ -250,7 +306,7 @@ export function CreateVacancyDialog({
                                             </FormControl>
                                             <SelectContent>
                                                 {approvedPositions.map((pos) => (
-                                                    <SelectItem key={pos.id} value={pos.title}>
+                                                    <SelectItem key={pos.id} value={pos.id}>
                                                         {pos.title} <span className="text-muted-foreground text-xs ml-2">({pos.filled} хүнтэй)</span>
                                                     </SelectItem>
                                                 ))}
@@ -326,6 +382,52 @@ export function CreateVacancyDialog({
                                 </FormItem>
                             )}
                         />
+
+                        {/* Stage Selection */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium">Сонгон шалгаруулалтын үе шатууд</label>
+                                <span className="text-xs text-muted-foreground">{selectedStageIds.size}/{allStages.length} сонгосон</span>
+                            </div>
+                            {isLoadingStages ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Үе шатуудыг ачаалж байна...
+                                </div>
+                            ) : (
+                                <div className="border rounded-lg divide-y max-h-[220px] overflow-y-auto">
+                                    {allStages.map((stage, idx) => {
+                                        const selected = selectedStageIds.has(stage.id);
+                                        return (
+                                            <label
+                                                key={stage.id}
+                                                className={cn(
+                                                    "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors hover:bg-slate-50",
+                                                    selected && "bg-blue-50/50"
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    checked={selected}
+                                                    onCheckedChange={() => toggleStage(stage.id)}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-medium text-slate-900">{stage.title}</span>
+                                                        <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5", stageTypeColor[stage.type] || '')}>
+                                                            {stageTypeLabel[stage.type] || stage.type}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs text-slate-400 tabular-nums shrink-0">#{idx + 1}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {!isLoadingStages && selectedStageIds.size === 0 && (
+                                <p className="text-xs text-destructive">Дор хаяж нэг үе шат сонгоно уу.</p>
+                            )}
+                        </div>
 
                         <AppDialogFooter className="px-0 py-0 border-t-0 bg-transparent">
                             <Button type="submit" disabled={isLoading}>

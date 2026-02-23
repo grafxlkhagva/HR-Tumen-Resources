@@ -42,10 +42,12 @@ export function AddCandidateDialog({
     vacancy,
     open: controlledOpen,
     onOpenChange: controlledOnOpenChange,
+    onSuccess,
 }: {
     vacancy?: Vacancy;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    onSuccess?: () => void;
 }) {
     const [internalOpen, setInternalOpen] = useState(false);
     const open = controlledOpen ?? internalOpen;
@@ -105,6 +107,7 @@ export function AddCandidateDialog({
             });
             setOpen(false);
             form.reset();
+            onSuccess?.();
         } catch (error) {
             console.error(error);
             toast({

@@ -264,20 +264,27 @@ export default function CandidateDetailPage() {
                 }
 
                 const vacancySnap = await getDoc(doc(firestore, 'vacancies', appData.vacancyId));
+                let vacancyStages: RecruitmentStage[] | null = null;
                 if (vacancySnap.exists()) {
-                    setVacancy({ id: vacancySnap.id, ...vacancySnap.data() } as Vacancy);
+                    const vacancyData = { id: vacancySnap.id, ...vacancySnap.data() } as Vacancy;
+                    setVacancy(vacancyData);
+                    if (vacancyData.stages && vacancyData.stages.length > 0) {
+                        vacancyStages = vacancyData.stages;
+                    }
                 }
 
                 const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
+                let fallbackStages = DEFAULT_STAGES;
                 if (settingsSnap.exists()) {
                     const settingsData = settingsSnap.data();
-                    setGlobalStages(settingsData.defaultStages || DEFAULT_STAGES);
+                    fallbackStages = settingsData.defaultStages || DEFAULT_STAGES;
                     const templates = settingsData.messageTemplates;
                     setMessageTemplates(Array.isArray(templates) && templates.length > 0 ? templates : DEFAULT_TEMPLATES);
                 } else {
-                    setGlobalStages(DEFAULT_STAGES);
                     setMessageTemplates(DEFAULT_TEMPLATES);
                 }
+
+                setGlobalStages(vacancyStages || fallbackStages);
             } catch (err: any) {
                 console.error("Error fetching application details:", err);
                 setError(err.message || "Мэдээлэл татахад алдаа гарлаа.");
