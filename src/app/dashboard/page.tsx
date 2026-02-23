@@ -430,11 +430,55 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: trainingPlans } = useCollection<any>(trainingPlansQuery);
 
+    // Skills queries (for Skills widget)
+    const skillsInventoryQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'skills_inventory') : null
+        , [firestore]);
+    const { data: skillsInventory } = useCollection<any>(skillsInventoryQuery);
+
+    const skillAssessmentsQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'skill_assessments') : null
+        , [firestore]);
+    const { data: skillAssessments } = useCollection<any>(skillAssessmentsQuery);
+
     // All tasks query for overdue count (using collectionGroup)
     const allTasksQuery = useMemoFirebase(() =>
         firestore ? collectionGroup(firestore, 'tasks') : null
         , [firestore]);
     const { data: allTasks } = useCollection<any>(allTasksQuery);
+
+    // Meeting rooms and today's bookings (for Meetings widget)
+    const meetingRoomsQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'meeting_rooms') : null
+        , [firestore]);
+    const { data: meetingRooms } = useCollection<any>(meetingRoomsQuery);
+
+    const todayBookingsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        return query(
+            collection(firestore, 'room_bookings'),
+            where('date', '==', todayStr),
+            where('status', '==', 'active')
+        );
+    }, [firestore]);
+    const { data: todayBookings } = useCollection<any>(todayBookingsQuery);
+
+    // Business Plan queries (for Business Plan widget)
+    const bpPlansQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'bp_plans'), where('status', '==', 'active')) : null
+        , [firestore]);
+    const { data: bpPlans } = useCollection<any>(bpPlansQuery);
+
+    const bpObjectivesQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'bp_objectives') : null
+        , [firestore]);
+    const { data: bpObjectives } = useCollection<any>(bpObjectivesQuery);
+
+    const bpKpisQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'bp_kpis') : null
+        , [firestore]);
+    const { data: bpKpis } = useCollection<any>(bpKpisQuery);
 
     // Calculate overdue tasks
     const overdueTasksCount = useMemo(() => {
@@ -606,8 +650,8 @@ const OrganizationChart = () => {
 
             // Employees widget
             employeesCount: empArr.length,
-            permanentCount: empArr.filter(e => e.status === 'Идэвхтэй үндсэн').length,
-            probationCount: empArr.filter(e => e.status === 'Идэвхтэй туршилт').length,
+            permanentCount: empArr.filter(e => e.status === 'active_permanent').length,
+            probationCount: empArr.filter(e => e.status === 'active_probation').length,
             maleCount: genderCounts.male,
             femaleCount: genderCounts.female,
             averageAge: genderCounts.averageAge,
@@ -639,6 +683,43 @@ const OrganizationChart = () => {
                 const completed = trainingPlans?.filter((p: any) => p.status === 'completed').length || 0;
                 return total > 0 ? Math.round((completed / total) * 100) : 0;
             })(),
+
+            // Meetings widget
+            meetingsTodayCount: todayBookings?.length || 0,
+            meetingRoomsCount: meetingRooms?.filter((r: any) => r.isActive).length || 0,
+            nextMeetingTime: (() => {
+                if (!todayBookings?.length) return undefined;
+                const nowStr = format(new Date(), 'HH:mm');
+                const upcoming = todayBookings
+                    .filter((b: any) => b.startTime > nowStr)
+                    .sort((a: any, b: any) => a.startTime.localeCompare(b.startTime));
+                return upcoming[0]?.startTime;
+            })(),
+
+            // Skills widget
+            skillsInventoryCount: skillsInventory?.length || 0,
+            skillsAssessedCount: (() => {
+                if (!skillAssessments?.length) return 0;
+                const uniqueEmployees = new Set(skillAssessments.map((a: any) => a.employeeId));
+                return uniqueEmployees.size;
+            })(),
+            skillGapPercentage: (() => {
+                if (!skillAssessments?.length) return 0;
+                const withGap = skillAssessments.filter((a: any) => {
+                    if (!a.requiredLevel || !a.currentLevel) return false;
+                    const levelVal: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3, expert: 4 };
+                    return (levelVal[a.requiredLevel] || 0) > (levelVal[a.currentLevel] || 0);
+                });
+                return Math.round((withGap.length / skillAssessments.length) * 100);
+            })(),
+
+            // Business Plan widget
+            bpPlanProgress: 0, // computed client-side in the BP module
+            bpOkrCount: bpObjectives?.length || 0,
+            bpKpiGreenCount: bpKpis?.filter((k: any) => {
+                if (!k.target || k.target === 0) return true;
+                return (k.current / k.target) * 100 >= 90;
+            }).length || 0,
         };
     }, [
         activeProjects,
@@ -656,6 +737,13 @@ const OrganizationChart = () => {
         genderCounts,
         trainingCourses,
         trainingPlans,
+        todayBookings,
+        meetingRooms,
+        skillsInventory,
+        skillAssessments,
+        bpPlans,
+        bpObjectives,
+        bpKpis,
     ]);
 
 

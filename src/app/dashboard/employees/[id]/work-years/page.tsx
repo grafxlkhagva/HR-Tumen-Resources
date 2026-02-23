@@ -87,6 +87,7 @@ export default function WorkYearsPage() {
     const [expandedCompanyYears, setExpandedCompanyYears] = React.useState<Set<number>>(new Set());
     const [abnormalMonths, setAbnormalMonths] = React.useState<Record<number, number>>({});
     const [baseVacationDays, setBaseVacationDays] = React.useState<15 | 20>(15);
+    const [isReuploadMode, setIsReuploadMode] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Update abnormal months for a year
@@ -125,9 +126,9 @@ export default function WorkYearsPage() {
     );
     const { data: erDocuments } = useCollection<any>(erDocsQuery as any);
 
-    // Use saved data if available and no new data parsed
+    // Use saved data if available and no new data parsed (skip when user explicitly wants to re-upload)
     React.useEffect(() => {
-        if (savedNdshData && !parsedData && step === 'idle') {
+        if (savedNdshData && !parsedData && step === 'idle' && !isReuploadMode) {
             setParsedData(savedNdshData);
             if (savedNdshData.abnormalMonths) {
                 setAbnormalMonths(savedNdshData.abnormalMonths);
@@ -137,7 +138,7 @@ export default function WorkYearsPage() {
             }
             setStep('complete');
         }
-    }, [savedNdshData, parsedData, step]);
+    }, [savedNdshData, parsedData, step, isReuploadMode]);
 
     // Save NDSH data to Firebase
     const handleSave = async () => {
@@ -289,6 +290,7 @@ export default function WorkYearsPage() {
 
             setParsedData(result.data);
             setStep('complete');
+            setIsReuploadMode(false);
 
             const paymentCount = result.data.payments?.length || 0;
             if (paymentCount === 0) {
@@ -772,6 +774,7 @@ export default function WorkYearsPage() {
                                             variant="outline" 
                                             onClick={() => {
                                                 if (savedNdshData) {
+                                                    setIsReuploadMode(false);
                                                     setShowUpload(false);
                                                     setFile(null);
                                                 } else {
@@ -1563,13 +1566,15 @@ export default function WorkYearsPage() {
                             <Button 
                                 variant="outline" 
                                 onClick={() => {
+                                    setIsReuploadMode(true);
                                     resetState();
                                     setShowUpload(true);
+                                    fileInputRef.current && (fileInputRef.current.value = '');
                                 }} 
                                 className="h-10"
                             >
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                Шинэчлэх
+                                Дахин лавлагаа оруулах
                             </Button>
                             <Button onClick={handleBack} className="h-10 bg-indigo-600 hover:bg-indigo-700">
                                 <ArrowLeft className="h-4 w-4 mr-2" />

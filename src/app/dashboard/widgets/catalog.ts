@@ -11,6 +11,9 @@ import {
     Sparkles, 
     FolderKanban,
     GraduationCap,
+    DoorOpen,
+    Award,
+    BarChart3,
     LucideIcon
 } from 'lucide-react';
 
@@ -24,7 +27,10 @@ export type WidgetId =
     | 'recruitment' 
     | 'points' 
     | 'er'
-    | 'training';
+    | 'training'
+    | 'meetings'
+    | 'skills'
+    | 'business-plan';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -50,7 +56,10 @@ export const DEFAULT_ORDER: WidgetId[] = [
     'recruitment',
     'points',
     'er',
-    'training'
+    'training',
+    'meetings',
+    'skills',
+    'business-plan'
 ];
 
 // Widget catalog with all available widgets
@@ -153,6 +162,36 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         href: '/dashboard/training',
         size: 'compact',
         icon: GraduationCap,
+        requiredData: [],
+        category: 'core'
+    },
+    meetings: {
+        id: 'meetings',
+        label: 'Хурлын өрөө',
+        description: 'Хурлын өрөөний захиалга',
+        href: '/dashboard/meetings',
+        size: 'compact',
+        icon: DoorOpen,
+        requiredData: [],
+        category: 'core'
+    },
+    skills: {
+        id: 'skills',
+        label: 'Ур чадвар',
+        description: 'Ур чадварын сан, матриц, зөрүү шинжилгээ',
+        href: '/dashboard/skills',
+        size: 'compact',
+        icon: Award,
+        requiredData: [],
+        category: 'core'
+    },
+    'business-plan': {
+        id: 'business-plan',
+        label: 'Бизнес төлөвлөгөө',
+        description: 'Бизнес төлөвлөлт, стратеги',
+        href: '/dashboard/business-plan',
+        size: 'compact',
+        icon: BarChart3,
         requiredData: [],
         category: 'core'
     }

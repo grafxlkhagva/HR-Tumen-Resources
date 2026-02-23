@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare, Key, Pencil } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -61,10 +61,11 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
 
 interface SortableStageProps {
     stage: RecruitmentStage;
+    onEdit: (stage: RecruitmentStage) => void;
     onDelete: (id: string) => void;
 }
 
-function SortableStage({ stage, onDelete }: SortableStageProps) {
+function SortableStage({ stage, onEdit, onDelete }: SortableStageProps) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: stage.id });
 
     const style = {
@@ -83,7 +84,10 @@ function SortableStage({ stage, onDelete }: SortableStageProps) {
             <TableCell>
                 <Badge variant="outline">{stage.type}</Badge>
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right space-x-1">
+                <Button variant="ghost" size="icon" onClick={() => onEdit(stage)} className="text-slate-400 hover:text-blue-500 hover:bg-blue-50">
+                    <Pencil className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => onDelete(stage.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                     <Trash2 className="h-4 w-4" />
                 </Button>
@@ -102,7 +106,7 @@ export function RecruitmentSettings() {
         stages: RecruitmentStage[],
         criteria: any[],
         templates: MessageTemplate[],
-        smsConfig: { apiKey: string, apiSecret: string, senderId: string }
+        smsConfig: { token: string, senderId: string }
     } | null>(null);
 
     // New Stage State
@@ -123,13 +127,65 @@ export function RecruitmentSettings() {
     const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
 
     // SMS Config State
-    const [smsConfig, setSmsConfig] = useState({ apiKey: '', apiSecret: '', senderId: 'Mocean' });
+    const [smsConfig, setSmsConfig] = useState({ token: '', senderId: 'MOCEAN' });
+    const [testPhone, setTestPhone] = useState('');
+    const [testingSms, setTestingSms] = useState(false);
+    const [smsEnvConfigured, setSmsEnvConfigured] = useState(false);
+
+    // Edit Stage State
+    const [editingStage, setEditingStage] = useState<RecruitmentStage | null>(null);
+    const [editStageTitle, setEditStageTitle] = useState('');
+    const [editStageType, setEditStageType] = useState<StageType>('INTERVIEW');
+    const [isEditStageOpen, setIsEditStageOpen] = useState(false);
+
+    // Edit Criteria State
+    const [editingCriterion, setEditingCriterion] = useState<{ id: string, name: string, description: string } | null>(null);
+    const [editCriterionName, setEditCriterionName] = useState('');
+    const [editCriterionDesc, setEditCriterionDesc] = useState('');
+    const [isEditCriteriaOpen, setIsEditCriteriaOpen] = useState(false);
 
     // Edit Template State
     const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
     const [editTemplateTitle, setEditTemplateTitle] = useState('');
     const [editTemplateBody, setEditTemplateBody] = useState('');
     const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
+
+    // Check if env variable is configured
+    useEffect(() => {
+        fetch('/api/sms/status')
+            .then(r => r.json())
+            .then(data => setSmsEnvConfigured(data.envConfigured))
+            .catch(() => setSmsEnvConfigured(false));
+    }, []);
+
+    const handleTestSms = async () => {
+        if (!testPhone.trim()) {
+            toast({ title: 'Утасны дугаар оруулна уу', variant: 'destructive' });
+            return;
+        }
+        setTestingSms(true);
+        try {
+            const res = await fetch('/api/sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: testPhone.trim(),
+                    text: 'HR систем: SMS тест амжилттай! 🎉',
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ title: 'SMS амжилттай илгээгдлээ', description: `${testPhone} руу тест мессеж илгээлээ.` });
+                setTestPhone('');
+            } else {
+                toast({ title: 'SMS илгээж чадсангүй', description: data.error || data.details || 'Алдаа гарлаа', variant: 'destructive' });
+            }
+        } catch (err: any) {
+            toast({ title: 'Алдаа', description: err.message, variant: 'destructive' });
+        } finally {
+            setTestingSms(false);
+        }
+    };
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -147,8 +203,11 @@ export function RecruitmentSettings() {
                     setCriteria(fetchedCriteria);
                     setTemplates(fetchedTemplates);
 
-                    // Fetch SMS Config (stored in the same doc for simplicity or separate, let's keep it in same doc for atomic save)
-                    const fetchedSmsConfig = docSnap.data().smsConfig || { apiKey: '', apiSecret: '', senderId: 'Mocean' };
+                    const rawSms = docSnap.data().smsConfig || {};
+                    const fetchedSmsConfig = {
+                        token: rawSms.token || '',
+                        senderId: rawSms.senderId || 'MOCEAN',
+                    };
                     setSmsConfig(fetchedSmsConfig);
 
                     setInitialState({
@@ -161,12 +220,12 @@ export function RecruitmentSettings() {
                     setStages(DEFAULT_STAGES);
                     setCriteria(DEFAULT_CRITERIA);
                     setTemplates(DEFAULT_TEMPLATES);
-                    setSmsConfig({ apiKey: '', apiSecret: '', senderId: 'Mocean' });
+                    setSmsConfig({ token: '', senderId: 'MOCEAN' });
                     setInitialState({
                         stages: DEFAULT_STAGES,
                         criteria: DEFAULT_CRITERIA,
                         templates: DEFAULT_TEMPLATES,
-                        smsConfig: { apiKey: '', apiSecret: '', senderId: 'Mocean' }
+                        smsConfig: { token: '', senderId: 'MOCEAN' }
                     });
                 }
             } catch (error) {
@@ -215,6 +274,31 @@ export function RecruitmentSettings() {
         setStages(stages.filter(s => s.id !== id));
     };
 
+    const openEditStage = (stage: RecruitmentStage) => {
+        setEditingStage(stage);
+        setEditStageTitle(stage.title);
+        setEditStageType(stage.type);
+        setIsEditStageOpen(true);
+    };
+
+    const handleUpdateStage = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingStage || !editStageTitle.trim()) return;
+
+        setStages(prev => prev.map(s =>
+            s.id === editingStage.id
+                ? { ...s, title: editStageTitle, type: editStageType }
+                : s
+        ));
+
+        setIsEditStageOpen(false);
+        setEditingStage(null);
+        toast({
+            title: 'Шат шинэчлэгдлээ',
+            description: 'Өөрчлөлт хадгалагдлаа.',
+        });
+    };
+
     const handleAddCriterion = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!newCriterionName.trim()) return;
@@ -241,6 +325,31 @@ export function RecruitmentSettings() {
         toast({
             title: 'Шалгуур хасагдлаа',
             variant: 'destructive'
+        });
+    };
+
+    const openEditCriterion = (crit: { id: string, name: string, description: string }) => {
+        setEditingCriterion(crit);
+        setEditCriterionName(crit.name);
+        setEditCriterionDesc(crit.description);
+        setIsEditCriteriaOpen(true);
+    };
+
+    const handleUpdateCriterion = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingCriterion || !editCriterionName.trim()) return;
+
+        setCriteria(prev => prev.map(c =>
+            c.id === editingCriterion.id
+                ? { ...c, name: editCriterionName, description: editCriterionDesc }
+                : c
+        ));
+
+        setIsEditCriteriaOpen(false);
+        setEditingCriterion(null);
+        toast({
+            title: 'Шалгуур шинэчлэгдлээ',
+            description: 'Өөрчлөлт хадгалагдлаа.',
         });
     };
 
@@ -445,6 +554,48 @@ export function RecruitmentSettings() {
                                     </form>
                                 </DialogContent>
                             </Dialog>
+
+                            <Dialog open={isEditStageOpen} onOpenChange={setIsEditStageOpen}>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Шат засах</DialogTitle>
+                                        <DialogDescription>
+                                            Үе шатны мэдээлэлд өөрчлөлт оруулах.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleUpdateStage} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-stage-title">Шатны нэр</Label>
+                                            <Input
+                                                id="edit-stage-title"
+                                                placeholder="Жишээ: Техник даалгавар..."
+                                                value={editStageTitle}
+                                                onChange={(e) => setEditStageTitle(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-stage-type">Төрөл</Label>
+                                            <Select value={editStageType} onValueChange={(v: StageType) => setEditStageType(v)}>
+                                                <SelectTrigger id="edit-stage-type">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="SCREENING">Screening (Анкет шүүлт)</SelectItem>
+                                                    <SelectItem value="INTERVIEW">Interview (Ярилцлага)</SelectItem>
+                                                    <SelectItem value="CHALLENGE">Challenge (Шалгалт/Даалгавар)</SelectItem>
+                                                    <SelectItem value="OFFER">Offer (Санал тавих)</SelectItem>
+                                                    <SelectItem value="HIRED">Hired (Ажилд авсан)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsEditStageOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Хадгалах</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <DndContext
@@ -470,6 +621,7 @@ export function RecruitmentSettings() {
                                                 <SortableStage
                                                     key={stage.id}
                                                     stage={stage}
+                                                    onEdit={openEditStage}
                                                     onDelete={handleDeleteStage}
                                                 />
                                             ))}
@@ -545,6 +697,42 @@ export function RecruitmentSettings() {
                                     </form>
                                 </DialogContent>
                             </Dialog>
+
+                            <Dialog open={isEditCriteriaOpen} onOpenChange={setIsEditCriteriaOpen}>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Шалгуур засах</DialogTitle>
+                                        <DialogDescription>
+                                            Үнэлгээний шалгуурт өөрчлөлт оруулах.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleUpdateCriterion} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-crit-name">Шалгуурын нэр</Label>
+                                            <Input
+                                                id="edit-crit-name"
+                                                placeholder="Жишээ: Харилцааны чадвар..."
+                                                value={editCriterionName}
+                                                onChange={(e) => setEditCriterionName(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-crit-desc">Тайлбар (Заавал биш)</Label>
+                                            <Textarea
+                                                id="edit-crit-desc"
+                                                placeholder="Шалгуурын талаарх дэлгэрэнгүй тайлбар..."
+                                                value={editCriterionDesc}
+                                                onChange={(e) => setEditCriterionDesc(e.target.value)}
+                                            />
+                                        </div>
+                                        <DialogFooter className="pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setIsEditCriteriaOpen(false)}>Болих</Button>
+                                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">Хадгалах</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -560,7 +748,15 @@ export function RecruitmentSettings() {
                                         <TableRow key={crit.id}>
                                             <TableCell className="font-medium">{crit.name}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{crit.description}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right space-x-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => openEditCriterion(crit)}
+                                                    className="text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -728,11 +924,11 @@ export function RecruitmentSettings() {
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
                             <div>
                                 <CardTitle className="text-xl font-bold flex items-center gap-2">
-                                    <Key className="h-5 w-5 text-amber-500" />
-                                    SMS Integration (MoceanAPI)
+                                    <MessageSquare className="h-5 w-5 text-blue-500" />
+                                    SMS тохиргоо (MoceanAPI)
                                 </CardTitle>
                                 <CardDescription className="mt-1">
-                                    Мессеж илгээх үйлчилгээний тохиргоо (MoceanAPI).
+                                    Горилогчид руу SMS мессеж илгээх Bearer Token нэвтрэлтийн тохиргоо.
                                 </CardDescription>
                             </div>
                             <Button
@@ -741,42 +937,91 @@ export function RecruitmentSettings() {
                                 onClick={() => window.open('https://dashboard.moceanapi.com/', '_blank')}
                                 className="gap-2"
                             >
-                                Dashboard нээх
+                                MoceanAPI Dashboard
                                 <Info className="h-4 w-4" />
                             </Button>
                         </CardHeader>
-                        <CardContent className="space-y-4 max-w-2xl">
+                        <CardContent className="space-y-6 max-w-2xl">
+                            {/* Env variable status */}
+                            {smsEnvConfigured && (
+                                <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">
+                                    <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 animate-pulse" />
+                                    <div>
+                                        <p className="text-sm font-medium">Environment variable тохирсон</p>
+                                        <p className="text-xs text-emerald-600 mt-0.5">
+                                            <code className="bg-emerald-100 px-1 py-0.5 rounded text-[11px]">MOCEAN_API_TOKEN</code> .env файлаас амжилттай уншиж байна.
+                                            Доорх Firestore тохиргоо нь env байхгүй үед нөөц болж ажиллана.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            {!smsEnvConfigured && !smsConfig.token && (
+                                <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-medium">SMS тохиргоо хийгдээгүй</p>
+                                        <p className="text-xs text-amber-600 mt-0.5">
+                                            <code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">.env.local</code> файлд{' '}
+                                            <code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">MOCEAN_API_TOKEN</code> нэмэх
+                                            эсвэл доорх талбарт API Token оруулна уу.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Token field */}
                             <div className="grid gap-2">
-                                <Label htmlFor="api-key">API Key</Label>
+                                <Label htmlFor="api-token">API Token (Bearer)</Label>
                                 <Input
-                                    id="api-key"
-                                    value={smsConfig.apiKey}
-                                    onChange={(e) => setSmsConfig({ ...smsConfig, apiKey: e.target.value })}
-                                    placeholder="Mocean API Key..."
-                                    className="font-mono text-sm"
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="api-secret">API Secret</Label>
-                                <Input
-                                    id="api-secret"
+                                    id="api-token"
                                     type="password"
-                                    value={smsConfig.apiSecret}
-                                    onChange={(e) => setSmsConfig({ ...smsConfig, apiSecret: e.target.value })}
-                                    placeholder="••••••••"
+                                    value={smsConfig.token}
+                                    onChange={(e) => setSmsConfig({ ...smsConfig, token: e.target.value })}
+                                    placeholder="apit-xxxx..."
                                     className="font-mono text-sm"
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                    MoceanAPI Dashboard → Settings → API Credentials хэсгээс авна.
+                                </p>
                             </div>
+
+                            {/* Sender ID */}
                             <div className="grid gap-2">
                                 <Label htmlFor="sender-id">Sender ID (Заавал биш)</Label>
                                 <Input
                                     id="sender-id"
                                     value={smsConfig.senderId}
                                     onChange={(e) => setSmsConfig({ ...smsConfig, senderId: e.target.value })}
-                                    placeholder="Жишээ: CompanyName (Латин үсгээр)"
+                                    placeholder="Жишээ: CompanyName"
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Илгээгчийн нэр. Хэрэв хоосон орхивол 'Mocean' гэж очно.
+                                    Илгээгчийн нэр (Latin үсгээр). Хоосон бол &apos;MOCEAN&apos; гэж очно.
+                                </p>
+                            </div>
+
+                            {/* Test SMS */}
+                            <div className="pt-4 border-t space-y-3">
+                                <Label className="text-sm font-semibold">Тест SMS илгээх</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        value={testPhone}
+                                        onChange={(e) => setTestPhone(e.target.value)}
+                                        placeholder="Утасны дугаар (жишээ: 99112233)"
+                                        className="max-w-[240px] text-sm"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleTestSms}
+                                        disabled={testingSms || !testPhone.trim()}
+                                        className="gap-2 shrink-0"
+                                    >
+                                        {testingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                                        Тест илгээх
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    976 код автоматаар нэмэгдэнэ. Тест мессеж илгээж SMS тохиргоо зөв эсэхийг шалгана.
                                 </p>
                             </div>
                         </CardContent>

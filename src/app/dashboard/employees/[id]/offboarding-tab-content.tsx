@@ -62,7 +62,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     if (!finalDoc) return;
 
     // If already finalized, do nothing
-    if ((employee.status === 'Ажлаас гарсан' || employee.status === 'Түр эзгүй') && (employee.lifecycleStage === 'alumni' || employee.lifecycleStage === 'retention')) {
+    if ((employee.status === 'terminated' || employee.status === 'on_leave') && (employee.lifecycleStage === 'alumni' || employee.lifecycleStage === 'retention')) {
       finalizedRef.current = true;
       return;
     }
@@ -74,14 +74,14 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     if (actionId === 'release_temporary') {
       // Түр чөлөөлөлт: Түр эзгүй статус, retention lifecycle
       updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
-        status: 'Түр эзгүй',
+        status: 'on_leave',
         lifecycleStage: 'retention',
         updatedAt: Timestamp.now(),
       });
     } else {
       // Бүрэн чөлөөлөлт: Ажлаас гарсан статус, alumni lifecycle
       updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
-        status: 'Ажлаас гарсан',
+        status: 'terminated',
         lifecycleStage: 'alumni',
         ...(terminationDate ? { terminationDate } : {}),
         updatedAt: Timestamp.now(),
@@ -208,7 +208,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
             </div>
           )}
 
-          {(employee.status === 'Ажлаас гарсан' || employee.lifecycleStage === 'alumni') && (
+          {(employee.status === 'terminated' || employee.lifecycleStage === 'alumni') && (
             <div className="pt-2 text-[11px] text-slate-500">
               Баримт батлагдсаны дараа ажилтан **“Ажлаас гарсан”** болж, lifecycle нь **“Төгсөгч (alumni)”** болж шинэчлэгдэнэ.
             </div>

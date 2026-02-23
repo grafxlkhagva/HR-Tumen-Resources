@@ -16,29 +16,29 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { Employee, Department, isActiveStatus } from '@/types';
+import { Employee, Department, isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 // ─── Status colours (semantic, matching the page's statusConfig) ─────────────
 const STATUS_COLORS: Record<string, string> = {
-  'Идэвхтэй': '#10b981',
-  'Идэвхтэй туршилт': '#f59e0b',
-  'Идэвхтэй үндсэн': '#10b981',
-  'Түр эзгүй': '#3b82f6',
-  'Чөлөөлөгдөж буй': '#f97316',
-  'Ажлаас гарсан': '#f43f5e',
-  'Түр түдгэлзүүлсэн': '#94a3b8',
+  'active': '#10b981',
+  'active_probation': '#f59e0b',
+  'active_permanent': '#10b981',
+  'on_leave': '#3b82f6',
+  'releasing': '#f97316',
+  'terminated': '#f43f5e',
+  'suspended': '#94a3b8',
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  'Идэвхтэй': 'Идэвхтэй',
-  'Идэвхтэй туршилт': 'Туршилт',
-  'Идэвхтэй үндсэн': 'Үндсэн',
-  'Түр эзгүй': 'Түр эзгүй',
-  'Чөлөөлөгдөж буй': 'Чөлөөлөгдөж буй',
-  'Ажлаас гарсан': 'Гарсан',
-  'Түр түдгэлзүүлсэн': 'Түдгэлзсэн',
+  'active': EMPLOYEE_STATUS_LABELS.active,
+  'active_probation': EMPLOYEE_STATUS_LABELS.active_probation,
+  'active_permanent': EMPLOYEE_STATUS_LABELS.active_permanent,
+  'on_leave': EMPLOYEE_STATUS_LABELS.on_leave,
+  'releasing': EMPLOYEE_STATUS_LABELS.releasing,
+  'terminated': EMPLOYEE_STATUS_LABELS.terminated,
+  'suspended': EMPLOYEE_STATUS_LABELS.suspended,
 };
 
 const LIFECYCLE_COLORS: Record<string, { color: string; label: string }> = {

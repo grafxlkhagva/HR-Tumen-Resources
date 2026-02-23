@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { Employee, Department, Position } from '@/types';
+import { Employee, Department, Position, EMPLOYEE_STATUS_LABELS } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteEmployeeDialog } from './delete-employee-dialog';
 import { AddEmployeeDialog } from './add-employee-dialog';
@@ -39,13 +39,13 @@ import { EmployeesDashboard } from './components/employees-dashboard';
 
 // Status badge configuration
 const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' | 'error' | 'muted', label: string, color: string } } = {
-  "Идэвхтэй": { variant: 'success', label: 'Идэвхтэй', color: 'emerald' },
-  "Идэвхтэй туршилт": { variant: 'warning', label: 'Туршилт', color: 'amber' },
-  "Идэвхтэй үндсэн": { variant: 'success', label: 'Үндсэн', color: 'emerald' },
-  "Түр эзгүй": { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
-  "Чөлөөлөгдөж буй": { variant: 'warning', label: 'Чөлөөлөгдөж буй', color: 'orange' },
-  "Ажлаас гарсан": { variant: 'error', label: 'Гарсан', color: 'rose' },
-  "Түр түдгэлзүүлсэн": { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
+  "active": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active, color: 'emerald' },
+  "active_probation": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.active_probation, color: 'amber' },
+  "active_permanent": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active_permanent, color: 'emerald' },
+  "on_leave": { variant: 'info', label: EMPLOYEE_STATUS_LABELS.on_leave, color: 'blue' },
+  "releasing": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.releasing, color: 'orange' },
+  "terminated": { variant: 'error', label: EMPLOYEE_STATUS_LABELS.terminated, color: 'rose' },
+  "suspended": { variant: 'muted', label: EMPLOYEE_STATUS_LABELS.suspended, color: 'slate' },
 };
 
 export default function EmployeesPage() {

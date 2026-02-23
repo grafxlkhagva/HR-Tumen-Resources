@@ -91,7 +91,7 @@ export default function DepartmentPage() {
     const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
     const deptEmployeesQuery = useMemoFirebase(
         () => (firestore
-            ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон']))
+            ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']))
             : null),
         [firestore, departmentId]
     );

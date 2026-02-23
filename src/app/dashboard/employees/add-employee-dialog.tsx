@@ -337,7 +337,7 @@ export function AddEmployeeDialog({
                 firstName: values.firstName,
                 lastName: values.lastName,
                 email: values.email,
-                status: 'Идэвхтэй',
+                status: 'active',
                 phoneNumber: values.phoneNumber,
                 departmentId: null,
                 positionId: null,

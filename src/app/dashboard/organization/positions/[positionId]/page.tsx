@@ -134,7 +134,7 @@ export default function PositionDetailPage() {
             ? query(
                 collection(firestore, 'employees'),
                 where('positionId', '==', positionId),
-                where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон'])
+                where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])
             )
             : null),
         [firestore, positionId]
@@ -144,7 +144,7 @@ export default function PositionDetailPage() {
 
     // Fetch Appointment Document if "Appointing"
     const docQuery = useMemoFirebase(() => {
-        if (!firestore || !assignedEmployee || assignedEmployee.status !== 'Томилогдож буй') return null;
+        if (!firestore || !assignedEmployee || assignedEmployee.status !== 'appointing') return null;
         return query(
             collection(firestore, 'er_documents'),
             where('employeeId', '==', assignedEmployee.id),
@@ -212,7 +212,7 @@ export default function PositionDetailPage() {
         if (!firestore || !assignedEmployee) return;
         if (didAutoConfirmRef.current) return;
         // Only run if employee is still in pending status
-        if (assignedEmployee.status !== 'Томилогдож буй') return;
+        if (assignedEmployee.status !== 'appointing') return;
         if (!appointmentDoc || !['APPROVED', 'SIGNED'].includes(appointmentDoc.status)) return;
 
         didAutoConfirmRef.current = true;
@@ -221,9 +221,9 @@ export default function PositionDetailPage() {
             try {
                 const aId = appointmentDoc?.metadata?.actionId || '';
                 const autoStatus =
-                    aId === 'appointment_probation' ? 'Идэвхтэй туршилт' :
-                    aId === 'appointment_permanent' ? 'Идэвхтэй үндсэн' :
-                    'Идэвхтэй үндсэн';
+                    aId === 'appointment_probation' ? 'active_probation' :
+                    aId === 'appointment_permanent' ? 'active_permanent' :
+                    'active_permanent';
                 await writeBatch(firestore)
                     .update(doc(firestore, 'employees', assignedEmployee.id), { 
                         status: autoStatus,
@@ -444,8 +444,8 @@ export default function PositionDetailPage() {
                 positionId: null, 
                 jobTitle: null, 
                 departmentId: null, 
-                status: 'Идэвхтэй бүрдүүлэлт', // Back to recruitment pool
-                lifecycleStage: 'candidate' // Reset lifecycle stage to candidate
+                status: 'active_recruitment', // Back to recruitment pool
+                lifecycleStage: 'recruitment' // Reset lifecycle stage to recruitment
             });
             
             // 6. Update position filled count
@@ -476,9 +476,9 @@ export default function PositionDetailPage() {
         try {
             const confirmActionId = appointmentDoc?.metadata?.actionId || '';
             const confirmStatus =
-                confirmActionId === 'appointment_probation' ? 'Идэвхтэй туршилт' :
-                confirmActionId === 'appointment_permanent' ? 'Идэвхтэй үндсэн' :
-                'Идэвхтэй үндсэн';
+                confirmActionId === 'appointment_probation' ? 'active_probation' :
+                confirmActionId === 'appointment_permanent' ? 'active_permanent' :
+                'active_permanent';
             await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: confirmStatus }).commit();
             toast({ title: "Томилгоо баталгаажлаа" });
             setIsConfirmAppointmentConfirmOpen(false);
@@ -624,7 +624,7 @@ export default function PositionDetailPage() {
 
                                             {/* Employee/appointment actions in top-right (icon buttons) */}
                                             {assignedEmployee ? (
-                                                assignedEmployee.status === 'Томилогдож буй' ? (
+                                                assignedEmployee.status === 'appointing' ? (
                                                     <>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>

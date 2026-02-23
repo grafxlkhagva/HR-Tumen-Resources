@@ -13,6 +13,7 @@ import {
     TrainingCourse,
     TrainingPlan,
     SkillAssessment,
+    TrainingCategory,
     AssignTrainingFormValues,
 } from './types';
 
@@ -20,6 +21,7 @@ import { TrainingDashboard } from './components/training-dashboard';
 import { CourseCatalog } from './components/course-catalog';
 import { TrainingPlans } from './components/training-plans';
 import { SkillAssessmentTab } from './components/skill-assessment-tab';
+import { TrainingSettings } from './components/training-settings';
 
 interface SkillInventoryItem {
     id: string;
@@ -58,12 +60,18 @@ export default function TrainingPage() {
         [firestore]
     );
 
+    const categoriesQuery = useMemo(() =>
+        firestore ? collection(firestore, 'training_categories') : null,
+        [firestore]
+    );
+
     // ── Data ─────────────────────────────────────────
     const { data: courses, isLoading: coursesLoading } = useCollection<TrainingCourse>(coursesQuery);
     const { data: plans, isLoading: plansLoading } = useCollection<TrainingPlan>(plansQuery);
     const { data: assessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
     const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
     const { data: skills } = useCollection<SkillInventoryItem>(skillsQuery);
+    const { data: categories, isLoading: categoriesLoading } = useCollection<TrainingCategory>(categoriesQuery);
 
     const isLoading = coursesLoading || plansLoading || assessmentsLoading || employeesLoading;
 
@@ -73,27 +81,40 @@ export default function TrainingPage() {
         [employees]
     );
 
-    // ── Assign Training Handler ──────────────────────
-    const handleAssignTraining = (values: AssignTrainingFormValues, employeeName: string, courseName: string) => {
+    // ── Assign Training Handler (supports multiple employees) ──
+    const handleAssignTraining = (values: AssignTrainingFormValues, courseName: string) => {
         if (!firestore || !user) return;
 
-        const data: Omit<TrainingPlan, 'id'> = {
-            employeeId: values.employeeId,
-            employeeName,
-            courseId: values.courseId,
-            courseName,
-            assignedBy: user.uid,
-            assignedByName: 'Админ',
-            assignedAt: new Date().toISOString(),
-            dueDate: values.dueDate.toISOString(),
-            status: 'assigned',
-            trigger: values.trigger,
-            preAssessmentScore: values.preAssessmentScore,
-            notes: values.notes,
-        };
+        const now = new Date().toISOString();
+        const dueDateStr = values.dueDate.toISOString();
 
-        addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
-        toast({ title: 'Сургалт оноогдлоо', description: `${employeeName} — ${courseName}` });
+        for (const empId of values.employeeIds) {
+            const emp = employees.find(e => e.id === empId);
+            if (!emp) continue;
+            const empName = `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}`;
+
+            const data: Omit<TrainingPlan, 'id'> = {
+                employeeId: empId,
+                employeeName: empName,
+                courseId: values.courseId,
+                courseName,
+                assignedBy: user.uid,
+                assignedByName: 'Админ',
+                assignedAt: now,
+                dueDate: dueDateStr,
+                status: 'assigned',
+                trigger: values.trigger,
+                preAssessmentScore: values.preAssessmentScore,
+                notes: values.notes,
+            };
+
+            addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
+        }
+
+        toast({
+            title: 'Сургалт оноогдлоо',
+            description: `${values.employeeIds.length} ажилтан — ${courseName}`,
+        });
     };
 
     return (
@@ -117,6 +138,7 @@ export default function TrainingPage() {
                             { value: 'catalog', label: 'Сургалтын каталог' },
                             { value: 'plans', label: 'Сургалтын төлөвлөгөө' },
                             { value: 'assessment', label: 'Ур чадварын үнэлгээ' },
+                            { value: 'settings', label: 'Тохиргоо' },
                         ]}
                     />
 
@@ -135,6 +157,7 @@ export default function TrainingPage() {
                         <CourseCatalog
                             courses={courses}
                             skills={skills}
+                            categories={categories}
                             isLoading={coursesLoading}
                         />
                     </TabsContent>
@@ -158,12 +181,19 @@ export default function TrainingPage() {
                             assessments={assessments}
                             isLoading={assessmentsLoading}
                             onAssignTraining={(employeeId, skillName) => {
-                                // Navigate to plans tab with pre-selected data
                                 toast({
                                     title: 'Сургалт оноох',
                                     description: `${skillName} — Сургалтын төлөвлөгөө таб руу очно уу.`,
                                 });
                             }}
+                        />
+                    </TabsContent>
+
+                    {/* Tab 5: Settings */}
+                    <TabsContent value="settings">
+                        <TrainingSettings
+                            categories={categories}
+                            isLoading={categoriesLoading}
                         />
                     </TabsContent>
                 </Tabs>

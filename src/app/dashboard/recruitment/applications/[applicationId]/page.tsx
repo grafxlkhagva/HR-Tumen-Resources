@@ -1,57 +1,38 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, onSnapshot, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
 import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate } from '@/types/recruitment';
 import { format } from 'date-fns';
 import {
     Loader2,
-    ArrowLeft,
-    Mail,
-    Phone,
     MessageSquare,
     Send,
     CheckCircle2,
     Clock,
     FileText,
-    User,
     ChevronRight,
     Star,
     Calendar,
     X,
     Trash2,
-    LayoutDashboard,
-    Zap,
-    Briefcase,
     History,
-    MessageCircle,
-    MapPin,
-    Link2,
-    Copy,
-    Share2,
-    MoreHorizontal,
     Files,
     Quote,
     Check,
-    Download
+    Download,
+    StickyNote,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { EmployeeCard, EmployeeCardEmployee } from '@/components/employees/employee-card';
 import {
     Dialog,
     DialogContent,
@@ -60,10 +41,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { sendSMS } from '@/lib/notifications';
+import { createUserWithSecondaryAuth } from '@/firebase';
 import { InterviewScorecard, ScorecardCriteria } from '../../components/interview-scorecard';
 import { ScheduleInterviewDialog } from '../../components/schedule-interview-dialog';
+import { SendEvaluationDialog } from '../../components/send-evaluation-dialog';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -87,6 +70,23 @@ const DEFAULT_STAGES: RecruitmentStage[] = [
     { id: 'offer', title: 'Санал тавих', type: 'OFFER', order: 4 },
 ];
 
+const DEFAULT_TEMPLATES: MessageTemplate[] = [
+    {
+        id: 'tpl-1',
+        title: 'Ярилцлагын урилга',
+        body: 'Сайн байна уу, {{name}}.\n\nБид таныг дараагийн шатны ярилцлагад урьж байна.',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    },
+    {
+        id: 'tpl-2',
+        title: 'Татгалзсан хариу',
+        body: 'Сайн байна уу, {{name}}.\n\nСонгон шалгаруулалтад оролцсонд баярлалаа. Харамсалтай нь бид дараагийн шатанд өөр горилогчийг сонгохоор боллоо.',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    }
+];
+
 interface ApplicationEvent {
     id: string;
     applicationId: string;
@@ -95,6 +95,7 @@ interface ApplicationEvent {
     userName: string;
     title: string;
     description: string;
+    stageId?: string;
     data?: any;
     createdAt: string;
 }
@@ -102,6 +103,7 @@ interface ApplicationEvent {
 interface InternalNote {
     id: string;
     applicationId: string;
+    stageId?: string;
     authorId: string;
     authorName: string;
     text: string;
@@ -114,6 +116,54 @@ const getTime = (date: any) => {
     if (date.seconds) return date.seconds * 1000;
     return new Date(date).getTime();
 };
+
+// --- Collapsible Section Component ---
+function Section({ title, icon: Icon, children, defaultOpen = false, count, actions }: {
+    title: string;
+    icon: React.ElementType;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+    count?: number;
+    actions?: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpen(!open)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
+                className="w-full flex items-center gap-3 p-4 hover:bg-slate-50/50 transition-colors text-left cursor-pointer select-none"
+            >
+                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                    <Icon className="h-4 w-4" />
+                </div>
+                <span className="text-sm font-semibold text-slate-900 flex-1">{title}</span>
+                {count !== undefined && count > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-5 min-w-[20px] justify-center">{count}</Badge>
+                )}
+                {actions && <div onClick={e => e.stopPropagation()}>{actions}</div>}
+                {open ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+            </div>
+            <AnimatePresence initial={false}>
+                {open && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="px-4 pb-4 border-t pt-4">
+                            {children}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
 
 export default function CandidateDetailPage() {
     const { applicationId } = useParams();
@@ -134,12 +184,9 @@ export default function CandidateDetailPage() {
     const [scorecards, setScorecards] = useState<Scorecard[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState('activity');
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-    const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
 
     // Actions State
     const [noteText, setNoteText] = useState('');
@@ -147,9 +194,22 @@ export default function CandidateDetailPage() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const [sendingNote, setSendingNote] = useState(false);
     const [showScorecard, setShowScorecard] = useState(false);
+    const [showSendEvaluation, setShowSendEvaluation] = useState(false);
     const [submittingScorecard, setSubmittingScorecard] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Advance stage confirmation
+    const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
+    const [pendingNextStageId, setPendingNextStageId] = useState<string | null>(null);
+
+    // Reject confirmation
+    const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+
+    // Hire confirmation
+    const [showHireConfirm, setShowHireConfirm] = useState(false);
+    const [isHiring, setIsHiring] = useState(false);
 
     // Message Preview
     const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
@@ -164,7 +224,6 @@ export default function CandidateDetailPage() {
             if (!firestore || !applicationId) return;
 
             try {
-                // 1. Fetch Application
                 const appRef = doc(firestore, 'applications', applicationId as string);
                 const appSnap = await getDoc(appRef);
                 if (!appSnap.exists()) {
@@ -176,25 +235,25 @@ export default function CandidateDetailPage() {
                 setApplication(appData);
                 setSelectedStageId(appData.currentStageId);
 
-                // 2. Fetch Candidate
                 const candidateSnap = await getDoc(doc(firestore, 'candidates', appData.candidateId));
                 if (candidateSnap.exists()) {
                     setCandidate({ id: candidateSnap.id, ...candidateSnap.data() } as Candidate);
                 }
 
-                // 3. Fetch Vacancy
                 const vacancySnap = await getDoc(doc(firestore, 'vacancies', appData.vacancyId));
                 if (vacancySnap.exists()) {
                     setVacancy({ id: vacancySnap.id, ...vacancySnap.data() } as Vacancy);
                 }
 
-                // 4. Fetch Global Stages & Templates
                 const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
                 if (settingsSnap.exists()) {
-                    if (settingsSnap.data().defaultStages) setGlobalStages(settingsSnap.data().defaultStages);
-                    if (settingsSnap.data().messageTemplates) setMessageTemplates(settingsSnap.data().messageTemplates);
+                    const settingsData = settingsSnap.data();
+                    setGlobalStages(settingsData.defaultStages || DEFAULT_STAGES);
+                    const templates = settingsData.messageTemplates;
+                    setMessageTemplates(Array.isArray(templates) && templates.length > 0 ? templates : DEFAULT_TEMPLATES);
                 } else {
                     setGlobalStages(DEFAULT_STAGES);
+                    setMessageTemplates(DEFAULT_TEMPLATES);
                 }
             } catch (err: any) {
                 console.error("Error fetching application details:", err);
@@ -211,36 +270,34 @@ export default function CandidateDetailPage() {
     useEffect(() => {
         if (!firestore || !applicationId) return;
 
-        // Events
         const eventsQuery = query(collection(firestore, 'application_events'), where('applicationId', '==', applicationId));
         const unsubEvents = onSnapshot(eventsQuery, (snapshot) => {
-            const evts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApplicationEvent));
+            const evts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApplicationEvent));
             evts.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setEvents(evts);
         });
 
-        // Notes
         const notesQuery = query(collection(firestore, 'application_notes'), where('applicationId', '==', applicationId));
         const unsubNotes = onSnapshot(notesQuery, (snapshot) => {
-            const nts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InternalNote));
-            nts.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt)); // Newest first usually better for notes
+            const nts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InternalNote));
+            nts.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setNotes(nts);
         });
 
-        // Scorecards
         const scorecardsQuery = query(collection(firestore, 'scorecards'), where('applicationId', '==', applicationId));
         const unsubScorecards = onSnapshot(scorecardsQuery, (snapshot) => {
-            const scs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Scorecard));
+            const scs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Scorecard));
             scs.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setScorecards(scs);
         });
 
-        return () => {
-            unsubEvents();
-            unsubNotes();
-            unsubScorecards();
-        };
+        return () => { unsubEvents(); unsubNotes(); unsubScorecards(); };
     }, [firestore, applicationId]);
+
+    // --- Filtered data by selected stage ---
+    const stageNotes = useMemo(() => notes.filter(n => n.stageId === selectedStageId), [notes, selectedStageId]);
+    const stageScorecards = useMemo(() => scorecards.filter(s => s.stageId === selectedStageId), [scorecards, selectedStageId]);
+    const stageEvents = useMemo(() => events.filter(e => e.stageId === selectedStageId || (e.data?.stageId === selectedStageId)), [events, selectedStageId]);
 
     // --- Actions ---
 
@@ -250,6 +307,7 @@ export default function CandidateDetailPage() {
             await addDoc(collection(firestore, 'application_events'), {
                 applicationId,
                 type,
+                stageId: application?.currentStageId || selectedStageId,
                 userId: user.uid,
                 userName: user.displayName || 'Систем',
                 title,
@@ -262,72 +320,142 @@ export default function CandidateDetailPage() {
         }
     };
 
-    const handleUpdateStage = async (stageId: string) => {
-        if (!firestore || !applicationId) return;
+    const requestAdvanceStage = () => {
+        if (!application) return;
+        const currentIndex = globalStages.findIndex(s => s.id === application.currentStageId);
+        if (currentIndex < globalStages.length - 1) {
+            setPendingNextStageId(globalStages[currentIndex + 1].id);
+            setShowAdvanceConfirm(true);
+        }
+    };
+
+    const confirmAdvanceStage = async () => {
+        if (!pendingNextStageId || !firestore || !applicationId) return;
         try {
             await updateDoc(doc(firestore, 'applications', applicationId as string), {
-                currentStageId: stageId,
+                currentStageId: pendingNextStageId,
                 updatedAt: new Date().toISOString()
             });
-            setApplication(prev => prev ? { ...prev, currentStageId: stageId } : null);
-            setSelectedStageId(stageId);
+            setApplication(prev => prev ? { ...prev, currentStageId: pendingNextStageId } : null);
 
-            const stageTitle = globalStages.find(s => s.id === stageId)?.title || stageId;
-            await logEvent('STAGE_CHANGE', 'Үе шат өөрчлөгдсөн', `Шинэ төлөв: ${stageTitle}`, { toStageId: stageId });
-            toast({ title: 'Үе шат шинэчлэгдлээ' });
+            const stageTitle = globalStages.find(s => s.id === pendingNextStageId)?.title || pendingNextStageId;
+            await logEvent('STAGE_CHANGE', 'Үе шат өөрчлөгдсөн', `Шинэ шат: ${stageTitle}`, { toStageId: pendingNextStageId });
+
+            setSelectedStageId(pendingNextStageId);
+            toast({ title: `"${stageTitle}" шат руу шилжлээ` });
         } catch (error) {
-            console.error("Error updating stage:", error);
+            console.error("Error advancing stage:", error);
             toast({ title: 'Шинэчилж чадсангүй', variant: 'destructive' });
+        } finally {
+            setShowAdvanceConfirm(false);
+            setPendingNextStageId(null);
+        }
+    };
+
+    const generateEmployeeCode = async (): Promise<string> => {
+        if (!firestore) throw new Error("Firestore холбогдоогүй");
+        const configRef = doc(firestore, 'company', 'employeeCodeConfig');
+        const configSnap = await getDoc(configRef);
+        if (!configSnap.exists()) throw new Error("Кодчлолын тохиргоо олдсонгүй");
+        const { prefix, digitCount, nextNumber } = configSnap.data() as { prefix: string; digitCount: number; nextNumber: number };
+        const code = `${prefix}${nextNumber.toString().padStart(digitCount, '0')}`;
+        await setDoc(configRef, { nextNumber: nextNumber + 1 }, { merge: true });
+        return code;
+    };
+
+    const confirmHire = async () => {
+        if (!firestore || !applicationId || !application || !candidate) return;
+        setIsHiring(true);
+        try {
+            const now = new Date().toISOString();
+            const employeeId = application.employeeId;
+            const employeeCode = await generateEmployeeCode();
+            const authEmail = `${employeeCode}@example.com`;
+            const password = candidate.phone || '123456';
+            const newUser = await createUserWithSecondaryAuth(authEmail, password);
+            if (!newUser.uid) throw new Error("Auth хэрэглэгч үүсгэж чадсангүй");
+            const empDocRef = doc(firestore, 'employees', employeeId || newUser.uid);
+            const employeeData: Record<string, any> = {
+                id: newUser.uid, employeeCode, firstName: candidate.firstName, lastName: candidate.lastName,
+                email: candidate.email, phoneNumber: candidate.phone, status: 'active_recruitment',
+                lifecycleStage: 'onboarding', hireDate: now, role: 'employee', candidateId: candidate.id,
+            };
+            if (employeeId) { await updateDoc(empDocRef, employeeData); }
+            else {
+                await setDoc(doc(firestore, 'employees', newUser.uid), employeeData);
+                await updateDoc(doc(firestore, 'applications', applicationId as string), { employeeId: newUser.uid });
+            }
+            await updateDoc(doc(firestore, 'applications', applicationId as string), { status: 'HIRED', currentStageId: 'hired', updatedAt: now });
+            setApplication(prev => prev ? { ...prev, status: 'HIRED', currentStageId: 'hired' } : null);
+            setSelectedStageId('hired');
+            await logEvent('SYSTEM', 'Ажилд авсан', `${candidate.lastName} ${candidate.firstName} — Код: ${employeeCode}`);
+            toast({ title: 'Амжилттай ажилд авлаа!', description: `Код: ${employeeCode}, Нууц үг: ${password}` });
+            setShowHireConfirm(false);
+        } catch (error: any) {
+            console.error("Error hiring candidate:", error);
+            toast({ title: 'Ажилд авахад алдаа гарлаа', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsHiring(false);
         }
     };
 
     const handleStatusUpdate = async (newStatus: JobApplication['status']) => {
         if (!firestore || !applicationId) return;
+        if (newStatus === 'HIRED') { setShowHireConfirm(true); return; }
+        if (newStatus === 'REJECTED') { setRejectReason(''); setShowRejectConfirm(true); return; }
         try {
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
-                status: newStatus,
-                updatedAt: new Date().toISOString()
-            });
+            await updateDoc(doc(firestore, 'applications', applicationId as string), { status: newStatus, updatedAt: new Date().toISOString() });
             setApplication(prev => prev ? { ...prev, status: newStatus } : null);
-            const statusLabels: Record<string, string> = {
-                'REJECTED': 'Татгалзсан',
-                'HIRED': 'Ажилд авсан',
-                'WITHDRAWN': 'Нэрээ татсан',
-                'ACTIVE': 'Идэвхтэй'
-            };
-            await logEvent('SYSTEM', 'Төлөв өөрчлөгдсөн', `Шинэ төлөв: ${statusLabels[newStatus] || newStatus}`);
-            toast({ title: `Төлөв амжилттай шинэчлэгдлээ: ${statusLabels[newStatus]}` });
-        } catch (error) {
-            console.error("Error updating status:", error);
+            const labels: Record<string, string> = { REJECTED: 'Татгалзсан', HIRED: 'Ажилд авсан', WITHDRAWN: 'Нэрээ татсан', ACTIVE: 'Идэвхтэй' };
+            await logEvent('SYSTEM', 'Төлөв өөрчлөгдсөн', `Шинэ төлөв: ${labels[newStatus] || newStatus}`);
+            toast({ title: `Төлөв: ${labels[newStatus]}` });
+        } catch { toast({ title: 'Алдаа гарлаа', variant: 'destructive' }); }
+    };
+
+    const confirmReject = async () => {
+        if (!firestore || !applicationId) return;
+        try {
+            const now = new Date().toISOString();
+            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+                status: 'REJECTED',
+                currentStageId: 'rejected',
+                rejectionReason: rejectReason.trim() || undefined,
+                updatedAt: now,
+            });
+            setApplication(prev => prev ? { ...prev, status: 'REJECTED', currentStageId: 'rejected' } : null);
+            setSelectedStageId('rejected');
+            const reasonText = rejectReason.trim() ? `Шалтгаан: ${rejectReason.trim()}` : 'Шалтгаан тэмдэглээгүй';
+            await logEvent('SYSTEM', 'Татгалзсан', reasonText);
+            toast({ title: 'Татгалзсан', description: reasonText });
+        } catch {
             toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
+        } finally {
+            setShowRejectConfirm(false);
+            setRejectReason('');
         }
     };
 
     const handleSendNote = async () => {
-        if (!firestore || !user || !noteText.trim() || !applicationId) return;
+        if (!firestore || !user || !noteText.trim() || !applicationId || !selectedStageId) return;
         setSendingNote(true);
         try {
             await addDoc(collection(firestore, 'application_notes'), {
                 applicationId,
+                stageId: selectedStageId,
                 authorId: user.uid,
                 authorName: user.displayName || 'Коллагатор',
                 text: noteText,
                 createdAt: new Date().toISOString()
             });
-            await logEvent('NOTE', 'Дотоод тэмдэглэл нэмсэн', noteText);
+            await logEvent('NOTE', 'Тэмдэглэл нэмсэн', noteText);
             setNoteText('');
-        } catch (error) {
-            console.error("Error sending note:", error);
-            toast({ title: 'Тэмдэглэл хадгалж чадсангүй', variant: 'destructive' });
-        } finally {
-            setSendingNote(false);
-        }
+        } catch { toast({ title: 'Тэмдэглэл хадгалж чадсангүй', variant: 'destructive' }); }
+        finally { setSendingNote(false); }
     };
 
     const handleSelectTemplate = (tpl: MessageTemplate) => {
         setSelectedTemplate(tpl);
-        const text = tpl.body.replace(/{{name}}/g, candidate?.firstName || 'Нэр');
-        setPreviewText(text);
+        setPreviewText(tpl.body.replace(/{{name}}/g, candidate?.firstName || 'Нэр'));
         setShowPreview(true);
     };
 
@@ -336,48 +464,30 @@ export default function CandidateDetailPage() {
         setSendingMessage(true);
         try {
             await logEvent('MESSAGE', 'Мессеж илгээсэн', previewText);
-
             if (sendAsSms && candidate.phone) {
                 await sendSMS(candidate.phone, previewText);
-                toast({
-                    title: 'Мессеж амжилттай SMS-ээр илгээгдлээ',
-                    description: 'Хэрэглэгчийн утас руу илгээгдсэн.'
-                });
+                toast({ title: 'SMS амжилттай илгээгдлээ' });
             } else {
-                toast({
-                    title: 'Мессеж амжилттай илгээгдлээ',
-                    description: 'Түүхэнд хадгалагдлаа.'
-                });
+                toast({ title: 'Мессеж хадгалагдлаа' });
             }
-
             setShowPreview(false);
             setPreviewText('');
         } catch (error: any) {
-            console.error("Error sending message:", error);
-            toast({
-                title: 'Мессеж илгээж чадсангүй',
-                description: error.message || 'Сүлжээний алдаа.',
-                variant: 'destructive'
-            });
-        } finally {
-            setSendingMessage(false);
-        }
+            toast({ title: 'Мессеж илгээж чадсангүй', description: error.message, variant: 'destructive' });
+        } finally { setSendingMessage(false); }
     };
 
-    // Tag handlers
     const handleAddTag = async () => {
         if (!firestore || !candidate || !tagInput.trim()) return;
         const newTag = tagInput.trim();
-        if ((candidate.tags || []).includes(newTag)) return; // duplicate check
+        if ((candidate.tags || []).includes(newTag)) return;
         const updatedTags = [...(candidate.tags || []), newTag];
         try {
             await updateDoc(doc(firestore, 'candidates', candidate.id), { tags: updatedTags, updatedAt: new Date().toISOString() });
             setCandidate({ ...candidate, tags: updatedTags });
             await logEvent('SYSTEM', 'Таг нэмсэн', newTag);
             setTagInput('');
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     const handleRemoveTag = async (tagToRemove: string) => {
@@ -386,10 +496,7 @@ export default function CandidateDetailPage() {
         try {
             await updateDoc(doc(firestore, 'candidates', candidate.id), { tags: updatedTags, updatedAt: new Date().toISOString() });
             setCandidate({ ...candidate, tags: updatedTags });
-            await logEvent('SYSTEM', 'Таг устгасан', tagToRemove);
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     const handleScorecardSubmit = async (scores: ScorecardCriteria[], notesContent: string) => {
@@ -397,31 +504,21 @@ export default function CandidateDetailPage() {
         setSubmittingScorecard(true);
         try {
             const averageScore = scores.reduce((acc, curr) => acc + curr.score, 0) / scores.length;
-            const cleanCriteria = scores.map(c => ({
-                id: c.id, name: c.name, description: c.description || '', score: c.score
-            }));
-
+            const cleanCriteria = scores.map(c => ({ id: c.id, name: c.name, description: c.description || '', score: c.score }));
             await addDoc(collection(firestore, 'scorecards'), {
-                applicationId: application.id,
-                candidateId: candidate.id,
-                stageId: application.currentStageId,
+                applicationId: application.id, candidateId: candidate.id,
+                stageId: selectedStageId || application.currentStageId,
                 interviewerId: user?.uid || 'unknown',
                 interviewerName: user?.displayName || 'Үнэлгээчин',
-                criteria: cleanCriteria,
-                notes: notesContent,
-                averageScore,
+                criteria: cleanCriteria, notes: notesContent, averageScore,
                 createdAt: new Date().toISOString()
             });
-
-            await logEvent('SCORECARD', 'Үнэлгээ өгсөн', `Дундаж оноо: ${averageScore.toFixed(1)}`);
-            toast({ title: 'Үнэлгээ амжилттай хадгалагдлаа' });
+            await logEvent('SCORECARD', 'Үнэлгээ өгсөн', `Дундаж: ${averageScore.toFixed(1)}`);
+            toast({ title: 'Үнэлгээ хадгалагдлаа' });
             setShowScorecard(false);
         } catch (error: any) {
-            console.error("Error saving scorecard:", error);
-            toast({ title: 'Алдаа гарлаа', description: error.message, variant: 'destructive' });
-        } finally {
-            setSubmittingScorecard(false);
-        }
+            toast({ title: 'Алдаа', description: error.message, variant: 'destructive' });
+        } finally { setSubmittingScorecard(false); }
     };
 
     const handleDeleteApplication = async () => {
@@ -429,9 +526,7 @@ export default function CandidateDetailPage() {
         setIsDeleting(true);
         try {
             const batch = writeBatch(firestore);
-            // In a real app, use cloud functions for recursive delete. Here we try best effort
-            const collectionsToDelete = ['application_messages', 'application_events', 'application_notes', 'scorecards'];
-            for (const collName of collectionsToDelete) {
+            for (const collName of ['application_messages', 'application_events', 'application_notes', 'scorecards']) {
                 const q = query(collection(firestore, collName), where('applicationId', '==', applicationId));
                 const snapshot = await getDocs(q);
                 snapshot.forEach((d) => batch.delete(d.ref));
@@ -439,21 +534,33 @@ export default function CandidateDetailPage() {
             if (application?.candidateId) batch.delete(doc(firestore, 'candidates', application.candidateId));
             batch.delete(doc(firestore, 'applications', applicationId as string));
             await batch.commit();
-
             router.push('/dashboard/recruitment');
             toast({ title: 'Устгагдлаа' });
-        } catch (error) {
-            console.error(error);
-            setIsDeleting(false);
-        }
+        } catch { setIsDeleting(false); }
     };
-
 
     // --- Loading / Error States ---
     if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
     if (error || !application || !candidate) return <div className="p-8 text-center text-red-500">{error || 'Мэдээлэл олдсонгүй'}</div>;
 
-    const currentStage = globalStages.find(s => s.id === application.currentStageId);
+    const REJECTED_STAGE: RecruitmentStage = { id: 'rejected', title: 'Татгалзсан', type: 'REJECTED', order: 999 };
+    const HIRED_STAGE: RecruitmentStage = { id: 'hired', title: 'Ажилд авсан', type: 'HIRED', order: 998 };
+    const isRejected = application.status === 'REJECTED';
+    const isHired = application.status === 'HIRED';
+    const displayStages = isRejected
+        ? [...globalStages, REJECTED_STAGE]
+        : isHired
+            ? [...globalStages, HIRED_STAGE]
+            : globalStages;
+
+    const currentStage = displayStages.find(s => s.id === application.currentStageId);
+    const selectedStage = displayStages.find(s => s.id === selectedStageId);
+    const currentStageIdx = displayStages.findIndex(s => s.id === application.currentStageId);
+    const selectedStageIdx = displayStages.findIndex(s => s.id === selectedStageId);
+    const isViewingCurrentStage = selectedStageId === application.currentStageId;
+    const isViewingPastStage = selectedStageIdx < currentStageIdx;
+    const isViewingFutureStage = selectedStageIdx > currentStageIdx;
+    const nextStageName = pendingNextStageId ? displayStages.find(s => s.id === pendingNextStageId)?.title : '';
 
     return (
         <div className="flex h-screen w-full flex-col bg-[#F8FAFC] overflow-hidden text-slate-900 font-sans">
@@ -462,54 +569,16 @@ export default function CandidateDetailPage() {
                 <div className="px-6 py-4">
                     <PageHeader
                         title={`${candidate.lastName} ${candidate.firstName}`}
-                        description={[vacancy?.title || null, currentStage?.title || null].filter(Boolean).join(' • ')}
+                        description={[vacancy?.title, currentStage?.title].filter(Boolean).join(' • ')}
                         showBackButton
                         hideBreadcrumbs
                         backButtonPlacement="inline"
                         backBehavior="history"
                         fallbackBackHref="/dashboard/recruitment"
                         actions={
-                            <div className="flex items-center gap-3">
-                                <div className="flex bg-slate-100 p-1 rounded-lg border">
-                                    <Button variant={leftSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", leftSidebarOpen && "shadow-sm")} onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}>
-                                        <LayoutDashboard className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant={rightSidebarOpen ? 'outline' : 'ghost'} size="icon" className={cn("h-8 w-8 rounded-md", rightSidebarOpen && "shadow-sm")} onClick={() => setRightSidebarOpen(!rightSidebarOpen)}>
-                                        <User className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button className="bg-slate-900 text-white gap-2 rounded-xl h-10 hover:bg-slate-800 shadow-lg shadow-slate-200">
-                                <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />
-                                Шуурхай үйлдэл
+                            <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
+                                <Trash2 className="h-4 w-4" />
                             </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-xl p-2">
-                            <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-wider font-bold px-2 py-1.5">Үйлдлүүд</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => { setShowScorecard(true); setActiveTab('evaluation'); }} className="gap-2 p-2.5 rounded-lg cursor-pointer">
-                                <Star className="h-4 w-4 text-amber-500" /> Үнэлгээ өгөх
-                            </DropdownMenuItem>
-                            <ScheduleInterviewDialog applicationId={application.id} candidate={candidate} vacancy={vacancy || undefined} onScheduled={(i) => logEvent('SYSTEM', 'Ярилцлага', i.title)}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2 p-2.5 rounded-lg cursor-pointer">
-                                    <Calendar className="h-4 w-4 text-blue-500" /> Ярилцлага товлох
-                                </DropdownMenuItem>
-                            </ScheduleInterviewDialog>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleStatusUpdate('HIRED')} className="gap-2 p-2.5 rounded-lg text-emerald-600 cursor-pointer">
-                                <CheckCircle2 className="h-4 w-4" /> Ажилд авах
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate('REJECTED')} className="gap-2 p-2.5 rounded-lg text-red-600 cursor-pointer">
-                                <X className="h-4 w-4" /> Татгалзах
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setShowDeleteConfirm(true)} className="gap-2 p-2.5 rounded-lg text-red-600 cursor-pointer hover:bg-red-50">
-                                <Trash2 className="h-4 w-4" /> Устгах
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
                         }
                     />
                 </div>
@@ -518,400 +587,431 @@ export default function CandidateDetailPage() {
             {/* Main Layout Area */}
             <main className="flex flex-1 min-h-0 overflow-hidden">
 
-                {/* Left Sidebar: Timeline */}
-                <AnimatePresence initial={false}>
-                    {leftSidebarOpen && (
-                        <motion.aside
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 320, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            className="bg-white border-r flex flex-col z-20"
-                        >
-                            <div className="p-4 border-b bg-slate-50/50">
-                                <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider">Сонгон шалгаруулалт</h3>
-                            </div>
+                {/* Left Sidebar: Candidate Card */}
+                <aside className="w-[340px] shrink-0 bg-white border-r flex flex-col z-20">
                             <ScrollArea className="flex-1">
-                                <div className="p-4 space-y-2">
-                                    {globalStages.map((stage, idx) => {
-                                        const isCurrent = application.currentStageId === stage.id;
-                                        const isPast = globalStages.findIndex(s => s.id === application.currentStageId) > idx;
-
-                                        return (
-                                            <div
-                                                key={stage.id}
-                                                onClick={() => setSelectedStageId(stage.id)}
-                                                className={cn(
-                                                    "relative p-3 rounded-lg cursor-pointer flex items-center gap-3 transition-all border",
-                                                    isCurrent ? "bg-blue-50 border-blue-100" :
-                                                        selectedStageId === stage.id ? "bg-slate-50 border-slate-200" : "border-transparent hover:bg-slate-50"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border-2",
-                                                    isPast ? "bg-emerald-100 border-emerald-200 text-emerald-600" :
-                                                        isCurrent ? "bg-blue-600 border-blue-600 text-white" :
-                                                            "bg-white border-slate-200 text-slate-400"
+                                <div className="p-4 space-y-5">
+                                    <EmployeeCard
+                                        variant="detailed"
+                                        asLink={false}
+                                        showQuestionnaireAction={false}
+                                        showProgressRing={false}
+                                        employee={{
+                                            id: candidate.id,
+                                            firstName: candidate.firstName,
+                                            lastName: candidate.lastName,
+                                            email: candidate.email,
+                                            phoneNumber: candidate.phone,
+                                            status: application.status === 'HIRED' ? 'active_recruitment' : 'candidate',
+                                            lifecycleStage: application.status === 'HIRED' ? 'onboarding' : 'recruitment',
+                                            jobTitle: vacancy?.title || '',
+                                        } as EmployeeCardEmployee}
+                                        footer={
+                                            <div className="flex items-center justify-between w-full">
+                                                <Badge variant="outline" className={cn(
+                                                    "bg-white font-medium text-[10px]",
+                                                    application.status === 'ACTIVE' && "text-blue-600 border-blue-200",
+                                                    application.status === 'HIRED' && "text-emerald-600 border-emerald-200",
+                                                    application.status === 'REJECTED' && "text-red-600 border-red-200",
+                                                    application.status === 'WITHDRAWN' && "text-slate-500 border-slate-200",
                                                 )}>
-                                                    {isPast ? <Check className="h-4 w-4" /> : idx + 1}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={cn("text-sm font-semibold truncate", isCurrent ? "text-blue-900" : "text-slate-700")}>{stage.title}</p>
-                                                    {isCurrent && <p className="text-[10px] text-blue-600 uppercase font-bold">Одоогийн шат</p>}
-                                                </div>
-                                                {selectedStageId === stage.id && <ChevronRight className="h-4 w-4 text-slate-400" />}
+                                                    {{ ACTIVE: 'Идэвхтэй', HIRED: 'Ажилд авсан', REJECTED: 'Татгалзсан', WITHDRAWN: 'Нэрээ татсан' }[application.status]}
+                                                </Badge>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {currentStage?.title}
+                                                </span>
                                             </div>
-                                        )
-                                    })}
-                                </div>
-                            </ScrollArea>
-                            <div className="p-4 border-t bg-slate-50">
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => {
-                                    const currentIndex = globalStages.findIndex(s => s.id === application.currentStageId);
-                                    if (currentIndex < globalStages.length - 1) handleUpdateStage(globalStages[currentIndex + 1].id);
-                                }}>Дараагийн шат</Button>
-                            </div>
-                        </motion.aside>
-                    )}
-                </AnimatePresence>
-
-                {/* Center Content: Tabs */}
-                {/* Important: flex-1 ensures it takes remaining width. flex-col ensures headers stay atop. min-w-0 prevents flex items from overflowing container */}
-                <section className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-                        <div className="shrink-0 bg-white border-b px-6">
-                            <VerticalTabMenu
-                                orientation="horizontal"
-                                className="py-3"
-                                items={[
-                                    { value: 'activity', label: 'Үйл ажиллагаа' },
-                                    { value: 'messages', label: 'Харилцаа холбоо' },
-                                    { value: 'notes', label: 'Тэмдэглэл' },
-                                    { value: 'evaluation', label: `Үнэлгээ (${scorecards.length})` },
-                                ]}
-                            />
-                        </div>
-
-                        {/* Content Area - Where scrolling happens */}
-                        <div className="flex-1 min-h-0 overflow-hidden relative">
-
-                            {/* Activity Tab */}
-                            <TabsContent value="activity" className="h-full m-0 p-0 border-none outline-none data-[state=inactive]:hidden data-[state=active]:flex flex-col">
-                                <ScrollArea className="h-full w-full">
-                                    <div className="p-8 max-w-3xl mx-auto space-y-6">
-                                        {events.length === 0 ? (
-                                            <div className="text-center py-20 text-slate-400">
-                                                <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                                <p>Одоогоор үйл ажиллагаа бүртгэгдээгүй байна</p>
-                                            </div>
-                                        ) : (
-                                            <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 py-2">
-                                                {events.map((evt, i) => {
-                                                    const iconMap: any = {
-                                                        'STAGE_CHANGE': CheckCircle2,
-                                                        'MESSAGE': MessageSquare,
-                                                        'NOTE': FileText,
-                                                        'SCORECARD': Star,
-                                                        'SYSTEM': Clock
-                                                    };
-                                                    const Icon = iconMap[evt.type] || Clock;
-
-                                                    return (
-                                                        <div key={evt.id} className="relative pl-8">
-                                                            <div className={cn(
-                                                                "absolute -left-[9px] top-0 h-4 w-4 rounded-full border-2 border-white ring-1 ring-slate-200 bg-white flex items-center justify-center",
-                                                                evt.type === 'STAGE_CHANGE' ? "ring-emerald-400 bg-emerald-50 text-emerald-600" :
-                                                                    evt.type === 'MESSAGE' ? "ring-blue-400 bg-blue-50 text-blue-600" :
-                                                                        "text-slate-400"
-                                                            )}>
-                                                                <div className="h-1.5 w-1.5 rounded-full bg-current" />
-                                                            </div>
-                                                            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                                                                <div className="flex justify-between items-start mb-2">
-                                                                    <div>
-                                                                        <h4 className="font-bold text-slate-900 text-sm">{evt.title}</h4>
-                                                                        <div className="flex items-center gap-2 mt-1">
-                                                                            <span className="text-xs text-slate-500 font-medium">{evt.userName}</span>
-                                                                            <span className="text-slate-300 mx-1">•</span>
-                                                                            <span className="text-xs text-slate-400">{evt.createdAt ? format(new Date(evt.createdAt), 'MM/dd HH:mm') : '-'}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                                                                        <Icon className="h-4 w-4" />
-                                                                    </div>
-                                                                </div>
-                                                                {evt.description && <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg">{evt.description}</p>}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </ScrollArea>
-                            </TabsContent>
-
-                            {/* Messages Tab */}
-                            <TabsContent value="messages" className="h-full m-0 p-0 border-none outline-none data-[state=inactive]:hidden data-[state=active]:flex flex-col">
-                                <div className="flex-1 flex overflow-hidden">
-                                    {/* Template List */}
-                                    <div className="w-64 border-r bg-white flex flex-col overflow-hidden">
-                                        <div className="p-4 border-b font-bold text-xs uppercase text-slate-400 tracking-wider">Загварууд</div>
-                                        <ScrollArea className="flex-1">
-                                            <div className="p-2 space-y-1">
-                                                {messageTemplates.map(tpl => (
-                                                    <div key={tpl.id} onClick={() => handleSelectTemplate(tpl)} className="p-3 rounded-lg hover:bg-slate-100 cursor-pointer text-sm font-bold text-slate-900 border border-transparent hover:border-slate-200 transition-all">
-                                                        {tpl.title}
-                                                    </div>
-                                                ))}
-                                                {messageTemplates.length === 0 && <div className="p-4 text-xs text-slate-400 text-center">Загвар байхгүй</div>}
-                                            </div>
-                                        </ScrollArea>
-                                    </div>
-                                    {/* Editor Area */}
-                                    <div className="flex-1 flex flex-col min-w-0 bg-slate-50/50 p-6 overflow-y-auto">
-                                        {showPreview ? (
-                                            <div className="max-w-2xl mx-auto w-full space-y-6">
-                                                <div className="bg-white p-6 rounded-2xl shadow-sm border">
-                                                    <Label className="mb-2 block text-slate-500">Мессежний агуулга</Label>
-                                                    <Textarea
-                                                        value={previewText}
-                                                        onChange={e => setPreviewText(e.target.value)}
-                                                        className="min-h-[200px] border-none text-base resize-none focus-visible:ring-0 p-0"
-                                                        placeholder="Энд бичнэ үү..."
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <Switch checked={sendAsSms} onCheckedChange={setSendAsSms} />
-                                                        <Label>SMS-ээр илгээх</Label>
-                                                    </div>
-                                                    <div className="flex gap-3">
-                                                        <Button variant="outline" onClick={() => setShowPreview(false)}>Болих</Button>
-                                                        <Button onClick={handleSendMessage} disabled={sendingMessage} className="bg-blue-600 gap-2">
-                                                            {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Илгээх
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                                <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-                                                <p>Загвар сонгох эсвэл шууд бичих</p>
-                                                <Button variant="outline" className="mt-4" onClick={() => setShowPreview(true)}>Шинэ мессеж бичих</Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Notes Tab */}
-                            <TabsContent value="notes" className="h-full m-0 p-0 border-none outline-none data-[state=inactive]:hidden data-[state=active]:flex flex-col">
-                                <ScrollArea className="flex-1 w-full bg-amber-50/30">
-                                    <div className="p-8 max-w-4xl mx-auto space-y-6 pb-32">
-                                        {notes.length === 0 ? (
-                                            <div className="text-center py-20 text-slate-400">
-                                                <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                                <p>Тэмдэглэл байхгүй байна</p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {notes.map(note => (
-                                                    <div key={note.id} className="bg-amber-50 border border-amber-100 p-5 rounded-xl text-amber-900 relative">
-                                                        <Quote className="absolute top-4 right-4 h-6 w-6 text-amber-200/50" />
-                                                        <p className="text-sm font-medium mb-4 leading-relaxed whitespace-pre-wrap">{note.text}</p>
-                                                        <div className="flex items-center gap-2 pt-4 border-t border-amber-100/50">
-                                                            <div className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-700">
-                                                                {note.authorName[0]}
-                                                            </div>
-                                                            <span className="text-xs font-bold opacity-70">{note.authorName}</span>
-                                                            <span className="text-[10px] opacity-50 ml-auto">{format(new Date(note.createdAt), 'MM/dd HH:mm')}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </ScrollArea>
-                                {/* Input Area Fixed at Bottom */}
-                                <div className="shrink-0 p-6 bg-white border-t shadow-lg z-10">
-                                    <div className="max-w-4xl mx-auto flex gap-4">
-                                        <Textarea
-                                            value={noteText}
-                                            onChange={e => setNoteText(e.target.value)}
-                                            placeholder="Тэмдэглэл бичих..."
-                                            className="min-h-[80px]"
-                                        />
-                                        <Button
-                                            onClick={handleSendNote}
-                                            disabled={!noteText.trim() || sendingNote}
-                                            className="h-auto px-6 bg-amber-500 hover:bg-amber-600 text-white"
-                                        >
-                                            {sendingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Evaluation Tab */}
-                            <TabsContent value="evaluation" className="h-full m-0 p-0 border-none outline-none data-[state=inactive]:hidden data-[state=active]:flex flex-col">
-                                <ScrollArea className="h-full w-full">
-                                    <div className="p-8 max-w-4xl mx-auto">
-                                        <div className="flex justify-between items-center mb-8">
-                                            <h3 className="font-bold text-lg">Үнэлгээний түүх</h3>
-                                            <Button onClick={() => setShowScorecard(true)} className="bg-slate-900 text-white gap-2">
-                                                <Star className="h-4 w-4 text-amber-400" /> Үнэлгээ нэмэх
-                                            </Button>
-                                        </div>
-                                        {scorecards.length === 0 ? (
-                                            <div className="text-center py-20 bg-slate-50 rounded-2xl border border-dashed">
-                                                <Star className="h-10 w-10 mx-auto mb-4 text-slate-300" />
-                                                <p className="text-slate-500 font-medium">Одоогоор үнэлгээ байхгүй</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-6">
-                                                {scorecards.map(sc => (
-                                                    <div key={sc.id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                                                        <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
-                                                            <div className="flex items-center gap-3">
-                                                                <Avatar className="h-8 w-8">
-                                                                    <AvatarFallback>{sc.interviewerName?.[0]}</AvatarFallback>
-                                                                </Avatar>
-                                                                <div>
-                                                                    <p className="text-sm font-bold text-slate-900">{sc.interviewerName}</p>
-                                                                    <p className="text-xs text-slate-500">{format(new Date(sc.createdAt), 'yyyy.MM.dd')}</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border shadow-sm">
-                                                                <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                                                                <span className="font-bold text-slate-900">{sc.averageScore.toFixed(1)}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-5">
-                                                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
-                                                                {sc.criteria.map((c, idx) => (
-                                                                    <div key={idx} className="flex justify-between items-center border-b border-dotted pb-2 last:border-0">
-                                                                        <span className="text-sm text-slate-600">{c.name}</span>
-                                                                        <div className="flex gap-1">
-                                                                            {[1, 2, 3, 4, 5].map(star => (
-                                                                                <div key={star} className={cn("h-1.5 w-4 rounded-full", star <= c.score ? "bg-blue-500" : "bg-slate-200")} />
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                            {sc.notes && (
-                                                                <div className="bg-slate-50 p-4 rounded-lg text-sm text-slate-700 italic">
-                                                                    "{sc.notes}"
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </ScrollArea>
-                            </TabsContent>
-                        </div>
-                    </Tabs>
-                </section>
-
-                {/* Right Sidebar: Profile Info */}
-                <AnimatePresence initial={false}>
-                    {rightSidebarOpen && (
-                        <motion.aside
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 380, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            className="bg-white border-l z-20 flex flex-col"
-                        >
-                            <ScrollArea className="flex-1">
-                                <div className="p-6 space-y-8">
-                                    {/* Contact Info */}
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Холбоо барих</h3>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border hover:bg-white hover:shadow-sm transition-all cursor-pointer group">
-                                                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                    <Phone className="h-4 w-4" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-slate-400 font-bold uppercase">Утас</p>
-                                                    <p className="text-sm font-semibold text-slate-900 truncate">{candidate.phone}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border hover:bg-white hover:shadow-sm transition-all cursor-pointer group">
-                                                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                                    <Mail className="h-4 w-4" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-slate-400 font-bold uppercase">Имэйл</p>
-                                                    <p className="text-sm font-semibold text-slate-900 truncate">{candidate.email}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        }
+                                    />
 
                                     {/* Tags */}
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Тагууд</h3>
-                                        <div className="flex flex-wrap gap-2 mb-3">
+                                    <div className="space-y-2 px-1">
+                                        <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Тагууд</span>
+                                        <div className="flex flex-wrap gap-1.5">
                                             {(candidate.tags || []).map(tag => (
-                                                <Badge key={tag} variant="secondary" className="bg-slate-100 hover:bg-red-50 hover:text-red-500 cursor-pointer gap-1 group transition-colors pr-1">
+                                                <Badge key={tag} variant="secondary" className="bg-slate-100 hover:bg-red-50 hover:text-red-500 cursor-pointer gap-1 group transition-colors pr-1 text-[11px]">
                                                     {tag}
-                                                    <X className="h-3 w-3 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} />
+                                                    <X className="h-3 w-3 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveTag(tag)} />
                                                 </Badge>
                                             ))}
-                                            {(candidate.tags || []).length === 0 && <span className="text-sm text-slate-400 italic">Таг байхгүй</span>}
                                         </div>
-                                        <div className="flex gap-2">
-                                            <input
-                                                className="flex-1 bg-slate-50 border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                                        <div className="flex gap-1.5">
+                                            <input className="flex-1 bg-slate-50 border rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-100"
                                                 placeholder="Таг нэмэх..."
-                                                value={tagInput}
-                                                onChange={e => setTagInput(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                            />
-                                            <Button size="sm" variant="outline" onClick={handleAddTag} disabled={!tagInput.trim()}>
-                                                <Check className="h-4 w-4" />
+                                                value={tagInput} onChange={e => setTagInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddTag()} />
+                                            <Button size="sm" variant="outline" onClick={handleAddTag} disabled={!tagInput.trim()} className="h-7 w-7 p-0">
+                                                <Check className="h-3 w-3" />
                                             </Button>
                                         </div>
                                     </div>
 
-                                    {/* Files */}
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Файлууд</h3>
-                                        <div className="space-y-3">
-                                            {candidate.resumeUrl && (
-                                                <a href={candidate.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border rounded-xl hover:bg-slate-50 hover:border-blue-200 group transition-all">
-                                                    <div className="h-10 w-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
-                                                        <FileText className="h-5 w-5" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-bold text-slate-700 truncate">Resume.pdf</p>
-                                                        <p className="text-xs text-slate-400">CV / Resume</p>
-                                                    </div>
-                                                    <Download className="h-4 w-4 text-slate-300 group-hover:text-blue-500" />
-                                                </a>
-                                            )}
-                                            {/* Placeholder for other files */}
-                                            <div className="border border-dashed rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50">
-                                                <p className="text-xs text-slate-500 font-medium">+ Файл нэмэх</p>
-                                            </div>
-                                        </div>
+                                    <div className="text-xs text-slate-400 px-1">
+                                        Бүртгэл: {application.appliedAt ? format(new Date(application.appliedAt), 'yyyy.MM.dd') : '-'}
                                     </div>
                                 </div>
                             </ScrollArea>
-                        </motion.aside>
-                    )}
-                </AnimatePresence>
+                </aside>
+
+                {/* Center Content: Stage-based */}
+                <section className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
+
+                    {/* Stage Stepper */}
+                    <div className="shrink-0 bg-white border-b px-6 py-3">
+                        <div className="flex items-center gap-1 overflow-x-auto">
+                            {displayStages.map((stage, idx) => {
+                                const isRejectedStage = stage.id === 'rejected';
+                                const isHiredStage = stage.id === 'hired';
+                                const isTerminalStage = isRejectedStage || isHiredStage;
+                                const isCurrent = application.currentStageId === stage.id;
+                                const isPast = currentStageIdx > idx;
+                                const isSelected = selectedStageId === stage.id;
+                                const isSkipped = (isRejected || isHired) && !isTerminalStage && !isPast && !isCurrent;
+
+                                return (
+                                    <React.Fragment key={stage.id}>
+                                        {idx > 0 && (
+                                            <div className={cn(
+                                                "h-[2px] w-6 shrink-0 rounded-full",
+                                                isRejectedStage && isCurrent ? "bg-red-300" :
+                                                    isHiredStage && isCurrent ? "bg-emerald-400" :
+                                                        isPast ? "bg-emerald-400" :
+                                                            isCurrent ? "bg-blue-300" :
+                                                                isSkipped && isRejected ? "bg-red-200 opacity-50" :
+                                                                    isSkipped && isHired ? "bg-emerald-200 opacity-50" :
+                                                                        "bg-slate-200"
+                                            )} />
+                                        )}
+                                        <button
+                                            onClick={() => setSelectedStageId(stage.id)}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 border",
+                                                isSelected && isRejectedStage
+                                                    ? "bg-red-600 text-white border-red-600 shadow-md"
+                                                    : isSelected && isHiredStage
+                                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                                                        : isSelected
+                                                            ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                                                            : isRejectedStage && isCurrent
+                                                                ? "bg-red-50 text-red-700 border-red-200"
+                                                                : isHiredStage && isCurrent
+                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                    : isSkipped
+                                                                        ? "bg-slate-50 text-slate-300 border-slate-100 line-through"
+                                                                        : isCurrent
+                                                                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                                                                            : isPast
+                                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                                : "bg-white text-slate-400 border-slate-200 hover:bg-slate-50"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                                                isSelected && isRejectedStage ? "bg-white text-red-600" :
+                                                    isSelected && isHiredStage ? "bg-white text-emerald-600" :
+                                                        isSelected ? "bg-white text-slate-900" :
+                                                            isRejectedStage && isCurrent ? "bg-red-200 text-red-700" :
+                                                                isHiredStage && isCurrent ? "bg-emerald-200 text-emerald-700" :
+                                                                    isSkipped ? "bg-slate-100 text-slate-300" :
+                                                                        isPast ? "bg-emerald-200 text-emerald-700" :
+                                                                            isCurrent ? "bg-blue-200 text-blue-700" : "bg-slate-100 text-slate-400"
+                                            )}>
+                                                {isRejectedStage ? <X className="h-3 w-3" /> :
+                                                    isHiredStage ? <CheckCircle2 className="h-3 w-3" /> :
+                                                        isSkipped ? <span className="text-[8px]">—</span> :
+                                                            isPast ? <Check className="h-3 w-3" /> : idx + 1}
+                                            </div>
+                                            {stage.title}
+                                        </button>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Stage Content */}
+                    <ScrollArea className="flex-1">
+                        <div className="p-6 max-w-4xl mx-auto space-y-4 pb-32">
+
+                            {/* Stage Header */}
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h2 className={cn(
+                                        "text-lg font-bold",
+                                        selectedStageId === 'rejected' ? "text-red-600" :
+                                            selectedStageId === 'hired' ? "text-emerald-600" : "text-slate-900"
+                                    )}>{selectedStage?.title}</h2>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        {selectedStageId === 'rejected' ? 'Татгалзсан' :
+                                            selectedStageId === 'hired' ? 'Ажилд авсан' :
+                                                isViewingCurrentStage ? 'Одоогийн шат' : isViewingPastStage ? 'Дууссан шат' : 'Хүлээгдэж буй шат'}
+                                        {selectedStage && selectedStageId !== 'rejected' && selectedStageId !== 'hired' && <span> • {selectedStage.type}</span>}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {/* Дууссан төлөвт (rejected/hired) товч харуулахгүй */}
+                                    {!isRejected && !isHired && (
+                                        <>
+                                            <ScheduleInterviewDialog applicationId={application.id} candidate={candidate} vacancy={vacancy || undefined} onScheduled={(i) => logEvent('SYSTEM', 'Ярилцлага', i.title)}>
+                                                <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
+                                                    <Calendar className="h-3.5 w-3.5" />
+                                                    Ярилцлага товлох
+                                                </Button>
+                                            </ScheduleInterviewDialog>
+
+                                            {isViewingCurrentStage && (
+                                                <>
+                                                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={() => handleStatusUpdate('REJECTED')}>
+                                                        <X className="h-3.5 w-3.5" />
+                                                        Татгалзах
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={() => handleStatusUpdate('HIRED')}>
+                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                        Ажилд авах
+                                                    </Button>
+                                                    {currentStageIdx < globalStages.length - 1 && (
+                                                        <Button onClick={requestAdvanceStage} size="sm" className="bg-blue-600 hover:bg-blue-700 gap-1.5 text-xs h-8">
+                                                            Дараагийн шат
+                                                            <ChevronRight className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                    {isViewingPastStage && !isRejected && !isHired && (
+                                        <Badge variant="outline" className="border-emerald-200 text-emerald-600 gap-1">
+                                            <Check className="h-3 w-3" /> Дууссан
+                                        </Badge>
+                                    )}
+                                    {isViewingFutureStage && !isRejected && !isHired && (
+                                        <Badge variant="outline" className="border-slate-200 text-slate-400">Хүлээгдэж буй</Badge>
+                                    )}
+                                    {selectedStageId === 'rejected' && (
+                                        <Badge variant="outline" className="border-red-200 text-red-600 bg-red-50 gap-1">
+                                            <X className="h-3 w-3" /> Татгалзсан
+                                        </Badge>
+                                    )}
+                                    {selectedStageId === 'hired' && (
+                                        <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 gap-1">
+                                            <CheckCircle2 className="h-3 w-3" /> Ажилд авсан
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Hired Info Card */}
+                            {selectedStageId === 'hired' && (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-emerald-700 mb-1">Ажилд авсан</p>
+                                            <p className="text-sm text-emerald-800">{candidate.lastName} {candidate.firstName} амжилттай ажилд авагдлаа. Ажилтны бүртгэл системд үүссэн.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Rejection Reason Card */}
+                            {selectedStageId === 'rejected' && application.rejectionReason && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                                            <FileText className="h-4 w-4 text-red-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-red-700 mb-1">Татгалзсан шалтгаан</p>
+                                            <p className="text-sm text-red-800 whitespace-pre-wrap">{application.rejectionReason}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Messages Section */}
+                            <Section title="Харилцаа холбоо" icon={MessageSquare} count={stageEvents.filter(e => e.type === 'MESSAGE').length}>
+                                <div className="space-y-4">
+                                    {/* Quick template select */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {messageTemplates.map(tpl => (
+                                            <Button key={tpl.id} variant="outline" size="sm" className="text-xs h-7" onClick={() => handleSelectTemplate(tpl)}>
+                                                {tpl.title}
+                                            </Button>
+                                        ))}
+                                        <Button variant="outline" size="sm" className="text-xs h-7 gap-1" onClick={() => { setPreviewText(''); setShowPreview(true); }}>
+                                            <MessageSquare className="h-3 w-3" /> Шинэ мессеж
+                                        </Button>
+                                    </div>
+
+                                    {showPreview && (
+                                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                                            <Textarea value={previewText} onChange={e => setPreviewText(e.target.value)} placeholder="Мессежний агуулга..." className="min-h-[100px] bg-white" />
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Switch checked={sendAsSms} onCheckedChange={setSendAsSms} />
+                                                    <Label className="text-xs">SMS-ээр илгээх</Label>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>Болих</Button>
+                                                    <Button size="sm" onClick={handleSendMessage} disabled={sendingMessage || !previewText.trim()} className="bg-blue-600 gap-1.5">
+                                                        {sendingMessage ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Илгээх
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Sent messages for this stage */}
+                                    {stageEvents.filter(e => e.type === 'MESSAGE').map(evt => (
+                                        <div key={evt.id} className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{evt.description}</p>
+                                            <p className="text-[10px] text-slate-400 mt-2">{evt.userName} • {evt.createdAt ? format(new Date(evt.createdAt), 'MM/dd HH:mm') : ''}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Section>
+
+                            {/* Notes Section */}
+                            <Section title="Тэмдэглэл" icon={StickyNote} defaultOpen={isViewingCurrentStage} count={stageNotes.length}>
+                                <div className="space-y-3">
+                                    {isViewingCurrentStage && (
+                                        <div className="flex gap-3">
+                                            <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Тэмдэглэл бичих..." className="min-h-[60px]" />
+                                            <Button onClick={handleSendNote} disabled={!noteText.trim() || sendingNote} className="h-auto px-4 bg-amber-500 hover:bg-amber-600 text-white shrink-0">
+                                                {sendingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {stageNotes.length === 0 && (
+                                        <p className="text-sm text-slate-400 italic py-2">Энэ шатанд тэмдэглэл байхгүй</p>
+                                    )}
+                                    {stageNotes.map(note => (
+                                        <div key={note.id} className="bg-amber-50 border border-amber-100 p-4 rounded-lg relative">
+                                            <Quote className="absolute top-3 right-3 h-5 w-5 text-amber-200/50" />
+                                            <p className="text-sm text-amber-900 whitespace-pre-wrap">{note.text}</p>
+                                            <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-100/50">
+                                                <div className="h-4 w-4 rounded-full bg-amber-200 flex items-center justify-center text-[9px] font-bold text-amber-700">{note.authorName[0]}</div>
+                                                <span className="text-[10px] font-semibold text-amber-700/70">{note.authorName}</span>
+                                                <span className="text-[10px] text-amber-500/50 ml-auto">{format(new Date(note.createdAt), 'MM/dd HH:mm')}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Section>
+
+                            {/* Evaluation Section */}
+                            <Section title="Үнэлгээ" icon={Star} count={stageScorecards.length} actions={
+                                isViewingCurrentStage ? (
+                                    <div className="flex gap-1.5">
+                                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowSendEvaluation(true)}>
+                                            <Send className="h-3 w-3" /> Ажилтанд илгээх
+                                        </Button>
+                                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowScorecard(true)}>
+                                            <Star className="h-3 w-3" /> Үнэлгээ нэмэх
+                                        </Button>
+                                    </div>
+                                ) : undefined
+                            }>
+                                <div className="space-y-4">
+                                    {stageScorecards.length === 0 && (
+                                        <p className="text-sm text-slate-400 italic py-2">Энэ шатанд үнэлгээ байхгүй</p>
+                                    )}
+                                    {stageScorecards.map(sc => (
+                                        <div key={sc.id} className="border rounded-lg overflow-hidden">
+                                            <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{sc.interviewerName?.[0]}</AvatarFallback></Avatar>
+                                                    <span className="text-xs font-semibold">{sc.interviewerName}</span>
+                                                    <span className="text-[10px] text-slate-400">{format(new Date(sc.createdAt), 'yyyy.MM.dd')}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-full border text-xs font-bold">
+                                                    <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
+                                                    {sc.averageScore.toFixed(1)}
+                                                </div>
+                                            </div>
+                                            <div className="p-3 space-y-2">
+                                                {sc.criteria.map((c, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs">
+                                                        <span className="text-slate-600">{c.name}</span>
+                                                        <div className="flex gap-0.5">
+                                                            {[1, 2, 3, 4, 5].map(s => (
+                                                                <div key={s} className={cn("h-1.5 w-3 rounded-full", s <= c.score ? "bg-blue-500" : "bg-slate-200")} />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {sc.notes && <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded mt-2">&ldquo;{sc.notes}&rdquo;</p>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Section>
+
+                            {/* Files Section */}
+                            <Section title="Файлууд" icon={Files} count={candidate.resumeUrl ? 1 : 0}>
+                                <div className="space-y-3">
+                                    {candidate.resumeUrl && (
+                                        <a href={candidate.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 hover:border-blue-200 group transition-all">
+                                            <div className="h-10 w-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-700">Resume.pdf</p>
+                                                <p className="text-xs text-slate-400">CV / Resume</p>
+                                            </div>
+                                            <Download className="h-4 w-4 text-slate-300 group-hover:text-blue-500" />
+                                        </a>
+                                    )}
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all">
+                                        <Files className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                                        <p className="text-xs text-slate-500 font-medium">+ Файл хавсаргах</p>
+                                    </div>
+                                </div>
+                            </Section>
+
+                            {/* Activity Log Section */}
+                            <Section title="Түүх" icon={History} count={stageEvents.length}>
+                                <div className="space-y-3">
+                                    {stageEvents.length === 0 && (
+                                        <p className="text-sm text-slate-400 italic py-2">Энэ шатанд бүртгэл байхгүй</p>
+                                    )}
+                                    {stageEvents.map(evt => {
+                                        const iconMap: Record<string, React.ElementType> = {
+                                            STAGE_CHANGE: CheckCircle2, MESSAGE: MessageSquare,
+                                            NOTE: FileText, SCORECARD: Star, SYSTEM: Clock,
+                                        };
+                                        const EvtIcon = iconMap[evt.type] || Clock;
+
+                                        return (
+                                            <div key={evt.id} className="flex items-start gap-3 text-xs">
+                                                <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 mt-0.5">
+                                                    <EvtIcon className="h-3 w-3" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-slate-700">{evt.title}</p>
+                                                    {evt.description && <p className="text-slate-500 mt-0.5 line-clamp-2">{evt.description}</p>}
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 shrink-0">{evt.createdAt ? format(new Date(evt.createdAt), 'MM/dd HH:mm') : ''}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Section>
+
+                        </div>
+                    </ScrollArea>
+                </section>
+
             </main>
 
+            {/* Scorecard Dialog */}
             <Dialog open={showScorecard} onOpenChange={setShowScorecard}>
                 <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
                     <DialogTitle className="sr-only">Үнэлгээний хуудас</DialogTitle>
                     <InterviewScorecard
-                        candidateName={`${candidate!.lastName} ${candidate!.firstName}`}
+                        candidateName={`${candidate.lastName} ${candidate.firstName}`}
                         onSubmit={handleScorecardSubmit}
                         onCancel={() => setShowScorecard(false)}
                         isLoading={submittingScorecard}
@@ -919,24 +1019,133 @@ export default function CandidateDetailPage() {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
+            {/* Send Evaluation to Employee Dialog */}
+            {application && candidate && (
+                <SendEvaluationDialog
+                    open={showSendEvaluation}
+                    onOpenChange={setShowSendEvaluation}
+                    applicationId={applicationId as string}
+                    candidateId={application.candidateId}
+                    candidateName={`${candidate.lastName} ${candidate.firstName}`}
+                    vacancyTitle={vacancy?.title}
+                    stageId={selectedStageId}
+                    requestedByUid={user?.uid || ''}
+                    requestedByName={user?.displayName || 'HR'}
+                />
+            )}
+
+            {/* Advance Stage Confirmation */}
+            <AlertDialog open={showAdvanceConfirm} onOpenChange={setShowAdvanceConfirm}>
                 <AlertDialogContent>
-                    <p>Loading...</p>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Дараагийн шат руу урагшлах уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <strong>&ldquo;{currentStage?.title}&rdquo;</strong> шатны тэмдэглэл, үнэлгээ, түүх, файлууд тухайн шатанд хадгалагдаж, <strong>&ldquo;{nextStageName}&rdquo;</strong> шат цэвэр хоосон эхлэнэ. Энэ үйлдлийг буцааж болохгүй.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmAdvanceStage} className="bg-blue-600 hover:bg-blue-700 gap-2">
+                            <ChevronRight className="h-4 w-4" /> Урагшлах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
                 </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Hire Confirmation */}
+            <AlertDialog open={showHireConfirm} onOpenChange={setShowHireConfirm}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            </div>
+                            Ажилд авах
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4 pt-2">
+                                <p className="text-sm text-slate-600">
+                                    Дараах горилогчийг ажилд авах гэж байна. Системд шинэ ажилтан бүртгэгдэж, нэвтрэх эрх үүснэ.
+                                </p>
+                                <div className="bg-slate-50 rounded-xl p-4 space-y-2 border">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-500">Нэр</span>
+                                        <span className="text-sm font-semibold text-slate-900">{candidate.lastName} {candidate.firstName}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-500">Имэйл</span>
+                                        <span className="text-sm text-slate-700">{candidate.email}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-500">Утас</span>
+                                        <span className="text-sm text-slate-700">{candidate.phone || '—'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-500">Ажлын байр</span>
+                                        <span className="text-sm text-slate-700">{vacancy?.title || '—'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-500">Одоогийн шат</span>
+                                        <span className="text-sm text-slate-700">{currentStage?.title || '—'}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+                                    <strong>Анхааруулга:</strong> Шинэ ажилтны нэвтрэх нууц үг нь утасны дугаар ({candidate.phone || '123456'}) байна. Ажилд авсны дараа ажилтанд мэдэгдэнэ үү.
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isHiring}>Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmHire} disabled={isHiring} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+                            {isHiring ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {isHiring ? 'Бүртгэж байна...' : 'Ажилд авах'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Reject Confirmation */}
+            <AlertDialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Горилогчоос татгалзах</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p>Татгалзсан шалтгааныг тэмдэглэнэ үү.</p>
+                                <Textarea
+                                    value={rejectReason}
+                                    onChange={e => setRejectReason(e.target.value)}
+                                    placeholder="Жишээ: Туршлага хангалтгүй, мэргэжлийн шалгалтад тэнцээгүй..."
+                                    className="min-h-[80px]"
+                                />
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmReject} className="bg-red-600 hover:bg-red-700 gap-2">
+                            <X className="h-4 w-4" /> Татгалзах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
+                <AlertDialogContent><p>Устгаж байна...</p></AlertDialogContent>
             </AlertDialog>
             <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Энэ үйлдлийг буцаах боломжгүй. Нэр дэвшигч болон түүнтэй холбоотой бүх мэдээлэл (үнэлгээ, тэмдэглэл, түүх) бүрмөсөн устах болно.
+                            Нэр дэвшигч болон бүх мэдээлэл бүрмөсөн устана.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteApplication} className="bg-red-600 hover:bg-red-700">
-                            Устгах
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={handleDeleteApplication} className="bg-red-600 hover:bg-red-700">Устгах</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

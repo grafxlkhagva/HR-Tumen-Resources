@@ -19,14 +19,15 @@ import {
     trainingCourseSchema,
     TrainingCourseFormValues,
     TrainingCourse,
-    COURSE_CATEGORIES,
-    COURSE_CATEGORY_LABELS,
+    TrainingCategory,
     COURSE_TYPES,
     COURSE_TYPE_LABELS,
     SKILL_LEVELS,
     SKILL_LEVEL_LABELS,
     COURSE_STATUSES,
     COURSE_STATUS_LABELS,
+    PROVIDER_TYPES,
+    PROVIDER_TYPE_LABELS,
 } from '../types';
 
 interface SkillItem {
@@ -41,6 +42,7 @@ interface CreateCourseDialogProps {
     onSubmit: (values: TrainingCourseFormValues) => void;
     editingCourse?: TrainingCourse | null;
     skills: SkillItem[];
+    categories: TrainingCategory[];
 }
 
 export function CreateCourseDialog({
@@ -49,6 +51,7 @@ export function CreateCourseDialog({
     onSubmit,
     editingCourse,
     skills,
+    categories,
 }: CreateCourseDialogProps) {
     const isEditing = !!editingCourse;
 
@@ -57,12 +60,13 @@ export function CreateCourseDialog({
         defaultValues: {
             title: '',
             description: '',
-            category: 'technical',
+            categoryId: '',
             skillIds: [],
             targetLevel: 'beginner',
             duration: 1,
             type: 'classroom',
-            provider: '',
+            providerType: 'internal',
+            providerName: '',
             status: 'draft',
         },
     });
@@ -74,24 +78,26 @@ export function CreateCourseDialog({
                 form.reset({
                     title: editingCourse.title,
                     description: editingCourse.description,
-                    category: editingCourse.category,
+                    categoryId: editingCourse.categoryId,
                     skillIds: editingCourse.skillIds,
                     targetLevel: editingCourse.targetLevel,
                     duration: editingCourse.duration,
                     type: editingCourse.type,
-                    provider: editingCourse.provider,
+                    providerType: editingCourse.providerType,
+                    providerName: editingCourse.providerName,
                     status: editingCourse.status,
                 });
             } else {
                 form.reset({
                     title: '',
                     description: '',
-                    category: 'technical',
+                    categoryId: '',
                     skillIds: [],
                     targetLevel: 'beginner',
                     duration: 1,
                     type: 'classroom',
-                    provider: '',
+                    providerType: 'internal',
+                    providerName: '',
                     status: 'draft',
                 });
             }
@@ -147,16 +153,16 @@ export function CreateCourseDialog({
 
                             {/* Row: Category + Type */}
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="category" render={({ field }) => (
+                                <FormField control={form.control} name="categoryId" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Ангилал *</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Ангилал сонгох" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {COURSE_CATEGORIES.map(cat => (
-                                                    <SelectItem key={cat} value={cat}>{COURSE_CATEGORY_LABELS[cat]}</SelectItem>
+                                                {categories.map(cat => (
+                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -210,14 +216,33 @@ export function CreateCourseDialog({
                                 )} />
                             </div>
 
-                            {/* Provider */}
-                            <FormField control={form.control} name="provider" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Зохион байгуулагч *</FormLabel>
-                                    <FormControl><Input placeholder="Байгууллага эсвэл хүний нэр" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
+                            {/* Provider type + name */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="providerType" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Зохион байгуулагч *</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Төрөл сонгох" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {PROVIDER_TYPES.map(pt => (
+                                                    <SelectItem key={pt} value={pt}>{PROVIDER_TYPE_LABELS[pt]}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                <FormField control={form.control} name="providerName" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Нэр *</FormLabel>
+                                        <FormControl><Input placeholder="Багш/байгууллагын нэр" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
 
                             {/* Status */}
                             <FormField control={form.control} name="status" render={({ field }) => (

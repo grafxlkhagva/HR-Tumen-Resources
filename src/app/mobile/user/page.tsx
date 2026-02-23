@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, User, Bell, Lock, HelpCircle, Sparkles, FileText } from 'lucide-react';
+import { ChevronRight, LogOut, User, Bell, Lock, HelpCircle, Sparkles, FileText, ClipboardCheck } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirebase } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -82,9 +83,58 @@ function PageSkeleton() {
 
 export default function MobileUserPage() {
   const { employeeProfile, isProfileLoading, user, isUserLoading, error } = useEmployeeProfile();
+  const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = React.useState(false);
+  const [pendingEvalCount, setPendingEvalCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!firestore || !user?.uid) return;
+    let cancelled = false;
+
+    const load = async () => {
+      const seen = new Set<string>();
+
+      const countPending = (snap: any) => {
+        snap.docs.forEach((d: any) => {
+          if (!seen.has(d.id) && d.data().status === 'pending') seen.add(d.id);
+        });
+      };
+
+      // 1) Email-ээр хайх
+      if (user.email) {
+        try {
+          const byEmail = query(collection(firestore, 'evaluation_requests'), where('assignedToEmail', '==', user.email));
+          countPending(await getDocs(byEmail));
+        } catch (_) { /* index may not exist yet */ }
+      }
+
+      // 2) Auth UID-аар хайх
+      try {
+        const byUid = query(collection(firestore, 'evaluation_requests'), where('assignedTo', '==', user.uid));
+        countPending(await getDocs(byUid));
+      } catch (_) { /* ignore */ }
+
+      // 3) Employee doc ID-аар хайх
+      if (user.email) {
+        try {
+          const empQ = query(collection(firestore, 'employees'), where('email', '==', user.email));
+          const empSnap = await getDocs(empQ);
+          const empIds = empSnap.docs.map(d => d.id).filter(id => id !== user.uid);
+          if (empIds.length > 0) {
+            const byEmpId = query(collection(firestore, 'evaluation_requests'), where('assignedTo', 'in', empIds));
+            countPending(await getDocs(byEmpId));
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      if (!cancelled) setPendingEvalCount(seen.size);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [firestore, user?.uid, user?.email]);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -170,6 +220,7 @@ export default function MobileUserPage() {
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Ажил</h3>
           <SettingsItem icon={FileText} label="Бичиг баримт хянах" href="/mobile/document-review" />
+          <SettingsItem icon={ClipboardCheck} label="Сонгон шалгаруулалт" href="/mobile/evaluations" badge={pendingEvalCount > 0 ? String(pendingEvalCount) : undefined} />
         </div>
 
         <div>

@@ -126,9 +126,11 @@ export function CandidateDetailSheet({ application, open, onOpenChange }: Candid
                         </Avatar>
                         <div>
                             <SheetTitle className="text-xl">{candidate.lastName} {candidate.firstName}</SheetTitle>
-                            <SheetDescription className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline">{application.status}</Badge>
-                                <span className="text-xs text-muted-foreground">{candidate.email}</span>
+                            <SheetDescription asChild>
+                                <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                                    <Badge variant="outline">{application.status}</Badge>
+                                    <span className="text-xs text-muted-foreground">{candidate.email}</span>
+                                </div>
                             </SheetDescription>
                         </div>
                     </div>

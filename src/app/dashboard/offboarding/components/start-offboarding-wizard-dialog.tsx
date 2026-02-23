@@ -91,7 +91,7 @@ export function StartOffboardingWizardDialog({ open, onOpenChange }: StartOffboa
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй'));
+    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 

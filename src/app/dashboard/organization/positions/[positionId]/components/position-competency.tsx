@@ -118,13 +118,37 @@ export function PositionCompetency({
 
     const { data: skillsInventory } = useCollection<any>(skillsInventoryQuery);
 
+    const skillTypesQuery = useMemo(() =>
+        firestore ? collection(firestore, 'skill_types') : null
+        , [firestore]);
+
+    const { data: skillTypes } = useCollection<any>(skillTypesQuery);
+
+    const skillTypeMap = useMemo(() => {
+        const map = new Map<string, string>();
+        skillTypes?.forEach((t: any) => map.set(t.id, t.name));
+        return map;
+    }, [skillTypes]);
+
     const filteredSuggestions = useMemo(() => {
-        if (!skillSearch) return [];
-        return skillsInventory?.filter(s =>
-            s.name.toLowerCase().includes(skillSearch.toLowerCase()) &&
+        const available = skillsInventory?.filter(s =>
             !editSkills.some(existing => existing.name.toLowerCase() === s.name.toLowerCase())
-        ).slice(0, 5) || [];
+        ) || [];
+        if (!skillSearch) return available;
+        return available.filter(s =>
+            s.name.toLowerCase().includes(skillSearch.toLowerCase())
+        );
     }, [skillSearch, skillsInventory, editSkills]);
+
+    const groupedSuggestions = useMemo(() => {
+        const groups: Record<string, typeof filteredSuggestions> = {};
+        filteredSuggestions.forEach(s => {
+            const group = (s.type && skillTypeMap.get(s.type)) || 'Бусад';
+            if (!groups[group]) groups[group] = [];
+            groups[group].push(s);
+        });
+        return groups;
+    }, [filteredSuggestions, skillTypeMap]);
 
     // Save helpers
     const saveField = async (field: string, value: any) => {
@@ -176,12 +200,48 @@ export function PositionCompetency({
                 throw new Error(result.error || 'AI үүсгэхэд алдаа гарлаа');
             }
 
-            // Save all generated content
             if (!firestore) return;
+
+            // Reconcile AI-generated skills with the skills inventory
+            const generatedSkills: Skill[] = result.data.skills || [];
+            const reconciledSkills: Skill[] = [];
+            const existingNames = new Set(
+                (skillsInventory || []).map((s: any) => s.name.toLowerCase())
+            );
+
+            for (const genSkill of generatedSkills) {
+                const genNameLower = genSkill.name.toLowerCase().trim();
+
+                // Find a matching skill in inventory (case-insensitive)
+                const inventoryMatch = (skillsInventory || []).find(
+                    (s: any) => s.name.toLowerCase().trim() === genNameLower
+                );
+
+                if (inventoryMatch) {
+                    // Use the exact name from inventory
+                    reconciledSkills.push({ name: inventoryMatch.name, level: genSkill.level });
+                } else {
+                    // Use AI name as-is and create new inventory entry
+                    reconciledSkills.push({ name: genSkill.name, level: genSkill.level });
+                    if (!existingNames.has(genNameLower)) {
+                        existingNames.add(genNameLower);
+                        try {
+                            await addDoc(collection(firestore, 'skills_inventory'), {
+                                name: genSkill.name,
+                                createdAt: new Date().toISOString(),
+                            });
+                        } catch (e) {
+                            console.error('Error adding AI skill to inventory:', e);
+                        }
+                    }
+                }
+            }
+
+            // Save all generated content with reconciled skills
             await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
                 purpose: result.data.purpose || '',
                 responsibilities: result.data.responsibilities || [],
-                skills: result.data.skills || [],
+                skills: reconciledSkills,
                 experience: {
                     totalYears: result.data.experience?.totalYears || 0,
                     leadershipYears: result.data.experience?.leadershipYears || 0,
@@ -193,7 +253,7 @@ export function PositionCompetency({
 
             toast({
                 title: 'AI үүсгэлт амжилттай',
-                description: 'Бүх мэдээлэл хадгалагдлаа'
+                description: `${reconciledSkills.length} ур чадвар (${reconciledSkills.length - generatedSkills.filter(g => !(skillsInventory || []).some((s: any) => s.name.toLowerCase().trim() === g.name.toLowerCase().trim())).length} сангаас, ${generatedSkills.filter(g => !(skillsInventory || []).some((s: any) => s.name.toLowerCase().trim() === g.name.toLowerCase().trim())).length} шинээр үүсгэсэн)`
             });
         } catch (error) {
             console.error('AI generation error:', error);
@@ -220,7 +280,6 @@ export function PositionCompetency({
                     await addDoc(collection(firestore, 'skills_inventory'), {
                         name,
                         createdAt: new Date().toISOString(),
-                        category: 'Ажлын байрнаас нэмсэн'
                     });
                 } catch (e) {
                     console.error("Error adding to inventory:", e);
@@ -419,23 +478,54 @@ export function PositionCompetency({
                                         }}
                                     />
                                     {showSuggestions && filteredSuggestions.length > 0 && (
-                                        <div className="absolute z-50 bottom-full mb-2 left-0 right-0 bg-white dark:bg-slate-800 border rounded-lg shadow-lg overflow-hidden py-1">
-                                            <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase bg-slate-50 dark:bg-slate-700 border-b">
-                                                Сангаас
+                                        <div className="absolute z-50 bottom-full mb-2 left-0 right-0 bg-white dark:bg-slate-800 border rounded-lg shadow-lg overflow-hidden">
+                                            <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase bg-slate-50 dark:bg-slate-700 border-b flex items-center justify-between">
+                                                <span>Ур чадварын сан</span>
+                                                <span className="text-[9px] font-normal normal-case">{filteredSuggestions.length} ур чадвар</span>
                                             </div>
-                                            {filteredSuggestions.map((s, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
-                                                    onClick={() => {
-                                                        handleAddSkill(s.name, selectedSkillLevel);
-                                                        setSkillSearch('');
-                                                        setShowSuggestions(false);
-                                                    }}
-                                                >
-                                                    {s.name}
-                                                </button>
-                                            ))}
+                                            <div className="max-h-[240px] overflow-y-auto">
+                                                {Object.entries(groupedSuggestions).map(([category, skills]) => (
+                                                    <div key={category}>
+                                                        <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground bg-slate-50/50 dark:bg-slate-700/50 border-b border-t sticky top-0">
+                                                            {category}
+                                                        </div>
+                                                        {skills.map((s, idx) => (
+                                                            <button
+                                                                key={`${category}-${idx}`}
+                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+                                                                onClick={() => {
+                                                                    handleAddSkill(s.name, selectedSkillLevel);
+                                                                    setSkillSearch('');
+                                                                    setShowSuggestions(false);
+                                                                }}
+                                                            >
+                                                                <span className="flex-1">
+                                                                    {skillSearch ? (
+                                                                        (() => {
+                                                                            const lowerName = s.name.toLowerCase();
+                                                                            const lowerSearch = skillSearch.toLowerCase();
+                                                                            const matchIdx = lowerName.indexOf(lowerSearch);
+                                                                            if (matchIdx === -1) return s.name;
+                                                                            return (
+                                                                                <>
+                                                                                    {s.name.slice(0, matchIdx)}
+                                                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded px-0.5">
+                                                                                        {s.name.slice(matchIdx, matchIdx + skillSearch.length)}
+                                                                                    </span>
+                                                                                    {s.name.slice(matchIdx + skillSearch.length)}
+                                                                                </>
+                                                                            );
+                                                                        })()
+                                                                    ) : s.name}
+                                                                </span>
+                                                                {s.description && (
+                                                                    <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{s.description}</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

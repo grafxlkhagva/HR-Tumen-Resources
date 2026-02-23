@@ -108,7 +108,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон']));
+    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 

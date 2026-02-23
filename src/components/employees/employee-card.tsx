@@ -22,17 +22,29 @@ import {
   Cake,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Employee, LifecycleStage } from '@/types';
+import type { Employee, LifecycleStage, EmployeeStatus } from '@/types';
+import { EMPLOYEE_STATUS_LABELS } from '@/types';
+
+/** Display-only status type: EmployeeStatus + 'candidate' for recruitment pipeline UI */
+export type DisplayStatus = EmployeeStatus | 'candidate';
+
+const DISPLAY_STATUS_LABELS: Record<DisplayStatus, string> = {
+  ...EMPLOYEE_STATUS_LABELS,
+  candidate: 'Горилогч',
+};
 
 // Status config for detailed variant
-const statusConfig: Record<string, { variant: 'success' | 'info' | 'warning' | 'error' | 'muted'; label: string; color: string }> = {
-  'Идэвхтэй': { variant: 'success', label: 'Идэвхтэй', color: 'emerald' },
-  'Идэвхтэй туршилт': { variant: 'warning', label: 'Туршилт', color: 'amber' },
-  'Идэвхтэй үндсэн': { variant: 'success', label: 'Үндсэн', color: 'emerald' },
-  'Түр эзгүй': { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
-  'Чөлөөлөгдөж буй': { variant: 'warning', label: 'Чөлөөлөгдөж буй', color: 'orange' },
-  'Ажлаас гарсан': { variant: 'error', label: 'Гарсан', color: 'rose' },
-  'Түр түдгэлзүүлсэн': { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
+const statusConfig: Record<DisplayStatus, { variant: 'success' | 'info' | 'warning' | 'error' | 'muted'; label: string; color: string }> = {
+  candidate: { variant: 'info', label: 'Горилогч', color: 'indigo' },
+  active: { variant: 'success', label: 'Идэвхтэй', color: 'emerald' },
+  active_probation: { variant: 'warning', label: 'Туршилт', color: 'amber' },
+  active_permanent: { variant: 'success', label: 'Үндсэн', color: 'emerald' },
+  active_recruitment: { variant: 'info', label: 'Бүрдүүлэлт', color: 'blue' },
+  appointing: { variant: 'info', label: 'Томилогдож буй', color: 'blue' },
+  on_leave: { variant: 'info', label: 'Түр эзгүй', color: 'blue' },
+  releasing: { variant: 'warning', label: 'Чөлөөлөгдөж буй', color: 'orange' },
+  terminated: { variant: 'error', label: 'Гарсан', color: 'rose' },
+  suspended: { variant: 'muted', label: 'Түдгэлзсэн', color: 'slate' },
 };
 
 const lifecycleConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -43,7 +55,7 @@ const lifecycleConfig: Record<string, { bg: string; text: string; label: string 
   offboarding: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Чөлөөлөх' },
 };
 
-export type EmployeeCardEmployee = Pick<
+export type EmployeeCardEmployee = Omit<Pick<
   Employee,
   | 'id'
   | 'firstName'
@@ -58,7 +70,9 @@ export type EmployeeCardEmployee = Pick<
   | 'email'
   | 'phoneNumber'
   | 'hireDate'
-> & {
+>, 'status'> & {
+  /** Accepts EmployeeStatus + 'candidate' for recruitment pipeline display */
+  status: DisplayStatus;
   departmentName?: string;
   /** Gender from questionnaire: 'male' | 'female' */
   gender?: string;
@@ -214,13 +228,11 @@ export function EmployeeCard({
         )}
       >
         {/* Top-left meta (code + lifecycle), like PositionStructureCard */}
-        {employee.employeeCode || lifecyclePill ? (
+        {employee.employeeCode || employee.status === 'candidate' || lifecyclePill ? (
           <div className="absolute top-3 left-4 flex items-baseline gap-3 pointer-events-none">
-            {employee.employeeCode ? (
-              <div className="text-[10px] font-mono font-medium tracking-wider text-slate-500 dark:text-slate-400 opacity-80">
-                {employee.employeeCode}
-              </div>
-            ) : null}
+            <div className="text-[10px] font-mono font-medium tracking-wider text-slate-500 dark:text-slate-400 opacity-80">
+              {employee.employeeCode || (employee.status === 'candidate' ? 'ГР' : '')}
+            </div>
             {lifecyclePill ? <div className="opacity-90">{lifecyclePill}</div> : null}
           </div>
         ) : null}
@@ -318,13 +330,11 @@ export function EmployeeCard({
       ) : null}
 
       {/* Top-left meta (code + lifecycle) */}
-      {employee.employeeCode || detailedLifecycle ? (
+      {employee.employeeCode || employee.status === 'candidate' || detailedLifecycle ? (
         <div className="absolute top-3 left-4 z-10 flex items-baseline gap-3 pointer-events-none">
-          {employee.employeeCode ? (
-            <div className="text-[10px] font-mono font-medium tracking-wider text-slate-500 dark:text-slate-400 opacity-80">
-              {employee.employeeCode}
-            </div>
-          ) : null}
+          <div className="text-[10px] font-mono font-medium tracking-wider text-slate-500 dark:text-slate-400 opacity-80">
+            {employee.employeeCode || (employee.status === 'candidate' ? 'ГР' : '')}
+          </div>
           {detailedLifecycle ? <div className="opacity-90">{detailedLifecycle}</div> : null}
         </div>
       ) : null}
@@ -428,7 +438,7 @@ export function EmployeeCard({
             </div>
 
             <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-              {employee.jobTitle || 'Албан тушаал тодорхойгүй'}
+              {employee.jobTitle || (employee.status === 'candidate' ? DISPLAY_STATUS_LABELS.candidate : 'Албан тушаал тодорхойгүй')}
             </div>
             {deptName ? <div className="text-xs text-slate-500 dark:text-slate-500 truncate">{deptName}</div> : null}
 

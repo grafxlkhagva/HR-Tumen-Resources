@@ -8,7 +8,7 @@ import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBloc
 import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
-import { isActiveStatus } from '@/types';
+import { isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,15 +94,15 @@ type CompanyPolicy = {
 
 
 const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
-    "Идэвхтэй бүрдүүлэлт": { variant: 'outline', className: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-50/80 border-indigo-200', label: 'Бүрдүүлэлт' },
-    "Томилогдож буй": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Томилогдож буй' },
-    "Идэвхтэй": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: 'Идэвхтэй' },
-    "Идэвхтэй туршилт": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: 'Туршилт' },
-    "Идэвхтэй үндсэн": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: 'Үндсэн' },
-    "Түр эзгүй": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: 'Түр эзгүй' },
-    "Чөлөөлөгдөж буй": { variant: 'secondary', className: 'bg-orange-50 text-orange-700 hover:bg-orange-50/80 border-orange-200', label: 'Чөлөөлөгдөж буй' },
-    "Ажлаас гарсан": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: 'Гарсан' },
-    "Түр түдгэлзүүлсэн": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: 'Түдгэлзсэн' },
+    "active_recruitment": { variant: 'outline', className: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-50/80 border-indigo-200', label: EMPLOYEE_STATUS_LABELS.active_recruitment },
+    "appointing": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: EMPLOYEE_STATUS_LABELS.appointing },
+    "active": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active },
+    "active_probation": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: EMPLOYEE_STATUS_LABELS.active_probation },
+    "active_permanent": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active_permanent },
+    "on_leave": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: EMPLOYEE_STATUS_LABELS.on_leave },
+    "releasing": { variant: 'secondary', className: 'bg-orange-50 text-orange-700 hover:bg-orange-50/80 border-orange-200', label: EMPLOYEE_STATUS_LABELS.releasing },
+    "terminated": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: EMPLOYEE_STATUS_LABELS.terminated },
+    "suspended": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: EMPLOYEE_STATUS_LABELS.suspended },
 };
 
 const AvatarWithProgress = ({ 
@@ -1050,7 +1050,7 @@ export default function EmployeeProfilePage() {
             <div className="flex-1 overflow-y-auto">
                 <div className="p-6 md:p-8 space-y-6 pb-32">
                     {/* Status Warning - only for pending appointment */}
-                    {employee.status === 'Томилогдож буй' && (
+                    {employee.status === 'appointing' && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                             <p className="text-sm font-medium text-amber-900">
@@ -1059,7 +1059,7 @@ export default function EmployeeProfilePage() {
                         </div>
                     )}
                     {/* Releasing employee info */}
-                    {employee.status === 'Чөлөөлөгдөж буй' && (
+                    {employee.status === 'releasing' && (
                         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3">
                             <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
                             <p className="text-sm font-medium text-orange-900">
@@ -1068,7 +1068,7 @@ export default function EmployeeProfilePage() {
                         </div>
                     )}
                     {/* Terminated employee info */}
-                    {employee.status === 'Ажлаас гарсан' && (
+                    {employee.status === 'terminated' && (
                         <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
                             <AlertTriangle className="w-5 h-5 text-slate-500 shrink-0" />
                             <p className="text-sm font-medium text-slate-700">

@@ -160,7 +160,7 @@ export function ReleaseEmployeeDialog({
 
     const employeesQuery = React.useMemo(() =>
         firestore
-            ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй'))
+            ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']))
             : null
         , [firestore]);
     const { data: employees } = useCollection<Employee>(employeesQuery as any);
@@ -188,7 +188,7 @@ export function ReleaseEmployeeDialog({
 
     // Check if employee is in "Томилогдож буй" status with unapproved appointment
     const hasPendingAppointment = React.useMemo(() => {
-        if (employee?.status !== 'Томилогдож буй') return false;
+        if (employee?.status !== 'appointing') return false;
         if (!pendingAppointmentDocs?.length) return false;
         // Check if any appointment doc is not yet signed/approved
         return pendingAppointmentDocs.some(doc => 
@@ -357,8 +357,8 @@ export function ReleaseEmployeeDialog({
             // 3. Update employee: revert to pre-appointment status
             const empRef = doc(firestore, 'employees', employee.id);
             batch.update(empRef, {
-                status: 'Идэвхтэй бүрдүүлэлт',
-                lifecycleStage: 'candidate',
+                status: 'active_recruitment',
+                lifecycleStage: 'recruitment',
                 positionId: null,
                 jobTitle: null,
                 departmentId: null,
@@ -433,10 +433,10 @@ export function ReleaseEmployeeDialog({
             let releaseStatus: string;
             if (selectedActionId === 'release_temporary') {
                 // Түр чөлөөлөх: баримт байвал түр түдгэлзүүлсэн, баримтгүй бол шууд Түр эзгүй
-                releaseStatus = willCreateERDoc ? 'Түр түдгэлзүүлсэн' : 'Түр эзгүй';
+                releaseStatus = willCreateERDoc ? 'suspended' : 'on_leave';
             } else {
                 // Бүрэн чөлөөлөх: баримт байвал Чөлөөлөгдөж буй (баталгаажихыг хүлээнэ), баримтгүй бол шууд Ажлаас гарсан
-                releaseStatus = willCreateERDoc ? 'Чөлөөлөгдөж буй' : 'Ажлаас гарсан';
+                releaseStatus = willCreateERDoc ? 'releasing' : 'terminated';
             }
 
             const empRef = doc(firestore, 'employees', employee.id);

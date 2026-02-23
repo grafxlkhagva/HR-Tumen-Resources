@@ -60,7 +60,7 @@ export default function OffboardingDashboardPage() {
     const employeesQuery = useMemoFirebase(
         () =>
             firestore
-                ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон', 'Чөлөөлөгдөж буй', 'Ажлаас гарсан']))
+                ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'appointing', 'releasing', 'terminated']))
                 : null,
         [firestore]
     );

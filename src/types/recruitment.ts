@@ -52,8 +52,12 @@ export interface JobApplication {
     id: string;
     vacancyId: string;
     candidateId: string;
+    /** Employees collection-тай холбох (горилогч = ажилтан) */
+    employeeId?: string;
     currentStageId: string;
     status: 'ACTIVE' | 'REJECTED' | 'WITHDRAWN' | 'HIRED';
+    /** Татгалзсан шалтгаан */
+    rejectionReason?: string;
     appliedAt: string;
     updatedAt: string;
     candidate?: Candidate; // For easier displaying in lists
@@ -99,6 +103,24 @@ export interface Scorecard {
     averageScore: number;
     createdAt: string;
 }
+export interface EvaluationRequest {
+    id: string;
+    applicationId: string;
+    candidateId: string;
+    candidateName: string;
+    vacancyTitle?: string;
+    stageId: string;
+    requestedBy: string;
+    requestedByName: string;
+    assignedTo: string;
+    assignedToName: string;
+    assignedToEmail?: string;
+    status: 'pending' | 'completed';
+    scorecardId?: string;
+    createdAt: string;
+    completedAt?: string;
+}
+
 export interface MessageTemplate {
     id: string;
     title: string;

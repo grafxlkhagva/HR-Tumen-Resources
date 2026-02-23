@@ -99,7 +99,7 @@ export function ScheduleInterviewDialog({
 
     // Fetch active employees for interviewers
     const employeesQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'employees'), where('status', '==', 'Идэвхтэй')) : null),
+        () => (firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent'])) : null),
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery as any);

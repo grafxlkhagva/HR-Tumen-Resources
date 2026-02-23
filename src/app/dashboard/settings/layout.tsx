@@ -7,7 +7,6 @@ import {
     Hash,
     FileText,
     Clock,
-    GraduationCap,
     MapPin,
     Shield
 } from 'lucide-react';
@@ -32,11 +31,6 @@ const settingsNavItems = [
         title: "Байршил",
         href: "/dashboard/settings/attendance",
         icon: MapPin,
-    },
-    {
-        title: "Ур чадвар",
-        href: "/dashboard/settings/skills",
-        icon: GraduationCap,
     },
     {
         title: "Анкет",

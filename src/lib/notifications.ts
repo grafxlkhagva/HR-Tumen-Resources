@@ -65,13 +65,24 @@ export async function sendNotification(
 }
 
 /**
- * Mocks sending an SMS notification
+ * Монгол утасны дугаарт 976 улсын код нэмэх.
+ * Жишээ: "88104099" -> "97688104099", "97688104099" -> "97688104099"
+ */
+function formatMongolianPhone(phone: string): string {
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    if (cleaned.startsWith('976')) return cleaned;
+    return `976${cleaned}`;
+}
+
+/**
+ * SMS мессеж илгээх
  */
 export async function sendSMS(
     phoneNumber: string,
     text: string
 ): Promise<boolean> {
-    console.log(`[Notification Service] Sending SMS to ${phoneNumber} via API`);
+    const formattedPhone = formatMongolianPhone(phoneNumber);
+    console.log(`[Notification Service] Sending SMS to ${formattedPhone} via API`);
 
     try {
         const response = await fetch('/api/sms', {
@@ -80,7 +91,7 @@ export async function sendSMS(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                to: phoneNumber,
+                to: formattedPhone,
                 text: text,
             }),
         });

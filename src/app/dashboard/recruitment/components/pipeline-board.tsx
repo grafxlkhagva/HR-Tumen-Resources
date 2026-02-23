@@ -30,12 +30,12 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
 import { JobApplication, Vacancy, RecruitmentStage } from '@/types/recruitment';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User as UserIcon, MoreHorizontal, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { AddCandidateDialog } from './add-candidate-dialog';
-import { CandidateDetailSheet } from './candidate-detail-sheet';
 
 const DEFAULT_STAGES: RecruitmentStage[] = [
     { id: 'screening', title: 'Анкет шүүлт', type: 'SCREENING', order: 0 },
@@ -114,12 +114,14 @@ function Column({
     stage,
     applications,
     onSelectApplication,
-    onViewDetails
+    onViewDetails,
+    variant = 'default',
 }: {
     stage: RecruitmentStage,
     applications: JobApplication[],
     onSelectApplication: (app: JobApplication) => void,
-    onViewDetails: (app: JobApplication) => void
+    onViewDetails: (app: JobApplication) => void,
+    variant?: 'default' | 'rejected' | 'hired',
 }) {
     const { setNodeRef } = useSortable({
         id: stage.id,
@@ -130,11 +132,25 @@ function Column({
     });
 
     return (
-        <div className="flex flex-col h-full w-[280px] shrink-0 bg-muted/30 rounded-lg p-2 border">
+        <div className={cn(
+            "flex flex-col h-full w-[280px] shrink-0 rounded-lg p-2 border",
+            variant === 'rejected' ? "bg-red-50/50 border-red-200" :
+                variant === 'hired' ? "bg-emerald-50/50 border-emerald-200" :
+                    "bg-muted/30"
+        )}>
             <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm">{stage.title}</h3>
-                    <Badge variant="secondary" className="text-xs px-1.5 h-5 min-w-[20px] justify-center">
+                    {variant === 'rejected' && <X className="h-3.5 w-3.5 text-red-500" />}
+                    <h3 className={cn(
+                        "font-semibold text-sm",
+                        variant === 'rejected' && "text-red-700",
+                        variant === 'hired' && "text-emerald-700",
+                    )}>{stage.title}</h3>
+                    <Badge variant="secondary" className={cn(
+                        "text-xs px-1.5 h-5 min-w-[20px] justify-center",
+                        variant === 'rejected' && "bg-red-100 text-red-600",
+                        variant === 'hired' && "bg-emerald-100 text-emerald-600",
+                    )}>
                         {applications.length}
                     </Badge>
                 </div>
@@ -167,7 +183,6 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
     const router = useRouter();
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>(initialVacancyId || '');
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
     const [globalStages, setGlobalStages] = useState<RecruitmentStage[]>(DEFAULT_STAGES);
     const [isLoadingStages, setIsLoadingStages] = useState(true);
 
@@ -312,12 +327,24 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
         setActiveId(null);
     };
 
-    // Group applications by stage
-    const columns = stages?.map(stage => {
-        const stageApps = enrichedApplications?.filter(app => app.currentStageId === stage.id) || [];
+    const REJECTED_STAGE: RecruitmentStage = { id: 'rejected', title: 'Татгалзсан', type: 'REJECTED', order: 998 };
+    const HIRED_STAGE: RecruitmentStage = { id: 'hired', title: 'Ажилд авсан', type: 'HIRED', order: 999 };
+
+    // Group applications by stage, plus rejected/hired columns
+    const pipelineStages = [...(stages || []), HIRED_STAGE, REJECTED_STAGE];
+    const columns = pipelineStages.map(stage => {
+        let stageApps: JobApplication[];
+        if (stage.id === 'rejected') {
+            stageApps = enrichedApplications?.filter(app => app.status === 'REJECTED') || [];
+        } else if (stage.id === 'hired') {
+            stageApps = enrichedApplications?.filter(app => app.status === 'HIRED') || [];
+        } else {
+            stageApps = enrichedApplications?.filter(app => app.currentStageId === stage.id && app.status === 'ACTIVE') || [];
+        }
         return {
             stage,
-            applications: stageApps
+            applications: stageApps,
+            variant: stage.id === 'rejected' ? 'rejected' as const : stage.id === 'hired' ? 'hired' as const : 'default' as const,
         };
     });
 
@@ -392,7 +419,10 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
                             key={col.stage.id}
                             stage={col.stage}
                             applications={col.applications}
-                            onSelectApplication={setSelectedApplication}
+                            variant={col.variant}
+                            onSelectApplication={(app) => {
+                                router.push(`/dashboard/recruitment/applications/${app.id}`);
+                            }}
                             onViewDetails={(app) => {
                                 router.push(`/dashboard/recruitment/applications/${app.id}`);
                             }}
@@ -418,13 +448,6 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
                 </DragOverlay>
             </DndContext>
 
-            {selectedApplication && (
-                <CandidateDetailSheet
-                    application={selectedApplication}
-                    open={!!selectedApplication}
-                    onOpenChange={(open) => !open && setSelectedApplication(null)}
-                />
-            )}
         </div>
     );
 }

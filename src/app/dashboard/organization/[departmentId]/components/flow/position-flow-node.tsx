@@ -45,7 +45,7 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         onAppoint
     } = data;
 
-    const isAppointing = assignedEmployee?.status === 'Томилогдож буй';
+    const isAppointing = assignedEmployee?.status === 'appointing';
     const occupancyPct = (() => {
         // `filled` is used across the system; treat 0..1 as ratio, 0..100 as percent.
         if (typeof filled === 'number') {

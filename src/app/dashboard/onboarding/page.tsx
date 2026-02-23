@@ -63,7 +63,7 @@ export default function OnboardingDashboardPage() {
 
     // Fetch all employees
     const employeesQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон'])) : null
+        firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])) : null
         , [firestore]);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery as any);
 

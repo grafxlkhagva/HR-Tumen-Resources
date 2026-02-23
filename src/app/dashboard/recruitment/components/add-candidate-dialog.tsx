@@ -38,8 +38,18 @@ const candidateSchema = z.object({
 
 type CandidateFormValues = z.infer<typeof candidateSchema>;
 
-export function AddCandidateDialog({ vacancy }: { vacancy?: Vacancy }) {
-    const [open, setOpen] = useState(false);
+export function AddCandidateDialog({
+    vacancy,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange,
+}: {
+    vacancy?: Vacancy;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = controlledOpen ?? internalOpen;
+    const setOpen = controlledOnOpenChange ?? setInternalOpen;
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
@@ -59,37 +69,33 @@ export function AddCandidateDialog({ vacancy }: { vacancy?: Vacancy }) {
         setIsLoading(true);
 
         try {
-            // 1. Create Candidate
+            const now = new Date().toISOString();
+
+            // 1. Candidate бичлэг үүсгэх
             const newCandidate: Omit<Candidate, 'id'> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 email: data.email,
                 phone: data.phone,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
+                createdAt: now,
+                updatedAt: now,
                 source: 'MANUAL',
             };
 
-            // Note: In real app we need ID to link, but allow Firestore to gen ID.
-            // We'll use a transaction or just sequential writes for now.
             const candidateRef = await addDocumentNonBlocking(collection(firestore, 'candidates'), newCandidate);
 
+            // 2. Application бичлэг үүсгэх (employee үүсгэхгүй — зөвхөн ажилд авах үед үүснэ)
             if (vacancy && candidateRef) {
-                // 2. Create Application
                 const newApplication: Omit<JobApplication, 'id'> = {
                     vacancyId: vacancy.id,
                     candidateId: candidateRef.id,
                     currentStageId: vacancy.stages[0]?.id || 'screening',
                     status: 'ACTIVE',
-                    appliedAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    // Denormalize candidate info for UI convenience if needed, though we fetch separately most times
-                    // But for our PipelineBoard we used `enrichedApplications`, so it's fine.
-                    candidate: { ...newCandidate, id: candidateRef.id } // Store here if we want to query easily
+                    appliedAt: now,
+                    updatedAt: now,
+                    candidate: { ...newCandidate, id: candidateRef.id },
                 };
 
-                // Hack: Store candidate object in application for easier frontend implementation without join
-                // In production, we should keep normalized, but for this prototype it speeds up UI dev.
                 await addDocumentNonBlocking(collection(firestore, 'applications'), newApplication);
             }
 
@@ -115,12 +121,14 @@ export function AddCandidateDialog({ vacancy }: { vacancy?: Vacancy }) {
 
     return (
         <AppDialog open={open} onOpenChange={setOpen}>
-            <AppDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Горилогч нэмэх
-                </Button>
-            </AppDialogTrigger>
+            {controlledOpen === undefined && (
+                <AppDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Горилогч нэмэх
+                    </Button>
+                </AppDialogTrigger>
+            )}
             <AppDialogContent size="md" className="p-0 overflow-hidden">
                 <AppDialogHeader className="px-6 pt-6">
                     <AppDialogTitle>Шинэ горилогч бүртгэх</AppDialogTitle>

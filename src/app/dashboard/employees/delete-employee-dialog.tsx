@@ -71,10 +71,10 @@ export function DeleteEmployeeDialog({
     switch (data.reason) {
       case 'Ажлаас чөлөөлөгдсөн':
       case 'Алдаатай бүртгэл':
-        newStatus = 'Ажлаас гарсан';
+        newStatus = 'terminated';
         break;
       case 'Түр чөлөөлсөн':
-        newStatus = 'Түр түдгэлзүүлсэн';
+        newStatus = 'suspended';
         break;
     }
 
@@ -104,7 +104,7 @@ export function DeleteEmployeeDialog({
       });
 
       // 3. Decrement position filled count if employee was assigned
-      if (employee.positionId && newStatus === 'Ажлаас гарсан') {
+      if (employee.positionId && newStatus === 'terminated') {
         const posRef = doc(firestore, 'positions', employee.positionId);
         const posSnap = await getDoc(posRef);
         if (posSnap.exists()) {

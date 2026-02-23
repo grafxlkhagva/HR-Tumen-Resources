@@ -116,6 +116,9 @@ export function PageHeader({
       'videos': 'Видео',
       'mission': 'Эрхэм зорилго',
       'projects': 'Төслүүд',
+      'meetings': 'Хурлын өрөө',
+      'rooms': 'Өрөөнүүд',
+      'business-plan': 'Бизнес төлөвлөгөө',
     };
 
     let currentPath = '';

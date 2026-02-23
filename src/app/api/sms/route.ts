@@ -1,12 +1,44 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
+import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 
-// Initialize Firebase for Server Side (if not already)
-// Note: In Next.js App Router, global scope variables persist across requests in lambda warm start.
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
+interface SmsConfig {
+    token: string;
+    senderId?: string;
+}
+
+/**
+ * SMS тохиргоог дараах дарааллаар хайна:
+ * 1. Environment variables (MOCEAN_API_TOKEN) — local + production
+ * 2. Firestore recruitment_settings/default.smsConfig — UI-ээс тохируулсан бол
+ */
+async function getSmsConfig(): Promise<SmsConfig | null> {
+    // 1. Эхлээд env variable шалгах
+    const envToken = process.env.MOCEAN_API_TOKEN;
+    if (envToken) {
+        console.log('[API/SMS] SMS тохиргоог environment variable-аас авлаа');
+        return {
+            token: envToken,
+            senderId: process.env.MOCEAN_SENDER_ID || undefined,
+        };
+    }
+
+    // 2. Firestore-оос унших
+    try {
+        const firestore = getFirebaseAdminFirestore();
+        const settingsSnap = await firestore.collection('recruitment_settings').doc('default').get();
+        if (settingsSnap.exists) {
+            const smsConfig = settingsSnap.data()?.smsConfig;
+            if (smsConfig?.token) {
+                console.log('[API/SMS] SMS тохиргоог Firestore-оос авлаа');
+                return { token: smsConfig.token, senderId: smsConfig.senderId };
+            }
+        }
+    } catch (adminError: any) {
+        console.warn('[API/SMS] Firestore-оос уншиж чадсангүй:', adminError.message);
+    }
+
+    return null;
+}
 
 export async function POST(request: Request) {
     try {
@@ -14,71 +46,57 @@ export async function POST(request: Request) {
         const { to, text } = body;
 
         if (!to || !text) {
-            return NextResponse.json({ error: 'Missing phone number or text' }, { status: 400 });
+            return NextResponse.json({ error: 'Утасны дугаар эсвэл текст дутуу байна' }, { status: 400 });
         }
 
-        console.log(`[API/SMS] Sending to ${to}`);
+        console.log(`[API/SMS] ${to} руу илгээж байна...`);
 
-        // 1. Get Settings from Firestore
-        const settingsRef = doc(firestore, 'recruitment_settings', 'default');
-        const settingsSnap = await getDoc(settingsRef);
+        const smsConfig = await getSmsConfig();
 
-        // Default to mock if settings are completely missing or document doesn't exist
-        let smsConfig = null;
-        if (settingsSnap.exists()) {
-            smsConfig = settingsSnap.data().smsConfig;
-        }
-
-        if (!smsConfig || !smsConfig.apiKey || !smsConfig.apiSecret) {
-            // Fallback: If no config is present, we pretend it worked to avoid breaking the UI for demo purposes.
-            // In production, you might want to throw an error here.
-            console.warn('[API/SMS] No Mocean configuration found in Firestore. Simulating success.');
-            await new Promise(resolve => setTimeout(resolve, 800));
+        if (!smsConfig) {
+            console.error('[API/SMS] SMS тохиргоо олдсонгүй. .env.local файлд MOCEAN_API_TOKEN нэмнэ үү.');
             return NextResponse.json({
-                success: true,
-                status: 'simulated_success',
-                note: 'Configure Mocean API in Recruitment Settings to send real SMS.'
-            });
+                error: 'SMS тохиргоо хийгдээгүй байна. MOCEAN_API_TOKEN тохируулна уу.',
+            }, { status: 503 });
         }
 
-        const { apiKey, apiSecret, senderId } = smsConfig;
+        const { token, senderId } = smsConfig;
 
-        // 2. Call Mocean REST API
-        // https://rest.moceanapi.com/rest/2/sms
+        // Mocean REST API — Bearer Token нэвтрэлт
         const params = new URLSearchParams();
-        params.append('mocean-api-key', apiKey);
-        params.append('mocean-api-secret', apiSecret);
-        params.append('mocean-from', senderId || 'Mocean'); // Default sender ID
+        params.append('mocean-from', senderId || 'MOCEAN');
         params.append('mocean-to', to);
         params.append('mocean-text', text);
         params.append('mocean-resp-format', 'json');
-        params.append('mocean-medium', 'moceanapi'); // Optional source indicator
 
         const response = await fetch('https://rest.moceanapi.com/rest/2/sms', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: params
+            body: params,
         });
 
         const result = await response.json();
 
-        // Mocean API returns status '0' for success
-        if (result.messages && result.messages[0].status === '0') {
-            console.log('[API/SMS] Sent successfully via Mocean:', result.messages[0].msgid);
+        const msgStatus = result.messages?.[0]?.status;
+        const isSuccess = msgStatus == 0 || msgStatus === '0';
+
+        if (result.messages && isSuccess) {
+            console.log('[API/SMS] Амжилттай илгээгдлээ! msgid:', result.messages[0].msgid);
             return NextResponse.json({ success: true, apiResponse: result });
         } else {
-            console.error('[API/SMS] Mocean Error:', result);
-            const errorMsg = result.messages ? result.messages[0].err_msg : 'Unknown Mocean Error';
+            const errorMsg = result.messages?.[0]?.err_msg || result.err_msg || 'Mocean API алдаа';
+            console.error('[API/SMS] Mocean алдаа:', errorMsg, result);
             return NextResponse.json({
-                error: 'Mocean API Error',
-                details: errorMsg
+                error: 'SMS илгээж чадсангүй',
+                details: errorMsg,
             }, { status: 400 });
         }
 
     } catch (error: any) {
-        console.error('[API/SMS] Server Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+        console.error('[API/SMS] Серверийн алдаа:', error);
+        return NextResponse.json({ error: error.message || 'Серверийн дотоод алдаа' }, { status: 500 });
     }
 }

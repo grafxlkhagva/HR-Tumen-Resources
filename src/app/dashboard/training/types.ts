@@ -29,15 +29,13 @@ export const SKILL_LEVEL_VALUE: Record<SkillLevel, number> = {
 // TRAINING COURSE
 // ============================================
 
-export const COURSE_CATEGORIES = ['technical', 'leadership', 'compliance', 'soft_skills'] as const;
-export type CourseCategory = (typeof COURSE_CATEGORIES)[number];
-
-export const COURSE_CATEGORY_LABELS: Record<CourseCategory, string> = {
-    technical: 'Техникийн',
-    leadership: 'Манлайлал',
-    compliance: 'Нийцэл',
-    soft_skills: 'Зөөлөн ур чадвар',
-};
+// Training category — Firestore collection: training_categories
+// Categories are managed dynamically via Тохиргоо tab
+export interface TrainingCategory {
+    id: string;
+    name: string;
+    description?: string;
+}
 
 export const COURSE_TYPES = ['online', 'classroom', 'blended', 'self_study'] as const;
 export type CourseType = (typeof COURSE_TYPES)[number];
@@ -58,16 +56,25 @@ export const COURSE_STATUS_LABELS: Record<CourseStatus, string> = {
     archived: 'Архивласан',
 };
 
+export const PROVIDER_TYPES = ['internal', 'external'] as const;
+export type ProviderType = (typeof PROVIDER_TYPES)[number];
+
+export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
+    internal: 'Дотоод сургагч багш',
+    external: 'Аутсорсинг сургагч багш',
+};
+
 export interface TrainingCourse {
     id: string;
     title: string;
     description: string;
-    category: CourseCategory;
+    categoryId: string;       // links to training_categories
     skillIds: string[];       // linked to skills_inventory
     targetLevel: SkillLevel;
     duration: number;         // hours
     type: CourseType;
-    provider: string;
+    providerType: ProviderType;
+    providerName: string;
     status: CourseStatus;
     createdAt: string;
     createdBy: string;
@@ -76,12 +83,13 @@ export interface TrainingCourse {
 export const trainingCourseSchema = z.object({
     title: z.string().min(1, 'Сургалтын нэр оруулна уу'),
     description: z.string().min(1, 'Тайлбар оруулна уу'),
-    category: z.enum(COURSE_CATEGORIES, { required_error: 'Ангилал сонгоно уу' }),
+    categoryId: z.string().min(1, 'Ангилал сонгоно уу'),
     skillIds: z.array(z.string()).default([]),
     targetLevel: z.enum(SKILL_LEVELS, { required_error: 'Түвшин сонгоно уу' }),
     duration: z.coerce.number().min(0.5, 'Хугацаа 0.5-аас их байх ёстой'),
     type: z.enum(COURSE_TYPES, { required_error: 'Төрөл сонгоно уу' }),
-    provider: z.string().min(1, 'Зохион байгуулагч оруулна уу'),
+    providerType: z.enum(PROVIDER_TYPES, { required_error: 'Зохион байгуулагчийн төрөл сонгоно уу' }),
+    providerName: z.string().min(1, 'Зохион байгуулагчийн нэр оруулна уу'),
     status: z.enum(COURSE_STATUSES).default('draft'),
 });
 
@@ -133,7 +141,7 @@ export interface TrainingPlan {
 }
 
 export const assignTrainingSchema = z.object({
-    employeeId: z.string().min(1, 'Ажилтан сонгоно уу'),
+    employeeIds: z.array(z.string()).min(1, 'Дор хаяж нэг ажилтан сонгоно уу'),
     courseId: z.string().min(1, 'Сургалт сонгоно уу'),
     dueDate: z.date({ required_error: 'Дуусах огноо сонгоно уу' }),
     trigger: z.enum(PLAN_TRIGGERS).default('manual'),

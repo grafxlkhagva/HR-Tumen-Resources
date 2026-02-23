@@ -1,7 +1,7 @@
 // src/app/dashboard/training/components/assign-training-dialog.tsx
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -14,7 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertTriangle, Search, X, Users } from 'lucide-react';
 import {
     assignTrainingSchema,
     AssignTrainingFormValues,
@@ -29,12 +31,10 @@ import { Employee } from '@/types';
 interface AssignTrainingDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (values: AssignTrainingFormValues, employeeName: string, courseName: string) => void;
+    onSubmit: (values: AssignTrainingFormValues, courseName: string) => void;
     employees: Employee[];
     courses: TrainingCourse[];
-    /** Pre-computed skill gaps for the selected employee */
     employeeGaps?: SkillGap[];
-    /** Pre-selected employee ID (from gap analysis tab) */
     preSelectedEmployeeId?: string;
 }
 
@@ -47,10 +47,12 @@ export function AssignTrainingDialog({
     employeeGaps = [],
     preSelectedEmployeeId,
 }: AssignTrainingDialogProps) {
+    const [employeeSearch, setEmployeeSearch] = useState('');
+
     const form = useForm<AssignTrainingFormValues>({
         resolver: zodResolver(assignTrainingSchema),
         defaultValues: {
-            employeeId: '',
+            employeeIds: [],
             courseId: '',
             dueDate: undefined,
             trigger: 'manual',
@@ -62,82 +64,168 @@ export function AssignTrainingDialog({
     React.useEffect(() => {
         if (open) {
             form.reset({
-                employeeId: preSelectedEmployeeId || '',
+                employeeIds: preSelectedEmployeeId ? [preSelectedEmployeeId] : [],
                 courseId: '',
                 dueDate: undefined,
                 trigger: preSelectedEmployeeId ? 'skill_gap' : 'manual',
                 preAssessmentScore: undefined,
                 notes: '',
             });
+            setEmployeeSearch('');
         }
     }, [open, preSelectedEmployeeId, form]);
 
-    const selectedEmployeeId = form.watch('employeeId');
+    const selectedIds = form.watch('employeeIds');
 
-    // Active courses only
+    const filteredEmployees = useMemo(() => {
+        if (!employeeSearch.trim()) return employees;
+        const q = employeeSearch.toLowerCase();
+        return employees.filter(emp =>
+            emp.firstName?.toLowerCase().includes(q) ||
+            emp.lastName?.toLowerCase().includes(q) ||
+            emp.jobTitle?.toLowerCase().includes(q)
+        );
+    }, [employees, employeeSearch]);
+
     const activeCourses = useMemo(() =>
         courses.filter(c => c.status === 'active'),
         [courses]
     );
 
-    // Show gaps for selected employee
     const relevantGaps = useMemo(() => {
-        if (!selectedEmployeeId) return [];
+        if (selectedIds.length === 0) return [];
         return employeeGaps.filter(g => g.gapSize > 0);
-    }, [selectedEmployeeId, employeeGaps]);
+    }, [selectedIds, employeeGaps]);
 
-    // Suggest courses matching gap skills
-    const suggestedCourseIds = useMemo(() => {
-        if (relevantGaps.length === 0) return new Set<string>();
-        const gapSkillNames = new Set(relevantGaps.map(g => g.skillName.toLowerCase()));
-        return new Set(
-            activeCourses
-                .filter(c => c.skillIds.some(sid => {
-                    // We need the skill name but only have IDs; mark all as suggestions for now
-                    return true;
-                }))
-                .map(c => c.id)
-        );
-    }, [relevantGaps, activeCourses]);
+    const toggleEmployee = (empId: string) => {
+        const current = form.getValues('employeeIds');
+        if (current.includes(empId)) {
+            form.setValue('employeeIds', current.filter(id => id !== empId), { shouldValidate: true });
+        } else {
+            form.setValue('employeeIds', [...current, empId], { shouldValidate: true });
+        }
+    };
+
+    const toggleAll = () => {
+        const visibleIds = filteredEmployees.map(e => e.id);
+        const allSelected = visibleIds.every(id => selectedIds.includes(id));
+        if (allSelected) {
+            form.setValue('employeeIds', selectedIds.filter(id => !visibleIds.includes(id)), { shouldValidate: true });
+        } else {
+            const merged = new Set([...selectedIds, ...visibleIds]);
+            form.setValue('employeeIds', Array.from(merged), { shouldValidate: true });
+        }
+    };
 
     const handleSubmit = (values: AssignTrainingFormValues) => {
-        const emp = employees.find(e => e.id === values.employeeId);
         const course = courses.find(c => c.id === values.courseId);
-        if (!emp || !course) return;
-        const employeeName = `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}`;
-        onSubmit(values, employeeName, course.title);
+        if (!course) return;
+        onSubmit(values, course.title);
         onOpenChange(false);
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[520px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[560px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
                 <DialogHeader className="px-6 pt-6 pb-2">
                     <DialogTitle>Сургалт оноох</DialogTitle>
                     <DialogDescription>
-                        Ажилтанд сургалт оноож, хугацаа тогтооно уу.
+                        Нэг буюу олон ажилтанд сургалт оноож, хугацаа тогтооно уу.
                     </DialogDescription>
                 </DialogHeader>
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
                         <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
-                            {/* Employee */}
-                            <FormField control={form.control} name="employeeId" render={({ field }) => (
+                            {/* Multi-select employees */}
+                            <FormField control={form.control} name="employeeIds" render={() => (
                                 <FormItem>
-                                    <FormLabel>Ажилтан *</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Ажилтан сонгох" /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {employees.map(emp => (
-                                                <SelectItem key={emp.id} value={emp.id}>
-                                                    {emp.lastName?.charAt(0)}. {emp.firstName} — {emp.jobTitle}
-                                                </SelectItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                        <Users className="h-4 w-4" />
+                                        Ажилтнууд *
+                                        {selectedIds.length > 0 && (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {selectedIds.length} сонгогдсон
+                                            </Badge>
+                                        )}
+                                    </FormLabel>
+
+                                    {/* Selected badges */}
+                                    {selectedIds.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 pb-1">
+                                            {selectedIds.map(id => {
+                                                const emp = employees.find(e => e.id === id);
+                                                if (!emp) return null;
+                                                return (
+                                                    <Badge
+                                                        key={id}
+                                                        variant="default"
+                                                        className="text-xs cursor-pointer gap-1 pr-1"
+                                                        onClick={() => toggleEmployee(id)}
+                                                    >
+                                                        {emp.lastName?.charAt(0)}. {emp.firstName}
+                                                        <X className="h-3 w-3" />
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Search */}
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Ажилтан хайх..."
+                                            className="pl-8 h-9 text-sm"
+                                            value={employeeSearch}
+                                            onChange={(e) => setEmployeeSearch(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Employee list with checkboxes */}
+                                    <ScrollArea className="h-[160px] rounded-lg border">
+                                        <div className="p-1">
+                                            {/* Select all */}
+                                            <label className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer border-b mb-1">
+                                                <Checkbox
+                                                    checked={
+                                                        filteredEmployees.length > 0 &&
+                                                        filteredEmployees.every(e => selectedIds.includes(e.id))
+                                                    }
+                                                    onCheckedChange={toggleAll}
+                                                />
+                                                <span className="text-xs font-medium text-muted-foreground">
+                                                    Бүгдийг сонгох ({filteredEmployees.length})
+                                                </span>
+                                            </label>
+
+                                            {filteredEmployees.map(emp => (
+                                                <label
+                                                    key={emp.id}
+                                                    className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                                                >
+                                                    <Checkbox
+                                                        checked={selectedIds.includes(emp.id)}
+                                                        onCheckedChange={() => toggleEmployee(emp.id)}
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-sm">
+                                                            {emp.lastName?.charAt(0)}. {emp.firstName}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground ml-2">
+                                                            {emp.jobTitle}
+                                                        </span>
+                                                    </div>
+                                                </label>
                                             ))}
-                                        </SelectContent>
-                                    </Select>
+
+                                            {filteredEmployees.length === 0 && (
+                                                <p className="text-xs text-muted-foreground text-center py-4">
+                                                    Илэрц олдсонгүй
+                                                </p>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
                                     <FormMessage />
                                 </FormItem>
                             )} />
@@ -239,7 +327,11 @@ export function AssignTrainingDialog({
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                                 Болих
                             </Button>
-                            <Button type="submit">Оноох</Button>
+                            <Button type="submit">
+                                {selectedIds.length > 1
+                                    ? `${selectedIds.length} ажилтанд оноох`
+                                    : 'Оноох'}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

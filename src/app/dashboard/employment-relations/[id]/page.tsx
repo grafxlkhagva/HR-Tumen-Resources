@@ -81,7 +81,7 @@ export default function DocumentDetailPage() {
         return allPositions.map(pos => {
             const occupant = employeesList.find((emp: any) =>
                 (emp.positionId === pos.id || emp.id === pos.managerId) &&
-                ['Идэвхтэй', 'Томилогдож буй', 'Томилогдсон'].includes(emp.status || 'Идэвхтэй') // Ensure active/onboarding/appointed only
+                ['active', 'active_probation', 'active_permanent', 'appointing'].includes(emp.status || 'active') // Ensure active/onboarding/appointed only
             );
             return occupant ? { ...pos, occupant } : null;
         }).filter(Boolean);
@@ -355,14 +355,14 @@ export default function DocumentDetailPage() {
                     if (actionId === 'release_temporary') {
                         // Temporary leave: employee becomes "Түр эзгүй", stays in retention stage
                         await updateDoc(doc(firestore, 'employees', document.employeeId), {
-                            status: 'Түр эзгүй',
+                            status: 'on_leave',
                             lifecycleStage: 'retention',
                             updatedAt: Timestamp.now()
                         });
                     } else {
                         // Permanent release: employee becomes "Ажлаас гарсан"
                         await updateDoc(doc(firestore, 'employees', document.employeeId), {
-                            status: 'Ажлаас гарсан',
+                            status: 'terminated',
                             lifecycleStage: 'alumni',
                             ...(terminationDate ? { terminationDate } : {}),
                             updatedAt: Timestamp.now()
@@ -371,10 +371,10 @@ export default function DocumentDetailPage() {
                 } else if (firestore && document?.employeeId && actionId.startsWith('appointment_')) {
                     // Appointment documents: map actionId to the correct active sub-status
                     const appointmentStatus =
-                        actionId === 'appointment_probation' ? 'Идэвхтэй туршилт' :
-                        actionId === 'appointment_permanent' ? 'Идэвхтэй үндсэн' :
-                        actionId === 'appointment_reappoint' ? 'Идэвхтэй үндсэн' :
-                        'Идэвхтэй үндсэн'; // fallback for any other appointment_ variant
+                        actionId === 'appointment_probation' ? 'active_probation' :
+                        actionId === 'appointment_permanent' ? 'active_permanent' :
+                        actionId === 'appointment_reappoint' ? 'active_permanent' :
+                        'active_permanent'; // fallback for any other appointment_ variant
                     await updateDoc(doc(firestore, 'employees', document.employeeId), {
                         status: appointmentStatus,
                         lifecycleStage: 'active',

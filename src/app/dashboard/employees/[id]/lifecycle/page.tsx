@@ -368,7 +368,7 @@ export default function EmployeeLifecyclePage() {
 
             // 1. Reset employee to fresh state + add history log
             updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
-                status: 'Идэвхтэй',
+                status: 'active',
                 lifecycleStage: 'recruitment',
                 positionId: null,
                 jobTitle: null,

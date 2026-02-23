@@ -183,7 +183,7 @@ export function AppointEmployeeDialog({
         if (!firestore) return null;
         return query(
             collection(firestore, 'employees'),
-            where('status', '==', 'Идэвхтэй')
+            where('status', 'in', ['active', 'active_probation', 'active_permanent'])
         );
     }, [firestore]);
 
@@ -897,7 +897,7 @@ export function AppointEmployeeDialog({
                     positionId: position?.id || null,
                     jobTitle: position?.title || null,
                     departmentId: position?.departmentId || null,
-                    status: 'Томилогдож буй',
+                    status: 'appointing',
                     lifecycleStage: 'onboarding',
                     // Store appointment compensation
                     appointedCompensation: {

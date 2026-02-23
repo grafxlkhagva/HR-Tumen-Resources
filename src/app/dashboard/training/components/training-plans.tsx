@@ -36,7 +36,7 @@ interface TrainingPlansProps {
     employees: Employee[];
     employeeGaps: SkillGap[];
     isLoading: boolean;
-    onAssign: (values: any, employeeName: string, courseName: string) => void;
+    onAssign: (values: any, courseName: string) => void;
 }
 
 export function TrainingPlans({

@@ -54,20 +54,45 @@ export interface WorkSchedule {
 
 export type LifecycleStage = 'attraction' | 'recruitment' | 'onboarding' | 'development' | 'retention' | 'offboarding' | 'alumni';
 
+export type EmployeeStatus =
+    | 'active_recruitment'
+    | 'appointing'
+    | 'active'
+    | 'active_probation'
+    | 'active_permanent'
+    | 'on_leave'
+    | 'releasing'
+    | 'terminated'
+    | 'suspended';
+
+export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
+    active_recruitment: 'Идэвхтэй бүрдүүлэлт',
+    appointing: 'Томилогдож буй',
+    active: 'Идэвхтэй',
+    active_probation: 'Идэвхтэй туршилт',
+    active_permanent: 'Идэвхтэй үндсэн',
+    on_leave: 'Түр эзгүй',
+    releasing: 'Чөлөөлөгдөж буй',
+    terminated: 'Ажлаас гарсан',
+    suspended: 'Түр түдгэлзүүлсэн',
+};
+
 export interface Employee {
     id: string;
-    employeeCode: string;
+    employeeCode?: string;
     firstName: string;
     lastName: string;
     avatarId?: string;
     photoURL?: string;
-    jobTitle: string;
-    departmentId: string;
+    jobTitle?: string;
+    departmentId?: string;
     positionId?: string;
     email: string;
     phoneNumber?: string;
-    status: 'Идэвхтэй бүрдүүлэлт' | 'Томилогдож буй' | 'Идэвхтэй' | 'Идэвхтэй туршилт' | 'Идэвхтэй үндсэн' | 'Түр эзгүй' | 'Чөлөөлөгдөж буй' | 'Ажлаас гарсан' | 'Түр түдгэлзүүлсэн';
-    hireDate: string;
+    status: EmployeeStatus;
+    hireDate?: string;
+    /** Сонгон шалгаруулалтын candidates collection-тай холбох */
+    candidateId?: string;
     terminationDate?: string;
     skills?: string[];
     jobHistory?: { title: string; company: string; duration: string }[];
@@ -94,10 +119,9 @@ export interface Employee {
 
 /**
  * "Идэвхтэй" төлөвийн бүх хувилбаруудыг шалгах helper.
- * Хуучин 'Идэвхтэй', шинэ 'Идэвхтэй туршилт', 'Идэвхтэй үндсэн' бүгдийг хамарна.
  */
 export function isActiveStatus(status: string | undefined | null): boolean {
-    return status === 'Идэвхтэй' || status === 'Идэвхтэй туршилт' || status === 'Идэвхтэй үндсэн';
+    return status === 'active' || status === 'active_probation' || status === 'active_permanent';
 }
 
 export interface AttendanceRecord {

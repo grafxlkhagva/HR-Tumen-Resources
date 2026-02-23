@@ -18,12 +18,11 @@ import { CreateCourseDialog } from './create-course-dialog';
 import {
     TrainingCourse,
     TrainingCourseFormValues,
-    COURSE_CATEGORIES,
-    COURSE_CATEGORY_LABELS,
+    TrainingCategory,
     COURSE_STATUS_LABELS,
     COURSE_TYPE_LABELS,
     SKILL_LEVEL_LABELS,
-    CourseCategory,
+    PROVIDER_TYPE_LABELS,
 } from '../types';
 
 interface SkillItem {
@@ -35,10 +34,11 @@ interface SkillItem {
 interface CourseCatalogProps {
     courses: TrainingCourse[];
     skills: SkillItem[];
+    categories: TrainingCategory[];
     isLoading: boolean;
 }
 
-export function CourseCatalog({ courses, skills, isLoading }: CourseCatalogProps) {
+export function CourseCatalog({ courses, skills, categories, isLoading }: CourseCatalogProps) {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
@@ -52,14 +52,20 @@ export function CourseCatalog({ courses, skills, isLoading }: CourseCatalogProps
         return map;
     }, [skills]);
 
+    const categoryMap = useMemo(() => {
+        const map = new Map<string, string>();
+        categories.forEach(c => map.set(c.id, c.name));
+        return map;
+    }, [categories]);
+
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
             const matchesSearch =
                 course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                course.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                course.providerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 course.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-            const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+            const matchesCategory = categoryFilter === 'all' || course.categoryId === categoryFilter;
             return matchesSearch && matchesCategory;
         });
     }, [courses, searchQuery, categoryFilter]);
@@ -114,8 +120,8 @@ export function CourseCatalog({ courses, skills, isLoading }: CourseCatalogProps
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Бүх ангилал</SelectItem>
-                            {COURSE_CATEGORIES.map(cat => (
-                                <SelectItem key={cat} value={cat}>{COURSE_CATEGORY_LABELS[cat]}</SelectItem>
+                            {categories.map(cat => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -168,11 +174,13 @@ export function CourseCatalog({ courses, skills, isLoading }: CourseCatalogProps
                                     <TableCell>
                                         <div>
                                             <p className="font-medium text-sm">{course.title}</p>
-                                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{course.provider}</p>
+                                            <p className="text-xs text-muted-foreground truncate max-w-[220px]">
+                                                {PROVIDER_TYPE_LABELS[course.providerType] || course.providerType} · {course.providerName}
+                                            </p>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <span className="text-sm">{COURSE_CATEGORY_LABELS[course.category]}</span>
+                                        <span className="text-sm">{categoryMap.get(course.categoryId) || course.categoryId}</span>
                                     </TableCell>
                                     <TableCell>
                                         <span className="text-sm">{COURSE_TYPE_LABELS[course.type]}</span>
@@ -244,6 +252,7 @@ export function CourseCatalog({ courses, skills, isLoading }: CourseCatalogProps
                 onSubmit={editingCourse ? handleEdit : handleCreate}
                 editingCourse={editingCourse}
                 skills={skills}
+                categories={categories}
             />
         </div>
     );

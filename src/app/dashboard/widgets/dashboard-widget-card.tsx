@@ -48,6 +48,21 @@ export interface WidgetData {
     trainingCoursesCount?: number;
     trainingActivePlansCount?: number;
     trainingCompletionRate?: number;
+
+    // Meetings widget
+    meetingsTodayCount?: number;
+    meetingRoomsCount?: number;
+    nextMeetingTime?: string;
+
+    // Skills widget
+    skillsInventoryCount?: number;
+    skillsAssessedCount?: number;
+    skillGapPercentage?: number;
+
+    // Business Plan widget
+    bpPlanProgress?: number;
+    bpOkrCount?: number;
+    bpKpiGreenCount?: number;
 }
 
 interface DashboardWidgetCardProps {
@@ -299,6 +314,81 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
+            case 'meetings':
+                return (
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Хурлын өрөө
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.meetingsTodayCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Өнөөдрийн хурал</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-orange-400">{data.meetingRoomsCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Өрөө</div>
+                            </div>
+                        </div>
+                        {data.nextMeetingTime && (
+                            <div className="pt-1 border-t border-slate-700/60">
+                                <div className="text-[10px] text-slate-500">Дараагийн: <span className="text-orange-400 font-semibold">{data.nextMeetingTime}</span></div>
+                            </div>
+                        )}
+                    </div>
+                );
+
+            case 'skills':
+                return (
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Ур чадвар
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.skillsInventoryCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Ур чадвар</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-indigo-400">{data.skillsAssessedCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Үнэлэгдсэн</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-amber-400">{data.skillGapPercentage ?? 0}%</div>
+                                <div className="text-[10px] text-slate-400">Зөрүү</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'business-plan':
+                return (
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Бизнес төлөвлөгөө
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.bpPlanProgress ?? 0}%</div>
+                                <div className="text-[10px] text-slate-400">Прогресс</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-emerald-400">{data.bpOkrCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">OKR</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-lime-400">{data.bpKpiGreenCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">KPI ✓</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+
             default:
                 return null;
         }
@@ -319,6 +409,12 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
             case 'training':
                 return 'bg-gradient-to-br from-teal-500/10 to-cyan-500/10';
+            case 'meetings':
+                return 'bg-gradient-to-br from-orange-500/10 to-amber-500/10';
+            case 'skills':
+                return 'bg-gradient-to-br from-indigo-500/10 to-violet-500/10';
+            case 'business-plan':
+                return 'bg-gradient-to-br from-emerald-500/10 to-lime-500/10';
             default:
                 return '';
         }
@@ -387,7 +483,10 @@ export function DashboardWidgetCard({
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
                                 id === 'er' && "text-blue-500",
-                                id === 'training' && "text-teal-400"
+                                id === 'training' && "text-teal-400",
+                                id === 'meetings' && "text-orange-400",
+                                id === 'skills' && "text-indigo-400",
+                                id === 'business-plan' && "text-emerald-400"
                             )}
                         />
                     </div>
