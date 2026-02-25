@@ -75,6 +75,38 @@ function formatMongolianPhone(phone: string): string {
 }
 
 /**
+ * Имэйл илгээх
+ */
+export async function sendEmail(
+    toEmail: string,
+    subject: string,
+    text: string
+): Promise<boolean> {
+    console.log(`[Notification Service] Sending email to ${toEmail}`);
+
+    try {
+        const response = await fetch('/api/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: toEmail, subject, text }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || (!data.success && data.error)) {
+            const detail = data.details || data.error || 'Имэйл илгээж чадсангүй';
+            throw new Error(detail);
+        }
+
+        console.log('[Notification Service] Email sent successfully:', data);
+        return true;
+    } catch (error) {
+        console.error('[Notification Service] Failed to send email:', error);
+        throw error;
+    }
+}
+
+/**
  * SMS мессеж илгээх
  */
 export async function sendSMS(

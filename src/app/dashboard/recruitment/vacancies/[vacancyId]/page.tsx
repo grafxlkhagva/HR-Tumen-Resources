@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { Vacancy, JobApplication, RecruitmentStage } from '@/types/recruitment';
 import { format } from 'date-fns';
@@ -20,11 +20,13 @@ import { PageHeader } from '@/components/patterns/page-layout';
 import { OpenVacancyCard } from '@/components/recruitment/open-vacancy-card';
 import type { Department, Employee } from '@/types';
 import { PipelineBoard } from '../../components/pipeline-board';
-import { RecruitmentCalendar } from '../../components/recruitment-calendar';
 import { EditVacancyDialog } from '@/components/recruitment/edit-vacancy-dialog';
 import { EmployeeCard, EmployeeCardEmployee } from '@/components/employees/employee-card';
 import { AddCandidateDialog } from '../../components/add-candidate-dialog';
 import { AddActionButton } from '@/components/ui/add-action-button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const DEFAULT_STAGES: RecruitmentStage[] = [
     { id: 'screening', title: 'Анкет шүүлт', type: 'SCREENING', order: 0 },
@@ -52,6 +54,10 @@ export default function VacancyDetailPage() {
     const [candidates, setCandidates] = useState<any[]>([]);
     const [loadingCandidates, setLoadingCandidates] = useState(false);
     const [globalStages, setGlobalStages] = useState<RecruitmentStage[]>(DEFAULT_STAGES);
+    const [savingParticipants, setSavingParticipants] = useState(false);
+
+    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
+    const { data: employees } = useCollection<Employee>(employeesQuery);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -224,6 +230,48 @@ export default function VacancyDetailPage() {
         toast({ title: 'Линк хуулагдлаа', description: url });
     };
 
+    const participantIds = vacancy?.participantIds ?? [];
+    const addParticipant = async (employeeId: string) => {
+        if (!firestore || !vacancyId || participantIds.includes(employeeId)) return;
+        setSavingParticipants(true);
+        try {
+            const next = [...participantIds, employeeId];
+            await updateDoc(doc(firestore, 'vacancies', vacancyId as string), {
+                participantIds: next,
+                updatedAt: new Date().toISOString(),
+            });
+            setVacancy(prev => (prev ? { ...prev, participantIds: next } : prev));
+            toast({ title: 'Оролцогч нэмэгдлээ' });
+        } catch {
+            toast({ title: 'Нэмж чадсангүй', variant: 'destructive' });
+        } finally {
+            setSavingParticipants(false);
+        }
+    };
+    const removeParticipant = async (employeeId: string) => {
+        if (!firestore || !vacancyId) return;
+        setSavingParticipants(true);
+        try {
+            const next = participantIds.filter(id => id !== employeeId);
+            await updateDoc(doc(firestore, 'vacancies', vacancyId as string), {
+                participantIds: next,
+                updatedAt: new Date().toISOString(),
+            });
+            setVacancy(prev => (prev ? { ...prev, participantIds: next } : prev));
+            toast({ title: 'Оролцогч хасагдлаа' });
+        } catch {
+            toast({ title: 'Хасж чадсангүй', variant: 'destructive' });
+        } finally {
+            setSavingParticipants(false);
+        }
+    };
+    const employeeMap = React.useMemo(() => {
+        const m = new Map<string, Employee>();
+        (employees ?? []).forEach(e => m.set(e.id, e));
+        return m;
+    }, [employees]);
+    const availableToAdd = (employees ?? []).filter(e => !participantIds.includes(e.id));
+
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     if (!vacancy) return <div>Not found</div>;
 
@@ -257,7 +305,7 @@ export default function VacancyDetailPage() {
             </div>
 
             <div className="flex-1 w-full p-6 md:p-8 space-y-6 pb-32">
-                <Tabs defaultValue="candidates" className="w-full">
+                <Tabs defaultValue="pipeline" className="w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* Left column: vacancy card */}
                         <div className="lg:col-span-3 space-y-4">
@@ -300,17 +348,104 @@ export default function VacancyDetailPage() {
                                                 </div>
                                             ),
                                         },
-                                        {
-                                            title: 'Агуулга',
-                                            content: vacancy.description ? (
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{vacancy.description}</ReactMarkdown>
-                                            ) : (
-                                                <div className="text-sm text-muted-foreground">Тайлбар оруулаагүй байна.</div>
-                                            ),
-                                        },
                                     ]}
+                                    detailsTitle="Агуулга, чиг үүрэг"
+                                    detailsDescription={
+                                        vacancy.description
+                                            ? vacancy.description.replace(/\s+/g, ' ').replace(/^#+\s*/gm, '').slice(0, 80) + (vacancy.description.length > 80 ? '…' : '')
+                                            : (vacancy.requirements?.length ? `${vacancy.requirements.length} чиг үүрэг` : 'Дарж дэлгэнэ үзнэ үү')
+                                    }
+                                    detailsContent={
+                                        <div className="space-y-4 text-sm">
+                                            <div>
+                                                <div className="font-semibold text-slate-700 mb-2">Агуулга</div>
+                                                {vacancy.description ? (
+                                                    <div className="prose prose-sm max-w-none text-slate-700 [&_ul]:list-disc [&_ol]:list-decimal">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{vacancy.description}</ReactMarkdown>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-muted-foreground">Тайлбар оруулаагүй байна.</p>
+                                                )}
+                                            </div>
+                                            {vacancy.requirements?.length ? (
+                                                <div>
+                                                    <div className="font-semibold text-slate-700 mb-2">Чиг үүрэг</div>
+                                                    <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                                                        {vacancy.requirements.map((r, i) => (
+                                                            <li key={i}>{r}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    }
                                 />
                             </div>
+
+                            <Card className="shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                        <Users className="h-4 w-4" />
+                                        Сонгон шалгаруулалтад оролцогчид
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                        {participantIds.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground py-2">Оролцогч нэмээгүй байна.</p>
+                                        ) : (
+                                            participantIds.map((empId) => {
+                                                const emp = employeeMap.get(empId);
+                                                const name = emp ? `${emp.lastName || ''} ${emp.firstName || ''}`.trim() || emp.email || empId : empId;
+                                                return (
+                                                    <div
+                                                        key={empId}
+                                                        className="flex items-center justify-between gap-2 rounded-lg border bg-slate-50/50 px-2 py-1.5"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <Avatar className="h-6 w-6 shrink-0">
+                                                                <AvatarImage src={emp?.photoURL} />
+                                                                <AvatarFallback className="text-[10px] bg-indigo-100 text-indigo-700">
+                                                                    {(emp?.firstName?.[0] || emp?.lastName?.[0] || '?')}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-xs font-medium truncate">{name}</span>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 shrink-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                                            onClick={() => removeParticipant(empId)}
+                                                            disabled={savingParticipants}
+                                                            title="Хасах"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                    {availableToAdd.length > 0 && (
+                                        <Select
+                                            value=""
+                                            onValueChange={(id) => { if (id) addParticipant(id); }}
+                                            disabled={savingParticipants}
+                                        >
+                                            <SelectTrigger className="h-9 text-xs">
+                                                <SelectValue placeholder="Ажилтан нэмэх" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableToAdd.map((emp) => (
+                                                    <SelectItem key={emp.id} value={emp.id} className="text-xs">
+                                                        {`${emp.lastName || ''} ${emp.firstName || ''}`.trim() || emp.email || emp.id}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
 
                         {/* Right column: selected tab content */}
@@ -319,9 +454,8 @@ export default function VacancyDetailPage() {
                                 <VerticalTabMenu
                                     orientation="horizontal"
                                     items={[
+                                        { value: 'pipeline', label: 'Үе шат' },
                                         { value: 'candidates', label: 'Горилогчид' },
-                                        { value: 'pipeline', label: 'Процесс' },
-                                        { value: 'calendar', label: 'Календар' },
                                     ]}
                                 />
                             </div>
@@ -450,10 +584,6 @@ export default function VacancyDetailPage() {
 
                                     <TabsContent value="pipeline" className="mt-0">
                                         <PipelineBoard vacancyId={vacancyId as string} />
-                                    </TabsContent>
-
-                                    <TabsContent value="calendar" className="mt-0">
-                                        <RecruitmentCalendar vacancyId={vacancyId as string} />
                                     </TabsContent>
                                 </div>
                             </div>

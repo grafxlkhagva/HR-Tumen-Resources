@@ -36,6 +36,7 @@ import { ScheduleInterviewDialog } from './schedule-interview-dialog';
 export function RecruitmentCalendar({ vacancyId }: { vacancyId?: string }) {
     const router = useRouter();
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
     const { firestore } = useFirebase();
 
     // Query interviews for the current month window (plus buffer for week view)
@@ -100,7 +101,15 @@ export function RecruitmentCalendar({ vacancyId }: { vacancyId?: string }) {
                         Өнөөдөр
                     </Button>
                 </div>
-                <ScheduleInterviewDialog vacancyId={vacancyId} />
+                <div className="flex items-center gap-2">
+                    <ScheduleInterviewDialog vacancyId={vacancyId} />
+                    <ScheduleInterviewDialog
+                        interview={editingInterview}
+                        open={!!editingInterview}
+                        onOpenChange={(o) => !o && setEditingInterview(null)}
+                        onUpdated={() => setEditingInterview(null)}
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-7 gap-px bg-muted rounded-lg overflow-hidden border shadow-sm">
@@ -150,7 +159,7 @@ export function RecruitmentCalendar({ vacancyId }: { vacancyId?: string }) {
                                             )}>
                                                 <div className="flex items-center gap-1">
                                                     <span className="font-bold shrink-0">{format(parseISO(event.startTime), 'HH:mm')}</span>
-                                                    <span className="truncate font-medium">{event.candidateName?.split(' ')[0]}</span>
+                                                    <span className="truncate font-medium">{event.candidateName}</span>
                                                 </div>
                                                 <div className="text-[10px] opacity-80 truncate pl-1">
                                                     {event.title}
@@ -167,7 +176,7 @@ export function RecruitmentCalendar({ vacancyId }: { vacancyId?: string }) {
                                                         {event.status === 'SCHEDULED' ? 'Төлөвлөгдсөн' : event.status}
                                                     </Badge>
                                                     <div className="flex gap-1">
-                                                        <Button size="icon" variant="ghost" className="h-6 w-6">
+                                                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingInterview(event); }}>
                                                             <Edit className="h-3 w-3" />
                                                         </Button>
                                                     </div>

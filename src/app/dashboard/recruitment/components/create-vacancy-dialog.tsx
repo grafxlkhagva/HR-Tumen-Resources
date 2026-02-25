@@ -63,7 +63,7 @@ function buildAutoDescription(position: any): string {
 
 const vacancySchema = z.object({
     title: z.string().min(2, 'Гарчиг дор хаяж 2 үсэгтэй байх ёстой'),
-    departmentId: z.string().min(1, 'Хэлтэс сонгоно уу'),
+    departmentId: z.string().optional(),
     status: z.enum(['DRAFT', 'OPEN']),
     description: z.string().optional(),
 });
@@ -220,7 +220,7 @@ export function CreateVacancyDialog({
 
             const newVacancy: Omit<Vacancy, 'id'> = {
                 title: data.title,
-                departmentId: data.departmentId,
+                departmentId: data.departmentId || '',
                 status: data.status as VacancyStatus,
                 hiringManagerId: 'CURRENT_USER_ID',
                 description: data.description || '',
@@ -321,31 +321,6 @@ export function CreateVacancyDialog({
                                             Одоогоор батлагдсан орон тоо алга байна.
                                         </div>
                                     )}
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="departmentId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Хэлтэс</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Хэлтэс сонгох" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {departments.map((dept) => (
-                                                <SelectItem key={dept.id} value={dept.id}>
-                                                    {dept.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}

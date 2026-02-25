@@ -519,6 +519,13 @@ service cloud.firestore {
         allow create: if true; // Public application submission
         allow read, update, delete: if isAdmin();
     }
+
+    match /evaluation_requests/{requestId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if isAdmin();
+    }
     
     match /interviews/{interviewId} {
         allow read: if isSignedIn();

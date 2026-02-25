@@ -22,6 +22,7 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Plus, Loader2 } from 'lucide-react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
@@ -29,11 +30,16 @@ import { collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Candidate, JobApplication, Vacancy } from '@/types/recruitment';
 
+const SOURCE_OPTIONS = ['zangia.mn', 'linkedin', 'unegui.mn', 'Lambda', 'Nito', 'Worki', 'Бусад'] as const;
+
 const candidateSchema = z.object({
-    firstName: z.string().min(2, 'Нэрээ оруулна уу'),
     lastName: z.string().min(2, 'Овгоо оруулна уу'),
-    email: z.string().email('Имэйл хаягаа зөв оруулна уу'),
+    firstName: z.string().min(2, 'Нэрээ оруулна уу'),
     phone: z.string().min(8, 'Утасны дугаараа оруулна уу'),
+    email: z.union([z.literal(''), z.string().email('Имэйл хаяг буруу байна')]).optional(),
+    linkedinUrl: z.string().optional(),
+    portfolioUrl: z.string().optional(),
+    source: z.string().optional(),
 });
 
 type CandidateFormValues = z.infer<typeof candidateSchema>;
@@ -59,10 +65,13 @@ export function AddCandidateDialog({
     const form = useForm<CandidateFormValues>({
         resolver: zodResolver(candidateSchema),
         defaultValues: {
-            firstName: '',
             lastName: '',
-            email: '',
+            firstName: '',
             phone: '',
+            email: '',
+            linkedinUrl: '',
+            portfolioUrl: '',
+            source: '',
         },
     });
 
@@ -73,15 +82,20 @@ export function AddCandidateDialog({
         try {
             const now = new Date().toISOString();
 
-            // 1. Candidate бичлэг үүсгэх
-            const newCandidate: Omit<Candidate, 'id'> = {
+            // 1. Candidate бичлэг үүсгэх (Firestore does not accept undefined; use '' or omit)
+            const linkedin = (data.linkedinUrl ?? '').trim();
+            const portfolio = (data.portfolioUrl ?? '').trim();
+            const sourceVal = (data.source ?? '').trim() || 'MANUAL';
+            const newCandidate: Record<string, unknown> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
-                email: data.email,
+                email: (data.email ?? '').trim() || '',
                 phone: data.phone,
+                linkedinUrl: linkedin || '',
+                portfolioUrl: portfolio || '',
+                source: sourceVal,
                 createdAt: now,
                 updatedAt: now,
-                source: 'MANUAL',
             };
 
             const candidateRef = await addDocumentNonBlocking(collection(firestore, 'candidates'), newCandidate);
@@ -148,9 +162,9 @@ export function AddCandidateDialog({
                                 name="lastName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Овог</FormLabel>
+                                        <FormLabel>Овог <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} placeholder="Овог" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -161,9 +175,9 @@ export function AddCandidateDialog({
                                 name="firstName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Нэр</FormLabel>
+                                        <FormLabel>Нэр <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} placeholder="Нэр" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -178,7 +192,7 @@ export function AddCandidateDialog({
                                 <FormItem>
                                     <FormLabel>Имэйл</FormLabel>
                                     <FormControl>
-                                        <Input type="email" {...field} />
+                                        <Input type="email" {...field} placeholder="example@mail.com" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -190,10 +204,62 @@ export function AddCandidateDialog({
                             name="phone"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Утас</FormLabel>
+                                    <FormLabel>Утас <span className="text-red-500">*</span></FormLabel>
                                     <FormControl>
-                                        <Input type="tel" {...field} />
+                                        <Input type="tel" {...field} placeholder="99112233" />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="linkedinUrl"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>LinkedIn</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} placeholder="https://linkedin.com/in/..." />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="portfolioUrl"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Facebook</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} placeholder="https://facebook.com/..." />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="source"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Эх сурвалж</FormLabel>
+                                    <Select
+                                        value={field.value ?? ''}
+                                        onValueChange={field.onChange}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Сонгох" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {SOURCE_OPTIONS.map((opt) => (
+                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import {
     ArrowLeft,
@@ -24,6 +24,7 @@ import {
     Phone,
     Mail,
     X,
+    Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,14 @@ interface CandidateGroup {
     stages: RecruitmentStage[];
 }
 
+interface VacancyGroup {
+    vacancyId: string;
+    vacancyTitle: string;
+    vacancy: Vacancy;
+    stages: RecruitmentStage[];
+    candidates: CandidateGroup[];
+}
+
 export default function MobileEvaluationsPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
@@ -58,9 +67,10 @@ export default function MobileEvaluationsPage() {
     const { toast } = useToast();
     const mobileContainer = useMobileContainer();
 
-    const [groups, setGroups] = useState<CandidateGroup[]>([]);
+    const [vacancyGroups, setVacancyGroups] = useState<VacancyGroup[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedGroup, setSelectedGroup] = useState<CandidateGroup | null>(null);
+    const [selectedVacancy, setSelectedVacancy] = useState<VacancyGroup | null>(null);
+    const [selectedCandidate, setSelectedCandidate] = useState<CandidateGroup | null>(null);
     const [activeRequest, setActiveRequest] = useState<EvaluationRequest | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -73,6 +83,27 @@ export default function MobileEvaluationsPage() {
     // File viewer state
     const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
 
+    // Employee info cache: authorId → { name, photoURL }
+    const empCache = useRef<Map<string, { name: string; photoURL?: string }>>(new Map());
+
+    const resolveAuthor = useCallback(async (authorId: string): Promise<{ name: string; photoURL?: string } | null> => {
+        if (!firestore) return null;
+        if (empCache.current.has(authorId)) return empCache.current.get(authorId)!;
+        try {
+            const empDoc = await getDoc(doc(firestore, 'employees', authorId));
+            if (empDoc.exists()) {
+                const d = empDoc.data();
+                const info = {
+                    name: [d.lastName, d.firstName].filter(Boolean).join(' ').trim() || d.email || 'Ажилтан',
+                    photoURL: d.photoURL as string | undefined,
+                };
+                empCache.current.set(authorId, info);
+                return info;
+            }
+        } catch (_) {}
+        return null;
+    }, [firestore]);
+
     useEffect(() => {
         if (!firestore || !user?.uid) {
             setLoading(false);
@@ -83,7 +114,7 @@ export default function MobileEvaluationsPage() {
         const loadData = async () => {
             setLoading(true);
 
-            // Collect all user IDs that might match this employee
+            // Get all user IDs for this employee
             const allMyIds = [user.uid];
             if (user.email) {
                 try {
@@ -95,7 +126,7 @@ export default function MobileEvaluationsPage() {
                 } catch (_) {}
             }
 
-            // Fetch evaluation requests
+            // Fetch all evaluation requests assigned to me
             const evalMap = new Map<string, EvaluationRequest>();
             for (const myId of allMyIds) {
                 try {
@@ -113,60 +144,18 @@ export default function MobileEvaluationsPage() {
             }
             const allEvals = Array.from(evalMap.values());
 
-            // Fetch interviews
+            // Fetch all interviews for me
             const interviewMap = new Map<string, Interview>();
             for (const myId of allMyIds) {
                 try {
-                    const q = query(
-                        collection(firestore, 'interviews'),
-                        where('interviewerIds', 'array-contains', myId),
-                    );
+                    const q = query(collection(firestore, 'interviews'), where('interviewerIds', 'array-contains', myId));
                     const snap = await getDocs(q);
                     snap.docs.forEach(d => interviewMap.set(d.id, { id: d.id, ...d.data() } as Interview));
                 } catch (_) {}
             }
             const allInterviews = Array.from(interviewMap.values());
 
-            // Group by candidateId
-            const groupMap = new Map<string, CandidateGroup>();
-
-            for (const ev of allEvals) {
-                const key = ev.candidateId;
-                if (!groupMap.has(key)) {
-                    groupMap.set(key, {
-                        candidateId: key,
-                        candidateName: ev.candidateName,
-                        vacancyTitle: ev.vacancyTitle || '',
-                        vacancyId: '',
-                        applicationId: ev.applicationId,
-                        interviews: [],
-                        evaluations: [],
-                        stages: [],
-                    });
-                }
-                groupMap.get(key)!.evaluations.push(ev);
-            }
-
-            for (const iv of allInterviews) {
-                const key = iv.candidateId;
-                if (!groupMap.has(key)) {
-                    groupMap.set(key, {
-                        candidateId: key,
-                        candidateName: iv.candidateName || 'Горилогч',
-                        vacancyTitle: iv.vacancyTitle || '',
-                        vacancyId: iv.vacancyId || '',
-                        applicationId: iv.applicationId,
-                        interviews: [],
-                        evaluations: [],
-                        stages: [],
-                    });
-                }
-                const g = groupMap.get(key)!;
-                g.interviews.push(iv);
-                if (!g.vacancyId && iv.vacancyId) g.vacancyId = iv.vacancyId;
-            }
-
-            // Fetch global default stages
+            // Fetch default stages
             let defaultStages: RecruitmentStage[] = [];
             try {
                 const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
@@ -175,58 +164,81 @@ export default function MobileEvaluationsPage() {
                 }
             } catch (_) {}
 
-            // Fetch candidate info, application (for files), and vacancy (for stages) for each group
-            const groupArr = Array.from(groupMap.values());
-            await Promise.all(groupArr.map(async (g) => {
+            // Fetch vacancies where I'm a participant
+            const vacancyMap = new Map<string, Vacancy>();
+            for (const myId of allMyIds) {
                 try {
-                    const candidateDoc = await getDoc(doc(firestore, 'candidates', g.candidateId));
-                    if (candidateDoc.exists()) {
-                        g.candidate = { id: candidateDoc.id, ...candidateDoc.data() } as Candidate;
-                        g.candidateName = `${g.candidate.lastName?.[0] || ''}. ${g.candidate.firstName}`;
-                    }
+                    const q = query(collection(firestore, 'vacancies'), where('participantIds', 'array-contains', myId));
+                    const snap = await getDocs(q);
+                    snap.docs.forEach(d => {
+                        const v = { id: d.id, ...d.data() } as Vacancy;
+                        vacancyMap.set(d.id, v);
+                    });
                 } catch (_) {}
+            }
 
-                if (g.applicationId) {
-                    try {
-                        const appDoc = await getDoc(doc(firestore, 'applications', g.applicationId));
-                        if (appDoc.exists()) {
-                            g.application = { id: appDoc.id, ...appDoc.data() } as JobApplication;
-                            if (!g.vacancyId && g.application.vacancyId) {
-                                g.vacancyId = g.application.vacancyId;
-                            }
-                        }
-                    } catch (_) {}
-                }
+            // For each vacancy, load active applications + candidate details
+            const groups: VacancyGroup[] = [];
 
-                // Fetch vacancy for stages
-                if (g.vacancyId) {
-                    try {
-                        const vacDoc = await getDoc(doc(firestore, 'vacancies', g.vacancyId));
-                        if (vacDoc.exists()) {
-                            g.vacancy = { id: vacDoc.id, ...vacDoc.data() } as Vacancy;
-                            g.stages = g.vacancy.stages || defaultStages;
-                            if (!g.vacancyTitle && g.vacancy.title) g.vacancyTitle = g.vacancy.title;
-                        }
-                    } catch (_) {}
-                }
-                if (g.stages.length === 0) {
-                    g.stages = defaultStages;
-                }
+            await Promise.all(Array.from(vacancyMap.values()).map(async (vacancy) => {
+                const stages = vacancy.stages?.length ? vacancy.stages : defaultStages;
+                try {
+                    const appsQ = query(
+                        collection(firestore, 'applications'),
+                        where('vacancyId', '==', vacancy.id),
+                        where('status', '==', 'ACTIVE'),
+                    );
+                    const appsSnap = await getDocs(appsQ);
+                    const apps = appsSnap.docs.map(d => ({ id: d.id, ...d.data() } as JobApplication));
+
+                    const candidateGroups: CandidateGroup[] = [];
+
+                    await Promise.all(apps.map(async (app) => {
+                        let candidate: Candidate | undefined;
+                        try {
+                            const cDoc = await getDoc(doc(firestore, 'candidates', app.candidateId));
+                            if (cDoc.exists()) candidate = { id: cDoc.id, ...cDoc.data() } as Candidate;
+                        } catch (_) {}
+
+                        const appEvals = allEvals.filter(e => e.applicationId === app.id);
+                        const appInterviews = allInterviews.filter(i => i.applicationId === app.id);
+                        const name = candidate
+                            ? `${candidate.lastName?.[0] || ''}. ${candidate.firstName}`
+                            : (app.candidate?.firstName || 'Горилогч');
+
+                        candidateGroups.push({
+                            candidateId: app.candidateId,
+                            candidateName: name,
+                            vacancyTitle: vacancy.title,
+                            vacancyId: vacancy.id,
+                            applicationId: app.id,
+                            interviews: appInterviews,
+                            evaluations: appEvals,
+                            candidate,
+                            application: app,
+                            vacancy,
+                            stages,
+                        });
+                    }));
+
+                    candidateGroups.sort((a, b) => {
+                        const aPending = a.evaluations.filter(e => e.status === 'pending').length + a.interviews.filter(i => i.status === 'SCHEDULED').length;
+                        const bPending = b.evaluations.filter(e => e.status === 'pending').length + b.interviews.filter(i => i.status === 'SCHEDULED').length;
+                        return bPending - aPending;
+                    });
+
+                    groups.push({ vacancyId: vacancy.id, vacancyTitle: vacancy.title, vacancy, stages, candidates: candidateGroups });
+                } catch (_) {}
             }));
 
-            const activeGroups = groupArr.filter(g => {
-                const appStatus = g.application?.status;
-                return appStatus !== 'HIRED' && appStatus !== 'REJECTED';
-            });
-
-            activeGroups.sort((a, b) => {
-                const aPending = a.evaluations.filter(e => e.status === 'pending').length + a.interviews.filter(i => i.status === 'SCHEDULED').length;
-                const bPending = b.evaluations.filter(e => e.status === 'pending').length + b.interviews.filter(i => i.status === 'SCHEDULED').length;
+            groups.sort((a, b) => {
+                const aPending = a.candidates.reduce((s, c) => s + c.evaluations.filter(e => e.status === 'pending').length + c.interviews.filter(i => i.status === 'SCHEDULED').length, 0);
+                const bPending = b.candidates.reduce((s, c) => s + c.evaluations.filter(e => e.status === 'pending').length + c.interviews.filter(i => i.status === 'SCHEDULED').length, 0);
                 return bPending - aPending;
             });
 
             if (!cancelled) {
-                setGroups(activeGroups);
+                setVacancyGroups(groups);
                 setLoading(false);
             }
         };
@@ -235,64 +247,85 @@ export default function MobileEvaluationsPage() {
         return () => { cancelled = true; };
     }, [firestore, user?.uid, user?.email]);
 
-    // Fetch notes when a candidate is selected
+    // Real-time notes subscription when a candidate is selected
     useEffect(() => {
-        if (!firestore || !selectedGroup?.applicationId) {
+        if (!firestore || !selectedCandidate?.applicationId) {
             setMyNotes([]);
             return;
         }
         setLoadingNotes(true);
         const notesQ = query(
             collection(firestore, 'application_notes'),
-            where('applicationId', '==', selectedGroup.applicationId),
+            where('applicationId', '==', selectedCandidate.applicationId),
         );
-        getDocs(notesQ).then(async (snap) => {
-            const items = snap.docs.map(d => {
+        const unsub = onSnapshot(notesQ, async (snap) => {
+            const raw = snap.docs.map(d => {
                 const data = d.data();
                 return {
                     id: d.id,
                     text: data.text || '',
-                    authorName: data.authorName || '',
-                    authorPhotoURL: data.authorPhotoURL,
-                    authorId: data.authorId,
+                    authorName: data.authorName || 'Нэргүй',
+                    authorPhotoURL: data.authorPhotoURL as string | undefined,
+                    authorId: data.authorId as string | undefined,
                     createdAt: data.createdAt || '',
                 };
             });
-            for (const item of items) {
-                if (item.authorId) {
-                    const needsName = !item.authorName || item.authorName === 'Нэргүй';
-                    const needsPhoto = !item.authorPhotoURL;
-                    if (needsName || needsPhoto) {
-                        try {
-                            const empSnap = await getDoc(doc(firestore, 'employees', item.authorId));
-                            if (empSnap.exists()) {
-                                const e = empSnap.data();
-                                if (needsName) item.authorName = [e.lastName, e.firstName].filter(Boolean).join(' ').trim() || 'Ажилтан';
-                                if (needsPhoto && e.photoURL) item.authorPhotoURL = e.photoURL;
-                            } else if (needsName) {
-                                item.authorName = item.authorName || 'Нэргүй';
-                            }
-                        } catch {
-                            if (needsName) item.authorName = item.authorName || 'Нэргүй';
-                        }
+
+            // Resolve employee name & photo for each unique authorId
+            const uniqueIds = [...new Set(raw.map(n => n.authorId).filter(Boolean) as string[])];
+            await Promise.all(uniqueIds.map(id => resolveAuthor(id)));
+
+            const items = raw.map(note => {
+                if (note.authorId) {
+                    const resolved = empCache.current.get(note.authorId);
+                    if (resolved) {
+                        return {
+                            ...note,
+                            authorName: resolved.name,
+                            authorPhotoURL: resolved.photoURL ?? note.authorPhotoURL,
+                        };
                     }
-                } else if (!item.authorName) {
-                    item.authorName = 'Нэргүй';
                 }
-            }
+                return note;
+            });
+
             items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setMyNotes(items);
-        }).catch(() => {}).finally(() => setLoadingNotes(false));
-    }, [firestore, selectedGroup?.applicationId]);
+            setLoadingNotes(false);
+        }, () => setLoadingNotes(false));
+        return () => unsub();
+    }, [firestore, selectedCandidate?.applicationId, resolveAuthor]);
+
+    // Real-time application subscription — шат шилжилтийг шууд тусгана
+    useEffect(() => {
+        if (!firestore || !selectedCandidate?.applicationId) return;
+        const unsub = onSnapshot(
+            doc(firestore, 'applications', selectedCandidate.applicationId),
+            (snap) => {
+                if (!snap.exists()) return;
+                const appData = { id: snap.id, ...snap.data() } as JobApplication;
+                setSelectedCandidate(prev => prev ? { ...prev, application: appData } : null);
+                setVacancyGroups(prev => prev.map(vg => ({
+                    ...vg,
+                    candidates: vg.candidates.map(c =>
+                        c.applicationId === appData.id ? { ...c, application: appData } : c
+                    ),
+                })));
+            },
+        );
+        return () => unsub();
+    }, [firestore, selectedCandidate?.applicationId]);
 
     const totalPending = useMemo(() => {
         let count = 0;
-        for (const g of groups) {
-            count += g.evaluations.filter(e => e.status === 'pending').length;
-            count += g.interviews.filter(i => i.status === 'SCHEDULED').length;
+        for (const vg of vacancyGroups) {
+            for (const c of vg.candidates) {
+                count += c.evaluations.filter(e => e.status === 'pending').length;
+                count += c.interviews.filter(i => i.status === 'SCHEDULED').length;
+            }
         }
         return count;
-    }, [groups]);
+    }, [vacancyGroups]);
 
     const handleScorecardSubmit = async (criteria: ScorecardCriteria[], notes: string) => {
         if (!firestore || !activeRequest || !user) return;
@@ -330,21 +363,22 @@ export default function MobileEvaluationsPage() {
                 createdAt: new Date().toISOString(),
             });
 
+            const updatedEval = { status: 'completed' as const, scorecardId: scorecardDoc.id, completedAt: new Date().toISOString() };
+
             toast({ title: 'Үнэлгээ амжилттай илгээгдлээ' });
             setActiveRequest(null);
 
-            setGroups(prev => prev.map(g => ({
-                ...g,
-                evaluations: g.evaluations.map(e =>
-                    e.id === activeRequest.id ? { ...e, status: 'completed' as const, scorecardId: scorecardDoc.id, completedAt: new Date().toISOString() } : e
-                ),
+            setVacancyGroups(prev => prev.map(vg => ({
+                ...vg,
+                candidates: vg.candidates.map(c => c.applicationId === activeRequest.applicationId ? ({
+                    ...c,
+                    evaluations: c.evaluations.map(e => e.id === activeRequest.id ? { ...e, ...updatedEval } : e),
+                }) : c),
             })));
-            if (selectedGroup) {
-                setSelectedGroup(prev => prev ? ({
+            if (selectedCandidate?.applicationId === activeRequest.applicationId) {
+                setSelectedCandidate(prev => prev ? ({
                     ...prev,
-                    evaluations: prev.evaluations.map(e =>
-                        e.id === activeRequest.id ? { ...e, status: 'completed' as const, scorecardId: scorecardDoc.id, completedAt: new Date().toISOString() } : e
-                    ),
+                    evaluations: prev.evaluations.map(e => e.id === activeRequest.id ? { ...e, ...updatedEval } : e),
                 }) : null);
             }
         } catch (err: any) {
@@ -355,7 +389,7 @@ export default function MobileEvaluationsPage() {
     };
 
     const handleSaveNote = async () => {
-        if (!firestore || !selectedGroup || !noteText.trim() || !user) return;
+        if (!firestore || !selectedCandidate || !noteText.trim() || !user) return;
         setSavingNote(true);
         try {
             const now = new Date().toISOString();
@@ -363,9 +397,9 @@ export default function MobileEvaluationsPage() {
                 ? [employeeProfile.lastName, employeeProfile.firstName].filter(Boolean).join(' ').trim() || 'Ажилтан'
                 : (user.displayName || 'Ажилтан');
             const authorPhotoURL = employeeProfile?.photoURL ?? (user as any).photoURL ?? null;
-            const stageId = selectedGroup.application?.currentStageId || null;
+            const stageId = selectedCandidate.application?.currentStageId || null;
             const noteDoc = await addDoc(collection(firestore, 'application_notes'), {
-                applicationId: selectedGroup.applicationId,
+                applicationId: selectedCandidate.applicationId,
                 stageId,
                 authorId: user.uid,
                 authorName,
@@ -383,32 +417,140 @@ export default function MobileEvaluationsPage() {
         }
     };
 
-    // ---------- DETAIL VIEW ----------
-    if (selectedGroup) {
-        const pendingEvals = selectedGroup.evaluations.filter(e => e.status === 'pending');
-        const completedEvals = selectedGroup.evaluations.filter(e => e.status === 'completed');
-        const scheduledInterviews = selectedGroup.interviews.filter(i => i.status === 'SCHEDULED');
-        const pastInterviews = selectedGroup.interviews.filter(i => i.status !== 'SCHEDULED');
-        const candidate = selectedGroup.candidate;
-        const application = selectedGroup.application;
+    // ===================== CANDIDATE DETAIL VIEW =====================
+    if (selectedCandidate) {
+        const pendingEvals = selectedCandidate.evaluations.filter(e => e.status === 'pending');
+        const completedEvals = selectedCandidate.evaluations.filter(e => e.status === 'completed');
+        const scheduledInterviews = selectedCandidate.interviews.filter(i => i.status === 'SCHEDULED');
+        const pastInterviews = selectedCandidate.interviews.filter(i => i.status !== 'SCHEDULED');
+        const candidate = selectedCandidate.candidate;
+        const application = selectedCandidate.application;
         const files: ApplicationFile[] = application?.files || [];
         const hasResume = !!candidate?.resumeUrl;
 
+        // Stage stepper data
+        const stages = selectedCandidate.stages;
+        const currentStageId = application?.currentStageId;
+        const isHired = application?.status === 'HIRED';
+        const isRejected = application?.status === 'REJECTED';
+
+        let currentStageIdx = stages.findIndex(s => s.id === currentStageId);
+        const currentStage = stages.find(s => s.id === currentStageId);
+
+        // Terminal states: 'hired'/'rejected' aren't in stages array → compute effective index
+        if (currentStageIdx === -1) {
+            if (isHired) {
+                currentStageIdx = stages.length;
+            } else if (isRejected) {
+                const stageIdsWithActivity = new Set([
+                    ...selectedCandidate.evaluations.map(e => e.stageId),
+                    ...selectedCandidate.interviews.map(i => (i as any).stageId),
+                ].filter(Boolean));
+                let lastIdx = 0;
+                stages.forEach((s, idx) => { if (stageIdsWithActivity.has(s.id)) lastIdx = idx; });
+                currentStageIdx = lastIdx;
+            }
+        }
+
         return (
             <div className="min-h-screen bg-slate-50/50 flex flex-col">
-                {/* Detail Header */}
+                {/* Header */}
                 <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex items-center gap-3">
-                    <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => setSelectedGroup(null)}>
+                    <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => { setSelectedCandidate(null); setNoteText(''); }}>
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-base font-semibold text-slate-900 truncate">{selectedGroup.candidateName}</h1>
-                        <p className="text-[11px] text-slate-400 truncate">{selectedGroup.vacancyTitle}</p>
+                        <h1 className="text-base font-semibold text-slate-900 truncate">{selectedCandidate.candidateName}</h1>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-[11px] text-slate-400 truncate">{selectedCandidate.vacancyTitle}</p>
+                            {currentStage && !isHired && !isRejected && (
+                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0 border-blue-200 text-blue-600 bg-blue-50">
+                                    {currentStage.title}
+                                </Badge>
+                            )}
+                            {isHired && (
+                                <Badge className="text-[10px] h-4 px-1.5 shrink-0 bg-green-100 text-green-700 border-green-200" variant="outline">
+                                    Ажилд авсан
+                                </Badge>
+                            )}
+                            {isRejected && (
+                                <Badge className="text-[10px] h-4 px-1.5 shrink-0 bg-red-50 text-red-600 border-red-200" variant="outline">
+                                    Татгалзсан
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                 </div>
 
+                {/* Stage Progress Stepper */}
+                {stages.length > 0 && (
+                    <div className="bg-white border-b px-4 py-3 overflow-x-auto">
+                        <div className="flex items-start gap-0 min-w-max">
+                            {stages.map((stage, idx) => {
+                                const isPast = idx < currentStageIdx;
+                                const isCurrent = stage.id === currentStageId && !isHired && !isRejected;
+                                return (
+                                    <React.Fragment key={stage.id}>
+                                        <div className="flex flex-col items-center gap-1 w-14">
+                                            <div className={cn(
+                                                "h-6 w-6 rounded-full flex items-center justify-center border-2 transition-all",
+                                                isCurrent
+                                                    ? "bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-200"
+                                                    : isPast
+                                                        ? "bg-blue-100 border-blue-300 text-blue-600"
+                                                        : "bg-slate-100 border-slate-200 text-slate-400",
+                                            )}>
+                                                {isPast
+                                                    ? <CheckCircle2 className="h-3.5 w-3.5" />
+                                                    : <span className="text-[9px] font-bold">{idx + 1}</span>
+                                                }
+                                            </div>
+                                            <span className={cn(
+                                                "text-[9px] text-center leading-tight w-full truncate px-0.5",
+                                                isCurrent ? "font-semibold text-blue-600" : isPast ? "text-slate-500" : "text-slate-300",
+                                            )}>
+                                                {stage.title}
+                                            </span>
+                                        </div>
+                                        {idx < stages.length - 1 && (
+                                            <div className={cn(
+                                                "h-0.5 w-4 mt-3 shrink-0",
+                                                idx < currentStageIdx ? "bg-blue-300" : "bg-slate-200",
+                                            )} />
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                            {/* Terminal stage indicator */}
+                            {(isHired || isRejected) && (
+                                <>
+                                    <div className="h-0.5 w-4 mt-3 shrink-0 bg-slate-200" />
+                                    <div className="flex flex-col items-center gap-1 w-14">
+                                        <div className={cn(
+                                            "h-6 w-6 rounded-full flex items-center justify-center border-2",
+                                            isHired
+                                                ? "bg-green-500 border-green-500 text-white"
+                                                : "bg-red-100 border-red-300 text-red-600",
+                                        )}>
+                                            {isHired
+                                                ? <CheckCircle2 className="h-3.5 w-3.5" />
+                                                : <X className="h-3 w-3" />
+                                            }
+                                        </div>
+                                        <span className={cn(
+                                            "text-[9px] text-center leading-tight w-full truncate px-0.5 font-semibold",
+                                            isHired ? "text-green-600" : "text-red-500",
+                                        )}>
+                                            {isHired ? 'Ажилд авсан' : 'Татгалзсан'}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto">
-                    {/* Candidate Info Card */}
                     {candidate && (
                         <div className="px-4 pt-4">
                             <Card>
@@ -421,7 +563,7 @@ export default function MobileEvaluationsPage() {
                                         </Avatar>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-slate-900">{candidate.lastName} {candidate.firstName}</p>
-                                            <p className="text-xs text-slate-400 truncate">{selectedGroup.vacancyTitle}</p>
+                                            <p className="text-xs text-slate-400 truncate">{selectedCandidate.vacancyTitle}</p>
                                         </div>
                                     </div>
                                     <div className="mt-3 space-y-1.5">
@@ -449,7 +591,6 @@ export default function MobileEvaluationsPage() {
                         </div>
                     )}
 
-                    {/* Scheduled Interviews */}
                     {scheduledInterviews.length > 0 && (
                         <div className="px-4 pt-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -497,7 +638,6 @@ export default function MobileEvaluationsPage() {
                         </div>
                     )}
 
-                    {/* Past / Completed Interviews */}
                     {pastInterviews.length > 0 && (
                         <div className="px-4 pt-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -524,7 +664,6 @@ export default function MobileEvaluationsPage() {
                         </div>
                     )}
 
-                    {/* Pending Evaluations */}
                     {pendingEvals.length > 0 && (
                         <div className="px-4 pt-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -553,7 +692,6 @@ export default function MobileEvaluationsPage() {
                         </div>
                     )}
 
-                    {/* Completed Evaluations */}
                     {completedEvals.length > 0 && (
                         <div className="px-4 pt-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -576,12 +714,10 @@ export default function MobileEvaluationsPage() {
                         </div>
                     )}
 
-                    {/* Files Section — grouped by stage */}
                     {(hasResume || files.length > 0) && (() => {
-                        const stages = selectedGroup.stages;
+                        const stages = selectedCandidate.stages;
                         const stageMap = new Map<string, RecruitmentStage>();
                         stages.forEach(s => stageMap.set(s.id, s));
-
                         const filesByStage = new Map<string, ApplicationFile[]>();
                         const unstaged: ApplicationFile[] = [];
                         for (const f of files) {
@@ -592,9 +728,7 @@ export default function MobileEvaluationsPage() {
                                 unstaged.push(f);
                             }
                         }
-
                         const orderedStages = stages.filter(s => filesByStage.has(s.id));
-
                         return (
                             <div className="px-4 pt-4">
                                 <div className="flex items-center gap-2 mb-3">
@@ -602,8 +736,6 @@ export default function MobileEvaluationsPage() {
                                     <h2 className="text-sm font-semibold text-slate-900">Файлууд</h2>
                                     <Badge variant="outline" className="text-[10px] h-5 px-1.5">{(hasResume ? 1 : 0) + files.length}</Badge>
                                 </div>
-
-                                {/* Resume */}
                                 {hasResume && (
                                     <div className="mb-3">
                                         <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">CV / Анкет</p>
@@ -621,8 +753,6 @@ export default function MobileEvaluationsPage() {
                                         </Card>
                                     </div>
                                 )}
-
-                                {/* Files grouped by stage */}
                                 {orderedStages.map(stage => (
                                     <div key={stage.id} className="mb-3">
                                         <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">{stage.title}</p>
@@ -635,11 +765,7 @@ export default function MobileEvaluationsPage() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                                                            <p className="text-[11px] text-slate-400">
-                                                                {(file.size / 1024).toFixed(0)} KB
-                                                                {file.uploadedBy && ` • ${file.uploadedBy}`}
-                                                                {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
-                                                            </p>
+                                                            <p className="text-[11px] text-slate-400">{(file.size / 1024).toFixed(0)} KB{file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}</p>
                                                         </div>
                                                         <Eye className="h-4 w-4 text-slate-400 shrink-0" />
                                                     </CardContent>
@@ -648,13 +774,9 @@ export default function MobileEvaluationsPage() {
                                         </div>
                                     </div>
                                 ))}
-
-                                {/* Files without stage */}
                                 {unstaged.length > 0 && (
                                     <div className="mb-3">
-                                        {orderedStages.length > 0 && (
-                                            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">Бусад</p>
-                                        )}
+                                        {orderedStages.length > 0 && <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">Бусад</p>}
                                         <div className="space-y-2">
                                             {unstaged.map(file => (
                                                 <Card key={file.id} className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setViewingFile({ url: file.url, name: file.name })}>
@@ -664,11 +786,7 @@ export default function MobileEvaluationsPage() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                                                            <p className="text-[11px] text-slate-400">
-                                                                {(file.size / 1024).toFixed(0)} KB
-                                                                {file.uploadedBy && ` • ${file.uploadedBy}`}
-                                                                {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
-                                                            </p>
+                                                            <p className="text-[11px] text-slate-400">{(file.size / 1024).toFixed(0)} KB{file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}</p>
                                                         </div>
                                                         <Eye className="h-4 w-4 text-slate-400 shrink-0" />
                                                     </CardContent>
@@ -681,7 +799,6 @@ export default function MobileEvaluationsPage() {
                         );
                     })()}
 
-                    {/* Notes Section */}
                     <div className="px-4 pt-4 pb-6">
                         <div className="flex items-center gap-2 mb-3">
                             <StickyNote className="h-4 w-4 text-amber-500" />
@@ -691,71 +808,65 @@ export default function MobileEvaluationsPage() {
                             )}
                         </div>
 
+                        {/* Existing notes — real-time, all authors */}
+                        {loadingNotes ? (
+                            <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-slate-400" /></div>
+                        ) : myNotes.length > 0 ? (
+                            <div className="space-y-2 mb-3">
+                                {myNotes.map(note => {
+                                    const isOwn = note.authorId === user?.uid;
+                                    return (
+                                        <Card key={note.id} className={cn(isOwn && "border-amber-100 bg-amber-50/30")}>
+                                            <CardContent className="p-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Avatar className="h-6 w-6 shrink-0">
+                                                        <AvatarImage src={note.authorPhotoURL} alt={note.authorName} />
+                                                        <AvatarFallback className={cn(
+                                                            "text-[10px] font-semibold",
+                                                            isOwn ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+                                                        )}>
+                                                            {(note.authorName || 'Н')[0]}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-[11px] font-medium text-slate-700">{note.authorName}</span>
+                                                    {isOwn && <span className="text-[10px] text-amber-600 font-medium">Би</span>}
+                                                    <span className="text-[10px] text-slate-400 ml-auto">
+                                                        {note.createdAt ? format(new Date(note.createdAt), 'MM/dd HH:mm') : ''}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{note.text}</p>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        ) : !loadingNotes ? (
+                            <p className="text-xs text-slate-400 text-center py-3 mb-3">Тэмдэглэл байхгүй байна</p>
+                        ) : null}
+
                         {/* Write note */}
-                        <Card className="mb-3">
+                        <Card>
                             <CardContent className="p-3 space-y-2">
                                 <Textarea
                                     placeholder="Тэмдэглэл бичих..."
                                     value={noteText}
                                     onChange={e => setNoteText(e.target.value)}
-                                    className="min-h-[80px] resize-none text-sm"
+                                    className="min-h-[72px] resize-none text-sm"
                                 />
-                                <Button
-                                    size="sm"
-                                    className="w-full h-8 text-xs bg-amber-500 hover:bg-amber-600 gap-1.5"
-                                    disabled={!noteText.trim() || savingNote}
-                                    onClick={handleSaveNote}
-                                >
+                                <Button size="sm" className="w-full h-8 text-xs bg-amber-500 hover:bg-amber-600 gap-1.5" disabled={!noteText.trim() || savingNote} onClick={handleSaveNote}>
                                     {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : <StickyNote className="h-3 w-3" />}
-                                    Тэмдэглэл хадгалах
+                                    Тэмдэглэл нэмэх
                                 </Button>
                             </CardContent>
                         </Card>
-
-                        {/* Existing notes */}
-                        {loadingNotes ? (
-                            <div className="flex justify-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                            </div>
-                        ) : myNotes.length > 0 ? (
-                            <div className="space-y-2">
-                                {myNotes.map(note => (
-                                    <Card key={note.id}>
-                                        <CardContent className="p-3">
-                                            <p className="text-sm text-slate-800 whitespace-pre-wrap">{note.text}</p>
-                                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
-                                                <Avatar className="h-6 w-6 shrink-0">
-                                                    <AvatarImage src={note.authorPhotoURL} alt={note.authorName} />
-                                                    <AvatarFallback className="text-[10px] font-semibold bg-amber-100 text-amber-800">
-                                                        {(note.authorName || 'Нэргүй')[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-[11px] font-medium text-slate-600">{note.authorName || 'Нэргүй'}</span>
-                                                <span className="text-[10px] text-slate-400 ml-auto">{note.createdAt ? format(new Date(note.createdAt), 'yyyy/MM/dd HH:mm') : ''}</span>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs text-slate-400 text-center py-2">Тэмдэглэл байхгүй</p>
-                        )}
                     </div>
                 </div>
 
-                {/* Scorecard Overlay - мобайл контейнер дотор render хийгдэнэ */}
+                {/* Scorecard Overlay */}
                 {!!activeRequest && mobileContainer && createPortal(
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3 overflow-hidden">
-                        <div
-                            className="w-full max-h-[85dvh] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl bg-white"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <InterviewScorecard
-                                candidateName={selectedGroup.candidateName}
-                                onSubmit={handleScorecardSubmit}
-                                onCancel={() => setActiveRequest(null)}
-                                isLoading={submitting}
-                            />
+                        <div className="w-full max-h-[85dvh] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl bg-white" onClick={(e) => e.stopPropagation()}>
+                            <InterviewScorecard candidateName={selectedCandidate.candidateName} onSubmit={handleScorecardSubmit} onCancel={() => setActiveRequest(null)} isLoading={submitting} />
                         </div>
                     </div>,
                     mobileContainer
@@ -763,17 +874,12 @@ export default function MobileEvaluationsPage() {
                 {!!activeRequest && !mobileContainer && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
                         <div className="w-full max-w-md max-h-[85dvh] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl bg-white">
-                            <InterviewScorecard
-                                candidateName={selectedGroup.candidateName}
-                                onSubmit={handleScorecardSubmit}
-                                onCancel={() => setActiveRequest(null)}
-                                isLoading={submitting}
-                            />
+                            <InterviewScorecard candidateName={selectedCandidate.candidateName} onSubmit={handleScorecardSubmit} onCancel={() => setActiveRequest(null)} isLoading={submitting} />
                         </div>
                     </div>
                 )}
 
-                {/* File Viewer Overlay */}
+                {/* File Viewer */}
                 {viewingFile && (() => {
                     const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(viewingFile.url);
                     const gviewUrl = `https://docs.google.com/gview?url=${encodeURIComponent(viewingFile.url)}&embedded=true`;
@@ -791,121 +897,198 @@ export default function MobileEvaluationsPage() {
                                         <img src={viewingFile.url} alt={viewingFile.name} className="max-w-full object-contain" />
                                     </div>
                                 ) : (
-                                    <iframe
-                                        src={gviewUrl}
-                                        title={viewingFile.name}
-                                        className="w-full h-full border-none"
-                                    />
+                                    <iframe src={gviewUrl} title={viewingFile.name} className="w-full h-full border-none" />
                                 )}
                             </div>
                         </div>
                     );
-                    return mobileContainer ? createPortal(viewerContent, mobileContainer) : (
-                        <div className="fixed inset-0 z-50">{viewerContent}</div>
-                    );
+                    return mobileContainer ? createPortal(viewerContent, mobileContainer) : <div className="fixed inset-0 z-50">{viewerContent}</div>;
                 })()}
             </div>
         );
     }
 
-    // ---------- LIST VIEW ----------
+    // ===================== VACANCY CANDIDATES VIEW =====================
+    if (selectedVacancy) {
+        const vCandidates = selectedVacancy.candidates;
+        const vacancyPending = vCandidates.reduce((s, c) =>
+            s + c.evaluations.filter(e => e.status === 'pending').length + c.interviews.filter(i => i.status === 'SCHEDULED').length, 0);
+
+        return (
+            <div className="min-h-screen bg-slate-50/50 flex flex-col">
+                <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex items-center gap-3">
+                    <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => setSelectedVacancy(null)}>
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-base font-semibold text-slate-900 truncate">{selectedVacancy.vacancyTitle}</h1>
+                        <p className="text-[11px] text-slate-400">{vCandidates.length} горилогч</p>
+                    </div>
+                    {vacancyPending > 0 && (
+                        <Badge variant="destructive" className="h-6 min-w-[24px] px-2 text-xs shrink-0">{vacancyPending}</Badge>
+                    )}
+                </div>
+
+                <div className="flex-1 px-4 py-3 space-y-3">
+                    {vCandidates.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                                <Users className="h-8 w-8 text-slate-300" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-500">Горилогч байхгүй</p>
+                            <p className="text-xs text-slate-400 mt-1">Энэ ажлын байранд идэвхтэй горилогч алга байна.</p>
+                        </div>
+                    ) : (
+                        vCandidates.map(c => {
+                            const pendingEvalCount = c.evaluations.filter(e => e.status === 'pending').length;
+                            const scheduledCount = c.interviews.filter(i => i.status === 'SCHEDULED').length;
+                            const completedEvalCount = c.evaluations.filter(e => e.status === 'completed').length;
+                            const totalActions = pendingEvalCount + scheduledCount;
+                            const initials = c.candidate
+                                ? (c.candidate.firstName?.[0] || '') + (c.candidate.lastName?.[0] || '')
+                                : (c.candidateName?.[0] || '?');
+                            const cStage = c.stages.find(s => s.id === c.application?.currentStageId);
+                            const cIsHired = c.application?.status === 'HIRED';
+                            const cIsRejected = c.application?.status === 'REJECTED';
+
+                            return (
+                                <Card
+                                    key={c.candidateId}
+                                    className={cn("cursor-pointer active:scale-[0.98] transition-all", totalActions > 0 && "border-blue-100")}
+                                    onClick={() => { setSelectedCandidate(c); setNoteText(''); }}
+                                >
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start gap-3">
+                                            <Avatar className="h-11 w-11">
+                                                <AvatarFallback className={cn("text-sm font-semibold", totalActions > 0 ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500")}>
+                                                    {initials}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-slate-900 truncate">{c.candidateName}</p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                            {c.candidate?.phone && (
+                                                                <p className="text-[11px] text-slate-400 truncate">{c.candidate.phone}</p>
+                                                            )}
+                                                            {cIsHired && (
+                                                                <Badge className="text-[10px] h-4 px-1.5 bg-green-100 text-green-700 border-green-200" variant="outline">Ажилд авсан</Badge>
+                                                            )}
+                                                            {cIsRejected && (
+                                                                <Badge className="text-[10px] h-4 px-1.5 bg-red-50 text-red-600 border-red-200" variant="outline">Татгалзсан</Badge>
+                                                            )}
+                                                            {!cIsHired && !cIsRejected && cStage && (
+                                                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-slate-200 text-slate-500 bg-slate-50">
+                                                                    {cStage.title}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="h-5 w-5 text-slate-300 shrink-0 mt-0.5" />
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                                    {scheduledCount > 0 && (
+                                                        <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 gap-1">
+                                                            <Calendar className="h-2.5 w-2.5" />Ярилцлага {scheduledCount}
+                                                        </Badge>
+                                                    )}
+                                                    {pendingEvalCount > 0 && (
+                                                        <Badge variant="outline" className="text-[10px] border-orange-200 text-orange-600 bg-orange-50 gap-1">
+                                                            <Star className="h-2.5 w-2.5" />Үнэлгээ {pendingEvalCount}
+                                                        </Badge>
+                                                    )}
+                                                    {completedEvalCount > 0 && (
+                                                        <Badge variant="outline" className="text-[10px] border-green-200 text-green-600 bg-green-50 gap-1">
+                                                            <CheckCircle2 className="h-2.5 w-2.5" />Бөглөсөн {completedEvalCount}
+                                                        </Badge>
+                                                    )}
+                                                    {((c.candidate?.resumeUrl ? 1 : 0) + (c.application?.files?.length || 0)) > 0 && (
+                                                        <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 gap-1">
+                                                            <FileText className="h-2.5 w-2.5" />Файл {(c.candidate?.resumeUrl ? 1 : 0) + (c.application?.files?.length || 0)}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ===================== VACANCY LIST VIEW =====================
     return (
         <div className="min-h-screen bg-slate-50/50 flex flex-col">
-            {/* Header */}
             <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex items-center gap-3">
                 <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => router.back()}>
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex-1">
                     <h1 className="text-base font-semibold text-slate-900">Сонгон шалгаруулалт</h1>
-                    <p className="text-[11px] text-slate-400">Миний горилогчид</p>
+                    <p className="text-[11px] text-slate-400">Миний ажлын байрнууд</p>
                 </div>
                 {totalPending > 0 && (
-                    <Badge variant="destructive" className="h-6 min-w-[24px] px-2 text-xs">
-                        {totalPending}
-                    </Badge>
+                    <Badge variant="destructive" className="h-6 min-w-[24px] px-2 text-xs">{totalPending}</Badge>
                 )}
             </div>
 
-            {/* Content */}
             <div className="flex-1 px-4 py-3 space-y-3">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         <p className="text-xs text-slate-400">Ачаалж байна...</p>
                     </div>
-                ) : groups.length === 0 ? (
+                ) : vacancyGroups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                             <ClipboardCheck className="h-8 w-8 text-slate-300" />
                         </div>
-                        <p className="text-sm font-medium text-slate-500">Горилогч олдсонгүй</p>
-                        <p className="text-xs text-slate-400 mt-1">Танд хуваарилагдсан горилогч одоогоор алга байна.</p>
+                        <p className="text-sm font-medium text-slate-500">Ажлын байр олдсонгүй</p>
+                        <p className="text-xs text-slate-400 mt-1">Танд хуваарилагдсан сонгон шалгаруулалт одоогоор алга байна.</p>
                     </div>
                 ) : (
-                    groups.map(group => {
-                        const pendingEvalCount = group.evaluations.filter(e => e.status === 'pending').length;
-                        const scheduledCount = group.interviews.filter(i => i.status === 'SCHEDULED').length;
-                        const completedEvalCount = group.evaluations.filter(e => e.status === 'completed').length;
-                        const totalActions = pendingEvalCount + scheduledCount;
-                        const initials = group.candidate
-                            ? (group.candidate.firstName?.[0] || '') + (group.candidate.lastName?.[0] || '')
-                            : (group.candidateName?.[0] || '?');
+                    vacancyGroups.map(vg => {
+                        const pendingCount = vg.candidates.reduce((s, c) =>
+                            s + c.evaluations.filter(e => e.status === 'pending').length + c.interviews.filter(i => i.status === 'SCHEDULED').length, 0);
+                        const candidateCount = vg.candidates.length;
+                        const completedCount = vg.candidates.reduce((s, c) => s + c.evaluations.filter(e => e.status === 'completed').length, 0);
 
                         return (
                             <Card
-                                key={group.candidateId}
-                                className={cn(
-                                    "cursor-pointer active:scale-[0.98] transition-all",
-                                    totalActions > 0 && "border-blue-100"
-                                )}
-                                onClick={() => {
-                                    setSelectedGroup(group);
-                                    setNoteText('');
-                                }}
+                                key={vg.vacancyId}
+                                className={cn("cursor-pointer active:scale-[0.98] transition-all", pendingCount > 0 && "border-blue-100")}
+                                onClick={() => setSelectedVacancy(vg)}
                             >
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-3">
-                                        <Avatar className="h-11 w-11">
-                                            <AvatarFallback className={cn(
-                                                "text-sm font-semibold",
-                                                totalActions > 0 ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500"
-                                            )}>
-                                                {initials}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                        <div className={cn(
+                                            "h-11 w-11 rounded-xl flex items-center justify-center shrink-0",
+                                            pendingCount > 0 ? "bg-blue-50" : "bg-slate-100"
+                                        )}>
+                                            <Briefcase className={cn("h-5 w-5", pendingCount > 0 ? "text-blue-600" : "text-slate-400")} />
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-slate-900 truncate">{group.candidateName}</p>
-                                                    <p className="text-[11px] text-slate-400 truncate">{group.vacancyTitle}</p>
-                                                </div>
+                                                <p className="text-sm font-semibold text-slate-900 truncate">{vg.vacancyTitle}</p>
                                                 <ChevronRight className="h-5 w-5 text-slate-300 shrink-0 mt-0.5" />
                                             </div>
-
                                             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                                {scheduledCount > 0 && (
-                                                    <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 gap-1">
-                                                        <Calendar className="h-2.5 w-2.5" />
-                                                        Ярилцлага {scheduledCount}
-                                                    </Badge>
-                                                )}
-                                                {pendingEvalCount > 0 && (
+                                                <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 gap-1">
+                                                    <Users className="h-2.5 w-2.5" />{candidateCount} горилогч
+                                                </Badge>
+                                                {pendingCount > 0 && (
                                                     <Badge variant="outline" className="text-[10px] border-orange-200 text-orange-600 bg-orange-50 gap-1">
-                                                        <Star className="h-2.5 w-2.5" />
-                                                        Үнэлгээ {pendingEvalCount}
+                                                        <Star className="h-2.5 w-2.5" />{pendingCount} хүлээгдэж буй
                                                     </Badge>
                                                 )}
-                                                {completedEvalCount > 0 && (
+                                                {completedCount > 0 && (
                                                     <Badge variant="outline" className="text-[10px] border-green-200 text-green-600 bg-green-50 gap-1">
-                                                        <CheckCircle2 className="h-2.5 w-2.5" />
-                                                        Бөглөсөн {completedEvalCount}
-                                                    </Badge>
-                                                )}
-                                                {((group.candidate?.resumeUrl ? 1 : 0) + (group.application?.files?.length || 0)) > 0 && (
-                                                    <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 gap-1">
-                                                        <FileText className="h-2.5 w-2.5" />
-                                                        Файл {(group.candidate?.resumeUrl ? 1 : 0) + (group.application?.files?.length || 0)}
+                                                        <CheckCircle2 className="h-2.5 w-2.5" />{completedCount} бөглөсөн
                                                     </Badge>
                                                 )}
                                             </div>

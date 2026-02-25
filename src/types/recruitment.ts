@@ -15,6 +15,8 @@ export interface Vacancy {
     title: string;
     departmentId: string;
     hiringManagerId: string; // User ID
+    /** Сонгон шалгаруулалтад оролцох ажилтны ID-ууд */
+    participantIds?: string[];
     status: VacancyStatus;
     stages: RecruitmentStage[];
     description: string; // HTML or Markdown
@@ -60,6 +62,9 @@ export interface ApplicationFile {
     uploadedBy?: string;
 }
 
+export type RejectionType = 'employer' | 'candidate';
+export type RejectionCategory = 'reserve' | 'blacklist' | 'archive';
+
 export interface JobApplication {
     id: string;
     vacancyId: string;
@@ -70,11 +75,15 @@ export interface JobApplication {
     status: 'ACTIVE' | 'REJECTED' | 'WITHDRAWN' | 'HIRED';
     /** Татгалзсан шалтгаан */
     rejectionReason?: string;
+    /** Аль тал татгалзсан */
+    rejectionType?: RejectionType;
+    /** Татгалзсаны дараах ангилал */
+    rejectionCategory?: RejectionCategory;
     files?: ApplicationFile[];
     appliedAt: string;
     updatedAt: string;
-    candidate?: Candidate; // For easier displaying in lists
-    vacancy?: Vacancy;     // For easier displaying in lists
+    candidate?: Candidate;
+    vacancy?: Vacancy;
 }
 
 export type InterviewStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED' | 'NO_SHOW';

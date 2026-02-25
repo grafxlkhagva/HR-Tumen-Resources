@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
-import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate, ApplicationFile } from '@/types/recruitment';
+import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate, ApplicationFile, Interview } from '@/types/recruitment';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import {
@@ -32,6 +32,9 @@ import {
     Link as LinkIcon,
     Globe,
     User as UserIcon,
+    RotateCcw,
+    Mail,
+    Phone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,11 +51,14 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+const SOURCE_OPTIONS = ['zangia.mn', 'linkedin', 'unegui.mn', 'Lambda', 'Nito', 'Worki', 'Бусад'] as const;
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { AnimatePresence, motion } from 'framer-motion';
-import { sendSMS } from '@/lib/notifications';
+import { sendSMS, sendEmail } from '@/lib/notifications';
 import { createUserWithSecondaryAuth } from '@/firebase';
 import { InterviewScorecard, ScorecardCriteria } from '../../components/interview-scorecard';
 import { ScheduleInterviewDialog } from '../../components/schedule-interview-dialog';
@@ -67,7 +73,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 // --- Types & Helpers ---
@@ -194,6 +199,26 @@ export default function CandidateDetailPage() {
     const [notes, setNotes] = useState<InternalNote[]>([]);
     const [scorecards, setScorecards] = useState<Scorecard[]>([]);
 
+    // Employee info cache for note author resolution
+    const empCache = useRef<Map<string, { name: string; photoURL?: string }>>(new Map());
+    const resolveAuthor = useCallback(async (authorId: string): Promise<{ name: string; photoURL?: string } | null> => {
+        if (!firestore) return null;
+        if (empCache.current.has(authorId)) return empCache.current.get(authorId)!;
+        try {
+            const empDoc = await getDoc(doc(firestore, 'employees', authorId));
+            if (empDoc.exists()) {
+                const d = empDoc.data();
+                const info = {
+                    name: [d.lastName, d.firstName].filter(Boolean).join(' ').trim() || d.email || 'Ажилтан',
+                    photoURL: d.photoURL as string | undefined,
+                };
+                empCache.current.set(authorId, info);
+                return info;
+            }
+        } catch (_) {}
+        return null;
+    }, [firestore]);
+
     // UI State
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -201,7 +226,6 @@ export default function CandidateDetailPage() {
 
     // Actions State
     const [noteText, setNoteText] = useState('');
-    const [tagInput, setTagInput] = useState('');
     const [sendingMessage, setSendingMessage] = useState(false);
     const [sendingNote, setSendingNote] = useState(false);
     const [showScorecard, setShowScorecard] = useState(false);
@@ -214,9 +238,12 @@ export default function CandidateDetailPage() {
     const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
     const [pendingNextStageId, setPendingNextStageId] = useState<string | null>(null);
 
-    // Reject confirmation
+    // Reject confirmation (2-step)
     const [showRejectConfirm, setShowRejectConfirm] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const [rejectType, setRejectType] = useState<'employer' | 'candidate'>('employer');
+    const [rejectStep, setRejectStep] = useState<1 | 2>(1);
+    const [rejectCategory, setRejectCategory] = useState<'reserve' | 'blacklist' | 'archive'>('archive');
 
     // Hire confirmation
     const [showHireConfirm, setShowHireConfirm] = useState(false);
@@ -239,7 +266,10 @@ export default function CandidateDetailPage() {
     const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
     const [previewText, setPreviewText] = useState('');
     const [showPreview, setShowPreview] = useState(false);
-    const [sendAsSms, setSendAsSms] = useState(false);
+    const [sendChannel, setSendChannel] = useState<'log' | 'sms' | 'email'>('log');
+
+    const [applicationInterviews, setApplicationInterviews] = useState<Interview[]>([]);
+    const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
 
     // --- Data Fetching ---
 
@@ -309,8 +339,19 @@ export default function CandidateDetailPage() {
         });
 
         const notesQuery = query(collection(firestore, 'application_notes'), where('applicationId', '==', applicationId));
-        const unsubNotes = onSnapshot(notesQuery, (snapshot) => {
-            const nts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InternalNote));
+        const unsubNotes = onSnapshot(notesQuery, async (snapshot) => {
+            const raw = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InternalNote));
+            const uniqueIds = [...new Set(raw.map(n => n.authorId).filter(Boolean))];
+            await Promise.all(uniqueIds.map(id => resolveAuthor(id)));
+            const nts = raw.map(note => {
+                if (note.authorId) {
+                    const resolved = empCache.current.get(note.authorId);
+                    if (resolved) {
+                        return { ...note, authorName: resolved.name, authorPhotoURL: resolved.photoURL ?? note.authorPhotoURL };
+                    }
+                }
+                return note;
+            });
             nts.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setNotes(nts);
         });
@@ -322,7 +363,14 @@ export default function CandidateDetailPage() {
             setScorecards(scs);
         });
 
-        return () => { unsubEvents(); unsubNotes(); unsubScorecards(); };
+        const interviewsQuery = query(collection(firestore, 'interviews'), where('applicationId', '==', applicationId));
+        const unsubInterviews = onSnapshot(interviewsQuery, (snapshot) => {
+            const ints = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Interview));
+            ints.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            setApplicationInterviews(ints);
+        });
+
+        return () => { unsubEvents(); unsubNotes(); unsubScorecards(); unsubInterviews(); };
     }, [firestore, applicationId]);
 
     // --- Filtered data by selected stage ---
@@ -334,7 +382,10 @@ export default function CandidateDetailPage() {
         });
     }, [notes, selectedStageId, application?.currentStageId]);
     const stageScorecards = useMemo(() => scorecards.filter(s => s.stageId === selectedStageId), [scorecards, selectedStageId]);
-    const stageEvents = useMemo(() => events.filter(e => e.stageId === selectedStageId || (e.data?.stageId === selectedStageId)), [events, selectedStageId]);
+    const stageEvents = useMemo(() => {
+        const filtered = events.filter(e => e.stageId === selectedStageId || (e.data?.stageId === selectedStageId));
+        return filtered.filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
+    }, [events, selectedStageId]);
 
     // --- Actions ---
 
@@ -439,7 +490,7 @@ export default function CandidateDetailPage() {
     const handleStatusUpdate = async (newStatus: JobApplication['status']) => {
         if (!firestore || !applicationId) return;
         if (newStatus === 'HIRED') { setShowHireConfirm(true); return; }
-        if (newStatus === 'REJECTED') { setRejectReason(''); setShowRejectConfirm(true); return; }
+        if (newStatus === 'REJECTED') { setRejectReason(''); setRejectType('employer'); setRejectStep(1); setRejectCategory('archive'); setShowRejectConfirm(true); return; }
         try {
             await updateDoc(doc(firestore, 'applications', applicationId as string), { status: newStatus, updatedAt: new Date().toISOString() });
             setApplication(prev => prev ? { ...prev, status: newStatus } : null);
@@ -453,22 +504,57 @@ export default function CandidateDetailPage() {
         if (!firestore || !applicationId) return;
         try {
             const now = new Date().toISOString();
+            const typeLabel = rejectType === 'employer' ? 'Ажил олгогч талаас' : 'Горилогч өөрөө';
+            const categoryLabels: Record<string, string> = { reserve: 'Нөөц', blacklist: 'Хар жагсаалт', archive: 'Архив' };
             await updateDoc(doc(firestore, 'applications', applicationId as string), {
                 status: 'REJECTED',
                 currentStageId: 'rejected',
                 rejectionReason: rejectReason.trim() || undefined,
+                rejectionType: rejectType,
+                rejectionCategory: rejectCategory,
                 updatedAt: now,
             });
-            setApplication(prev => prev ? { ...prev, status: 'REJECTED', currentStageId: 'rejected' } : null);
+            setApplication(prev => prev ? { ...prev, status: 'REJECTED', currentStageId: 'rejected', rejectionType: rejectType, rejectionCategory: rejectCategory, rejectionReason: rejectReason.trim() || undefined } : null);
             setSelectedStageId('rejected');
             const reasonText = rejectReason.trim() ? `Шалтгаан: ${rejectReason.trim()}` : 'Шалтгаан тэмдэглээгүй';
-            await logEvent('SYSTEM', 'Татгалзсан', reasonText);
-            toast({ title: 'Татгалзсан', description: reasonText });
+            await logEvent('SYSTEM', 'Татгалзсан', `${typeLabel} | ${categoryLabels[rejectCategory]} | ${reasonText}`);
+            toast({ title: 'Татгалзсан', description: `${typeLabel} — ${categoryLabels[rejectCategory]}` });
         } catch {
             toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
         } finally {
             setShowRejectConfirm(false);
             setRejectReason('');
+            setRejectStep(1);
+        }
+    };
+
+    const handleRestart = async () => {
+        if (!firestore || !applicationId || !globalStages.length) return;
+        const firstStageId = globalStages[0].id;
+        try {
+            // Өмнөх үнэлгээний хүсэлт + scorecard-уудыг устгах
+            for (const collName of ['scorecards', 'evaluation_requests']) {
+                const q = query(collection(firestore, collName), where('applicationId', '==', applicationId));
+                const snapshot = await getDocs(q);
+                const batch = writeBatch(firestore);
+                snapshot.docs.forEach(d => batch.delete(d.ref));
+                if (snapshot.docs.length > 0) await batch.commit();
+            }
+
+            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+                status: 'ACTIVE',
+                currentStageId: firstStageId,
+                rejectionReason: null,
+                rejectionType: null,
+                rejectionCategory: null,
+                updatedAt: new Date().toISOString(),
+            });
+            setApplication(prev => prev ? { ...prev, status: 'ACTIVE', currentStageId: firstStageId, rejectionReason: undefined, rejectionType: undefined, rejectionCategory: undefined } : null);
+            setSelectedStageId(firstStageId);
+            await logEvent('SYSTEM', 'Дахин эхлүүлсэн', `Анкет эхний шат руу шилжсэн: ${globalStages[0].title}. Өмнөх үнэлгээнүүд цэвэрлэгдсэн.`);
+            toast({ title: 'Дахин эхлүүлсэн', description: `${globalStages[0].title} шат руу шилжлээ. Үнэлгээ дахин өгөх боломжтой.` });
+        } catch {
+            toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
         }
     };
 
@@ -501,21 +587,31 @@ export default function CandidateDetailPage() {
         if (!firestore || !candidate || !previewText.trim() || !applicationId) return;
         setSendingMessage(true);
         try {
-            await logEvent('MESSAGE', 'Мессеж илгээсэн', previewText);
-            if (sendAsSms && candidate.phone) {
+            const channelLabel = sendChannel === 'sms' ? 'SMS' : sendChannel === 'email' ? 'Имэйл' : 'Тэмдэглэл';
+            await logEvent('MESSAGE', `${channelLabel} илгээсэн`, previewText);
+
+            if (sendChannel === 'sms') {
+                if (!candidate.phone) { toast({ title: 'Утасны дугаар бүртгэгдээгүй', variant: 'destructive' }); return; }
                 await sendSMS(candidate.phone, previewText);
                 toast({ title: 'SMS амжилттай илгээгдлээ' });
+            } else if (sendChannel === 'email') {
+                if (!candidate.email) { toast({ title: 'Имэйл бүртгэгдээгүй', variant: 'destructive' }); return; }
+                const subject = vacancy?.title ? `${vacancy.title} — Мэдэгдэл` : 'Сонгон шалгаруулалтын мэдэгдэл';
+                await sendEmail(candidate.email, subject, previewText);
+                toast({ title: 'Имэйл амжилттай илгээгдлээ' });
             } else {
                 toast({ title: 'Мессеж хадгалагдлаа' });
             }
             setShowPreview(false);
             setPreviewText('');
         } catch (error: any) {
-            toast({ title: 'Мессеж илгээж чадсангүй', description: error.message, variant: 'destructive' });
+            toast({ title: 'Илгээж чадсангүй', description: error.message, variant: 'destructive' });
         } finally { setSendingMessage(false); }
     };
 
-    const openEditCandidate = () => {
+    const openEditCandidate = (e?: React.MouseEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
         if (!candidate) return;
         setEditCandidate({
             firstName: candidate.firstName || '',
@@ -527,7 +623,7 @@ export default function CandidateDetailPage() {
             source: candidate.source || '',
             notes: candidate.notes || '',
         });
-        setIsEditCandidateOpen(true);
+        requestAnimationFrame(() => setIsEditCandidateOpen(true));
     };
 
     const handleSaveCandidate = async (e: React.FormEvent) => {
@@ -535,6 +631,10 @@ export default function CandidateDetailPage() {
         if (!firestore || !candidate) return;
         if (!editCandidate.firstName.trim() || !editCandidate.lastName.trim()) {
             toast({ title: 'Нэр овог заавал оруулна уу', variant: 'destructive' });
+            return;
+        }
+        if (!editCandidate.phone.trim()) {
+            toast({ title: 'Утасны дугаар заавал оруулна уу', variant: 'destructive' });
             return;
         }
         setSavingCandidate(true);
@@ -562,27 +662,6 @@ export default function CandidateDetailPage() {
         }
     };
 
-    const handleAddTag = async () => {
-        if (!firestore || !candidate || !tagInput.trim()) return;
-        const newTag = tagInput.trim();
-        if ((candidate.tags || []).includes(newTag)) return;
-        const updatedTags = [...(candidate.tags || []), newTag];
-        try {
-            await updateDoc(doc(firestore, 'candidates', candidate.id), { tags: updatedTags, updatedAt: new Date().toISOString() });
-            setCandidate({ ...candidate, tags: updatedTags });
-            await logEvent('SYSTEM', 'Таг нэмсэн', newTag);
-            setTagInput('');
-        } catch (e) { console.error(e); }
-    };
-
-    const handleRemoveTag = async (tagToRemove: string) => {
-        if (!firestore || !candidate) return;
-        const updatedTags = (candidate.tags || []).filter(t => t !== tagToRemove);
-        try {
-            await updateDoc(doc(firestore, 'candidates', candidate.id), { tags: updatedTags, updatedAt: new Date().toISOString() });
-            setCandidate({ ...candidate, tags: updatedTags });
-        } catch (e) { console.error(e); }
-    };
 
     const handleScorecardSubmit = async (scores: ScorecardCriteria[], notesContent: string) => {
         if (!firestore || !application || !candidate) return;
@@ -676,15 +755,31 @@ export default function CandidateDetailPage() {
         if (!firestore || !applicationId) return;
         setIsDeleting(true);
         try {
+            // 1. Delete storage files (resume + application files)
+            if (storage) {
+                const filesToDelete: string[] = [];
+                if (candidate?.resumeUrl) filesToDelete.push(candidate.resumeUrl);
+                for (const f of (application?.files || [])) {
+                    if (f.url) filesToDelete.push(f.url);
+                }
+                await Promise.allSettled(filesToDelete.map(url => {
+                    try { return deleteObject(ref(storage, url)); } catch { return Promise.resolve(); }
+                }));
+            }
+
+            // 2. Delete all related Firestore documents
             const batch = writeBatch(firestore);
-            for (const collName of ['application_messages', 'application_events', 'application_notes', 'scorecards']) {
+            for (const collName of ['application_messages', 'application_events', 'application_notes', 'scorecards', 'evaluation_requests', 'interviews']) {
                 const q = query(collection(firestore, collName), where('applicationId', '==', applicationId));
                 const snapshot = await getDocs(q);
                 snapshot.forEach((d) => batch.delete(d.ref));
             }
+
+            // 3. Delete candidate and application documents
             if (application?.candidateId) batch.delete(doc(firestore, 'candidates', application.candidateId));
             batch.delete(doc(firestore, 'applications', applicationId as string));
             await batch.commit();
+
             router.push('/dashboard/recruitment');
             toast({ title: 'Устгагдлаа' });
         } catch { setIsDeleting(false); }
@@ -776,17 +871,36 @@ export default function CandidateDetailPage() {
                                             }
                                         />
                                         <Button
+                                            type="button"
                                             variant="ghost"
                                             size="icon"
-                                            className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                                            onClick={openEditCandidate}
+                                            className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-600 hover:bg-blue-50 z-10"
+                                            onClick={(e) => openEditCandidate(e)}
                                         >
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                     </div>
 
+                                    {/* Average Score */}
+                                    {scorecards.length > 0 && (() => {
+                                        const avg = scorecards.reduce((s, sc) => s + sc.averageScore, 0) / scorecards.length;
+                                        return (
+                                            <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-xl px-4 py-3">
+                                                <div>
+                                                    <p className="text-[10px] font-semibold text-amber-700/70 uppercase tracking-wider">Дундаж үнэлгээ</p>
+                                                    <p className="text-[10px] text-amber-600/60 mt-0.5">{scorecards.length} үнэлгээнээс</p>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+                                                    <span className="text-xl font-bold text-amber-700">{avg.toFixed(1)}</span>
+                                                    <span className="text-xs text-amber-500 font-medium">/5</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* Candidate Extra Info */}
-                                    {(candidate.linkedinUrl || candidate.portfolioUrl || candidate.source || candidate.notes) && (
+                                    {(candidate.linkedinUrl || candidate.portfolioUrl || candidate.source) && (
                                         <div className="space-y-2 px-1">
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Нэмэлт мэдээлэл</span>
                                             <div className="space-y-1.5">
@@ -797,7 +911,7 @@ export default function CandidateDetailPage() {
                                                 )}
                                                 {candidate.portfolioUrl && (
                                                     <a href={candidate.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
-                                                        <Globe className="h-3 w-3" /> Портфолио
+                                                        <Globe className="h-3 w-3" /> Facebook
                                                     </a>
                                                 )}
                                                 {candidate.source && (
@@ -805,34 +919,10 @@ export default function CandidateDetailPage() {
                                                         <UserIcon className="h-3 w-3" /> Эх сурвалж: {candidate.source}
                                                     </div>
                                                 )}
-                                                {candidate.notes && (
-                                                    <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 italic">{candidate.notes}</p>
-                                                )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Tags */}
-                                    <div className="space-y-2 px-1">
-                                        <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Тагууд</span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {(candidate.tags || []).map(tag => (
-                                                <Badge key={tag} variant="secondary" className="bg-slate-100 hover:bg-red-50 hover:text-red-500 cursor-pointer gap-1 group transition-colors pr-1 text-[11px]">
-                                                    {tag}
-                                                    <X className="h-3 w-3 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveTag(tag)} />
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                        <div className="flex gap-1.5">
-                                            <input className="flex-1 bg-slate-50 border rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-100"
-                                                placeholder="Таг нэмэх..."
-                                                value={tagInput} onChange={e => setTagInput(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleAddTag()} />
-                                            <Button size="sm" variant="outline" onClick={handleAddTag} disabled={!tagInput.trim()} className="h-7 w-7 p-0">
-                                                <Check className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                    </div>
 
                                     <div className="text-xs text-slate-400 px-1">
                                         Бүртгэл: {application.appliedAt ? format(new Date(application.appliedAt), 'yyyy.MM.dd') : '-'}
@@ -946,6 +1036,15 @@ export default function CandidateDetailPage() {
                                                     Ярилцлага товлох
                                                 </Button>
                                             </ScheduleInterviewDialog>
+                                            <ScheduleInterviewDialog
+                                                interview={editingInterview}
+                                                open={!!editingInterview}
+                                                onOpenChange={(o) => !o && setEditingInterview(null)}
+                                                onUpdated={() => { setEditingInterview(null); logEvent('SYSTEM', 'Ярилцлага засагдсан', 'Ярилцлагын мэдээлэл шинэчлэгдлээ.'); }}
+                                                applicationId={application.id}
+                                                candidate={candidate}
+                                                vacancy={vacancy || undefined}
+                                            />
 
                                             {isViewingCurrentStage && (
                                                 <>
@@ -976,9 +1075,15 @@ export default function CandidateDetailPage() {
                                         <Badge variant="outline" className="border-slate-200 text-slate-400">Хүлээгдэж буй</Badge>
                                     )}
                                     {selectedStageId === 'rejected' && (
-                                        <Badge variant="outline" className="border-red-200 text-red-600 bg-red-50 gap-1">
-                                            <X className="h-3 w-3" /> Татгалзсан
-                                        </Badge>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="border-red-200 text-red-600 bg-red-50 gap-1">
+                                                <X className="h-3 w-3" /> Татгалзсан
+                                            </Badge>
+                                            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={handleRestart}>
+                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                Дахин эхлүүлэх
+                                            </Button>
+                                        </div>
                                     )}
                                     {selectedStageId === 'hired' && (
                                         <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 gap-1">
@@ -987,6 +1092,26 @@ export default function CandidateDetailPage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Товлосон ярилцлагууд */}
+                            {applicationInterviews.length > 0 && (
+                                <div className="rounded-xl border bg-slate-50/50 p-4 space-y-2">
+                                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Товлосон ярилцлагууд</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {applicationInterviews.map((int) => (
+                                            <div key={int.id} className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+                                                <Calendar className="h-4 w-4 text-slate-400" />
+                                                <span className="font-medium">{int.title}</span>
+                                                <span className="text-slate-500">{format(new Date(int.startTime), 'yyyy.MM.dd HH:mm')}</span>
+                                                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setEditingInterview(int)}>
+                                                    <Pencil className="h-3 w-3" />
+                                                    Засах
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Hired Info Card */}
                             {selectedStageId === 'hired' && (
@@ -1003,16 +1128,38 @@ export default function CandidateDetailPage() {
                                 </div>
                             )}
 
-                            {/* Rejection Reason Card */}
-                            {selectedStageId === 'rejected' && application.rejectionReason && (
-                                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                            {/* Rejection Info Card */}
+                            {selectedStageId === 'rejected' && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
                                     <div className="flex items-start gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
                                             <FileText className="h-4 w-4 text-red-500" />
                                         </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-red-700 mb-1">Татгалзсан шалтгаан</p>
-                                            <p className="text-sm text-red-800 whitespace-pre-wrap">{application.rejectionReason}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-semibold text-red-700 mb-2">Татгалзсан мэдээлэл</p>
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {application.rejectionType && (
+                                                    <Badge variant="outline" className={cn("text-xs",
+                                                        application.rejectionType === 'employer'
+                                                            ? "border-red-300 text-red-700 bg-red-100"
+                                                            : "border-orange-300 text-orange-700 bg-orange-100"
+                                                    )}>
+                                                        {application.rejectionType === 'employer' ? 'Ажил олгогч талаас' : 'Горилогч өөрөө'}
+                                                    </Badge>
+                                                )}
+                                                {application.rejectionCategory && (
+                                                    <Badge variant="outline" className={cn("text-xs",
+                                                        application.rejectionCategory === 'reserve' && "border-blue-300 text-blue-700 bg-blue-100",
+                                                        application.rejectionCategory === 'blacklist' && "border-slate-400 text-slate-800 bg-slate-200",
+                                                        application.rejectionCategory === 'archive' && "border-gray-300 text-gray-600 bg-gray-100",
+                                                    )}>
+                                                        {{ reserve: 'Нөөц', blacklist: 'Хар жагсаалт', archive: 'Архив' }[application.rejectionCategory]}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            {application.rejectionReason && (
+                                                <p className="text-sm text-red-800 whitespace-pre-wrap">{application.rejectionReason}</p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1037,9 +1184,28 @@ export default function CandidateDetailPage() {
                                         <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
                                             <Textarea value={previewText} onChange={e => setPreviewText(e.target.value)} placeholder="Мессежний агуулга..." className="min-h-[100px] bg-white" />
                                             <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Switch checked={sendAsSms} onCheckedChange={setSendAsSms} />
-                                                    <Label className="text-xs">SMS-ээр илгээх</Label>
+                                                <div className="flex items-center gap-1 rounded-lg border bg-white p-0.5">
+                                                    <Button
+                                                        type="button" variant={sendChannel === 'log' ? 'default' : 'ghost'} size="sm"
+                                                        className={cn("h-7 text-xs gap-1", sendChannel === 'log' && "bg-slate-800")}
+                                                        onClick={() => setSendChannel('log')}
+                                                    >
+                                                        <MessageSquare className="h-3 w-3" /> Тэмдэглэл
+                                                    </Button>
+                                                    <Button
+                                                        type="button" variant={sendChannel === 'sms' ? 'default' : 'ghost'} size="sm"
+                                                        className={cn("h-7 text-xs gap-1", sendChannel === 'sms' && "bg-green-600")}
+                                                        onClick={() => setSendChannel('sms')}
+                                                    >
+                                                        <Phone className="h-3 w-3" /> SMS
+                                                    </Button>
+                                                    <Button
+                                                        type="button" variant={sendChannel === 'email' ? 'default' : 'ghost'} size="sm"
+                                                        className={cn("h-7 text-xs gap-1", sendChannel === 'email' && "bg-blue-600")}
+                                                        onClick={() => setSendChannel('email')}
+                                                    >
+                                                        <Mail className="h-3 w-3" /> Имэйл
+                                                    </Button>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>Болих</Button>
@@ -1053,7 +1219,7 @@ export default function CandidateDetailPage() {
 
                                     {/* Sent messages for this stage */}
                                     {stageEvents.filter(e => e.type === 'MESSAGE').map(evt => (
-                                        <div key={evt.id} className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                        <div key={`msg-${evt.id}`} className="bg-blue-50 border border-blue-100 rounded-lg p-3">
                                             <p className="text-sm text-slate-700 whitespace-pre-wrap">{evt.description}</p>
                                             <p className="text-[10px] text-slate-400 mt-2">{evt.userName} • {evt.createdAt ? format(new Date(evt.createdAt), 'MM/dd HH:mm') : ''}</p>
                                         </div>
@@ -1102,7 +1268,7 @@ export default function CandidateDetailPage() {
                                             <Send className="h-3 w-3" /> Ажилтанд илгээх
                                         </Button>
                                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowScorecard(true)}>
-                                            <Star className="h-3 w-3" /> Үнэлгээ нэмэх
+                                            <Star className="h-3 w-3" /> Үнэлгээ өгөх
                                         </Button>
                                     </div>
                                 ) : undefined
@@ -1233,7 +1399,7 @@ export default function CandidateDetailPage() {
                                         const EvtIcon = iconMap[evt.type] || Clock;
 
                                         return (
-                                            <div key={evt.id} className="flex items-start gap-3 text-xs">
+                                            <div key={`log-${evt.id}`} className="flex items-start gap-3 text-xs">
                                                 <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 mt-0.5">
                                                     <EvtIcon className="h-3 w-3" />
                                                 </div>
@@ -1257,7 +1423,7 @@ export default function CandidateDetailPage() {
             {/* Scorecard Dialog */}
             <Dialog open={showScorecard} onOpenChange={setShowScorecard}>
                 <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
-                    <DialogTitle className="sr-only">Үнэлгээний хуудас</DialogTitle>
+                    <DialogTitle>Үнэлгээ өгөх</DialogTitle>
                     <InterviewScorecard
                         candidateName={`${candidate.lastName} ${candidate.firstName}`}
                         onSubmit={handleScorecardSubmit}
@@ -1279,6 +1445,7 @@ export default function CandidateDetailPage() {
                     stageId={selectedStageId}
                     requestedByUid={user?.uid || ''}
                     requestedByName={user?.displayName || 'HR'}
+                    participantIds={vacancy?.participantIds ?? []}
                 />
             )}
 
@@ -1292,9 +1459,9 @@ export default function CandidateDetailPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogCancel>Үгүй</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmAdvanceStage} className="bg-blue-600 hover:bg-blue-700 gap-2">
-                            <ChevronRight className="h-4 w-4" /> Урагшлах
+                            <ChevronRight className="h-4 w-4" /> Тийм
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1353,29 +1520,105 @@ export default function CandidateDetailPage() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Reject Confirmation */}
-            <AlertDialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
+            {/* Reject Confirmation (2-step) */}
+            <AlertDialog open={showRejectConfirm} onOpenChange={(o) => { if (!o) { setRejectStep(1); } setShowRejectConfirm(o); }}>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Горилогчоос татгалзах</AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <p>Татгалзсан шалтгааныг тэмдэглэнэ үү.</p>
-                                <Textarea
-                                    value={rejectReason}
-                                    onChange={e => setRejectReason(e.target.value)}
-                                    placeholder="Жишээ: Туршлага хангалтгүй, мэргэжлийн шалгалтад тэнцээгүй..."
-                                    className="min-h-[80px]"
-                                />
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Болих</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmReject} className="bg-red-600 hover:bg-red-700 gap-2">
-                            <X className="h-4 w-4" /> Татгалзах
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
+                    {rejectStep === 1 ? (
+                        <>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Татгалзах — Алхам 1/2</AlertDialogTitle>
+                                <AlertDialogDescription asChild>
+                                    <div className="space-y-4">
+                                        <p>Аль тал татгалзсан болохыг сонгож, шалтгааныг тэмдэглэнэ үү.</p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={rejectType === 'employer' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className={cn("flex-1", rejectType === 'employer' && "bg-red-600 hover:bg-red-700")}
+                                                onClick={() => setRejectType('employer')}
+                                            >
+                                                Ажил олгогч талаас
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={rejectType === 'candidate' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className={cn("flex-1", rejectType === 'candidate' && "bg-orange-600 hover:bg-orange-700")}
+                                                onClick={() => setRejectType('candidate')}
+                                            >
+                                                Горилогч өөрөө
+                                            </Button>
+                                        </div>
+                                        <Textarea
+                                            value={rejectReason}
+                                            onChange={e => setRejectReason(e.target.value)}
+                                            placeholder="Жишээ: Туршлага хангалтгүй, мэргэжлийн шалгалтад тэнцээгүй..."
+                                            className="min-h-[80px]"
+                                        />
+                                    </div>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Болих</AlertDialogCancel>
+                                <Button onClick={() => setRejectStep(2)} className="bg-red-600 hover:bg-red-700 gap-2">
+                                    Үргэлжлүүлэх <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogFooter>
+                        </>
+                    ) : (
+                        <>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Татгалзах — Алхам 2/2</AlertDialogTitle>
+                                <AlertDialogDescription asChild>
+                                    <div className="space-y-4">
+                                        <p>Горилогчийн анкетыг хэрхэн ангилах вэ?</p>
+                                        <div className="grid gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={rejectCategory === 'reserve' ? 'default' : 'outline'}
+                                                className={cn("justify-start gap-3 h-auto py-3 px-4", rejectCategory === 'reserve' && "bg-blue-600 hover:bg-blue-700")}
+                                                onClick={() => setRejectCategory('reserve')}
+                                            >
+                                                <div className="text-left">
+                                                    <p className="font-semibold">Нөөцөнд бүртгэх</p>
+                                                    <p className={cn("text-xs", rejectCategory === 'reserve' ? "text-blue-100" : "text-muted-foreground")}>Ирээдүйд авч болох горилогч</p>
+                                                </div>
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={rejectCategory === 'blacklist' ? 'default' : 'outline'}
+                                                className={cn("justify-start gap-3 h-auto py-3 px-4", rejectCategory === 'blacklist' && "bg-slate-800 hover:bg-slate-900")}
+                                                onClick={() => setRejectCategory('blacklist')}
+                                            >
+                                                <div className="text-left">
+                                                    <p className="font-semibold">Хар жагсаалтанд оруулах</p>
+                                                    <p className={cn("text-xs", rejectCategory === 'blacklist' ? "text-slate-300" : "text-muted-foreground")}>Дахин авахгүй горилогч</p>
+                                                </div>
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={rejectCategory === 'archive' ? 'default' : 'outline'}
+                                                className={cn("justify-start gap-3 h-auto py-3 px-4", rejectCategory === 'archive' && "bg-gray-600 hover:bg-gray-700")}
+                                                onClick={() => setRejectCategory('archive')}
+                                            >
+                                                <div className="text-left">
+                                                    <p className="font-semibold">Архивлах</p>
+                                                    <p className={cn("text-xs", rejectCategory === 'archive' ? "text-gray-200" : "text-muted-foreground")}>Энгийн архив</p>
+                                                </div>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <Button variant="outline" onClick={() => setRejectStep(1)}>Буцах</Button>
+                                <AlertDialogAction onClick={confirmReject} className="bg-red-600 hover:bg-red-700 gap-2">
+                                    <X className="h-4 w-4" /> Татгалзах
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </>
+                    )}
                 </AlertDialogContent>
             </AlertDialog>
 
@@ -1404,7 +1647,7 @@ export default function CandidateDetailPage() {
                             <Input id="edit-email" type="email" value={editCandidate.email} onChange={e => setEditCandidate(prev => ({ ...prev, email: e.target.value }))} placeholder="example@mail.com" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="edit-phone">Утас</Label>
+                            <Label htmlFor="edit-phone">Утас <span className="text-red-500">*</span></Label>
                             <Input id="edit-phone" value={editCandidate.phone} onChange={e => setEditCandidate(prev => ({ ...prev, phone: e.target.value }))} placeholder="99112233" />
                         </div>
                         <div className="space-y-1.5">
@@ -1412,16 +1655,24 @@ export default function CandidateDetailPage() {
                             <Input id="edit-linkedin" value={editCandidate.linkedinUrl} onChange={e => setEditCandidate(prev => ({ ...prev, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="edit-portfolio">Портфолио / Вэбсайт</Label>
-                            <Input id="edit-portfolio" value={editCandidate.portfolioUrl} onChange={e => setEditCandidate(prev => ({ ...prev, portfolioUrl: e.target.value }))} placeholder="https://..." />
+                            <Label htmlFor="edit-portfolio">Facebook</Label>
+                            <Input id="edit-portfolio" value={editCandidate.portfolioUrl} onChange={e => setEditCandidate(prev => ({ ...prev, portfolioUrl: e.target.value }))} placeholder="https://facebook.com/..." />
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="edit-source">Эх сурвалж</Label>
-                            <Input id="edit-source" value={editCandidate.source} onChange={e => setEditCandidate(prev => ({ ...prev, source: e.target.value }))} placeholder="LinkedIn, Referral, Job Fair гэх мэт" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="edit-notes">Тэмдэглэл</Label>
-                            <Textarea id="edit-notes" value={editCandidate.notes} onChange={e => setEditCandidate(prev => ({ ...prev, notes: e.target.value }))} placeholder="Горилогчийн талаарх тэмдэглэл..." className="min-h-[80px]" />
+                            <Select
+                                value={editCandidate.source && (SOURCE_OPTIONS as readonly string[]).includes(editCandidate.source) ? editCandidate.source : ''}
+                                onValueChange={(v) => setEditCandidate(prev => ({ ...prev, source: v }))}
+                            >
+                                <SelectTrigger id="edit-source">
+                                    <SelectValue placeholder="Сонгох" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SOURCE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <DialogFooter className="pt-2">
                             <Button type="button" variant="outline" onClick={() => setIsEditCandidateOpen(false)}>Болих</Button>
@@ -1434,9 +1685,14 @@ export default function CandidateDetailPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation */}
+            {/* Delete in progress */}
             <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
-                <AlertDialogContent><p>Устгаж байна...</p></AlertDialogContent>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="sr-only">Устгаж байна</AlertDialogTitle>
+                    </AlertDialogHeader>
+                    <p>Устгаж байна...</p>
+                </AlertDialogContent>
             </AlertDialog>
             <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogContent>

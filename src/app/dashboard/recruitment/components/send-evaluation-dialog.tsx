@@ -33,12 +33,15 @@ interface SendEvaluationDialogProps {
     stageId: string;
     requestedByUid: string;
     requestedByName: string;
+    /** Сонгон шалгаруулалтад оролцогчид (vacancy.participantIds). Дамжуулагдсан бол зөвхөн эдгээр ажилтнуудаас сонгоно. */
+    participantIds?: string[];
 }
 
 export function SendEvaluationDialog({
     open, onOpenChange,
     applicationId, candidateId, candidateName, vacancyTitle,
     stageId, requestedByUid, requestedByName,
+    participantIds = [],
 }: SendEvaluationDialogProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -47,7 +50,7 @@ export function SendEvaluationDialog({
     const [sending, setSending] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
-    const [alreadySent, setAlreadySent] = useState<Set<string>>(new Set());
+    const [alreadySent, setAlreadySent] = useState<Map<string, 'pending' | 'completed'>>(new Map());
 
     useEffect(() => {
         if (!open || !firestore) return;
@@ -55,21 +58,28 @@ export function SendEvaluationDialog({
             setLoading(true);
             try {
                 const empSnap = await getDocs(collection(firestore, 'employees'));
-                const emps = empSnap.docs
+                let emps = empSnap.docs
                     .map(d => ({ id: d.id, ...d.data() } as Employee))
                     .filter(e => e.id !== requestedByUid && e.status !== 'terminated');
+                if (participantIds.length > 0) {
+                    emps = emps.filter(e => participantIds.includes(e.id));
+                }
                 setEmployees(emps);
 
                 const reqQuery = query(
                     collection(firestore, 'evaluation_requests'),
                     where('applicationId', '==', applicationId),
-                    where('stageId', '==', stageId),
                 );
                 const reqSnap = await getDocs(reqQuery);
-                const sent = new Set<string>();
+                const sent = new Map<string, 'pending' | 'completed'>();
                 reqSnap.docs.forEach(d => {
                     const data = d.data();
-                    if (data.status === 'pending') sent.add(data.assignedTo);
+                    if (data.status === 'pending' || data.status === 'completed') {
+                        const existing = sent.get(data.assignedTo);
+                        if (data.status === 'completed' || !existing) {
+                            sent.set(data.assignedTo, data.status);
+                        }
+                    }
                 });
                 setAlreadySent(sent);
             } catch (err) {
@@ -81,7 +91,7 @@ export function SendEvaluationDialog({
         fetchData();
         setSelectedIds(new Set());
         setSearchQuery('');
-    }, [open, firestore, applicationId, stageId, requestedByUid]);
+    }, [open, firestore, applicationId, stageId, requestedByUid, participantIds]);
 
     const toggleSelect = (id: string) => {
         setSelectedIds(prev => {
@@ -159,7 +169,9 @@ export function SendEvaluationDialog({
                 <DialogHeader>
                     <DialogTitle>Үнэлгээ илгээх</DialogTitle>
                     <DialogDescription>
-                        {candidateName} горилогчийн үнэлгээг бөглөх ажилтнуудыг сонгоно уу.
+                        {participantIds.length > 0
+                            ? `${candidateName} горилогчийн үнэлгээг бөглөх ажилтнуудыг сонгоно уу. Зөвхөн энэ ажлын байрны сонгон шалгаруулалтад оролцогчид харагдана.`
+                            : `${candidateName} горилогчийн үнэлгээг бөглөх ажилтнуудыг сонгоно уу.`}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -179,27 +191,34 @@ export function SendEvaluationDialog({
                             <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-8">Ажилтан олдсонгүй</p>
+                        <p className="text-sm text-slate-400 text-center py-8">
+                            {participantIds.length > 0
+                                ? 'Энэ ажлын байранд сонгон шалгаруулалтад оролцогч тохируулаагүй эсвэл ажилтан олдсонгүй. Ажлын байрны хуудаснаас оролцогч нэмнэ үү.'
+                                : 'Ажилтан олдсонгүй'}
+                        </p>
                     ) : (
                         filtered.map(emp => {
                             const isSelected = selectedIds.has(emp.id);
-                            const isPending = alreadySent.has(emp.id);
+                            const sentStatus = alreadySent.get(emp.id);
+                            const isDisabled = !!sentStatus;
 
                             return (
                                 <div
                                     key={emp.id}
-                                    onClick={() => !isPending && toggleSelect(emp.id)}
+                                    onClick={() => !isDisabled && toggleSelect(emp.id)}
                                     className={cn(
                                         "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border",
-                                        isPending ? "opacity-50 cursor-not-allowed border-transparent" :
+                                        isDisabled ? "opacity-50 cursor-not-allowed border-transparent" :
                                             isSelected ? "bg-blue-50 border-blue-200" : "border-transparent hover:bg-slate-50"
                                     )}
                                 >
                                     <div className={cn(
                                         "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                        isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"
+                                        isDisabled
+                                            ? sentStatus === 'completed' ? "bg-green-500 border-green-500" : "bg-slate-300 border-slate-300"
+                                            : isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"
                                     )}>
-                                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                                        {(isSelected || isDisabled) && <Check className="h-3 w-3 text-white" />}
                                     </div>
                                     <Avatar className="h-8 w-8">
                                         <AvatarImage src={emp.photoURL} />
@@ -209,7 +228,8 @@ export function SendEvaluationDialog({
                                         <p className="text-sm font-medium text-slate-900 truncate">{emp.lastName} {emp.firstName}</p>
                                         <p className="text-[11px] text-slate-400 truncate">{emp.jobTitle || emp.email}</p>
                                     </div>
-                                    {isPending && <Badge variant="outline" className="text-[10px] shrink-0">Илгээсэн</Badge>}
+                                    {sentStatus === 'pending' && <Badge variant="outline" className="text-[10px] shrink-0 border-orange-200 text-orange-600 bg-orange-50">Хүлээгдэж буй</Badge>}
+                                    {sentStatus === 'completed' && <Badge variant="outline" className="text-[10px] shrink-0 border-green-200 text-green-600 bg-green-50">Бөглөсөн</Badge>}
                                 </div>
                             );
                         })

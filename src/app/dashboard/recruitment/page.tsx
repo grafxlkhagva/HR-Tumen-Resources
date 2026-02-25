@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -9,9 +9,12 @@ import { VacanciesList } from './components/vacancies-list';
 import { RecruitmentCalendar } from './components/recruitment-calendar';
 import { PipelineBoard } from './components/pipeline-board';
 import { RecruitmentStats } from './components/recruitment-stats';
+import { RejectedApplications } from './components/rejected-applications';
 import { Settings } from 'lucide-react';
 
 export default function RecruitmentPage() {
+    const [activeTab, setActiveTab] = useState('jobs');
+
     return (
         <div className="flex flex-col h-full w-full py-6 px-page overflow-hidden">
             <div className="flex-1 overflow-y-auto pb-32">
@@ -35,7 +38,7 @@ export default function RecruitmentPage() {
                     />
                 </div>
 
-                <Tabs defaultValue="jobs" className="w-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="mb-4">
                         <VerticalTabMenu
                             orientation="horizontal"
@@ -43,6 +46,7 @@ export default function RecruitmentPage() {
                                 { value: 'jobs', label: 'Нээлтэй ажлын байр' },
                                 { value: 'pipeline', label: 'Процесс' },
                                 { value: 'calendar', label: 'Календар' },
+                                { value: 'rejected', label: 'Татгалзсан анкетууд' },
                                 { value: 'stats', label: 'Тайлан' },
                             ]}
                         />
@@ -58,6 +62,10 @@ export default function RecruitmentPage() {
 
                     <TabsContent value="jobs" className="mt-0">
                         <VacanciesList />
+                    </TabsContent>
+
+                    <TabsContent value="rejected" className="mt-0">
+                        <RejectedApplications />
                     </TabsContent>
 
                     <TabsContent value="stats" className="mt-0">

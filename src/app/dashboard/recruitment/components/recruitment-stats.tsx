@@ -6,7 +6,7 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { JobApplication, Vacancy } from '@/types/recruitment';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Users, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { Users, CheckCircle, Clock, TrendingUp, XCircle } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -88,6 +88,17 @@ export function RecruitmentStats() {
             { name: 'Referral', value: 200 },
         ];
 
+        const rejectedApps = applications.filter(a => a.status === 'REJECTED');
+        const rejectedTotal = rejectedApps.length;
+        const rejectedByEmployer = rejectedApps.filter(a => a.rejectionType === 'employer').length;
+        const rejectedByCandidate = rejectedApps.filter(a => a.rejectionType === 'candidate').length;
+        const rejectedUnknown = rejectedTotal - rejectedByEmployer - rejectedByCandidate;
+        const rejectionTypeData = [
+            ...(rejectedByEmployer > 0 ? [{ name: 'Ажил олгогчоос', value: rejectedByEmployer }] : []),
+            ...(rejectedByCandidate > 0 ? [{ name: 'Горилогчоос', value: rejectedByCandidate }] : []),
+            ...(rejectedUnknown > 0 ? [{ name: 'Тодорхойгүй', value: rejectedUnknown }] : []),
+        ];
+
         return {
             totalApplications,
             totalVacancies,
@@ -95,7 +106,11 @@ export function RecruitmentStats() {
             hiredCountThisQuarter,
             averageTimeToHireDays,
             funnelData: finalFunnelData,
-            sourceData
+            sourceData,
+            rejectedTotal,
+            rejectedByEmployer,
+            rejectedByCandidate,
+            rejectionTypeData,
         };
     }, [applications, vacancies]);
 
@@ -152,6 +167,72 @@ export function RecruitmentStats() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Rejection Stats */}
+            {stats.rejectedTotal > 0 && (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                    <Card className="col-span-4">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <XCircle className="h-4 w-4 text-red-500" />
+                                Татгалзсан анкетууд
+                            </CardTitle>
+                            <CardDescription>Нийт {stats.rejectedTotal} — Ажил олгогчоос: {stats.rejectedByEmployer}, Горилогчоос: {stats.rejectedByCandidate}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={stats.rejectionTypeData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={70}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            label={({ name, value }) => `${name}: ${value}`}
+                                        >
+                                            {stats.rejectionTypeData.map((_, index) => (
+                                                <Cell key={`rej-${index}`} fill={['#ef4444', '#f97316', '#94a3b8'][index % 3]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="col-span-3">
+                        <CardHeader>
+                            <CardTitle>Татгалзсан харьцаа</CardTitle>
+                            <CardDescription>Аль тал татгалзсан бэ?</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4 pt-2">
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>Ажил олгогч талаас</span>
+                                        <span className="font-semibold">{stats.rejectedByEmployer}</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${stats.rejectedTotal > 0 ? (stats.rejectedByEmployer / stats.rejectedTotal) * 100 : 0}%` }} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>Горилогч өөрөө</span>
+                                        <span className="font-semibold">{stats.rejectedByCandidate}</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-orange-500 rounded-full" style={{ width: `${stats.rejectedTotal > 0 ? (stats.rejectedByCandidate / stats.rejectedTotal) * 100 : 0}%` }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 {/* Funnel Chart */}

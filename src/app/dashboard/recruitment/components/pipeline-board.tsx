@@ -330,7 +330,7 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
     const REJECTED_STAGE: RecruitmentStage = { id: 'rejected', title: 'Татгалзсан', type: 'REJECTED', order: 998 };
     const HIRED_STAGE: RecruitmentStage = { id: 'hired', title: 'Ажилд авсан', type: 'HIRED', order: 999 };
 
-    // Group applications by stage, plus rejected/hired columns
+    // Group applications by stage, plus rejected/hired columns (dedupe by app.id per column)
     const pipelineStages = [...(stages || []), HIRED_STAGE, REJECTED_STAGE];
     const columns = pipelineStages.map(stage => {
         let stageApps: JobApplication[];
@@ -341,6 +341,7 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
         } else {
             stageApps = enrichedApplications?.filter(app => app.currentStageId === stage.id && app.status === 'ACTIVE') || [];
         }
+        stageApps = stageApps.filter((app, i, arr) => arr.findIndex(a => a.id === app.id) === i);
         return {
             stage,
             applications: stageApps,

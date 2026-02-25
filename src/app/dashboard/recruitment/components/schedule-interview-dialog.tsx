@@ -33,9 +33,9 @@ import {
 } from '@/components/ui/select';
 import { Loader2, CalendarIcon, Plus, DoorOpen, AlertTriangle } from 'lucide-react';
 import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Interview, Vacancy, Candidate } from '@/types/recruitment';
+import { Interview, Vacancy, Candidate, JobApplication } from '@/types/recruitment';
 import { MeetingRoom, RoomBooking } from '@/types/meeting';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -49,6 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 const interviewSchema = z.object({
     title: z.string().min(2, 'Гарчиг оруулна уу'),
     vacancyId: z.string().min(1, 'Ажлын байр сонгоно уу'),
+    applicationId: z.string().optional(),
     candidateId: z.string().optional(),
     candidateName: z.string().min(2, 'Горилогчийн нэр'),
     date: z.date({ required_error: "Огноо сонгоно уу" }),
@@ -68,7 +69,11 @@ export function ScheduleInterviewDialog({
     applicationId,
     candidate,
     vacancy,
-    onScheduled
+    onScheduled,
+    interview: initialInterview,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange,
+    onUpdated,
 }: {
     children?: React.ReactNode,
     preselectedDate?: Date,
@@ -76,9 +81,19 @@ export function ScheduleInterviewDialog({
     applicationId?: string,
     candidate?: Candidate,
     vacancy?: Vacancy,
-    onScheduled?: (interview: Interview) => void
+    onScheduled?: (interview: Interview) => void,
+    /** Засах горим: өмнөх ярилцлагын өгөгдөл */
+    interview?: Interview | null,
+    /** Контроллогдсон: цонхыг гаднаас нээх/хаах */
+    open?: boolean,
+    onOpenChange?: (open: boolean) => void,
+    onUpdated?: (interview: Interview) => void,
 }) {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = isControlled ? (controlledOnOpenChange ?? (() => {})) : setInternalOpen;
+    const isEditMode = !!initialInterview;
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
@@ -92,7 +107,7 @@ export function ScheduleInterviewDialog({
     );
     const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);
 
-    // Fetch candidates to select from (simple list for now)
+    // Legacy: all candidates (used when candidate is preselected from application page)
     const candidatesQuery = useMemoFirebase(
         () => (firestore ? collection(firestore, 'candidates') : null),
         [firestore]
@@ -124,6 +139,7 @@ export function ScheduleInterviewDialog({
         defaultValues: {
             title: 'Ярилцлага',
             vacancyId: vacancy?.id || initialVacancyId || '',
+            applicationId: applicationId || '',
             candidateId: candidate?.id || '',
             candidateName: candidate ? `${candidate.lastName}. ${candidate.firstName}` : '',
             date: preselectedDate || new Date(),
@@ -133,6 +149,31 @@ export function ScheduleInterviewDialog({
             location: '',
         },
     });
+
+    const watchedVacancyId = form.watch('vacancyId');
+
+    // Fetch applications for selected vacancy (бүртгэлтэй горилогчид)
+    const applicationsQuery = useMemoFirebase(
+        () => (firestore && watchedVacancyId
+            ? query(collection(firestore, 'applications'), where('vacancyId', '==', watchedVacancyId))
+            : null),
+        [firestore, watchedVacancyId]
+    );
+    const { data: applicationsForVacancy } = useCollection<JobApplication>(applicationsQuery as any);
+
+    const candidatesForVacancy = useMemo(() => {
+        if (!applicationsForVacancy) return [];
+        return applicationsForVacancy
+            .filter(app => app.status === 'ACTIVE' || app.status === 'HIRED')
+            .map(app => ({
+                applicationId: app.id,
+                candidateId: app.candidateId,
+                candidateName: app.candidate
+                    ? `${app.candidate.lastName || ''} ${app.candidate.firstName || ''}`.trim() || app.candidateId
+                    : app.candidateId,
+            }))
+            .filter(c => c.candidateId);
+    }, [applicationsForVacancy]);
 
     // Watch form fields for room overlap checking
     const watchedDate = form.watch('date');
@@ -166,7 +207,41 @@ export function ScheduleInterviewDialog({
         if (vacancy) {
             form.setValue('vacancyId', vacancy.id);
         }
-    }, [candidate, vacancy, form]);
+        if (applicationId) {
+            form.setValue('applicationId', applicationId);
+        }
+    }, [candidate, vacancy, applicationId, form]);
+
+    // Засах горим: ярилцлагын өгөгдлөөр form бөглөх
+    useEffect(() => {
+        if (!open || !initialInterview) return;
+        const i = initialInterview;
+        const start = new Date(i.startTime);
+        const end = new Date(i.endTime);
+        form.reset({
+            title: i.title,
+            vacancyId: i.vacancyId,
+            applicationId: i.applicationId || '',
+            candidateId: i.candidateId || '',
+            candidateName: i.candidateName || '',
+            date: start,
+            startTime: format(start, 'HH:mm'),
+            endTime: format(end, 'HH:mm'),
+            roomId: '',
+            location: i.location || '',
+        });
+        setSelectedInterviewerIds(i.interviewerIds?.length ? [...i.interviewerIds] : []);
+    }, [open, initialInterview, form]);
+
+    // When vacancy changes, clear candidate selection so user picks from new list
+    const vacancyField = form.watch('vacancyId');
+    useEffect(() => {
+        if (!candidate && !applicationId) {
+            form.setValue('applicationId', '');
+            form.setValue('candidateId', '');
+            form.setValue('candidateName', '');
+        }
+    }, [vacancyField]);
 
     const onSubmit = async (data: InterviewFormValues) => {
         if (!firestore) return;
@@ -192,47 +267,60 @@ export function ScheduleInterviewDialog({
             const selectedRoom = data.roomId ? activeRooms.find(r => r.id === data.roomId) : null;
             const locationText = selectedRoom ? selectedRoom.name : (data.location || 'Online');
 
-            const newInterviewData: Omit<Interview, 'id'> = {
+            const interviewPayload = {
                 title: data.title,
                 vacancyId: data.vacancyId,
                 vacancyTitle: selectedVacancy?.title || 'Unknown',
-                candidateId: data.candidateId || 'temp-id',
+                candidateId: data.candidateId || (initialInterview?.candidateId ?? ''),
                 candidateName: data.candidateName,
                 startTime: startDateTime.toISOString(),
                 endTime: endDateTime.toISOString(),
                 location: locationText,
-                status: 'SCHEDULED',
+                status: 'SCHEDULED' as const,
                 interviewerIds: selectedInterviewerIds.length > 0 ? selectedInterviewerIds : (user ? [user.uid] : []),
-                applicationId: applicationId || 'temp-app-id'
+                applicationId: data.applicationId || applicationId || initialInterview?.applicationId || '',
             };
 
-            const docRef = await addDoc(collection(firestore, 'interviews'), newInterviewData);
+            if (isEditMode && initialInterview?.id) {
+                await updateDoc(doc(firestore, 'interviews', initialInterview.id), interviewPayload);
+                if (onUpdated) {
+                    onUpdated({ id: initialInterview.id, ...interviewPayload } as Interview);
+                }
+                toast({
+                    title: 'Ярилцлага шинэчлэгдлээ',
+                    description: `${format(startDateTime, 'yyyy-MM-dd HH:mm')} цагт.`,
+                });
+            } else {
+                const newInterviewData: Omit<Interview, 'id'> = interviewPayload;
+                const docRef = await addDoc(collection(firestore, 'interviews'), newInterviewData);
 
-            if (selectedRoom) {
-                await addDoc(collection(firestore, 'room_bookings'), {
-                    roomId: selectedRoom.id,
-                    roomName: selectedRoom.name,
-                    title: `Ярилцлага: ${data.candidateName}`,
-                    description: `${selectedVacancy?.title || ''} - ${data.title}`,
-                    date: format(data.date, 'yyyy-MM-dd'),
-                    startTime: data.startTime,
-                    endTime: data.endTime,
-                    organizer: user?.uid || '',
-                    organizerName: user?.displayName || '',
-                    attendees: selectedInterviewerIds,
-                    status: 'active',
-                    createdAt: new Date().toISOString(),
+                if (selectedRoom) {
+                    await addDoc(collection(firestore, 'room_bookings'), {
+                        roomId: selectedRoom.id,
+                        roomName: selectedRoom.name,
+                        title: `Ярилцлага: ${data.candidateName}`,
+                        description: `${selectedVacancy?.title || ''} - ${data.title}`,
+                        date: format(data.date, 'yyyy-MM-dd'),
+                        startTime: data.startTime,
+                        endTime: data.endTime,
+                        organizer: user?.uid || '',
+                        organizerName: user?.displayName || '',
+                        attendees: selectedInterviewerIds,
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                    });
+                }
+
+                if (onScheduled) {
+                    onScheduled({ id: docRef.id, ...newInterviewData } as Interview);
+                }
+
+                toast({
+                    title: 'Ярилцлага товлогдлоо',
+                    description: `${format(startDateTime, 'yyyy-MM-dd HH:mm')} цагт.`,
                 });
             }
 
-            if (onScheduled) {
-                onScheduled({ id: docRef.id, ...newInterviewData } as Interview);
-            }
-
-            toast({
-                title: 'Ярилцлага товлогдлоо',
-                description: `${format(startDateTime, 'yyyy-MM-dd HH:mm')} цагт.`,
-            });
             setOpen(false);
             form.reset();
         } catch (error) {
@@ -257,19 +345,21 @@ export function ScheduleInterviewDialog({
 
     return (
         <AppDialog open={open} onOpenChange={setOpen}>
-            <AppDialogTrigger asChild>
-                {children || (
-                    <Button className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Ярилцлага товлох
-                    </Button>
-                )}
-            </AppDialogTrigger>
+            {!isControlled && (
+                <AppDialogTrigger asChild>
+                    {children || (
+                        <Button className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Ярилцлага товлох
+                        </Button>
+                    )}
+                </AppDialogTrigger>
+            )}
             <AppDialogContent size="md" className="p-0 overflow-hidden">
                 <AppDialogHeader className="px-6 pt-6">
-                    <AppDialogTitle>Ярилцлага товлох</AppDialogTitle>
+                    <AppDialogTitle>{isEditMode ? 'Ярилцлага засах' : 'Ярилцлага товлох'}</AppDialogTitle>
                     <AppDialogDescription>
-                        Горилогчтой уулзах цагийг календарь дээр тэмдэглэх.
+                        {isEditMode ? 'Ярилцлагын цаг, байршил зэргийг засна.' : 'Горилогчтой уулзах цагийг календарь дээр тэмдэглэх.'}
                     </AppDialogDescription>
                 </AppDialogHeader>
 
@@ -297,10 +387,10 @@ export function ScheduleInterviewDialog({
                                     <FormItem>
                                         <FormLabel>Ажлын байр</FormLabel>
                                         {!(vacancy?.id || initialVacancyId) ? (
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <Select value={field.value} onValueChange={(v) => { field.onChange(v); form.setValue('applicationId', ''); form.setValue('candidateId', ''); form.setValue('candidateName', ''); }}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Сонгох" />
+                                                        <SelectValue placeholder="Ажлын байр сонгох" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -325,9 +415,38 @@ export function ScheduleInterviewDialog({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Горилогч</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Нэр оруулах..." {...field} disabled={!!candidate} className={cn(candidate && "bg-slate-50")} />
-                                        </FormControl>
+                                        {candidate ? (
+                                            <FormControl>
+                                                <Input value={field.value} disabled className="bg-slate-50" />
+                                            </FormControl>
+                                        ) : watchedVacancyId ? (
+                                            <Select
+                                                value={form.watch('applicationId') || ''}
+                                                onValueChange={(applicationIdVal) => {
+                                                    const item = candidatesForVacancy.find(c => c.applicationId === applicationIdVal);
+                                                    if (item) {
+                                                        form.setValue('applicationId', item.applicationId);
+                                                        form.setValue('candidateId', item.candidateId);
+                                                        form.setValue('candidateName', item.candidateName);
+                                                    }
+                                                }}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={candidatesForVacancy.length === 0 ? 'Горилогч олдсонгүй' : 'Горилогч сонгох'} />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {candidatesForVacancy.map((c) => (
+                                                        <SelectItem key={c.applicationId} value={c.applicationId}>
+                                                            {c.candidateName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <Input placeholder="Эхлээд ажлын байр сонгоно уу" disabled className="bg-slate-50" />
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -458,20 +577,6 @@ export function ScheduleInterviewDialog({
                             </div>
                         )}
 
-                        <FormField
-                            control={form.control}
-                            name="location"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Байршил / Холбоос {watchedRoomId && watchedRoomId !== 'none' ? '(Нэмэлт)' : ''}</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder={watchedRoomId && watchedRoomId !== 'none' ? 'Google Meet link нэмэх (заавал биш)...' : 'Жишээ: Google Meet link эсвэл Уулзалтын өрөө 1'} {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
                         <div className="space-y-3">
                             <FormLabel>Ярилцагчид сонгох</FormLabel>
                             <div className="flex flex-wrap gap-2 mb-2">
@@ -552,7 +657,7 @@ export function ScheduleInterviewDialog({
                         <AppDialogFooter className="px-0 py-0 border-t-0 bg-transparent">
                             <Button type="submit" disabled={isLoading}>
                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Товлох
+                                {isEditMode ? 'Хадгалах' : 'Товлох'}
                             </Button>
                         </AppDialogFooter>
                     </form>
