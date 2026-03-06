@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
+import { collection, doc, query, orderBy, where, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
 import { isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
@@ -792,6 +792,85 @@ export default function EmployeeProfilePage() {
         , [firestore, employeeId]);
 
     const { data: erDocuments, isLoading: isLoadingDocs } = useCollection<ERDocument>(erDocumentsQuery as any);
+
+    // Auto-finalize employee status when ER document is APPROVED/SIGNED
+    // but employee is still in intermediate state (appointing / releasing)
+    const didAutoFinalizeRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!firestore || !employee || !employeeId || !erDocuments || erDocuments.length === 0) return;
+        if (didAutoFinalizeRef.current) return;
+        if (employee.status !== 'appointing' && employee.status !== 'releasing' && employee.status !== 'suspended') return;
+
+        const finalDoc = erDocuments.find(d => d.status === 'APPROVED' || d.status === 'SIGNED');
+        if (!finalDoc) return;
+
+        const actionId = String((finalDoc as any)?.metadata?.actionId || '');
+        const templateName = String((finalDoc as any)?.metadata?.templateName || '').toLowerCase();
+
+        const inferAppointmentType = (): string | null => {
+            if (actionId.startsWith('appointment_')) return actionId;
+            if (templateName.includes('туршилт')) return 'appointment_probation';
+            if (templateName.includes('гэрээт')) return 'appointment_contract';
+            if (templateName.includes('үндсэн') || templateName.includes('томилох')) return 'appointment_permanent';
+            return null;
+        };
+
+        const inferReleaseType = (): string | null => {
+            if (actionId.startsWith('release_')) return actionId;
+            if (templateName.includes('түр чөлөө')) return 'release_temporary';
+            if (templateName.includes('чөлөөлөх')) return 'release_company';
+            return null;
+        };
+
+        if (employee.status === 'appointing') {
+            const appointType = inferAppointmentType();
+            if (!appointType) return;
+            didAutoFinalizeRef.current = true;
+            const targetStatus =
+                appointType === 'appointment_probation' ? 'active_probation' :
+                appointType === 'appointment_contract' ? 'active_contract' :
+                'active_permanent';
+            updateDoc(doc(firestore, 'employees', employeeId), {
+                status: targetStatus,
+                lifecycleStage: 'active',
+                updatedAt: Timestamp.now()
+            }).then(() => {
+                toast({ title: 'Томилгоо баталгаажлаа', description: 'Ажилтны төлөв автоматаар шинэчлэгдлээ.' });
+            }).catch(e => {
+                console.warn('Auto-finalize appointment failed:', e);
+                didAutoFinalizeRef.current = false;
+            });
+        } else if (employee.status === 'releasing' || employee.status === 'suspended') {
+            const relType = inferReleaseType();
+            if (!relType) return;
+            didAutoFinalizeRef.current = true;
+            const ci: any = (finalDoc as any)?.customInputs || {};
+            const terminationDate =
+                (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
+                (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
+
+            if (relType === 'release_temporary') {
+                updateDoc(doc(firestore, 'employees', employeeId), {
+                    status: 'on_leave',
+                    lifecycleStage: 'retention',
+                    updatedAt: Timestamp.now()
+                }).catch(e => {
+                    console.warn('Auto-finalize release failed:', e);
+                    didAutoFinalizeRef.current = false;
+                });
+            } else {
+                updateDoc(doc(firestore, 'employees', employeeId), {
+                    status: 'terminated',
+                    lifecycleStage: 'alumni',
+                    ...(terminationDate ? { terminationDate } : {}),
+                    updatedAt: Timestamp.now()
+                }).catch(e => {
+                    console.warn('Auto-finalize release failed:', e);
+                    didAutoFinalizeRef.current = false;
+                });
+            }
+        }
+    }, [firestore, employee, employeeId, erDocuments, toast]);
 
     // Fetch onboarding process for this employee
     const onboardingProcessRef = useMemoFirebase(

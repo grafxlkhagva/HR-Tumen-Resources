@@ -100,25 +100,131 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
         });
     }, [firestore]);
 
-    // Generate header HTML dynamically for documents that don't already have it baked in
+    // Auto-finalize employee status when document reaches APPROVED or SIGNED
+    // but employee is still in an intermediate state (appointing / releasing).
+    const didAutoFinalizeRef = React.useRef(false);
+    useEffect(() => {
+        if (!firestore || !document || !selectedEmployee) return;
+        if (didAutoFinalizeRef.current) return;
+        if (!['APPROVED', 'SIGNED'].includes(document.status)) return;
+
+        const actionId = String((document as any)?.metadata?.actionId || '');
+        const templateName = String((document as any)?.metadata?.templateName || '').toLowerCase();
+        const empStatus = selectedEmployee.status;
+
+        const inferAppointmentType = (): string | null => {
+            if (actionId.startsWith('appointment_')) return actionId;
+            if (templateName.includes('туршилт')) return 'appointment_probation';
+            if (templateName.includes('гэрээт')) return 'appointment_contract';
+            if (templateName.includes('үндсэн') || templateName.includes('томилох')) return 'appointment_permanent';
+            return null;
+        };
+
+        const inferReleaseType = (): string | null => {
+            if (actionId.startsWith('release_')) return actionId;
+            if (templateName.includes('түр чөлөө')) return 'release_temporary';
+            if (templateName.includes('чөлөөлөх')) return 'release_company';
+            return null;
+        };
+
+        if (empStatus === 'appointing') {
+            const appointType = inferAppointmentType();
+            if (!appointType) return;
+            didAutoFinalizeRef.current = true;
+            const targetStatus =
+                appointType === 'appointment_probation' ? 'active_probation' :
+                appointType === 'appointment_contract' ? 'active_contract' :
+                'active_permanent';
+            updateDoc(doc(firestore, 'employees', document.employeeId!), {
+                status: targetStatus,
+                lifecycleStage: 'active',
+                updatedAt: Timestamp.now()
+            }).catch((e) => {
+                console.warn('Auto-finalize appointment failed:', e);
+                didAutoFinalizeRef.current = false;
+            });
+        } else if (empStatus === 'releasing' || empStatus === 'suspended') {
+            const relType = inferReleaseType();
+            if (!relType) return;
+            didAutoFinalizeRef.current = true;
+            const ci: any = document?.customInputs || {};
+            const terminationDate =
+                (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
+                (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
+
+            if (relType === 'release_temporary') {
+                updateDoc(doc(firestore, 'employees', document.employeeId!), {
+                    status: 'on_leave',
+                    lifecycleStage: 'retention',
+                    updatedAt: Timestamp.now()
+                }).catch((e) => {
+                    console.warn('Auto-finalize release failed:', e);
+                    didAutoFinalizeRef.current = false;
+                });
+            } else {
+                updateDoc(doc(firestore, 'employees', document.employeeId!), {
+                    status: 'terminated',
+                    lifecycleStage: 'alumni',
+                    ...(terminationDate ? { terminationDate } : {}),
+                    updatedAt: Timestamp.now()
+                }).catch((e) => {
+                    console.warn('Auto-finalize release failed:', e);
+                    didAutoFinalizeRef.current = false;
+                });
+            }
+        }
+    }, [firestore, document, selectedEmployee]);
+
+    const [headerCompanyKey, setHeaderCompanyKey] = useState<string>('__main__');
+    useEffect(() => {
+        if (document?.printSettings?.headerCompanyKey) {
+            setHeaderCompanyKey(document.printSettings.headerCompanyKey);
+        } else if (template?.printSettings?.headerCompanyKey) {
+            setHeaderCompanyKey(template.printSettings.headerCompanyKey);
+        }
+    }, [document?.printSettings?.headerCompanyKey, template?.printSettings?.headerCompanyKey]);
+
+    const subsidiaries = useMemo(() => {
+        if (!companyProfile?.subsidiaries || !Array.isArray(companyProfile.subsidiaries)) return [];
+        return companyProfile.subsidiaries.filter((s: any) => s?.name);
+    }, [companyProfile?.subsidiaries]);
+
+    const headerCompany = useMemo(() => {
+        if (headerCompanyKey === '__main__') {
+            return {
+                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
+                logoUrl: companyProfile?.logoUrl,
+            };
+        }
+        const idx = parseInt(headerCompanyKey, 10);
+        if (Number.isNaN(idx) || idx < 0 || idx >= subsidiaries.length) {
+            return {
+                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
+                logoUrl: companyProfile?.logoUrl,
+            };
+        }
+        const sub = subsidiaries[idx];
+        return { name: sub.name, logoUrl: sub.logoUrl };
+    }, [headerCompanyKey, subsidiaries, companyProfile]);
+
     const dynamicHeaderHtml = useMemo(() => {
         if (!template?.includeHeader || !docType) return '';
         const content = editContent || document?.content || '';
-        // Skip if content already starts with a logo/header (already baked in from creation)
         if (content.trimStart().startsWith('<p style="text-align: center;"><img')) return '';
         return generateDocumentHeader({
             includeHeader: true,
             docTypeHeader: docType.header,
             companyProfile,
-            headerCompanyKey: template?.printSettings?.headerCompanyKey,
+            headerCompanyKey,
         });
-    }, [template?.includeHeader, docType, companyProfile, template?.printSettings?.headerCompanyKey, editContent, document?.content]);
+    }, [template?.includeHeader, docType, companyProfile, headerCompanyKey, editContent, document?.content]);
 
     // UI States
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [docViewMode, setDocViewMode] = useState<'preview' | 'edit'>('preview');
+    const [docViewMode, setDocViewMode] = useState<'preview' | 'edit' | 'header'>('preview');
     const [pendingInsertContent, setPendingInsertContent] = useState<string | null>(null);
+    const [editorKey, setEditorKey] = useState(0);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Print Handling
@@ -132,13 +238,14 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
 
     useEffect(() => {
         if (document) {
-            // Only set if current state is empty to avoid overwriting user edits
-            if (!editContent) setEditContent(document.content || '');
+            if (!editContent) {
+                setEditContent(document.content || '');
+                setEditorKey(k => k + 1);
+            }
             if (!selectedDept) setSelectedDept(document.departmentId || '');
             if (!selectedPos) setSelectedPos(document.positionId || '');
             if (reviewers.length === 0) setReviewers(document.reviewers || []);
 
-            // Initialize custom inputs if not set
             if (Object.keys(customInputValues).length === 0 && document.customInputs) {
                 setCustomInputValues(document.customInputs);
             }
@@ -209,6 +316,7 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
             return;
         }
         setEditContent(template.content);
+        setEditorKey(k => k + 1);
         toast({ title: "Сэргээгдлээ", description: "Баримтын агуулгыг анхны эх загвараар сольж сэргээлээ." });
     };
 
@@ -221,7 +329,11 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                 departmentId: selectedDept,
                 positionId: selectedPos,
                 reviewers: reviewers,
-                customInputs: customInputValues, // Added this
+                customInputs: customInputValues,
+                printSettings: {
+                    ...(document?.printSettings || template?.printSettings || {}),
+                    headerCompanyKey,
+                },
                 metadata: {
                     ...document.metadata,
                     departmentName: departments?.find(d => d.id === selectedDept)?.name,
@@ -365,21 +477,32 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
             // If this is a release document, finalize employee lifecycle -> alumni (idempotent)
             try {
                 const actionId = String((document as any)?.metadata?.actionId || '');
-                if (firestore && document?.employeeId && actionId.startsWith('release_')) {
+                const tplName = String((document as any)?.metadata?.templateName || '').toLowerCase();
+
+                const resolvedRelease =
+                    actionId.startsWith('release_') ? actionId :
+                    tplName.includes('түр чөлөө') ? 'release_temporary' :
+                    tplName.includes('чөлөөлөх') ? 'release_company' : null;
+
+                const resolvedAppointment =
+                    actionId.startsWith('appointment_') ? actionId :
+                    tplName.includes('туршилт') ? 'appointment_probation' :
+                    tplName.includes('гэрээт') ? 'appointment_contract' :
+                    (tplName.includes('үндсэн') || tplName.includes('томилох')) ? 'appointment_permanent' : null;
+
+                if (firestore && document?.employeeId && resolvedRelease) {
                     const ci: any = document?.customInputs || {};
                     const terminationDate =
                         (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
                         (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
 
-                    if (actionId === 'release_temporary') {
-                        // Temporary leave: employee becomes "Түр эзгүй", stays in retention stage
+                    if (resolvedRelease === 'release_temporary') {
                         await updateDoc(doc(firestore, 'employees', document.employeeId), {
                             status: 'on_leave',
                             lifecycleStage: 'retention',
                             updatedAt: Timestamp.now()
                         });
                     } else {
-                        // Permanent release: employee becomes "Ажлаас гарсан"
                         await updateDoc(doc(firestore, 'employees', document.employeeId), {
                             status: 'terminated',
                             lifecycleStage: 'alumni',
@@ -387,13 +510,11 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                             updatedAt: Timestamp.now()
                         });
                     }
-                } else if (firestore && document?.employeeId && actionId.startsWith('appointment_')) {
-                    // Appointment documents: map actionId to the correct active sub-status
+                } else if (firestore && document?.employeeId && resolvedAppointment) {
                     const appointmentStatus =
-                        actionId === 'appointment_probation' ? 'active_probation' :
-                        actionId === 'appointment_permanent' ? 'active_permanent' :
-                        actionId === 'appointment_reappoint' ? 'active_permanent' :
-                        'active_permanent'; // fallback for any other appointment_ variant
+                        resolvedAppointment === 'appointment_probation' ? 'active_probation' :
+                        resolvedAppointment === 'appointment_contract' ? 'active_contract' :
+                        'active_permanent';
                     await updateDoc(doc(firestore, 'employees', document.employeeId), {
                         status: appointmentStatus,
                         lifecycleStage: 'active',
@@ -537,13 +658,14 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                                         <Printer className="h-4 w-4" />
                                     </Button>
 
+                                    {(isOwner || isAdmin) && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+
                                     {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
                                         <>
-                                            {((currentStatus === 'DRAFT' && (template?.isDeletable ?? true)) || (currentStatus === 'IN_REVIEW' && (isOwner || isAdmin))) && (
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
                                             <Button variant="outline" size="sm" className="h-8" onClick={handleSaveDraft} disabled={isSaving}>
                                                 {isSaving ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
                                                 Хадгалах
@@ -575,11 +697,7 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                                             </Button>
                                         </>
                                     )}
-                                    {(currentStatus === 'REVIEWED' || currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && isAdmin && (
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
+                                    
                                     {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
                                         <Button variant="outline" size="sm" className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700" onClick={() => window.open(document.signedDocUrl, '_blank')}>
                                             <FileText className="h-3.5 w-3.5 mr-1.5" />
@@ -875,13 +993,14 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                             </div>
 
                             {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') ? (
-                                <Tabs value={docViewMode} onValueChange={(v) => setDocViewMode(v as 'preview' | 'edit')} className="w-full">
+                                <Tabs value={docViewMode} onValueChange={(v) => setDocViewMode(v as 'preview' | 'edit' | 'header')} className="w-full">
                                     <div className="px-4 pt-2">
                                         <VerticalTabMenu
                                             orientation="horizontal"
                                             items={[
                                                 { value: 'preview', label: 'Харах' },
                                                 { value: 'edit', label: 'Засварлах' },
+                                                { value: 'header', label: 'Толгой' },
                                             ]}
                                         />
                                     </div>
@@ -890,23 +1009,13 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                                         <div className="bg-slate-100 p-6 md:p-10">
                                             <div className="max-w-3xl mx-auto">
                                                 <div
-                                                    className="bg-white shadow-lg p-8 md:p-12 prose prose-slate prose-sm max-w-none min-h-[600px] ring-1 ring-slate-200 [&_img]:inline [&_img]:my-0"
+                                                    className="bg-white shadow-lg p-8 md:p-12 prose prose-slate prose-sm max-w-none min-h-[600px] ring-1 ring-slate-200 [&_img]:inline [&_img]:my-0 [&_p]:my-1 [&_h1]:my-2 [&_h2]:my-2 [&_h3]:my-1 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-slate-300 [&_td]:p-2 [&_th]:border [&_th]:border-slate-300 [&_th]:p-2 [&_th]:bg-slate-50"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: generateDocumentContent(dynamicHeaderHtml + (editContent || document.content), {
-                                                            employee: selectedEmployee,
-                                                            department: departments?.find(d => d.id === selectedDept),
-                                                            position: positions?.find(p => p.id === selectedPos),
-                                                            company: companyProfile,
-                                                            system: {
-                                                                date: format(new Date(), 'yyyy-MM-dd'),
-                                                                year: format(new Date(), 'yyyy'),
-                                                                month: format(new Date(), 'MM'),
-                                                                day: format(new Date(), 'dd'),
-                                                                user: currentUser?.displayName || 'Системийн хэрэглэгч',
-                                                                documentNumber: document.documentNumber || document.metadata?.documentNumber || ''
-                                                            },
-                                                            customInputs: customInputValues
-                                                        }).replace(/\n/g, '<br/>')
+                                                        __html: renderDocumentHtml(
+                                                            dynamicHeaderHtml + (editContent || document.content),
+                                                            selectedEmployee, departments, selectedDept, positions, selectedPos,
+                                                            companyProfile, currentUser, document, customInputValues
+                                                        )
                                                     }}
                                                 />
                                             </div>
@@ -916,6 +1025,7 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                                     <TabsContent value="edit" className="mt-0">
                                         <div className="p-4">
                                             <RichTextEditor
+                                                key={`editor-${editorKey}`}
                                                 content={editContent}
                                                 onChange={setEditContent}
                                                 insertContent={pendingInsertContent}
@@ -940,28 +1050,80 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                                             </div>
                                         </div>
                                     </TabsContent>
+
+                                    <TabsContent value="header" className="mt-0">
+                                        <div className="p-6 space-y-6 max-w-xl mx-auto">
+                                            <div className="text-center">
+                                                <Building2 className="h-8 w-8 text-primary mx-auto mb-2" />
+                                                <h3 className="font-bold text-lg">Бичиг баримтын толгой</h3>
+                                                <p className="text-xs text-muted-foreground mt-1">Баримтын толгойд харагдах байгууллагыг сонгоно уу</p>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <Label className="text-sm font-semibold">Толгойнд ашиглах байгууллага</Label>
+                                                <Select
+                                                    value={headerCompanyKey}
+                                                    onValueChange={setHeaderCompanyKey}
+                                                >
+                                                    <SelectTrigger className="h-11">
+                                                        <SelectValue placeholder="Сонгох" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__main__">
+                                                            {companyProfile?.name || companyProfile?.legalName || 'Үндсэн байгууллага'}
+                                                        </SelectItem>
+                                                        {subsidiaries.map((sub: any, i: number) => (
+                                                            <SelectItem key={i} value={String(i)}>
+                                                                {sub.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="rounded-xl border bg-white p-4 space-y-3">
+                                                <p className="text-xs font-medium text-muted-foreground">Урьдчилан харах</p>
+                                                <div className="flex items-center gap-4 p-3 rounded-lg bg-slate-50 border">
+                                                    {headerCompany.logoUrl ? (
+                                                        <img
+                                                            src={headerCompany.logoUrl}
+                                                            alt="Logo"
+                                                            className="h-14 w-14 object-contain border rounded-lg bg-white p-1"
+                                                        />
+                                                    ) : (
+                                                        <div className="h-14 w-14 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400">
+                                                            <Building2 className="h-6 w-6" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="font-bold">{headerCompany.name}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {headerCompanyKey === '__main__' ? 'Үндсэн байгууллага' : 'Охин компани'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {subsidiaries.length === 0 && (
+                                                <div className="text-center py-4 rounded-lg border border-dashed text-muted-foreground">
+                                                    <p className="text-sm">Охин компани бүртгэгдээгүй байна</p>
+                                                    <p className="text-xs mt-1">Компани &gt; Охин компани хэсгээс нэмнэ үү</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TabsContent>
                                 </Tabs>
                             ) : (
                                 <div className="bg-slate-100 p-6 md:p-10">
                                     <div className="max-w-3xl mx-auto">
                                         <div
-                                            className="bg-white shadow-lg p-8 md:p-12 prose prose-slate prose-sm max-w-none min-h-[600px] ring-1 ring-slate-200 [&_img]:inline [&_img]:my-0"
+                                            className="bg-white shadow-lg p-8 md:p-12 prose prose-slate prose-sm max-w-none min-h-[600px] ring-1 ring-slate-200 [&_img]:inline [&_img]:my-0 [&_p]:my-1 [&_h1]:my-2 [&_h2]:my-2 [&_h3]:my-1 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-slate-300 [&_td]:p-2 [&_th]:border [&_th]:border-slate-300 [&_th]:p-2 [&_th]:bg-slate-50"
                                             dangerouslySetInnerHTML={{
-                                                __html: generateDocumentContent(dynamicHeaderHtml + (editContent || document.content), {
-                                                    employee: selectedEmployee,
-                                                    department: departments?.find(d => d.id === selectedDept),
-                                                    position: positions?.find(p => p.id === selectedPos),
-                                                    company: companyProfile,
-                                                    system: {
-                                                        date: format(new Date(), 'yyyy-MM-dd'),
-                                                        year: format(new Date(), 'yyyy'),
-                                                        month: format(new Date(), 'MM'),
-                                                        day: format(new Date(), 'dd'),
-                                                        user: currentUser?.displayName || 'Системийн хэрэглэгч',
-                                                        documentNumber: document.documentNumber || document.metadata?.documentNumber || ''
-                                                    },
-                                                    customInputs: customInputValues
-                                                }).replace(/\n/g, '<br/>')
+                                                __html: renderDocumentHtml(
+                                                    dynamicHeaderHtml + (editContent || document.content),
+                                                    selectedEmployee, departments, selectedDept, positions, selectedPos,
+                                                    companyProfile, currentUser, document, customInputValues
+                                                )
                                             }}
                                         />
                                     </div>
@@ -973,21 +1135,11 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
                         <div style={{ display: 'none' }}>
                             <PrintLayout
                                 ref={printComponentRef}
-                                content={generateDocumentContent(dynamicHeaderHtml + (editContent || document.content || ''), {
-                                    employee: selectedEmployee,
-                                    department: departments?.find(d => d.id === selectedDept),
-                                    position: positions?.find(p => p.id === selectedPos),
-                                    company: companyProfile,
-                                    system: {
-                                        date: format(new Date(), 'yyyy-MM-dd'),
-                                        year: format(new Date(), 'yyyy'),
-                                        month: format(new Date(), 'MM'),
-                                        day: format(new Date(), 'dd'),
-                                        user: currentUser?.displayName || 'Системийн хэрэглэгч',
-                                        documentNumber: document.documentNumber || document.metadata?.documentNumber || ''
-                                    },
-                                    customInputs: customInputValues
-                                }).replace(/\n/g, '<br/>')}
+                                content={renderDocumentHtml(
+                                    dynamicHeaderHtml + (editContent || document.content || ''),
+                                    selectedEmployee, departments, selectedDept, positions, selectedPos,
+                                    companyProfile, currentUser, document, customInputValues
+                                )}
                                 settings={document?.metadata?.printSettings}
                             />
                         </div>
@@ -1038,6 +1190,38 @@ export function DocumentDetailClient({ documentId }: { documentId: string }) {
             </Dialog>
         </div>
     );
+}
+
+function renderDocumentHtml(
+    rawContent: string,
+    selectedEmployee: any,
+    departments: any[] | undefined,
+    selectedDept: string,
+    positions: any[] | undefined,
+    selectedPos: string,
+    companyProfile: any,
+    currentUser: any,
+    document: any,
+    customInputValues: Record<string, any>
+) {
+    const html = generateDocumentContent(rawContent, {
+        employee: selectedEmployee,
+        department: departments?.find(d => d.id === selectedDept),
+        position: positions?.find(p => p.id === selectedPos),
+        company: companyProfile,
+        system: {
+            date: format(new Date(), 'yyyy-MM-dd'),
+            year: format(new Date(), 'yyyy'),
+            month: format(new Date(), 'MM'),
+            day: format(new Date(), 'dd'),
+            user: currentUser?.displayName || 'Системийн хэрэглэгч',
+            documentNumber: document?.documentNumber || document?.metadata?.documentNumber || ''
+        },
+        customInputs: customInputValues
+    });
+    // Only convert \n to <br/> for plain-text content (no HTML block tags)
+    if (/<(p|div|h[1-6]|table|ul|ol|blockquote)\b/i.test(html)) return html;
+    return html.replace(/\n/g, '<br/>');
 }
 
 function ActivityFeed({
