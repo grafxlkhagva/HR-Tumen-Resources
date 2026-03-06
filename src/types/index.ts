@@ -60,6 +60,7 @@ export type EmployeeStatus =
     | 'active'
     | 'active_probation'
     | 'active_permanent'
+    | 'active_contract'
     | 'on_leave'
     | 'releasing'
     | 'terminated'
@@ -71,6 +72,7 @@ export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
     active: 'Идэвхтэй',
     active_probation: 'Идэвхтэй туршилт',
     active_permanent: 'Идэвхтэй үндсэн',
+    active_contract: 'Гэрээт ажилтан',
     on_leave: 'Түр эзгүй',
     releasing: 'Чөлөөлөгдөж буй',
     terminated: 'Ажлаас гарсан',
@@ -122,7 +124,7 @@ export interface Employee {
  * active_recruitment: Сонгон шалгаруулалтаас ажилд авсан, томилогдоогүй
  */
 export function isActiveStatus(status: string | undefined | null): boolean {
-    return status === 'active' || status === 'active_probation' || status === 'active_permanent' || status === 'active_recruitment';
+    return status === 'active' || status === 'active_probation' || status === 'active_permanent' || status === 'active_contract' || status === 'active_recruitment';
 }
 
 export interface AttendanceRecord {

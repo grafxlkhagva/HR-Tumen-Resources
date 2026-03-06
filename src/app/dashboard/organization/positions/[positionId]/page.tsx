@@ -222,6 +222,7 @@ export default function PositionDetailPage() {
                 const aId = appointmentDoc?.metadata?.actionId || '';
                 const autoStatus =
                     aId === 'appointment_probation' ? 'active_probation' :
+                    aId === 'appointment_contract' ? 'active_contract' :
                     aId === 'appointment_permanent' ? 'active_permanent' :
                     'active_permanent';
                 await writeBatch(firestore)
@@ -405,7 +406,7 @@ export default function PositionDetailPage() {
             const appointmentDocsQuery = query(
                 collection(firestore, 'er_documents'),
                 where('employeeId', '==', assignedEmployee.id),
-                where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_reappoint'])
+                where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_contract', 'appointment_reappoint'])
             );
             try {
                 const appointmentDocsSnap = await getDocs(appointmentDocsQuery);
@@ -477,6 +478,7 @@ export default function PositionDetailPage() {
             const confirmActionId = appointmentDoc?.metadata?.actionId || '';
             const confirmStatus =
                 confirmActionId === 'appointment_probation' ? 'active_probation' :
+                confirmActionId === 'appointment_contract' ? 'active_contract' :
                 confirmActionId === 'appointment_permanent' ? 'active_permanent' :
                 'active_permanent';
             await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: confirmStatus }).commit();

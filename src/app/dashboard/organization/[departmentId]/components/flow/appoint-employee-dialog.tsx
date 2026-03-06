@@ -10,6 +10,7 @@ import {
     DialogFooter
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { 
     Search, UserPlus, Loader2, GitBranch, ChevronRight, ChevronLeft, FileText, Check, X, Wand2, 
     ExternalLink, Calendar as CalendarIcon, Clock, DollarSign, Zap, Gift, GraduationCap,
-    ArrowRight
+    ArrowRight, Briefcase
 } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -48,6 +49,10 @@ const ACTION_REQUIREMENTS: Record<string, Array<{ label: string; key: string }>>
         { label: 'Туршилтын дуусах огноо', key: 'probationEndDate' },
     ],
     appointment_reappoint: [{ label: 'Эргүүлэн томилсон огноо', key: 'reappointmentDate' }],
+    appointment_contract: [
+        { label: 'Гэрээний эхлэх огноо', key: 'contractStartDate' },
+        { label: 'Гэрээний дуусах огноо', key: 'contractEndDate' },
+    ],
 };
 
 interface AppointEmployeeDialogProps {
@@ -85,6 +90,7 @@ interface FullPositionData extends Position {
 const WIZARD_STEPS = {
     EMPLOYEE_SELECT: 1,
     APPOINTMENT_TYPE: 2,
+    CONTRACT_TERMS: 12,
     SALARY_STEP: 3,
     INCENTIVES: 4,
     ALLOWANCES: 5,
@@ -147,6 +153,13 @@ export function AppointEmployeeDialog({
     const [enableOnboarding, setEnableOnboarding] = React.useState<boolean | null>(null);
     const [onboardingTaskPlan, setOnboardingTaskPlan] = React.useState<Record<string, Record<string, { selected: boolean; dueDate?: string; ownerId?: string }>>>({});
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
+    const [contractTerms, setContractTerms] = React.useState({
+        startDate: '',
+        endDate: '',
+        durationMonths: '',
+        workDescription: '',
+        specialConditions: '',
+    });
 
     const onboardingConfigRef = React.useMemo(() =>
         firestore && open ? doc(firestore, 'settings', 'onboarding') : null
@@ -183,7 +196,7 @@ export function AppointEmployeeDialog({
         if (!firestore) return null;
         return query(
             collection(firestore, 'employees'),
-            where('status', 'in', ['active', 'active_probation', 'active_permanent'])
+            where('status', 'in', ['active', 'active_probation', 'active_permanent', 'active_contract'])
         );
     }, [firestore]);
 
@@ -404,6 +417,26 @@ export function AppointEmployeeDialog({
     const probationDurationVal = probationDurationKey ? String(customInputValues?.[probationDurationKey] || '').trim() : '';
     const probationCurrentEndVal = probationEndKey ? String(customInputValues?.[probationEndKey] || '').trim() : '';
 
+    const handleContractTermChange = React.useCallback((field: string, value: string) => {
+        setContractTerms(prev => {
+            const next = { ...prev, [field]: value };
+            if (field === 'startDate' || field === 'durationMonths') {
+                const start = field === 'startDate' ? value : prev.startDate;
+                const dur = field === 'durationMonths' ? value : prev.durationMonths;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+                    const months = Number(String(dur).replace(/[^\d.]/g, ''));
+                    if (Number.isFinite(months) && months > 0) {
+                        const [y, m, d] = start.split('-').map(Number);
+                        if (y && m && d) {
+                            next.endDate = format(addMonths(new Date(y, m - 1, d, 12), Math.round(months)), 'yyyy-MM-dd');
+                        }
+                    }
+                }
+            }
+            return next;
+        });
+    }, []);
+
     // Handler for custom input changes - includes probation end date auto-fill logic
     const handleCustomInputChange = React.useCallback((key: string, value: any) => {
         setCustomInputValues(prev => {
@@ -485,6 +518,7 @@ export function AppointEmployeeDialog({
             setOnboardingTaskPlan({});
             setSearch('');
             setCustomInputValues({});
+            setContractTerms({ startDate: '', endDate: '', durationMonths: '', workDescription: '', specialConditions: '' });
             setOffboardingStatus('none');
         }
     }, [open, position?.salarySteps?.activeIndex]);
@@ -598,17 +632,25 @@ export function AppointEmployeeDialog({
         });
         
         if (currentStep === WIZARD_STEPS.APPOINTMENT_TYPE) {
-            if (salarySteps.length > 0) {
-                console.log('Going to SALARY_STEP');
+            if (selectedActionId === 'appointment_contract') {
+                setStep(WIZARD_STEPS.CONTRACT_TERMS);
+            } else if (salarySteps.length > 0) {
                 setStep(WIZARD_STEPS.SALARY_STEP);
             } else if (incentives.length > 0) {
-                console.log('Going to INCENTIVES');
                 setStep(WIZARD_STEPS.INCENTIVES);
             } else if (allowances.length > 0) {
-                console.log('Going to ALLOWANCES');
                 setStep(WIZARD_STEPS.ALLOWANCES);
             } else {
-                console.log('Going to ONBOARDING');
+                setStep(WIZARD_STEPS.ONBOARDING);
+            }
+        } else if (currentStep === WIZARD_STEPS.CONTRACT_TERMS) {
+            if (salarySteps.length > 0) {
+                setStep(WIZARD_STEPS.SALARY_STEP);
+            } else if (incentives.length > 0) {
+                setStep(WIZARD_STEPS.INCENTIVES);
+            } else if (allowances.length > 0) {
+                setStep(WIZARD_STEPS.ALLOWANCES);
+            } else {
                 setStep(WIZARD_STEPS.ONBOARDING);
             }
         } else if (currentStep === WIZARD_STEPS.SALARY_STEP) {
@@ -675,9 +717,13 @@ export function AppointEmployeeDialog({
                 setStep(WIZARD_STEPS.INCENTIVES);
             } else if (salarySteps.length > 0) {
                 setStep(WIZARD_STEPS.SALARY_STEP);
+            } else if (selectedActionId === 'appointment_contract') {
+                setStep(WIZARD_STEPS.CONTRACT_TERMS);
             } else {
                 setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
             }
+        } else if (currentStep === WIZARD_STEPS.CONTRACT_TERMS) {
+            setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
         } else if (currentStep === WIZARD_STEPS.ALLOWANCES) {
             if (incentives.length > 0) {
                 setStep(WIZARD_STEPS.INCENTIVES);
@@ -693,7 +739,11 @@ export function AppointEmployeeDialog({
                 setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
             }
         } else if (currentStep === WIZARD_STEPS.SALARY_STEP) {
-            setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+            if (selectedActionId === 'appointment_contract') {
+                setStep(WIZARD_STEPS.CONTRACT_TERMS);
+            } else {
+                setStep(WIZARD_STEPS.APPOINTMENT_TYPE);
+            }
         } else if (currentStep === WIZARD_STEPS.APPOINTMENT_TYPE) {
             setStep(WIZARD_STEPS.EMPLOYEE_SELECT);
         }
@@ -774,6 +824,13 @@ export function AppointEmployeeDialog({
             let content = '';
             if (templateData) {
                 try {
+                    const contractInputs = selectedActionId === 'appointment_contract' ? {
+                        contractStartDate: contractTerms.startDate,
+                        contractEndDate: contractTerms.endDate,
+                        contractDuration: contractTerms.durationMonths,
+                        contractWorkDescription: contractTerms.workDescription,
+                        contractSpecialConditions: contractTerms.specialConditions,
+                    } : {};
                     content = generateDocumentContent(templateData.content || '', {
                         employee: selectedEmployee,
                         department: deptData,
@@ -786,8 +843,7 @@ export function AppointEmployeeDialog({
                             day: format(new Date(), 'dd'),
                             user: firebaseUser?.displayName || 'Системийн хэрэглэгч'
                         },
-                        customInputs: customInputsPayload,
-                        // Add selected compensation data to template
+                        customInputs: { ...customInputsPayload, ...contractInputs },
                         appointment: {
                             salaryStep: selectedSalary,
                             incentives: selectedIncentivesList,
@@ -827,7 +883,7 @@ export function AppointEmployeeDialog({
                                     user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
                                     documentNumber: documentNumber
                                 },
-                                customInputs: customInputsPayload,
+                                customInputs: { ...customInputsPayload, ...contractInputs },
                                 appointment: {
                                     salaryStep: selectedSalary,
                                     incentives: selectedIncentivesList,
@@ -840,6 +896,7 @@ export function AppointEmployeeDialog({
                     }
 
                     const docRef = doc(collection(firestore, 'er_documents'));
+                    const isContract = selectedActionId === 'appointment_contract';
                     batch.set(docRef, {
                         ...(documentNumber ? { documentNumber } : {}),
                         documentTypeId: templateData?.documentTypeId || null,
@@ -853,7 +910,6 @@ export function AppointEmployeeDialog({
                         version: 1,
                         printSettings: templateData?.printSettings || null,
                         customInputs: customInputsPayload,
-                        // Store appointment selections
                         appointmentData: {
                             actionId: selectedActionId,
                             salaryStepIndex: selectedSalaryStepIndex,
@@ -863,6 +919,14 @@ export function AppointEmployeeDialog({
                             allowanceIndices: selectedAllowances,
                             allowances: selectedAllowancesList,
                             enableOnboarding: enableOnboarding,
+                            ...(isContract ? {
+                                contractType: 'contract',
+                                contractStartDate: contractTerms.startDate,
+                                contractEndDate: contractTerms.endDate,
+                                contractDurationMonths: contractTerms.durationMonths,
+                                contractWorkDescription: contractTerms.workDescription,
+                                contractSpecialConditions: contractTerms.specialConditions,
+                            } : {}),
                         },
                         metadata: {
                             employeeName: `${selectedEmployee?.firstName || ''} ${selectedEmployee?.lastName || ''}`,
@@ -890,6 +954,7 @@ export function AppointEmployeeDialog({
             // Note: Onboarding projects will be created after batch commit
 
             // Update Employee with selected compensation
+            const isContractAppointment = selectedActionId === 'appointment_contract';
             try {
                 const empRef = doc(firestore, 'employees', selectedEmployee.id);
                 batch.update(empRef, {
@@ -898,7 +963,7 @@ export function AppointEmployeeDialog({
                     departmentId: position?.departmentId || null,
                     status: 'appointing',
                     lifecycleStage: 'onboarding',
-                    // Store appointment compensation
+                    ...(isContractAppointment ? { employmentType: 'contract' } : {}),
                     appointedCompensation: {
                         salaryStepIndex: selectedSalaryStepIndex,
                         salary: selectedSalary?.value || 0,
@@ -906,6 +971,15 @@ export function AppointEmployeeDialog({
                         incentiveIndices: selectedIncentives,
                         allowanceIndices: selectedAllowances,
                     },
+                    ...(isContractAppointment ? {
+                        contractData: {
+                            startDate: contractTerms.startDate,
+                            endDate: contractTerms.endDate,
+                            durationMonths: Number(contractTerms.durationMonths) || 0,
+                            workDescription: contractTerms.workDescription,
+                            specialConditions: contractTerms.specialConditions,
+                        },
+                    } : {}),
                     updatedAt: Timestamp.now()
                 });
             } catch (e) {
@@ -1018,6 +1092,7 @@ export function AppointEmployeeDialog({
         const steps = [];
         steps.push({ id: 1, name: 'Ажилтан' });
         steps.push({ id: 2, name: 'Төрөл' });
+        if (selectedActionId === 'appointment_contract') steps.push({ id: WIZARD_STEPS.CONTRACT_TERMS, name: 'Гэрээ' });
         if (salarySteps.length > 0) steps.push({ id: 3, name: 'Цалин' });
         if (incentives.length > 0) steps.push({ id: 4, name: 'Урамшуулал' });
         if (allowances.length > 0) steps.push({ id: 5, name: 'Хангамж' });
@@ -1194,6 +1269,7 @@ export function AppointEmployeeDialog({
                                 {[
                                     { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', desc: 'Байнгын гэрээтэй', icon: UserPlus, color: 'bg-indigo-50 text-indigo-600' },
                                     { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', desc: 'Туршилтын гэрээтэй', icon: Clock, color: 'bg-amber-50 text-amber-600' },
+                                    { id: 'appointment_contract', name: 'Гэрээт ажилтанаар томилох', desc: 'Хугацаатай гэрээ', icon: Briefcase, color: 'bg-teal-50 text-teal-600' },
                                     { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', desc: 'Дахин томилолт', icon: GitBranch, color: 'bg-emerald-50 text-emerald-600' },
                                 ].map((type) => (
                                     <button
@@ -1217,6 +1293,129 @@ export function AppointEmployeeDialog({
                                         <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                     </button>
                                 ))}
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    {/* Contract Terms Step */}
+                    {step === WIZARD_STEPS.CONTRACT_TERMS && (
+                        <ScrollArea className="flex-1">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-teal-100 text-teal-600 mb-2">
+                                        <Briefcase className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-bold">Гэрээний нөхцөл</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">Гэрээний үндсэн нөхцөлүүдийг бөглөнө үү</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold">
+                                                Гэрээний эхлэх огноо <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "h-10 w-full justify-start text-left font-medium rounded-xl",
+                                                            !contractTerms.startDate && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {contractTerms.startDate
+                                                            ? format(new Date(contractTerms.startDate), "yyyy.MM.dd")
+                                                            : "Огноо сонгох"}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={contractTerms.startDate ? new Date(contractTerms.startDate) : undefined}
+                                                        onSelect={(date) => handleContractTermChange('startDate', date ? format(date, 'yyyy-MM-dd') : '')}
+                                                        locale={mn}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold">
+                                                Гэрээний хугацаа (сар) <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={120}
+                                                value={contractTerms.durationMonths}
+                                                onChange={(e) => handleContractTermChange('durationMonths', e.target.value)}
+                                                placeholder="Сараар (жишээ: 12)"
+                                                className="h-10 rounded-xl"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold">Гэрээний дуусах огноо</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "h-10 w-full justify-start text-left font-medium rounded-xl",
+                                                        !contractTerms.endDate && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {contractTerms.endDate
+                                                        ? format(new Date(contractTerms.endDate), "yyyy.MM.dd")
+                                                        : "Автоматаар тооцоолно"}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={contractTerms.endDate ? new Date(contractTerms.endDate) : undefined}
+                                                    onSelect={(date) => handleContractTermChange('endDate', date ? format(date, 'yyyy-MM-dd') : '')}
+                                                    locale={mn}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        {contractTerms.startDate && contractTerms.durationMonths && contractTerms.endDate && (
+                                            <p className="text-[10px] text-teal-600">
+                                                {contractTerms.startDate} ~ {contractTerms.endDate} ({contractTerms.durationMonths} сар)
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold">
+                                            Гүйцэтгэх ажил, үүргийн тодорхойлолт <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Textarea
+                                            value={contractTerms.workDescription}
+                                            onChange={(e) => handleContractTermChange('workDescription', e.target.value)}
+                                            placeholder="Гэрээт ажилтны гүйцэтгэх ажил үүргийг тодорхойлно уу..."
+                                            rows={3}
+                                            className="rounded-xl resize-none"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold">Тусгай нөхцөл</Label>
+                                        <Textarea
+                                            value={contractTerms.specialConditions}
+                                            onChange={(e) => handleContractTermChange('specialConditions', e.target.value)}
+                                            placeholder="Нэмэлт нөхцөл, тусгай шаардлага (заавал биш)..."
+                                            rows={2}
+                                            className="rounded-xl resize-none"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </ScrollArea>
                     )}
@@ -1790,7 +1989,7 @@ export function AppointEmployeeDialog({
                                 <Button
                                     onClick={() => goToNextStep(step)}
                                     className="flex-[2] rounded-xl"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || (step === WIZARD_STEPS.CONTRACT_TERMS && (!contractTerms.startDate || !contractTerms.durationMonths || !contractTerms.workDescription))}
                                 >
                                     Үргэлжлүүлэх
                                     <ChevronRight className="h-4 w-4 ml-1" />

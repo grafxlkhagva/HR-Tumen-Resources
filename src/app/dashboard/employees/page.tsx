@@ -42,6 +42,7 @@ const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' |
   "active": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active, color: 'emerald' },
   "active_probation": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.active_probation, color: 'amber' },
   "active_permanent": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active_permanent, color: 'emerald' },
+  "active_contract": { variant: 'info', label: EMPLOYEE_STATUS_LABELS.active_contract, color: 'teal' },
   "on_leave": { variant: 'info', label: EMPLOYEE_STATUS_LABELS.on_leave, color: 'blue' },
   "releasing": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.releasing, color: 'orange' },
   "terminated": { variant: 'error', label: EMPLOYEE_STATUS_LABELS.terminated, color: 'rose' },

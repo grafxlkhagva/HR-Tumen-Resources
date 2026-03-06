@@ -32,6 +32,7 @@ export function OrganizationActionSettings() {
     const SYSTEM_ACTIONS = [
         { id: 'appointment_permanent', name: 'Үндсэн ажилтнаар томилох', description: 'Үндсэн ажилтны томилгооны баримтын загвар' },
         { id: 'appointment_probation', name: 'Туршилтын хугацаатай томилох', description: 'Туршилтын хугацаатай томилгооны баримтын загвар' },
+        { id: 'appointment_contract', name: 'Гэрээт ажилтанаар томилох', description: 'Хугацаатай гэрээний баримтын загвар' },
         { id: 'appointment_reappoint', name: 'Эргүүлэн томилох', description: 'Ажилтныг эргүүлэн томилох баримтын загвар' },
         { id: 'release_company', name: 'Компанийн санаачилгаар бүрэн чөлөөлөх', description: 'Ажил олгогчийн санаачилгаар хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
         { id: 'release_employee', name: 'Ажилтны санаачилгаар бүрэн чөлөөлөх', description: 'Ажилтны хүсэлтээр хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
@@ -48,6 +49,10 @@ export function OrganizationActionSettings() {
         ],
         'appointment_reappoint': [
             { label: 'Эргүүлэн томилсон огноо', key: 'reappointmentDate' }
+        ],
+        'appointment_contract': [
+            { label: 'Гэрээний эхлэх огноо', key: 'contractStartDate' },
+            { label: 'Гэрээний дуусах огноо', key: 'contractEndDate' }
         ],
         'release_company': [
             { label: 'Ажлаас чөлөөлөх огноо', key: 'releaseDate' }

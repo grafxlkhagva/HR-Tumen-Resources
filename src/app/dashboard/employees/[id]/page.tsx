@@ -99,6 +99,7 @@ const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destr
     "active": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active },
     "active_probation": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: EMPLOYEE_STATUS_LABELS.active_probation },
     "active_permanent": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active_permanent },
+    "active_contract": { variant: 'default', className: 'bg-teal-100 text-teal-700 hover:bg-teal-100/80 border-teal-200', label: EMPLOYEE_STATUS_LABELS.active_contract },
     "on_leave": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: EMPLOYEE_STATUS_LABELS.on_leave },
     "releasing": { variant: 'secondary', className: 'bg-orange-50 text-orange-700 hover:bg-orange-50/80 border-orange-200', label: EMPLOYEE_STATUS_LABELS.releasing },
     "terminated": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: EMPLOYEE_STATUS_LABELS.terminated },
