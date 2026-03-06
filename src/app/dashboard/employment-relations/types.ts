@@ -27,6 +27,8 @@ export interface PrintSettings {
     showLogo?: boolean;
     companyName?: string;
     documentTitle?: string;
+    /** Толгойнд ашиглах байгууллага: '__main__' = үндсэн, '0','1',... = охин компанийн индекс */
+    headerCompanyKey?: string;
 }
 
 export interface DocumentHeader {

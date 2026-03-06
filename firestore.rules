@@ -600,5 +600,52 @@ service cloud.firestore {
         allow delete: if isAdmin();
     }
 
+    // --- TMS (Тээвэр удирдлагын систем) ---
+    match /tms_customers/{customerId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_customers/{customerId}/employees/{employeeId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /tms_warehouses/{warehouseId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /tms_drivers/{driverId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_drivers/{driverId}/storage/{itemId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /tms_vehicles/{vehicleId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_quotations/{quotationId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_vehicle_makes/{makeId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_vehicle_models/{modelId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_vehicle_types/{typeId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_trailer_types/{typeId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_regions/{regionId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_industries/{industryId} {
+      allow read, write: if isSignedIn();
+    }
+    match /tms_packaging_types/{typeId} {
+      allow read, write: if isSignedIn();
+    }
+
   }
 }

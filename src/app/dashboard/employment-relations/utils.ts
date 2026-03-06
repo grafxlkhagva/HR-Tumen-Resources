@@ -93,11 +93,16 @@ export function getReplacementMap(data: {
 }): Record<string, string> {
     const map: Record<string, string> = {};
 
+    // Build virtual fields that don't exist directly in data
+    const enrichedEmployee = data.employee ? {
+        ...data.employee,
+        fullName: [data.employee.lastName, data.employee.firstName].filter(Boolean).join(' ').trim() || undefined,
+    } : data.employee;
+
     ALL_DYNAMIC_FIELDS.forEach(field => {
-        // Construct the context object structure expected by the field paths
         const context = {
             company: data.company,
-            employee: data.employee,
+            employee: enrichedEmployee,
             position: data.position,
             department: data.department,
             questionnaire: data.questionnaire,
@@ -107,11 +112,12 @@ export function getReplacementMap(data: {
 
         const rawValue = resolvePath(context, field.path);
 
-        let formattedValue = '________________'; // Default placeholder
+        let formattedValue = '________________';
 
         if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
-            if (typeof rawValue === 'number') {
-                // Formatting for salary/money if key contains salary or min/max
+            if (field.key === '{{company.logoUrl}}') {
+                formattedValue = `<img src="${String(rawValue)}" alt="Logo" style="max-height:60px;max-width:200px;object-fit:contain;" />`;
+            } else if (typeof rawValue === 'number') {
                 if (field.key.includes('salary') || field.key.includes('Amount')) {
                     formattedValue = new Intl.NumberFormat('mn-MN').format(rawValue);
                 } else {
@@ -135,6 +141,77 @@ export function getReplacementMap(data: {
     }
 
     return map;
+}
+
+/**
+ * Баримтын толгой HTML үүсгэх.
+ * Template-ийн includeHeader=true, document type-ийн header тохиргоо,
+ * компаний профайл дээр тулгуурлан толгойг үүсгэнэ.
+ */
+export function generateDocumentHeader(opts: {
+    includeHeader?: boolean;
+    docTypeHeader?: {
+        title?: string;
+        showLogo?: boolean;
+        cityName?: string;
+        showDate?: boolean;
+        showNumber?: boolean;
+    };
+    companyProfile?: any;
+    headerCompanyKey?: string;
+}): string {
+    if (!opts.includeHeader) return '';
+
+    const header = opts.docTypeHeader;
+    const cp = opts.companyProfile;
+
+    // Resolve which company to use for header
+    let logoUrl = '';
+    let companyName = '';
+
+    const key = opts.headerCompanyKey ?? '__main__';
+    if (key === '__main__' || !cp?.subsidiaries) {
+        logoUrl = cp?.logoUrl || '';
+        companyName = header?.title || cp?.name || cp?.legalName || '';
+    } else {
+        const idx = parseInt(key, 10);
+        const subs: any[] = Array.isArray(cp.subsidiaries) ? cp.subsidiaries : [];
+        if (!isNaN(idx) && idx >= 0 && idx < subs.length) {
+            const sub = typeof subs[idx] === 'string' ? { name: subs[idx] } : subs[idx];
+            logoUrl = sub.logoUrl || '';
+            companyName = sub.name || '';
+        } else {
+            logoUrl = cp?.logoUrl || '';
+            companyName = header?.title || cp?.name || cp?.legalName || '';
+        }
+    }
+
+    const cityName = header?.cityName || 'Улаанбаатар';
+    const showLogo = header?.showLogo !== false;
+    const showDate = header?.showDate !== false;
+    const showNumber = header?.showNumber !== false;
+
+    const parts: string[] = [];
+
+    if (showLogo && logoUrl) {
+        parts.push(`<p style="text-align: center;"><img src="${logoUrl}" alt="Лого" style="width: 80px; display: block; margin: 0 auto;"></p>`);
+    }
+
+    if (companyName) {
+        parts.push(`<p style="text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.02em;">${companyName.toUpperCase()}</p>`);
+    }
+
+    parts.push(`<p></p>`);
+
+    const rowParts: string[] = [];
+    if (showDate) rowParts.push(`<span style="flex: 1;"><em>{{date.year}} оны {{date.month}} сарын {{date.day}}</em></span>`);
+    if (showNumber) rowParts.push(`<span style="flex: 1; text-align: center;">№ {{document.number}}</span>`);
+    rowParts.push(`<span style="flex: 1; text-align: right;">${cityName} хот</span>`);
+    parts.push(`<p style="display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 12px; margin: 0;">${rowParts.join('')}</p>`);
+
+    parts.push(`<p></p>`);
+
+    return parts.join('');
 }
 
 export function generateDocumentContent(

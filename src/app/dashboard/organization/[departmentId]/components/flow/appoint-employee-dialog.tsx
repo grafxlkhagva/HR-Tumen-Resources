@@ -746,11 +746,10 @@ export function AppointEmployeeDialog({
 
             const batch = writeBatch(firestore);
 
-            // Fetch company profile
             let companyProfile = null;
             try {
-                const companySnap = await getDocs(collection(firestore, 'company_profile'));
-                companyProfile = !companySnap.empty ? companySnap.docs[0].data() : null;
+                const companySnap = await getDoc(doc(firestore, 'company', 'profile'));
+                companyProfile = companySnap.exists() ? companySnap.data() : null;
             } catch (e) {
                 console.warn("Failed to fetch company profile:", e);
             }

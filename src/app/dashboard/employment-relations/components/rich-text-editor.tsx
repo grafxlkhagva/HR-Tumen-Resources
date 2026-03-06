@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Extension } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -31,12 +31,88 @@ import {
     Undo,
     Redo,
     Highlighter,
+    IndentIncrease,
+    IndentDecrease,
 } from 'lucide-react';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+
+const INDENT_STEP = 24; // px per indent level
+const MAX_INDENT = 10;
+
+const Indent = Extension.create({
+    name: 'indent',
+
+    addGlobalAttributes() {
+        return [
+            {
+                types: ['paragraph', 'heading'],
+                attributes: {
+                    indent: {
+                        default: 0,
+                        parseHTML: (element) => {
+                            const ml = parseInt(element.style.marginLeft, 10);
+                            return isNaN(ml) ? 0 : Math.round(ml / INDENT_STEP);
+                        },
+                        renderHTML: (attributes) => {
+                            if (!attributes.indent || attributes.indent <= 0) return {};
+                            return { style: `margin-left: ${attributes.indent * INDENT_STEP}px` };
+                        },
+                    },
+                },
+            },
+        ];
+    },
+
+    addCommands() {
+        return {
+            indent: () => ({ tr, state, dispatch }) => {
+                const { selection } = state;
+                const { from, to } = selection;
+                let changed = false;
+                state.doc.nodesBetween(from, to, (node, pos) => {
+                    if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+                        const current = node.attrs.indent || 0;
+                        if (current < MAX_INDENT) {
+                            if (dispatch) {
+                                tr.setNodeMarkup(pos, undefined, { ...node.attrs, indent: current + 1 });
+                            }
+                            changed = true;
+                        }
+                    }
+                });
+                return changed;
+            },
+            outdent: () => ({ tr, state, dispatch }) => {
+                const { selection } = state;
+                const { from, to } = selection;
+                let changed = false;
+                state.doc.nodesBetween(from, to, (node, pos) => {
+                    if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+                        const current = node.attrs.indent || 0;
+                        if (current > 0) {
+                            if (dispatch) {
+                                tr.setNodeMarkup(pos, undefined, { ...node.attrs, indent: current - 1 });
+                            }
+                            changed = true;
+                        }
+                    }
+                });
+                return changed;
+            },
+        } as any;
+    },
+
+    addKeyboardShortcuts() {
+        return {
+            Tab: () => (this.editor as any).commands.indent(),
+            'Shift-Tab': () => (this.editor as any).commands.outdent(),
+        };
+    },
+});
 
 interface RichTextEditorProps {
     content: string;
@@ -78,6 +154,7 @@ export function RichTextEditor({
             Placeholder.configure({
                 placeholder,
             }),
+            Indent,
         ],
         content,
         onUpdate: ({ editor }) => {
@@ -298,6 +375,30 @@ export function RichTextEditor({
                         title="Ишлэл"
                     >
                         <Quote className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                <Separator orientation="vertical" className="mx-1 h-6" />
+
+                {/* Indent / Outdent */}
+                <div className="flex items-center gap-0.5">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => (editor.commands as any).outdent()}
+                        className="h-8 w-8 p-0"
+                        title="Догол багасгах (Shift+Tab)"
+                    >
+                        <IndentDecrease className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => (editor.commands as any).indent()}
+                        className="h-8 w-8 p-0"
+                        title="Догол нэмэх (Tab)"
+                    >
+                        <IndentIncrease className="h-4 w-4" />
                     </Button>
                 </div>
             </div>

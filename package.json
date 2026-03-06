@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
+    "dev:webpack": "next dev -p 3001 --webpack",
     "push": "./scripts/git_push.sh",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src.ai/dev.ts",
@@ -76,7 +77,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "0.400.0",
     "mocean-sdk": "^2.2.3",
-    "next": "15.0.7",
+    "next": "^16.1.6",
     "pdf-parse": "^1.1.1",
     "react": "^18.3.1",
     "react-day-picker": "8.10.1",

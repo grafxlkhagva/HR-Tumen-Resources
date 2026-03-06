@@ -45,6 +45,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TEMPLATE_PRESETS, TEMPLATE_CATEGORIES, TemplatePreset } from '../data/template-library';
+import { generateDocumentHeader } from '../utils';
 
 interface TemplateFormProps {
     initialData?: Partial<ERTemplate>;
@@ -77,7 +78,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const [pendingInsertContent, setPendingInsertContent] = useState<string | null>(null);
     const [companyProfile, setCompanyProfile] = useState<any>(null);
 
-    // Fetch company profile for logo
+    // Fetch company profile (and subsidiaries) for header logo/name
     useEffect(() => {
         if (!firestore) return;
         const profileRef = doc(firestore, 'company', 'profile');
@@ -98,6 +99,34 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         customInputs: [],
         ...initialData
     });
+
+    const subsidiaries: { name: string; registrationNumber?: string; logoUrl?: string }[] = React.useMemo(() => {
+        if (!companyProfile?.subsidiaries) return [];
+        return companyProfile.subsidiaries.map((item: unknown) => {
+            if (typeof item === 'string') return { name: item, registrationNumber: '', logoUrl: undefined };
+            const o = item as { name?: string; registrationNumber?: string; logoUrl?: string };
+            return { name: o.name ?? '', registrationNumber: o.registrationNumber, logoUrl: o.logoUrl };
+        });
+    }, [companyProfile?.subsidiaries]);
+
+    const headerCompanyKey = formData.printSettings?.headerCompanyKey ?? '__main__';
+    const headerCompany = React.useMemo(() => {
+        if (headerCompanyKey === '__main__') {
+            return {
+                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
+                logoUrl: companyProfile?.logoUrl
+            };
+        }
+        const idx = parseInt(headerCompanyKey, 10);
+        if (Number.isNaN(idx) || idx < 0 || idx >= subsidiaries.length) {
+            return {
+                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
+                logoUrl: companyProfile?.logoUrl
+            };
+        }
+        const sub = subsidiaries[idx];
+        return { name: sub.name, logoUrl: sub.logoUrl };
+    }, [headerCompanyKey, subsidiaries, companyProfile]);
 
     // Track unsaved changes
     useEffect(() => {
@@ -311,53 +340,16 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }
     };
 
-    // Generate header HTML based on settings
     const generateHeaderHtml = React.useCallback(() => {
         if (!formData.includeHeader || !formData.documentTypeId) return '';
-        
         const docType = docTypes.find(dt => dt.id === formData.documentTypeId);
-        const header = docType?.header;
-        
-        const logoUrl = companyProfile?.logoUrl || '';
-        const companyName = header?.title || companyProfile?.name || companyProfile?.legalName || '';
-        const cityName = header?.cityName || 'Улаанбаатар';
-        const showLogo = header?.showLogo !== false;
-        const showDate = header?.showDate !== false;
-        const showNumber = header?.showNumber !== false;
-        
-        const headerParts: string[] = [];
-        
-        // Logo (centered)
-        if (showLogo && logoUrl) {
-            headerParts.push(`<p style="text-align: center;"><img src="${logoUrl}" alt="Лого" style="width: 80px; display: block; margin: 0 auto;"></p>`);
-        }
-        
-        // Company name (centered, bold, uppercase)
-        if (companyName) {
-            headerParts.push(`<p style="text-align: center;"><strong>${companyName.toUpperCase()}</strong></p>`);
-        }
-        
-        // Empty line for spacing
-        headerParts.push(`<p></p>`);
-        
-        // Date (left)
-        if (showDate) {
-            headerParts.push(`<p style="text-align: left;"><em>{{date.year}} оны {{date.month}} сарын {{date.day}}</em></p>`);
-        }
-        
-        // Number (center)
-        if (showNumber) {
-            headerParts.push(`<p style="text-align: center;">№ {{document.number}}</p>`);
-        }
-        
-        // City (right)
-        headerParts.push(`<p style="text-align: right;">${cityName} хот</p>`);
-        
-        // Spacing after header
-        headerParts.push(`<p></p>`);
-        
-        return headerParts.join('');
-    }, [formData.includeHeader, formData.documentTypeId, docTypes, companyProfile]);
+        return generateDocumentHeader({
+            includeHeader: true,
+            docTypeHeader: docType?.header,
+            companyProfile,
+            headerCompanyKey: formData.printSettings?.headerCompanyKey,
+        });
+    }, [formData.includeHeader, formData.documentTypeId, docTypes, companyProfile, formData.printSettings?.headerCompanyKey]);
 
     const getPreviewHtml = React.useMemo(() => {
         const headerHtml = generateHeaderHtml();
@@ -637,30 +629,56 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                         </div>
                                         
                                         {formData.includeHeader && (
-                                            <div className="flex items-center gap-3 p-2 rounded border bg-white">
-                                                {companyProfile?.logoUrl ? (
-                                                    <>
-                                                        <img 
-                                                            src={companyProfile.logoUrl} 
-                                                            alt="Logo" 
-                                                            className="h-10 w-10 object-contain border rounded"
-                                                        />
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate">{companyProfile?.name || 'Байгууллага'}</p>
-                                                            <p className="text-xs text-green-600">✓ Толгой урьдчилан харахад харагдана</p>
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="h-10 w-10 bg-slate-100 rounded border flex items-center justify-center">
-                                                            <AlertCircle className="h-5 w-5 text-slate-400" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-medium">{companyProfile?.name || 'Байгууллага'}</p>
-                                                            <p className="text-xs text-amber-600">Лого оруулаагүй байна</p>
-                                                        </div>
-                                                    </>
-                                                )}
+                                            <div className="space-y-3">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs text-muted-foreground">Толгойнд ашиглах байгууллага</Label>
+                                                    <Select
+                                                        value={headerCompanyKey}
+                                                        onValueChange={(val) => setFormData(prev => ({
+                                                            ...prev,
+                                                            printSettings: { ...prev.printSettings, headerCompanyKey: val }
+                                                        }))}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Сонгох" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="__main__">
+                                                                {companyProfile?.name || companyProfile?.legalName || 'Үндсэн байгууллага'}
+                                                            </SelectItem>
+                                                            {subsidiaries.map((sub, i) => (
+                                                                <SelectItem key={i} value={String(i)}>
+                                                                    {sub.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="flex items-center gap-3 p-2 rounded border bg-white">
+                                                    {headerCompany.logoUrl ? (
+                                                        <>
+                                                            <img 
+                                                                src={headerCompany.logoUrl} 
+                                                                alt="Logo" 
+                                                                className="h-10 w-10 object-contain border rounded"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium truncate">{headerCompany.name}</p>
+                                                                <p className="text-xs text-green-600">✓ Толгой урьдчилан харахад харагдана</p>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="h-10 w-10 bg-slate-100 rounded border flex items-center justify-center">
+                                                                <AlertCircle className="h-5 w-5 text-slate-400" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-medium">{headerCompany.name}</p>
+                                                                <p className="text-xs text-amber-600">Лого оруулаагүй байна</p>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

@@ -189,3 +189,9 @@
     background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.06) 1px, transparent 1px);
   }
 }
+
+/* Override Next.js dev tools portal position (persist browser preview changes) */
+nextjs-portal {
+  left: unset;
+  top: unset;
+}

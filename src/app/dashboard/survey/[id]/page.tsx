@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, use } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { doc, collection, deleteDoc, getDocs } from 'firebase/firestore';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -51,8 +51,9 @@ import {
     SURVEY_TYPE_LABELS,
 } from '../types';
 
-export default function SurveyDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+export default function SurveyDetailPage() {
+    const params = useParams<{ id?: string }>();
+    const id = params?.id as string;
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();

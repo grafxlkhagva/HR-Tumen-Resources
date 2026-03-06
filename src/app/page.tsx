@@ -86,6 +86,11 @@ export default function Home() {
     router.replace('/mobile/home');
   }, [router]);
 
+  const handleChooseTms = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/tms');
+  }, [router]);
+
   // Don't close dialog from outside - only via button clicks
   const handleOpenChange = React.useCallback((open: boolean) => {
     // Only allow opening, not closing from outside
@@ -105,6 +110,7 @@ export default function Home() {
         onOpenChange={handleOpenChange}
         onChooseAdmin={handleChooseAdmin}
         onChooseEmployee={handleChooseEmployee}
+        onChooseTms={handleChooseTms}
         companyName={companyProfile?.name}
       />
     </div>

@@ -43,3 +43,7 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# migration keys (never commit)
+scripts/keys/*.json
+scripts/key/*.json

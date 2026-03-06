@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection } from '@/firebase';
-import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { generateDocumentContent, formatDateTime } from '../../../dashboard/employment-relations/utils';
 import { format } from 'date-fns';
-import { getDoc, getDocs } from 'firebase/firestore';
+import { getDoc } from 'firebase/firestore';
 
 export default function DocumentReviewDetailPage() {
     const router = useRouter();
@@ -86,8 +86,8 @@ export default function DocumentReviewDetailPage() {
 
     useEffect(() => {
         if (!firestore) return;
-        getDocs(collection(firestore, 'company_profile')).then(snap => {
-            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        getDoc(doc(firestore, 'company', 'profile')).then(snap => {
+            if (snap.exists()) setCompanyProfile(snap.data());
         });
     }, [firestore]);
 

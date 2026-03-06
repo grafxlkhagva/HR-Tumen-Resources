@@ -5,7 +5,7 @@ import { useCollection, useFirebase, addDocumentNonBlocking, useDoc } from '@/fi
 import { collection, query, where, Timestamp, doc, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
-import { generateDocumentContent } from '../utils';
+import { generateDocumentContent, generateDocumentHeader } from '../utils';
 import { getNextDocumentNumber, previewNextDocumentNumber } from '../services/document-numbering';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -80,8 +80,8 @@ export default function CreateDocumentPage() {
 
     useEffect(() => {
         if (!firestore) return;
-        getDocs(collection(firestore, 'company_profile')).then(snap => {
-            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        getDoc(doc(firestore, 'company', 'profile')).then(snap => {
+            if (snap.exists()) setCompanyProfile(snap.data());
         });
     }, [firestore]);
 
@@ -154,8 +154,17 @@ export default function CreateDocumentPage() {
             const deptData = departments?.find(d => d.id === selectedDepartment);
             const posData = positions?.find(p => p.id === selectedPosition);
 
-            // Generate content
-            const content = generateDocumentContent(selectedTemplateData?.content || '', {
+            // Generate header if template has includeHeader
+            const selectedDocType = docTypes?.find(dt => dt.id === selectedType);
+            const headerHtml = generateDocumentHeader({
+                includeHeader: selectedTemplateData?.includeHeader,
+                docTypeHeader: selectedDocType?.header,
+                companyProfile,
+                headerCompanyKey: selectedTemplateData?.printSettings?.headerCompanyKey,
+            });
+
+            // Generate content with header prepended
+            const content = generateDocumentContent(headerHtml + (selectedTemplateData?.content || ''), {
                 employee: { id: empDoc.id, ...empDoc.data() },
                 department: deptData,
                 position: posData,

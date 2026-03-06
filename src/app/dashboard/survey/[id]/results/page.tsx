@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, use, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { doc, collection, getDoc } from 'firebase/firestore';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -195,8 +195,9 @@ function AnswerDisplay({ question, answer }: { question: SurveyQuestion; answer:
     }
 }
 
-export default function SurveyResultsPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+export default function SurveyResultsPage() {
+    const params = useParams<{ id?: string }>();
+    const id = params?.id as string;
     const router = useRouter();
     const { firestore } = useFirebase();
 

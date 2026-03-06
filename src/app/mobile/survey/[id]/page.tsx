@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, use } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { doc, collection, query, where, getDocs, increment, updateDoc } from 'firebase/firestore';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -20,8 +20,9 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { Survey, SurveyQuestion, SurveyResponse } from '@/app/dashboard/survey/types';
 
-export default function MobileSurveyRespondPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+export default function MobileSurveyRespondPage() {
+    const params = useParams<{ id?: string }>();
+    const id = params?.id as string;
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();

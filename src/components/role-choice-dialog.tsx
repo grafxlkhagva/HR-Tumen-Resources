@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Shield, User, Building, Loader2 } from 'lucide-react';
+import { Shield, User, Building, Loader2, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RoleChoiceDialogProps {
@@ -16,6 +16,7 @@ interface RoleChoiceDialogProps {
     onOpenChange: (open: boolean) => void;
     onChooseAdmin: () => void;
     onChooseEmployee: () => void;
+    onChooseTms?: () => void;
     companyName?: string;
 }
 
@@ -24,9 +25,10 @@ export function RoleChoiceDialog({
     onOpenChange,
     onChooseAdmin,
     onChooseEmployee,
+    onChooseTms,
     companyName = 'Систем',
 }: RoleChoiceDialogProps) {
-    const [isNavigating, setIsNavigating] = React.useState<'admin' | 'employee' | null>(null);
+    const [isNavigating, setIsNavigating] = React.useState<'admin' | 'employee' | 'tms' | null>(null);
 
     const handleChooseAdmin = React.useCallback(() => {
         if (isNavigating) return;
@@ -45,6 +47,14 @@ export function RoleChoiceDialog({
             onChooseEmployee();
         }, 100);
     }, [isNavigating, onChooseEmployee]);
+
+    const handleChooseTms = React.useCallback(() => {
+        if (isNavigating || !onChooseTms) return;
+        setIsNavigating('tms');
+        setTimeout(() => {
+            onChooseTms();
+        }, 100);
+    }, [isNavigating, onChooseTms]);
 
     // Reset navigating state when dialog closes
     React.useEffect(() => {
@@ -138,6 +148,36 @@ export function RoleChoiceDialog({
                             </div>
                         </div>
                     </button>
+
+                    {onChooseTms && (
+                        <button
+                            type="button"
+                            onClick={handleChooseTms}
+                            disabled={isNavigating !== null}
+                            className={cn(
+                                "flex items-start gap-4 w-full rounded-xl border-2 border-transparent p-5 text-left",
+                                "bg-slate-50 dark:bg-slate-900/50 hover:border-primary/30 hover:bg-primary/5",
+                                "dark:hover:bg-primary/10 transition-all duration-200",
+                                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                                "disabled:opacity-50 disabled:cursor-not-allowed",
+                                isNavigating === 'tms' && "border-primary/50 bg-primary/10"
+                            )}
+                        >
+                            <div className="h-11 w-11 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+                                {isNavigating === 'tms' ? (
+                                    <Loader2 className="h-6 w-6 text-violet-600 dark:text-violet-400 animate-spin" />
+                                ) : (
+                                    <LayoutGrid className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                                <div className="font-semibold text-base mb-1">TMS ээр нэвтрэх</div>
+                                <div className="text-sm text-muted-foreground leading-snug">
+                                    Түмэн удирдлагын систем — удахгүй нээгдэнэ
+                                </div>
+                            </div>
+                        </button>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
