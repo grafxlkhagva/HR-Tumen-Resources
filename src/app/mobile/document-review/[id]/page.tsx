@@ -20,7 +20,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { generateDocumentContent, formatDateTime } from '../../../dashboard/employment-relations/utils';
 import { format } from 'date-fns';
-import { getDoc } from 'firebase/firestore';
 
 export default function DocumentReviewDetailPage() {
     const router = useRouter();
