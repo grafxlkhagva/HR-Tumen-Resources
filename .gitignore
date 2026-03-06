@@ -47,3 +47,6 @@ firestore-debug.log
 # migration keys (never commit)
 scripts/keys/*.json
 scripts/key/*.json
+
+# ai-service (integrated into Next.js API routes)
+/ai-service

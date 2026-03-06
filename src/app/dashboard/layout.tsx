@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { UserNav } from '@/components/user-nav';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
+import { AIChatWidget } from '@/components/ai-chat-widget';
 
 interface CompanyProfile {
   name?: string;
@@ -94,6 +95,8 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
       <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
         {children}
       </main>
+
+      <AIChatWidget />
     </div>
   );
 }
