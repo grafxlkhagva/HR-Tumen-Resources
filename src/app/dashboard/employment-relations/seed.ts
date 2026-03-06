@@ -183,6 +183,32 @@ const SYSTEM_TEMPLATES = [
         ],
     },
     {
+        code: 'SYS_APPOINTMENT_CONTRACT',
+        actionId: 'appointment_contract',
+        docTypeName: 'Гэрээт ажилтанаар томилох тушаал',
+        docTypeCode: 'SYS_APPT_CONT',
+        docTypePrefix: 'ГТТ',
+        templateName: 'Гэрээт ажилтанаар томилох тухай',
+        templateContent: `ТУШААЛ
+
+Гэрээт ажилтанаар томилох тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалд {{date.contractStart}} өдрөөс {{date.contractEnd}} өдрийг хүртэл хугацаатай гэрээгээр томилсугай.
+
+Цалин хөлс: {{salary.total}} төгрөг
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 71 дүгээр зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'contractStartDate', label: 'Гэрээний эхлэх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'contractEndDate', label: 'Гэрээний дуусах огноо', type: 'date' as const, required: true, order: 1 },
+        ],
+    },
+    {
         code: 'SYS_APPOINTMENT_REAPPOINT',
         actionId: 'appointment_reappoint',
         docTypeName: 'Эргүүлэн томилох тушаал',
@@ -256,6 +282,32 @@ const SYSTEM_TEMPLATES = [
 `,
         customInputs: [
             { key: 'releaseDate', label: 'Ажлаас чөлөөлөх огноо', type: 'date' as const, required: true, order: 0 },
+            { key: 'reason', label: 'Шалтгаан', type: 'text' as const, required: false, order: 1 },
+        ],
+    },
+    {
+        code: 'SYS_TRANSFER',
+        actionId: 'transfer',
+        docTypeName: 'Шилжүүлэн томилох тушаал',
+        docTypeCode: 'SYS_TRANSFER',
+        docTypePrefix: 'ШТТ',
+        templateName: 'Шилжүүлэн томилох тухай',
+        templateContent: `ТУШААЛ
+
+Шилжүүлэн томилох тухай
+
+{{date.today}}                                                     Дугаар: {{document.number}}
+
+{{employee.lastName}} овогтой {{employee.firstName}}-г {{position.title}} албан тушаалаас {{date.transferDate}} өдрөөс эхлэн шилжүүлэн томилсугай.
+
+Шилтгаан: {{text.reason}}
+
+Үндэслэл: Хөдөлмөрийн тухай хуулийн 65 дугаар зүйл
+
+Гүйцэтгэх захирал: ____________________
+`,
+        customInputs: [
+            { key: 'transferDate', label: 'Шилжүүлэн томилох огноо', type: 'date' as const, required: true, order: 0 },
             { key: 'reason', label: 'Шалтгаан', type: 'text' as const, required: false, order: 1 },
         ],
     },
@@ -379,10 +431,12 @@ async function linkOrgAction(firestore: any, actionId: string, templateId: strin
     const ACTION_NAMES: Record<string, string> = {
         'appointment_probation': 'Туршилтын хугацаатай томилох',
         'appointment_permanent': 'Үндсэн ажилтнаар томилох',
+        'appointment_contract': 'Гэрээт ажилтанаар томилох',
         'appointment_reappoint': 'Эргүүлэн томилох',
         'release_temporary': 'Ажилтныг түр чөлөөлөх',
         'release_company': 'Компанийн санаачилгаар чөлөөлөх',
         'release_employee': 'Ажилтны хүсэлтээр чөлөөлөх',
+        'transfer': 'Шилжүүлэн томилох',
     };
     const actionRef = doc(firestore, 'organization_actions', actionId);
     const actionSnap = await getDoc(actionRef);

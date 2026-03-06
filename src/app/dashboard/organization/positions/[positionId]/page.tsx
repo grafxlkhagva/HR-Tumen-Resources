@@ -33,11 +33,13 @@ import {
     Building2,
     MoreVertical,
     Trash2,
-    ExternalLink
+    ExternalLink,
+    ArrowRightLeft
 } from 'lucide-react';
 import { writeBatch, increment as firestoreIncrement, getDocs } from 'firebase/firestore';
 import { AppointEmployeeDialog } from '../../[departmentId]/components/flow/appoint-employee-dialog';
 import { ReleaseEmployeeDialog } from '../../[departmentId]/components/flow/release-employee-dialog';
+import { TransferEmployeeDialog } from '../../[departmentId]/components/flow/transfer-employee-dialog';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -104,6 +106,7 @@ export default function PositionDetailPage() {
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [isDocStatusOpen, setIsDocStatusOpen] = useState(false);
     const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
+    const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
     const [isPrepWizardOpen, setIsPrepWizardOpen] = useState(false);
 
     // Data Fetching
@@ -714,20 +717,36 @@ export default function PositionDetailPage() {
                                                         })()}
                                                     </>
                                                 ) : (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button
-                                                                type="button"
-                                                                className="h-8 w-8 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white flex items-center justify-center"
-                                                                onClick={() => setIsReleaseDialogOpen(true)}
-                                                            >
-                                                                <UserMinus className="h-4 w-4" />
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <div className="text-xs font-semibold">Чөлөөлөх</div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                    <>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="h-8 w-8 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 text-white flex items-center justify-center"
+                                                                    onClick={() => setIsTransferDialogOpen(true)}
+                                                                >
+                                                                    <ArrowRightLeft className="h-4 w-4" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Шилжүүлэн томилох</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="h-8 w-8 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white flex items-center justify-center"
+                                                                    onClick={() => setIsReleaseDialogOpen(true)}
+                                                                >
+                                                                    <UserMinus className="h-4 w-4" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <div className="text-xs font-semibold">Чөлөөлөх</div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </>
                                                 )
                                             ) : (
                                                 position.isApproved && (
@@ -1012,6 +1031,7 @@ export default function PositionDetailPage() {
 
             <AppointEmployeeDialog open={isAppointDialogOpen} onOpenChange={setIsAppointDialogOpen} position={position} />
             <ReleaseEmployeeDialog open={isReleaseDialogOpen} onOpenChange={setIsReleaseDialogOpen} employee={assignedEmployee} position={position} />
+            <TransferEmployeeDialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen} employee={assignedEmployee} position={position} />
             <StartPositionPreparationWizardDialog
                 open={isPrepWizardOpen}
                 onOpenChange={setIsPrepWizardOpen}

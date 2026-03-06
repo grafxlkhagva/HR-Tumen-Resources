@@ -37,6 +37,7 @@ export function OrganizationActionSettings() {
         { id: 'release_company', name: 'Компанийн санаачилгаар бүрэн чөлөөлөх', description: 'Ажил олгогчийн санаачилгаар хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
         { id: 'release_employee', name: 'Ажилтны санаачилгаар бүрэн чөлөөлөх', description: 'Ажилтны хүсэлтээр хөдөлмөрийн гэрээ цуцлах баримтын загвар' },
         { id: 'release_temporary', name: 'Түр чөлөөлөх', description: 'Ажилтныг ажлаас түр чөлөөлөх (түдгэлзүүлэх) баримтын загвар' },
+        { id: 'transfer', name: 'Шилжүүлэн томилох', description: 'Ажилтныг өөр ажлын байранд шилжүүлэн томилох баримтын загвар' },
     ];
 
     const ACTION_REQUIREMENTS: Record<string, { label: string, key: string }[]> = {
@@ -62,6 +63,9 @@ export function OrganizationActionSettings() {
         ],
         'release_temporary': [
             { label: 'Түр чөлөөлөх огноо', key: 'releaseDate' }
+        ],
+        'transfer': [
+            { label: 'Шилжүүлэн томилох огноо', key: 'transferDate' }
         ]
     };
 

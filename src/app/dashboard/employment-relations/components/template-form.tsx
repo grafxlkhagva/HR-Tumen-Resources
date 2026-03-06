@@ -76,6 +76,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedPresetCategory, setSelectedPresetCategory] = useState<string>('contract');
     const [pendingInsertContent, setPendingInsertContent] = useState<string | null>(null);
+    const [editorKey, setEditorKey] = useState(0);
     const [companyProfile, setCompanyProfile] = useState<any>(null);
 
     // Fetch company profile (and subsidiaries) for header logo/name
@@ -128,10 +129,10 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         return { name: sub.name, logoUrl: sub.logoUrl };
     }, [headerCompanyKey, subsidiaries, companyProfile]);
 
-    // Track unsaved changes
     useEffect(() => {
         if (initialData) {
             setFormData(prev => ({ ...prev, ...initialData }));
+            setEditorKey(k => k + 1);
         }
     }, [initialData]);
 
@@ -203,6 +204,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             content: preset.content,
             customInputs: preset.customInputs || []
         }));
+        setEditorKey(k => k + 1);
         setIsLibraryOpen(false);
         toast({
             title: 'Загвар ачааллаа',
@@ -323,6 +325,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                 content: result.data.content || prev.content,
                 customInputs: result.data.customInputs || prev.customInputs
             }));
+            setEditorKey(k => k + 1);
 
             toast({
                 title: 'Амжилттай',
@@ -707,6 +710,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                                     <TabsContent value="visual" className="mt-0">
                                         <RichTextEditor
+                                            key={`tpl-editor-${editorKey}`}
                                             content={formData.content || ''}
                                             onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
                                             insertContent={pendingInsertContent}
@@ -826,22 +830,20 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-1">
-                                        {formData.customInputs.slice(0, 5).map((input, idx) => (
+                                        {[...(formData.customInputs || [])].sort((a, b) => (a.order || 0) - (b.order || 0)).map((input, idx) => (
                                             <div key={idx} className="flex items-center gap-2 text-xs p-2 bg-slate-50 rounded">
-                                                <code className="text-primary">{`{{${input.key || '...'}}}`}</code>
-                                                <span className="text-muted-foreground truncate">{input.label}</span>
+                                                <code className="text-primary shrink-0">{`{{${input.key || '...'}}}`}</code>
+                                                <span className="text-muted-foreground truncate flex-1">{input.label}</span>
+                                                <button
+                                                    type="button"
+                                                    className="shrink-0 p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-100"
+                                                    onClick={() => removeCustomInput(input.order)}
+                                                    title="Устгах"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
                                             </div>
                                         ))}
-                                        {formData.customInputs.length > 5 && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full text-xs"
-                                                onClick={() => setIsInputsDialogOpen(true)}
-                                            >
-                                                +{formData.customInputs.length - 5} бусад...
-                                            </Button>
-                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
