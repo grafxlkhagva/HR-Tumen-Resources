@@ -20,6 +20,16 @@ service cloud.firestore {
              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
     }
 
+    function isTmsUser() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true;
+    }
+
+    function isTmsAllowed() {
+      return isAdmin() || isTmsUser();
+    }
+
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
@@ -44,7 +54,7 @@ service cloud.firestore {
       // Owners can update their profile, but cannot change privileged fields.
       allow update: if isAdmin() || (
         isOwner(employeeId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'questionnaireLocked'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'tmsAccess', 'questionnaireLocked'])
       );
     }
     
@@ -602,49 +612,58 @@ service cloud.firestore {
 
     // --- TMS (Тээвэр удирдлагын систем) ---
     match /tms_customers/{customerId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_customers/{customerId}/employees/{employeeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
 
     match /tms_warehouses/{warehouseId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
 
     match /tms_drivers/{driverId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_drivers/{driverId}/storage/{itemId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
 
     match /tms_vehicles/{vehicleId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_quotations/{quotationId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_vehicle_makes/{makeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_vehicle_models/{modelId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_vehicle_types/{typeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_trailer_types/{typeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_regions/{regionId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_industries/{industryId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
     }
     match /tms_packaging_types/{typeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isTmsAllowed();
+    }
+    match /tms_service_types/{serviceId} {
+      allow read, write: if isTmsAllowed();
+    }
+    match /tms_settings/{settingId} {
+      allow read, write: if isTmsAllowed();
+    }
+    match /tms_transport_management/{transportId} {
+      allow read, write: if isTmsAllowed();
     }
 
   }
