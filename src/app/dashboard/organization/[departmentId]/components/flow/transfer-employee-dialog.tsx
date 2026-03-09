@@ -20,7 +20,7 @@ import {
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, Timestamp, writeBatch, increment, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, Timestamp, writeBatch, increment, getDoc, getDocs, arrayUnion } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate } from '../../../../employment-relations/types';
@@ -180,30 +180,89 @@ export function TransferEmployeeDialog({
             });
 
             const batch = writeBatch(firestore);
+            const employeeName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
 
-            // 1. Decrement old position filled
+            // 1. Decrement old position filled + actionHistory
             const oldPosRef = doc(firestore, 'positions', position.id);
             batch.update(oldPosRef, {
                 filled: increment(-1),
+                actionHistory: arrayUnion({
+                    action: 'transfer_out' as const,
+                    employeeId: employee.id,
+                    employeeName,
+                    date: new Date().toISOString(),
+                    note: `${employeeName} → ${targetPos.title} руу шилжсэн`,
+                    userId: firebaseUser?.uid || '',
+                    userName: firebaseUser?.displayName || '',
+                }),
                 updatedAt: Timestamp.now()
             });
 
-            // 2. Increment new position filled
+            // 2. Increment new position filled + actionHistory
             const newPosRef = doc(firestore, 'positions', selectedTargetPositionId);
             batch.update(newPosRef, {
                 filled: increment(1),
+                actionHistory: arrayUnion({
+                    action: 'transfer_in' as const,
+                    employeeId: employee.id,
+                    employeeName,
+                    date: new Date().toISOString(),
+                    note: `${employeeName} ← ${position.title}-с шилжиж ирсэн`,
+                    userId: firebaseUser?.uid || '',
+                    userName: firebaseUser?.displayName || '',
+                }),
                 updatedAt: Timestamp.now()
             });
 
-            // 3. Update employee: move to new position
+            // 3. Update employee: move to new position + employmentHistory array
+            const transferHistoryEntry = {
+                type: 'transfer',
+                date: new Date().toISOString(),
+                fromPosition: position?.title || null,
+                fromPositionId: position?.id || null,
+                fromDepartmentId: position?.departmentId || null,
+                toPosition: targetPos.title || null,
+                toPositionId: selectedTargetPositionId,
+                toDepartmentId: targetPos.departmentId || null,
+                note: `${position.title} → ${targetPos.title} шилжүүлэн томилогдсон`
+            };
             const empRef = doc(firestore, 'employees', employee.id);
             batch.update(empRef, {
                 positionId: selectedTargetPositionId,
                 jobTitle: targetPos.title || null,
                 departmentId: targetPos.departmentId || null,
                 status: 'active',
+                employmentHistory: arrayUnion(transferHistoryEntry),
                 updatedAt: Timestamp.now()
             });
+
+            // 3b. Employee employment history subcollection
+            try {
+                const historyRef = doc(collection(firestore, `employees/${employee.id}/employmentHistory`));
+                batch.set(historyRef, {
+                    eventType: 'Шилжүүлэн томилсон',
+                    eventDate: new Date().toISOString(),
+                    notes: `${position.title} → ${targetPos.title} шилжүүлэн томилогдсон`,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (e) {
+                console.error("Employment history write failed:", e);
+            }
+
+            // 3c. Delete old position preparation projects so it can be re-prepared
+            try {
+                const prepQuery = query(
+                    collection(firestore, 'projects'),
+                    where('type', '==', 'position_preparation'),
+                    where('positionPreparationPositionId', '==', position.id)
+                );
+                const prepSnap = await getDocs(prepQuery);
+                for (const prepDoc of prepSnap.docs) {
+                    batch.delete(prepDoc.ref);
+                }
+            } catch (e) {
+                console.error("Prep project cleanup failed:", e);
+            }
 
             // 4. Create ER Document if template is configured
             if (templateData) {

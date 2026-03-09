@@ -56,6 +56,7 @@ export type Position = {
     disapprovedBy?: string;
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
+    actionHistory?: PositionActionLog[];
     purpose?: string;
     responsibilities?: { title: string; description: string }[];
     compensation?: {
@@ -152,6 +153,16 @@ export type ApprovalLog = {
     userName: string;
     timestamp: string;
     note?: string;
+};
+
+export type PositionActionLog = {
+    action: 'appoint' | 'release' | 'transfer_out' | 'transfer_in';
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    note?: string;
+    userId: string;
+    userName: string;
 };
 
 export type PositionLevel = {

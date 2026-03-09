@@ -450,12 +450,50 @@ export function ReleaseEmployeeDialog({
                 updatedAt: Timestamp.now()
             });
 
-            // 2. Decrement Position Filled Count
+            // 2. Decrement Position Filled Count + actionHistory
+            const employeeName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
             const posRef = doc(firestore, 'positions', position.id);
             batch.update(posRef, {
                 filled: increment(-1),
+                actionHistory: arrayUnion({
+                    action: 'release',
+                    employeeId: employee.id,
+                    employeeName,
+                    date: new Date().toISOString(),
+                    note: `${employeeName} чөлөөлөгдсөн (${selectedActionId})`,
+                    userId: firebaseUser?.uid || '',
+                    userName: firebaseUser?.displayName || '',
+                }),
                 updatedAt: Timestamp.now()
             });
+
+            // 2b. Employee employment history subcollection
+            try {
+                const historyRef = doc(collection(firestore, `employees/${employee.id}/employmentHistory`));
+                batch.set(historyRef, {
+                    eventType: 'Ажлаас чөлөөлсөн',
+                    eventDate: new Date().toISOString(),
+                    notes: `${position.title} албан тушаалаас чөлөөлөгдсөн (${selectedActionId})`,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (e) {
+                console.error("Employment history write failed:", e);
+            }
+
+            // 2c. Delete position preparation projects so position can be re-prepared
+            try {
+                const prepQuery = query(
+                    collection(firestore, 'projects'),
+                    where('type', '==', 'position_preparation'),
+                    where('positionPreparationPositionId', '==', position.id)
+                );
+                const prepSnap = await getDocs(prepQuery);
+                for (const prepDoc of prepSnap.docs) {
+                    batch.delete(prepDoc.ref);
+                }
+            } catch (e) {
+                console.error("Prep project cleanup failed:", e);
+            }
 
             // 3. Create ER Document if template is configured (optional)
             if (templateData) {

@@ -11,7 +11,7 @@ import {
     deleteDocumentNonBlocking
 } from '@/firebase';
 import { doc, collection, arrayUnion, query, where } from 'firebase/firestore';
-import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
+import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog, PositionActionLog } from '../../types';
 import { ERDocument } from '../../../employment-relations/types';
 import { isActiveStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -316,6 +316,10 @@ export default function PositionDetailPage() {
 
     const history = [...(position.approvalHistory || [])].sort((a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const actionHistory = [...(position.actionHistory || [])].sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
     // Actions
@@ -849,35 +853,74 @@ export default function PositionDetailPage() {
                                     </TabsContent>
 
                                     <TabsContent value="history" className="mt-0">
-                                        <div className="space-y-4">
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Өөрчлөлтийн түүх</p>
-
-                                            {!history.length ? (
-                                                <div className="rounded-xl border bg-muted/30 text-center py-16 text-muted-foreground">
-                                                    <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                                    <p>Түүх байхгүй</p>
-                                                </div>
-                                            ) : (
-                                                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                                                    {history.map((log, idx) => (
-                                                        <div key={idx} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
-                                                            <div className={cn(
-                                                                "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                                                                log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                                                            )}>
-                                                                {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center justify-between mb-1 gap-3">
-                                                                    <span className="font-medium truncate">{log.userName}</span>
-                                                                    <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
+                                        <div className="space-y-6">
+                                            {actionHistory.length > 0 && (
+                                                <div className="space-y-4">
+                                                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Үйлдлийн түүх</p>
+                                                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                                                        {actionHistory.map((log, idx) => {
+                                                            const actionConfig: Record<string, { label: string; iconClass: string; bgClass: string }> = {
+                                                                appoint: { label: 'Томилсон', iconClass: 'text-emerald-600', bgClass: 'bg-emerald-100' },
+                                                                release: { label: 'Чөлөөлсөн', iconClass: 'text-rose-600', bgClass: 'bg-rose-100' },
+                                                                transfer_out: { label: 'Шилжүүлсэн', iconClass: 'text-amber-600', bgClass: 'bg-amber-100' },
+                                                                transfer_in: { label: 'Шилжиж ирсэн', iconClass: 'text-indigo-600', bgClass: 'bg-indigo-100' },
+                                                            };
+                                                            const cfg = actionConfig[log.action] || { label: log.action, iconClass: 'text-slate-600', bgClass: 'bg-slate-100' };
+                                                            return (
+                                                                <div key={`action-${idx}`} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
+                                                                    <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0", cfg.bgClass)}>
+                                                                        {log.action === 'appoint' && <UserPlus className={cn("w-4 h-4", cfg.iconClass)} />}
+                                                                        {log.action === 'release' && <UserMinus className={cn("w-4 h-4", cfg.iconClass)} />}
+                                                                        {log.action === 'transfer_out' && <ArrowRightLeft className={cn("w-4 h-4", cfg.iconClass)} />}
+                                                                        {log.action === 'transfer_in' && <ArrowRightLeft className={cn("w-4 h-4", cfg.iconClass)} />}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center justify-between mb-1 gap-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-medium text-sm">{cfg.label}</span>
+                                                                                <span className="text-xs text-muted-foreground">• {log.employeeName}</span>
+                                                                            </div>
+                                                                            <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.date), 'yyyy/MM/dd HH:mm')}</span>
+                                                                        </div>
+                                                                        {log.note && <p className="text-sm text-muted-foreground">{log.note}</p>}
+                                                                    </div>
                                                                 </div>
-                                                                <p className="text-sm text-muted-foreground">{log.note}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             )}
+
+                                            <div className="space-y-4">
+                                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Батлах/Цуцлах түүх</p>
+
+                                                {!history.length ? (
+                                                    <div className="rounded-xl border bg-muted/30 text-center py-16 text-muted-foreground">
+                                                        <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                        <p>Түүх байхгүй</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                                                        {history.map((log, idx) => (
+                                                            <div key={idx} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
+                                                                <div className={cn(
+                                                                    "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                                                                    log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                                                                )}>
+                                                                    {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between mb-1 gap-3">
+                                                                        <span className="font-medium truncate">{log.userName}</span>
+                                                                        <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
+                                                                    </div>
+                                                                    <p className="text-sm text-muted-foreground">{log.note}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </TabsContent>
                                 </div>

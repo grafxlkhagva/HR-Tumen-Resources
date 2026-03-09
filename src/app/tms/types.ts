@@ -158,6 +158,30 @@ export interface TmsRegion {
 export const TMS_VEHICLE_MAKES_COLLECTION = 'tms_vehicle_makes';
 export const TMS_VEHICLE_MODELS_COLLECTION = 'tms_vehicle_models';
 export const TMS_VEHICLE_TYPES_COLLECTION = 'tms_vehicle_types';
+export type TmsControlTaskType = 'checklist' | 'image' | 'date' | 'text' | 'number';
+
+export interface TmsDispatchControlTask {
+  id: string;
+  name: string;
+  type: TmsControlTaskType;
+  isRequired: boolean;
+  options?: string[]; // for checklist multiple options if needed in future
+}
+
+export interface TmsServiceType {
+  id: string;
+  name: string;
+  dispatchSteps?: { 
+    id: string; 
+    name: string; 
+    order: number; 
+    isRequired: boolean;
+    controlTasks?: TmsDispatchControlTask[]; 
+  }[];
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+export const TMS_SERVICE_TYPES_COLLECTION = 'tms_service_types';
 /** Үйл ажиллагааны чиглэл (лавлах, жишээ: Худалдаа) */
 export interface TmsIndustry {
   id: string;
@@ -178,6 +202,19 @@ export interface TmsPackagingType {
 export const TMS_REGIONS_COLLECTION = 'tms_regions';
 export const TMS_INDUSTRIES_COLLECTION = 'tms_industries';
 export const TMS_PACKAGING_TYPES_COLLECTION = 'tms_packaging_types';
+
+export interface TmsSettings {
+  id?: string;
+  transportCodePrefix?: string;
+  transportCodePadding?: number;
+  transportCodeCurrentNumber?: number;
+  quotationCodePrefix?: string;
+  quotationCodePadding?: number;
+  quotationCodeCurrentNumber?: number;
+  updatedAt?: Timestamp;
+}
+export const TMS_SETTINGS_COLLECTION = 'tms_settings';
+export const TMS_GLOBAL_SETTINGS_ID = 'global';
 
 /** Тээврийн хэрэгслийн төлөв */
 export type TmsVehicleStatus = 'Available' | 'Maintenance' | 'Ready' | 'In Use';
@@ -255,6 +292,7 @@ export type TmsPaymentTerms = 'advance_30' | 'advance_40' | 'advance_50' | 'upon
 /** TMS үнийн санал */
 export interface TmsQuotation {
   id: string;
+  code?: string;
   /** Харилцагч байгууллага */
   customerId: string;
   customerRef?: DocumentReference;
@@ -276,8 +314,102 @@ export interface TmsQuotation {
   paymentTerms?: TmsPaymentTerms | string | null;
   insurance?: string | null;
   additionalConditions?: string | null;
+  transportations?: TmsQuotationTransportation[];
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
 
 export const TMS_QUOTATIONS_COLLECTION = 'tms_quotations';
+
+export interface TmsQuotationCargo {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: 'kg' | 'tons' | 'pcs' | 'liters' | 'm3';
+  packagingTypeId?: string;
+  note?: string;
+}
+
+export interface TmsDriverOffer {
+  id: string;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  offerAmount: number;
+  note?: string;
+  isAccepted?: boolean;
+  createdAt?: string;
+}
+
+export interface TmsQuotationTransportation {
+  id: string;
+  serviceTypeId?: string;
+  frequency?: number;
+
+  loadingRegionId?: string;
+  loadingWarehouseId?: string;
+  unloadingRegionId?: string;
+  unloadingWarehouseId?: string;
+  totalDistanceKm?: number;
+  loadingDate?: string | null;
+  unloadingDate?: string | null;
+
+  vehicleTypeId?: string;
+  trailerTypeId?: string;
+
+  profitMarginPercent?: number;
+  hasVat?: boolean;
+
+  cargos?: TmsQuotationCargo[];
+  driverOffers?: TmsDriverOffer[];
+}
+
+export type TmsTransportManagementStatus = 'draft' | 'planning' | 'active' | 'completed' | 'cancelled';
+
+export interface TmsDispatchStep {
+  id: string;       // service type-с хуулж авсан step id эсвэл шинээр үүсгэсэн id
+  name: string;
+  order: number;
+  isRequired: boolean;
+  status: 'pending' | 'in_progress' | 'completed';
+  completedAt?: Timestamp | null;
+  completedBy?: string | null; // ажилтны id
+  note?: string | null;
+  controlTasks?: TmsDispatchControlTask[]; // Service type-аас хуулж авна
+  taskResults?: Record<string, any>; // controlTask.id -> value (зурагны url, текст, тоо г.м)
+}
+
+export interface TmsTransportManagement {
+  id: string;
+  code?: string; // Automatically generated code
+  serviceTypeId: string;
+  isContracted: boolean;
+  customerId: string;
+  customerRef?: DocumentReference;
+  status: TmsTransportManagementStatus;
+  
+  // Тээвэрлэлтийн мэдээлэл
+  loadingRegionId?: string;
+  loadingWarehouseId?: string;
+  unloadingRegionId?: string;
+  unloadingWarehouseId?: string;
+  totalDistanceKm?: number;
+  loadingDate?: string | null;
+  unloadingDate?: string | null;
+
+  frequency?: number;
+  vehicleTypeId?: string;
+  trailerTypeId?: string;
+
+  profitMarginPercent?: number;
+  hasVat?: boolean;
+
+  cargos?: TmsQuotationCargo[];
+  dispatchSteps?: TmsDispatchStep[];
+
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_TRANSPORT_MANAGEMENT_COLLECTION = 'tms_transport_management';
+

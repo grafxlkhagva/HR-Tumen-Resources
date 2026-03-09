@@ -30,13 +30,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   TMS_QUOTATIONS_COLLECTION,
   TMS_CUSTOMERS_COLLECTION,
   TMS_CUSTOMER_EMPLOYEES_SUBCOLLECTION,
+  TMS_SETTINGS_COLLECTION,
+  TMS_GLOBAL_SETTINGS_ID,
 } from '@/app/tms/types';
 import type { TmsCustomer, TmsCustomerEmployee } from '@/app/tms/types';
 import type { Employee } from '@/types';
@@ -130,21 +132,54 @@ export function AddQuotationDialog({ open, onOpenChange }: AddQuotationDialogPro
       return;
     }
     try {
-      const customerRef = doc(firestore, TMS_CUSTOMERS_COLLECTION, customer.id);
-      await addDoc(collection(firestore, TMS_QUOTATIONS_COLLECTION), {
-        customerId: customer.id,
-        customerRef,
-        customerName: customer.name ?? null,
-        customerResponsibleEmployeeId: customerEmp?.id ?? null,
-        customerResponsibleEmployeeName:
-          customerEmp ? `${customerEmp.lastName} ${customerEmp.firstName}`.trim() : null,
-        ourResponsibleEmployeeId: ourEmp.id,
-        ourResponsibleEmployeeName: `${ourEmp.firstName} ${ourEmp.lastName}`.trim(),
-        status: 'draft',
-        note: null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      await runTransaction(firestore, async (transaction) => {
+        // 1. Get settings for code generation
+        const settingsRef = doc(firestore, TMS_SETTINGS_COLLECTION, TMS_GLOBAL_SETTINGS_ID);
+        const settingsDoc = await transaction.get(settingsRef);
+        
+        let currentNum = 0;
+        let prefix = 'QU';
+        let padding = 5;
+
+        if (settingsDoc.exists()) {
+          const data = settingsDoc.data();
+          currentNum = data.quotationCodeCurrentNumber || 0;
+          prefix = data.quotationCodePrefix || 'QU';
+          padding = data.quotationCodePadding || 5;
+        }
+
+        const nextNum = currentNum + 1;
+        const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+
+        // 2. Create new quotation
+        const customerRef = doc(firestore, TMS_CUSTOMERS_COLLECTION, customer.id);
+        const docRef = doc(collection(firestore, TMS_QUOTATIONS_COLLECTION));
+        
+        transaction.set(docRef, {
+          code: newCode,
+          customerId: customer.id,
+          customerRef,
+          customerName: customer.name ?? null,
+          customerResponsibleEmployeeId: customerEmp?.id ?? null,
+          customerResponsibleEmployeeName:
+            customerEmp ? `${customerEmp.lastName} ${customerEmp.firstName}`.trim() : null,
+          ourResponsibleEmployeeId: ourEmp.id,
+          ourResponsibleEmployeeName: `${ourEmp.firstName} ${ourEmp.lastName}`.trim(),
+          status: 'draft',
+          note: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // 3. Update settings
+        transaction.set(settingsRef, {
+          quotationCodeCurrentNumber: nextNum,
+          quotationCodePrefix: prefix,
+          quotationCodePadding: padding,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       });
+
       toast({ title: 'Үнийн санал үүсгэгдлээ.' });
       form.reset({
         customerId: '',

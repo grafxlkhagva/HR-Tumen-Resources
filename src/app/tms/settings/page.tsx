@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import {
   DataTable,
@@ -59,8 +59,10 @@ import {
   TMS_REGIONS_COLLECTION,
   TMS_INDUSTRIES_COLLECTION,
   TMS_PACKAGING_TYPES_COLLECTION,
+  TMS_SETTINGS_COLLECTION,
+  TMS_GLOBAL_SETTINGS_ID,
 } from '@/app/tms/types';
-import type { TmsVehicleMake, TmsVehicleModel, TmsVehicleType, TmsTrailerType, TmsRegion, TmsIndustry, TmsPackagingType } from '@/app/tms/types';
+import type { TmsVehicleMake, TmsVehicleModel, TmsVehicleType, TmsTrailerType, TmsRegion, TmsIndustry, TmsPackagingType, TmsSettings } from '@/app/tms/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -78,6 +80,15 @@ const regionSchema = z.object({ name: z.string().min(1, 'Бүс нутагын �
 const industrySchema = z.object({ name: z.string().min(1, 'Үйл ажиллагааны чиглэлийн нэр оруулна уу.') });
 const packagingTypeSchema = z.object({ name: z.string().min(1, 'Багцлалтын төрлийн нэр оруулна уу.') });
 
+const settingsSchema = z.object({
+  transportCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  transportCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  transportCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+  quotationCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  quotationCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  quotationCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+});
+
 type MakeFormValues = z.infer<typeof makeSchema>;
 type ModelFormValues = z.infer<typeof modelSchema>;
 type TypeFormValues = z.infer<typeof typeSchema>;
@@ -85,6 +96,7 @@ type TrailerTypeFormValues = z.infer<typeof trailerTypeSchema>;
 type RegionFormValues = z.infer<typeof regionSchema>;
 type IndustryFormValues = z.infer<typeof industrySchema>;
 type PackagingTypeFormValues = z.infer<typeof packagingTypeSchema>;
+type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 export default function TmsSettingsPage() {
   const { firestore } = useFirebase();
@@ -196,6 +208,12 @@ export default function TmsSettingsPage() {
   );
   const { data: packagingTypes = [], isLoading: packagingTypesLoading } = useCollection<TmsPackagingType>(packagingTypesQuery);
 
+  const settingsDocRef = useMemoFirebase(
+    () => firestore ? doc(firestore, TMS_SETTINGS_COLLECTION, TMS_GLOBAL_SETTINGS_ID) : null,
+    [firestore]
+  );
+  const { data: settings, isLoading: settingsLoading } = useDoc<TmsSettings>(settingsDocRef);
+
   const makeNameById = React.useMemo(() => {
     const m: Record<string, string> = {};
     makes.forEach((make) => {
@@ -232,6 +250,26 @@ export default function TmsSettingsPage() {
     resolver: zodResolver(packagingTypeSchema),
     defaultValues: { name: '' },
   });
+  const settingsForm = useForm<SettingsFormValues>({
+    resolver: zodResolver(settingsSchema),
+    defaultValues: { 
+      transportCodePrefix: 'TR', transportCodePadding: 5, transportCodeCurrentNumber: 0,
+      quotationCodePrefix: 'QU', quotationCodePadding: 5, quotationCodeCurrentNumber: 0
+    },
+  });
+
+  React.useEffect(() => {
+    if (settings) {
+      settingsForm.reset({
+        transportCodePrefix: settings.transportCodePrefix || 'TR',
+        transportCodePadding: settings.transportCodePadding || 5,
+        transportCodeCurrentNumber: settings.transportCodeCurrentNumber || 0,
+        quotationCodePrefix: settings.quotationCodePrefix || 'QU',
+        quotationCodePadding: settings.quotationCodePadding || 5,
+        quotationCodeCurrentNumber: settings.quotationCodeCurrentNumber || 0,
+      });
+    }
+  }, [settings, settingsForm]);
 
   React.useEffect(() => {
     if (!makeDialogOpen) {
@@ -295,6 +333,21 @@ export default function TmsSettingsPage() {
       packagingTypeForm.reset({ name: editingPackagingType.name });
     }
   }, [packagingTypeDialogOpen, editingPackagingType, packagingTypeForm]);
+
+  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
+  const onSubmitSettings = async (values: SettingsFormValues) => {
+    if (!firestore) return;
+    setIsSavingSettings(true);
+    try {
+      const docRef = doc(firestore, TMS_SETTINGS_COLLECTION, TMS_GLOBAL_SETTINGS_ID);
+      await setDoc(docRef, { ...values, updatedAt: serverTimestamp() }, { merge: true });
+      toast({ title: 'Тохиргоо хадгалагдлаа.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Алдаа', description: error.message });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const onMakeSubmit = async (values: MakeFormValues) => {
     if (!firestore) return;
@@ -630,8 +683,9 @@ export default function TmsSettingsPage() {
       </div>
 
       <div className="flex-1 p-4 sm:p-6">
-        <Tabs defaultValue="makes" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="settings" className="space-y-4">
+          <TabsList className="flex flex-wrap h-auto w-full justify-start">
+            <TabsTrigger value="settings">Ерөнхий тохиргоо</TabsTrigger>
             <TabsTrigger value="makes">Машины үйлдвэрлэгч</TabsTrigger>
             <TabsTrigger value="models">Машины загвар</TabsTrigger>
             <TabsTrigger value="types">Машины төрөл</TabsTrigger>
@@ -640,6 +694,124 @@ export default function TmsSettingsPage() {
             <TabsTrigger value="industries">Үйл ажиллагааны чиглэл</TabsTrigger>
             <TabsTrigger value="packagingTypes">Багцлалтын төрөл</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="settings" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-card border rounded-lg p-6">
+                <h3 className="text-lg font-medium mb-4">Тээврийн удирдлагын кодчилол</h3>
+                {settingsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
+                  </div>
+                ) : (
+                  <Form {...settingsForm}>
+                    <form id="settings-form" onSubmit={settingsForm.handleSubmit(onSubmitSettings)} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={settingsForm.control}
+                          name="transportCodePrefix"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Кодын угтвар</FormLabel>
+                              <FormControl>
+                                <Input placeholder="TR" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={settingsForm.control}
+                          name="transportCodePadding"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Кодын цифрийн урт</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={1} max={10} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={settingsForm.control}
+                          name="transportCodeCurrentNumber"
+                          render={({ field }) => (
+                            <FormItem className="col-span-2">
+                              <FormLabel>Одоогийн дугаар</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={0} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </form>
+                  </Form>
+                )}
+              </div>
+
+              <div className="bg-card border rounded-lg p-6">
+                <h3 className="text-lg font-medium mb-4">Үнийн саналын кодчилол</h3>
+                {settingsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={settingsForm.control}
+                        name="quotationCodePrefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын угтвар</FormLabel>
+                            <FormControl>
+                              <Input placeholder="QU" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="quotationCodePadding"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын цифрийн урт</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={10} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="quotationCodeCurrentNumber"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Одоогийн дугаар</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {!settingsLoading && (
+              <Button type="submit" form="settings-form" disabled={isSavingSettings} className="gap-2 mt-4">
+                {isSavingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
+                Хадгалах
+              </Button>
+            )}
+          </TabsContent>
 
           <TabsContent value="makes" className="space-y-4">
             <div className="flex justify-end">

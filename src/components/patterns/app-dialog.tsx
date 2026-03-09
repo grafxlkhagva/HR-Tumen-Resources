@@ -112,7 +112,7 @@ export function AppDialogHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('space-y-1.5', className)} {...props} />;
+  return <div className={cn('space-y-1.5 px-6 pt-6 pb-2', className)} {...props} />;
 }
 
 export const AppDialogTitle = React.forwardRef<

@@ -23,7 +23,7 @@ import {
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCollection, useFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment, arrayUnion } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { createOnboardingProjects, OnboardingStage, OnboardingStageTaskPlan } from '@/lib/onboarding-project-creator';
 import { useRouter } from 'next/navigation';
@@ -674,6 +674,7 @@ export function AppointEmployeeDialog({
                 setStep(WIZARD_STEPS.ONBOARDING_PRE);
                 return;
             }
+            if (templateLoading) return;
             if (templateData?.customInputs?.length) {
                 setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
             } else {
@@ -686,6 +687,7 @@ export function AppointEmployeeDialog({
         } else if (currentStep === WIZARD_STEPS.ONBOARDING_INTEGRATION) {
             setStep(WIZARD_STEPS.ONBOARDING_PRODUCTIVITY);
         } else if (currentStep === WIZARD_STEPS.ONBOARDING_PRODUCTIVITY) {
+            if (templateLoading) return;
             if (templateData?.customInputs?.length) {
                 setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
             } else {
@@ -987,16 +989,39 @@ export function AppointEmployeeDialog({
                 throw new Error('Ажилтны мэдээллийг шинэчлэхэд алдаа гарлаа.');
             }
 
-            // Update Position filled count
+            // Update Position filled count + actionHistory
             try {
                 const posRef = doc(firestore, 'positions', position.id);
+                const employeeName = `${selectedEmployee.firstName || ''} ${selectedEmployee.lastName || ''}`.trim();
                 batch.update(posRef, {
                     filled: increment(1),
+                    actionHistory: arrayUnion({
+                        action: 'appoint',
+                        employeeId: selectedEmployee.id,
+                        employeeName,
+                        date: new Date().toISOString(),
+                        note: `${employeeName} томилогдсон (${selectedActionId})`,
+                        userId: firebaseUser?.uid || '',
+                        userName: firebaseUser?.displayName || '',
+                    }),
                     updatedAt: Timestamp.now()
                 });
             } catch (e) {
                 console.error("Position update failed:", e);
                 throw new Error('Ажлын байрны мэдээллийг шинэчлэхэд алдаа гарлаа.');
+            }
+
+            // Employee employment history subcollection
+            try {
+                const historyRef = doc(collection(firestore, `employees/${selectedEmployee.id}/employmentHistory`));
+                batch.set(historyRef, {
+                    eventType: 'Албан тушаалд томилогдсон',
+                    eventDate: new Date().toISOString(),
+                    notes: `${position.title} албан тушаалд томилогдсон (${selectedActionId})`,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (e) {
+                console.error("Employment history write failed:", e);
             }
 
             // Commit Batch
@@ -1637,8 +1662,8 @@ export function AppointEmployeeDialog({
 
                                     <button
                                         onClick={() => {
+                                            if (templateLoading) return;
                                             setEnableOnboarding(false);
-                                            // Skip onboarding planning steps
                                             if (templateData?.customInputs?.length) {
                                                 setStep(WIZARD_STEPS.DOCUMENT_INPUTS);
                                             } else {

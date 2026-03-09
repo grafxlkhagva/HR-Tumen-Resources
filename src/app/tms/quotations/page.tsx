@@ -108,16 +108,17 @@ export default function TmsQuotationsPage() {
         <DataTable>
           <DataTableHeader>
             <DataTableRow>
+              <DataTableColumn>Код</DataTableColumn>
               <DataTableColumn>Харилцагч</DataTableColumn>
               <DataTableColumn>Харилцагчийн хариуцсан</DataTableColumn>
               <DataTableColumn>Манай хариуцсан</DataTableColumn>
               <DataTableColumn>Төлөв</DataTableColumn>
             </DataTableRow>
           </DataTableHeader>
-          {isLoading && <DataTableLoading columns={4} rows={5} />}
+          {isLoading && <DataTableLoading columns={5} rows={5} />}
           {!isLoading && paginated.length === 0 && (
             <DataTableEmpty
-              columns={4}
+              columns={5}
               message={
                 filtered.length === 0 && allQuotations?.length
                   ? 'Хайлтад тохирох үнийн санал олдсонгүй.'
@@ -134,8 +135,11 @@ export default function TmsQuotationsPage() {
                       href={`/tms/quotations/${item.id}`}
                       className="font-medium text-primary hover:underline"
                     >
-                      {item.customerName || '—'}
+                      {item.code || item.id.slice(0, 8)}
                     </Link>
+                  </DataTableCell>
+                  <DataTableCell>
+                    {item.customerName || '—'}
                   </DataTableCell>
                   <DataTableCell className="text-muted-foreground">
                     {item.customerResponsibleEmployeeName || '—'}
