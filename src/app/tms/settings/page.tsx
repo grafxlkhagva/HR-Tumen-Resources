@@ -696,16 +696,16 @@ export default function TmsSettingsPage() {
           </TabsList>
 
           <TabsContent value="settings" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-card border rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-4">Тээврийн удирдлагын кодчилол</h3>
-                {settingsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
-                  </div>
-                ) : (
-                  <Form {...settingsForm}>
-                    <form id="settings-form" onSubmit={settingsForm.handleSubmit(onSubmitSettings)} className="space-y-4">
+            {settingsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
+              </div>
+            ) : (
+              <Form {...settingsForm}>
+                <form onSubmit={settingsForm.handleSubmit(onSubmitSettings)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-card border rounded-lg p-6">
+                      <h3 className="text-lg font-medium mb-4">Тээврийн удирдлагын кодчилол</h3>
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={settingsForm.control}
@@ -747,69 +747,59 @@ export default function TmsSettingsPage() {
                           )}
                         />
                       </div>
-                    </form>
-                  </Form>
-                )}
-              </div>
+                    </div>
 
-              <div className="bg-card border rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-4">Үнийн саналын кодчилол</h3>
-                {settingsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={settingsForm.control}
-                        name="quotationCodePrefix"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Кодын угтвар</FormLabel>
-                            <FormControl>
-                              <Input placeholder="QU" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={settingsForm.control}
-                        name="quotationCodePadding"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Кодын цифрийн урт</FormLabel>
-                            <FormControl>
-                              <Input type="number" min={1} max={10} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={settingsForm.control}
-                        name="quotationCodeCurrentNumber"
-                        render={({ field }) => (
-                          <FormItem className="col-span-2">
-                            <FormLabel>Одоогийн дугаар</FormLabel>
-                            <FormControl>
-                              <Input type="number" min={0} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <div className="bg-card border rounded-lg p-6">
+                      <h3 className="text-lg font-medium mb-4">Үнийн саналын кодчилол</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={settingsForm.control}
+                          name="quotationCodePrefix"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Кодын угтвар</FormLabel>
+                              <FormControl>
+                                <Input placeholder="QU" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={settingsForm.control}
+                          name="quotationCodePadding"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Кодын цифрийн урт</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={1} max={10} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={settingsForm.control}
+                          name="quotationCodeCurrentNumber"
+                          render={({ field }) => (
+                            <FormItem className="col-span-2">
+                              <FormLabel>Одоогийн дугаар</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={0} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-            {!settingsLoading && (
-              <Button type="submit" form="settings-form" disabled={isSavingSettings} className="gap-2 mt-4">
-                {isSavingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
-                Хадгалах
-              </Button>
+                  <Button type="submit" disabled={isSavingSettings} className="gap-2">
+                    {isSavingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Хадгалах
+                  </Button>
+                </form>
+              </Form>
             )}
           </TabsContent>
 
