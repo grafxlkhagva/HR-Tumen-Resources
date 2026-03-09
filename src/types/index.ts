@@ -117,6 +117,8 @@ export interface Employee {
     /** Анкет засах эрхийг түгжих (ажилтан засах боломжгүй). */
     questionnaireLocked?: boolean;
     role?: 'admin' | 'employee';
+    /** TMS системд нэвтрэх эрхтэй эсэх */
+    tmsAccess?: boolean;
 }
 
 /**

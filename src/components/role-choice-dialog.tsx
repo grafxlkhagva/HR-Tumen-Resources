@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 interface RoleChoiceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onChooseAdmin: () => void;
+    onChooseAdmin?: () => void;
     onChooseEmployee: () => void;
     onChooseTms?: () => void;
     companyName?: string;
@@ -31,9 +31,8 @@ export function RoleChoiceDialog({
     const [isNavigating, setIsNavigating] = React.useState<'admin' | 'employee' | 'tms' | null>(null);
 
     const handleChooseAdmin = React.useCallback(() => {
-        if (isNavigating) return;
+        if (isNavigating || !onChooseAdmin) return;
         setIsNavigating('admin');
-        // Small delay to show loading state before navigation
         setTimeout(() => {
             onChooseAdmin();
         }, 100);
@@ -88,11 +87,12 @@ export function RoleChoiceDialog({
                         {companyName}-д тавтай морил
                     </DialogTitle>
                     <DialogDescription className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                        Та админ эрхтэй хэрэглэгч байна. Аль хэлбэрээр нэвтрэхээ сонгоно уу.
+                        Аль хэлбэрээр нэвтрэхээ сонгоно уу.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-3 px-6 pb-8">
+                    {onChooseAdmin && (
                     <button
                         type="button"
                         onClick={handleChooseAdmin}
@@ -120,6 +120,7 @@ export function RoleChoiceDialog({
                             </div>
                         </div>
                     </button>
+                    )}
 
                     <button
                         type="button"
@@ -173,7 +174,7 @@ export function RoleChoiceDialog({
                             <div className="flex-1 min-w-0 pt-0.5">
                                 <div className="font-semibold text-base mb-1">TMS ээр нэвтрэх</div>
                                 <div className="text-sm text-muted-foreground leading-snug">
-                                    Түмэн удирдлагын систем — удахгүй нээгдэнэ
+                                    Тээврийн удирдлагын систем
                                 </div>
                             </div>
                         </button>

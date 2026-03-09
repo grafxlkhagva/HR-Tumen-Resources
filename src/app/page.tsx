@@ -14,6 +14,7 @@ export default function Home() {
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
   const [isNavigating, setIsNavigating] = React.useState(false);
+  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean }>({ isAdmin: false, tmsAccess: false });
   const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
@@ -52,8 +53,11 @@ export default function Home() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          if (userData.role === 'admin') {
-            // Admin user - show role choice dialog
+          if (userData.role === 'admin' || userData.tmsAccess) {
+            setUserFlags({
+              isAdmin: userData.role === 'admin',
+              tmsAccess: !!userData.tmsAccess,
+            });
             setShowRoleChoice(true);
           } else {
             // Regular employee - redirect directly
@@ -108,9 +112,9 @@ export default function Home() {
       <RoleChoiceDialog
         open={showRoleChoice}
         onOpenChange={handleOpenChange}
-        onChooseAdmin={handleChooseAdmin}
+        onChooseAdmin={userFlags.isAdmin ? handleChooseAdmin : undefined}
         onChooseEmployee={handleChooseEmployee}
-        onChooseTms={handleChooseTms}
+        onChooseTms={userFlags.tmsAccess || userFlags.isAdmin ? handleChooseTms : undefined}
         companyName={companyProfile?.name}
       />
     </div>

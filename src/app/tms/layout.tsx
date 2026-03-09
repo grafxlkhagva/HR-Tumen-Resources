@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation } from 'lucide-react';
+import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 
@@ -33,8 +33,14 @@ function TmsShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isUserLoading) return;
-    if (!user) router.replace('/login');
-  }, [user, isUserLoading, router]);
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (employeeProfile && employeeProfile.role !== 'admin' && !employeeProfile.tmsAccess) {
+      router.replace('/');
+    }
+  }, [user, isUserLoading, router, employeeProfile]);
 
   const handleLogout = React.useCallback(async () => {
     if (!auth || isLoggingOut) return;
@@ -51,6 +57,25 @@ function TmsShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted/30">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (employeeProfile && employeeProfile.role !== 'admin' && !employeeProfile.tmsAccess) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-muted/30">
+        <div className="text-center space-y-4">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <ShieldAlert className="h-7 w-7 text-destructive" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">Хандах эрхгүй</h2>
+            <p className="text-sm text-muted-foreground mt-1">TMS системд нэвтрэх эрх олгогдоогүй байна.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => router.replace('/')}>
+            Нүүр хуудас руу буцах
+          </Button>
+        </div>
       </div>
     );
   }
