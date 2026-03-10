@@ -19,8 +19,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TMS_VEHICLES_COLLECTION } from '@/app/tms/types';
 import type { TmsVehicle } from '@/app/tms/types';
-import { Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, Edit2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { EditVehicleBasicDialog } from './edit-vehicle-basic-dialog';
+import { EditVehicleRegistrationDialog } from './edit-vehicle-registration-dialog';
+import { EditVehicleStatusDialog } from './edit-vehicle-status-dialog';
 
 const STATUS_LABELS: Record<string, string> = {
   Available: 'Чөлөөтэй',
@@ -52,6 +55,9 @@ export default function TmsVehicleDetailPage() {
   const vehicleId = params?.id as string;
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [editBasicOpen, setEditBasicOpen] = React.useState(false);
+  const [editRegistrationOpen, setEditRegistrationOpen] = React.useState(false);
+  const [editStatusOpen, setEditStatusOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   const ref = useMemoFirebase(
@@ -106,37 +112,117 @@ export default function TmsVehicleDetailPage() {
           backButtonPlacement="inline"
           backHref="/tms/vehicles"
           actions={
-            <>
-              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4 mr-1" />
-                Устгах
-              </Button>
-            </>
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="text-destructive hover:text-destructive gap-2">
+              <Trash2 className="h-4 w-4" />
+              Устгах
+            </Button>
           }
         />
       </div>
 
       <div className="flex-1 p-4 sm:p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Үндсэн мэдээлэл</CardTitle>
-            <CardDescription>Улсын дугаар, үйлдвэрлэгч, загвар</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p><span className="text-muted-foreground">Улсын дугаар:</span> {vehicle.licensePlate ?? '—'}</p>
-            <p><span className="text-muted-foreground">Үйлдвэрлэгч:</span> {vehicle.makeName ?? '—'}</p>
-            <p><span className="text-muted-foreground">Загвар:</span> {vehicle.modelName ?? '—'}</p>
-            <p><span className="text-muted-foreground">Он:</span> {vehicle.year ?? '—'}</p>
-            <p><span className="text-muted-foreground">Чиргүүлийн дугаар:</span> {vehicle.trailerLicensePlate ?? '—'}</p>
-            <p><span className="text-muted-foreground">VIN:</span> {vehicle.vin ?? '—'}</p>
-            <p><span className="text-muted-foreground">Багтаамж:</span> {vehicle.capacity ?? '—'}</p>
-            <p><span className="text-muted-foreground">Шатахуун:</span> {vehicle.fuelType ? FUEL_LABELS[vehicle.fuelType] ?? vehicle.fuelType : '—'}</p>
-            <p><span className="text-muted-foreground">Төлөв:</span> {vehicle.status ? STATUS_LABELS[vehicle.status] ?? vehicle.status : '—'}</p>
-            <p><span className="text-muted-foreground">Жолооч:</span> {vehicle.driverName ?? '—'}</p>
-            <p><span className="text-muted-foreground">Зурвасын тоолуур (км):</span> {vehicle.odometer ?? '—'}</p>
-            {vehicle.notes && <p><span className="text-muted-foreground">Тэмдэглэл:</span> {vehicle.notes}</p>}
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Үндсэн мэдээлэл</CardTitle>
+                <CardDescription>Үйлдвэрлэгч болон загвар</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setEditBasicOpen(true)} className="gap-2">
+                <Edit2 className="h-4 w-4" />
+                Засах
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Үйлдвэрлэгч</dt>
+                  <dd className="font-medium mt-1">{vehicle.makeName || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Загвар</dt>
+                  <dd className="font-medium mt-1">{vehicle.modelName || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Он</dt>
+                  <dd className="font-medium mt-1">{vehicle.year || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Багтаамж</dt>
+                  <dd className="font-medium mt-1">{vehicle.capacity || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Шатахуун</dt>
+                  <dd className="font-medium mt-1">{vehicle.fuelType ? FUEL_LABELS[vehicle.fuelType] ?? vehicle.fuelType : '—'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Бүртгэл</CardTitle>
+                <CardDescription>Бүртгэлийн дугаарууд</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setEditRegistrationOpen(true)} className="gap-2">
+                <Edit2 className="h-4 w-4" />
+                Засах
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Улсын дугаар</dt>
+                  <dd className="font-medium mt-1">{vehicle.licensePlate || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Чиргүүлийн дугаар</dt>
+                  <dd className="font-medium mt-1">{vehicle.trailerLicensePlate || '—'}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">VIN</dt>
+                  <dd className="font-medium mt-1 uppercase tracking-wider">{vehicle.vin || '—'}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Ашиглалтын мэдээлэл</CardTitle>
+                <CardDescription>Төлөв болон жолооч</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setEditStatusOpen(true)} className="gap-2">
+                <Edit2 className="h-4 w-4" />
+                Засах
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Төлөв</dt>
+                  <dd className="font-medium mt-1">{vehicle.status ? STATUS_LABELS[vehicle.status] ?? vehicle.status : '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Жолооч</dt>
+                  <dd className="font-medium mt-1">{vehicle.driverName || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Зурвасын тоолуур (км)</dt>
+                  <dd className="font-medium mt-1">{vehicle.odometer ? vehicle.odometer.toLocaleString() : '—'}</dd>
+                </div>
+                {vehicle.notes && (
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <dt className="text-muted-foreground">Тэмдэглэл</dt>
+                    <dd className="font-medium mt-1 whitespace-pre-wrap">{vehicle.notes}</dd>
+                  </div>
+                )}
+              </dl>
+            </CardContent>
+          </Card>
+        </div>
 
         {vehicle.dates && (vehicle.dates.registrationExpiry || vehicle.dates.insuranceExpiry || vehicle.dates.inspectionExpiry) && (
           <Card>
@@ -184,6 +270,9 @@ export default function TmsVehicleDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <EditVehicleBasicDialog open={editBasicOpen} onOpenChange={setEditBasicOpen} vehicle={vehicle} />
+      <EditVehicleRegistrationDialog open={editRegistrationOpen} onOpenChange={setEditRegistrationOpen} vehicle={vehicle} />
+      <EditVehicleStatusDialog open={editStatusOpen} onOpenChange={setEditStatusOpen} vehicle={vehicle} />
     </div>
   );
 }

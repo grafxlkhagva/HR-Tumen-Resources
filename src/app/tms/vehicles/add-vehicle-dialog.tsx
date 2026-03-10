@@ -32,12 +32,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFirebase, useUser } from '@/firebase';
-import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TMS_VEHICLES_COLLECTION, TMS_DRIVERS_COLLECTION } from '@/app/tms/types';
-import type { TmsDriver } from '@/app/tms/types';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import {
+  TMS_WAREHOUSES_COLLECTION,
+  TMS_VEHICLES_COLLECTION,
+} from '@/app/tms/types';
+import type { TmsVehicle } from '@/app/tms/types';
+
+const MapWithSearch = dynamic(
+  () => import('@/components/map-with-search').then((mod) => mod.MapWithSearch),
+  {
+    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />,
+    ssr: false,
+  }
+);
 
 const STATUS_OPTIONS = [
   { value: 'Available', label: 'Чөлөөтэй' },
@@ -52,8 +64,6 @@ const FUEL_OPTIONS = [
   { value: 'Hybrid', label: 'Холимог' },
 ];
 
-const NO_DRIVER_VALUE = '__none__';
-
 const schema = z.object({
   makeName: z.string().optional(),
   modelName: z.string().optional(),
@@ -65,7 +75,6 @@ const schema = z.object({
   fuelType: z.enum(['Diesel', 'Gasoline', 'Electric', 'Hybrid']).optional(),
   notes: z.string().optional(),
   status: z.enum(['Available', 'Maintenance', 'Ready', 'In Use']),
-  driverId: z.string().optional(),
   odometer: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v == null ? undefined : Number(v))),
 });
 
@@ -82,7 +91,6 @@ const defaultValues: FormValues = {
   fuelType: undefined,
   notes: '',
   status: 'Available',
-  driverId: NO_DRIVER_VALUE,
   odometer: undefined,
 };
 
@@ -98,15 +106,6 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const driversQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? query(collection(firestore, TMS_DRIVERS_COLLECTION), orderBy('lastName', 'asc'))
-        : null,
-    [firestore]
-  );
-  const { data: drivers } = useCollection<TmsDriver>(driversQuery);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues,
@@ -120,8 +119,6 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
     if (!firestore) return;
     setIsSubmitting(true);
     try {
-      const driverId = values.driverId && values.driverId !== NO_DRIVER_VALUE ? values.driverId : null;
-      const driver = drivers?.find((d) => d.id === driverId);
       await addDoc(collection(firestore, TMS_VEHICLES_COLLECTION), {
         makeName: values.makeName?.trim() || null,
         modelName: values.modelName?.trim() || null,
@@ -135,8 +132,8 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
         fuelType: values.fuelType || null,
         notes: values.notes?.trim() || null,
         status: values.status,
-        driverId,
-        driverName: driver ? `${driver.lastName} ${driver.firstName}`.trim() : null,
+        driverId: null,
+        driverName: null,
         odometer: values.odometer ?? 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -240,23 +237,6 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
                     <SelectContent>
                       {STATUS_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="driverId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Жолооч</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value ?? NO_DRIVER_VALUE}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NO_DRIVER_VALUE}>— Жолоочгүй —</SelectItem>
-                      {drivers?.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{[d.lastName, d.firstName].filter(Boolean).join(' ')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

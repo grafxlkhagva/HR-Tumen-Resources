@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, deleteDoc, collection, query, orderBy } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, collection, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { TMS_DRIVERS_COLLECTION, TMS_DRIVER_STORAGE_SUBCOLLECTION, TMS_LICENSE_CLASSES } from '@/app/tms/types';
+import { TMS_DRIVERS_COLLECTION, TMS_DRIVER_STORAGE_SUBCOLLECTION, TMS_LICENSE_CLASSES, TMS_VEHICLES_COLLECTION } from '@/app/tms/types';
 import type { TmsDriver, TmsDriverStorageItem } from '@/app/tms/types';
 import { Loader2, Pencil, Trash2, Camera, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +28,10 @@ import { EditDriverTransportDialog } from './edit-driver-transport-dialog';
 import { EditDriverLicenseDialog } from './edit-driver-license-dialog';
 import { EditDriverNationalIdDialog } from './edit-driver-national-id-dialog';
 import { DriverAvatarUpload } from './driver-avatar-upload';
+import { AssignVehicleDialog } from './assign-vehicle-dialog';
 import { cn } from '@/lib/utils';
+import { CarFront, MinusCircle, Plus } from 'lucide-react';
+import Link from 'next/link';
 
 function formatDate(s: string | undefined) {
   if (!s) return '—';
@@ -52,8 +55,11 @@ export default function TmsDriverDetailPage() {
   const [editTransportOpen, setEditTransportOpen] = React.useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = React.useState(false);
   const [editNationalIdOpen, setEditNationalIdOpen] = React.useState(false);
+  const [assignVehicleOpen, setAssignVehicleOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const [removingVehicleId, setRemovingVehicleId] = React.useState<string | null>(null);
 
   const ref = useMemoFirebase(
     () => (firestore && driverId ? doc(firestore, TMS_DRIVERS_COLLECTION, driverId) : null),
@@ -72,6 +78,29 @@ export default function TmsDriverDetailPage() {
     [firestore, driverId]
   );
   const { data: storageItems } = useCollection<TmsDriverStorageItem>(storageQuery);
+
+  const vehiclesQuery = useMemoFirebase(
+    () => (firestore && driverId ? query(collection(firestore, TMS_VEHICLES_COLLECTION), where('driverId', '==', driverId)) : null),
+    [firestore, driverId]
+  );
+  const { data: assignedVehicles } = useCollection<any>(vehiclesQuery); // Using any to avoid importing TmsVehicle here just for display or we can import it above
+
+  const handleRemoveVehicle = async (vehicleId: string) => {
+    if (!firestore) return;
+    setRemovingVehicleId(vehicleId);
+    try {
+      await updateDoc(doc(firestore, TMS_VEHICLES_COLLECTION, vehicleId), {
+        driverId: null,
+        driverName: null,
+        updatedAt: serverTimestamp(),
+      });
+      toast({ title: 'Тээврийн хэрэгсэл салгагдлаа' });
+    } catch (e: unknown) {
+      toast({ variant: 'destructive', title: 'Алдаа', description: 'Салгах явцад алдаа гарлаа.' });
+    } finally {
+      setRemovingVehicleId(null);
+    }
+  };
 
   const handleDelete = React.useCallback(async () => {
     if (!firestore || !driverId) return;
@@ -291,6 +320,64 @@ export default function TmsDriverDetailPage() {
           </div>
         </div>
 
+        <div className="mt-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Оноогдсон тээврийн хэрэгслүүд</CardTitle>
+                <CardDescription>Энэ жолоочид хариуцуулсан тээврийн хэрэгслүүд</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setAssignVehicleOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Оноох
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {!assignedVehicles || assignedVehicles.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
+                  Одоогоор оноосон тээврийн хэрэгсэл байхгүй байна.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {assignedVehicles.map((v) => (
+                    <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card">
+                      <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                        <div className="bg-primary/10 p-3 rounded-full text-primary">
+                          <CarFront className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <Link href={`/tms/vehicles/${v.id}`} className="font-semibold text-lg hover:underline decoration-primary underline-offset-4">
+                            {v.licensePlate}
+                          </Link>
+                          <p className="text-sm text-muted-foreground">
+                            {v.makeName} {v.modelName} • {v.year || 'Он тодорхойгүй'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 sm:ml-auto border-t sm:border-none pt-4 sm:pt-0">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground mr-2">Одометр:</span>
+                          {v.odometer ? v.odometer.toLocaleString() + ' км' : '—'}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto sm:ml-0"
+                          onClick={() => handleRemoveVehicle(v.id)}
+                          disabled={removingVehicleId === v.id}
+                        >
+                          {removingVehicleId === v.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MinusCircle className="h-4 w-4 mr-2" />}
+                          Салгах
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {(storageItems?.length ?? 0) > 0 && (
           <Card className="mt-6">
             <CardHeader>
@@ -320,6 +407,7 @@ export default function TmsDriverDetailPage() {
       <EditDriverTransportDialog open={editTransportOpen} onOpenChange={setEditTransportOpen} driver={driver} />
       <EditDriverLicenseDialog open={editLicenseOpen} onOpenChange={setEditLicenseOpen} driver={driver} />
       <EditDriverNationalIdDialog open={editNationalIdOpen} onOpenChange={setEditNationalIdOpen} driver={driver} />
+      <AssignVehicleDialog open={assignVehicleOpen} onOpenChange={setAssignVehicleOpen} driver={driver} />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
