@@ -35,7 +35,7 @@ import {
   type TmsCapacityUnit,
 } from '@/app/tms/types';
 import type { TmsWarehouse, TmsCustomer } from '@/app/tms/types';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Edit2, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -50,6 +50,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const WarehouseLocationMap = dynamic(
   () => import('./warehouse-location-map'),
@@ -108,6 +115,7 @@ export default function TmsWarehouseDetailPage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -251,6 +259,7 @@ export default function TmsWarehouseDetailPage() {
         };
         await updateDoc(doc(firestore, TMS_WAREHOUSES_COLLECTION, warehouseId), payload);
         toast({ title: 'Агуулахын мэдээлэл хадгалагдлаа.' });
+        setEditOpen(false);
       } catch (e: unknown) {
         toast({
           variant: 'destructive',
@@ -264,15 +273,7 @@ export default function TmsWarehouseDetailPage() {
     [firestore, warehouseId, customers, toast, warehouse]
   );
 
-  const watched = form.watch();
-  const isDirty = form.formState.isDirty;
-  React.useEffect(() => {
-    if (!isDirty || !warehouseId || !firestore || isSaving) return;
-    const t = setTimeout(() => {
-      form.handleSubmit(handleSave)();
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [watched, isDirty, warehouseId, firestore, isSaving, form, handleSave]);
+
 
   const handleDelete = async () => {
     if (!firestore || !warehouseId) return;
@@ -332,13 +333,84 @@ export default function TmsWarehouseDetailPage() {
 
       <div className="flex-1 p-4 sm:p-6 space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Үндсэн мэдээлэл</CardTitle>
-            <CardDescription>Агуулахын бүртгэл. Засварлаад Хадгалах товч дарна уу.</CardDescription>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle>Үндсэн мэдээлэл</CardTitle>
+              <CardDescription>Агуулахын дэлгэрэнгүй бүртгэл</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
+              <Edit2 className="h-4 w-4" />
+              Засах
+            </Button>
           </CardHeader>
           <CardContent>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Нэр</dt>
+                <dd className="font-medium">{warehouse.name || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Бүс нутаг</dt>
+                <dd className="font-medium">
+                  {regions.find((r) => r.id === getRegionIdFromWarehouse(warehouse))?.name || '-'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Байршил</dt>
+                <dd className="font-medium">{warehouse.location || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Төлөв</dt>
+                <dd className="font-medium">
+                  {STATUS_OPTIONS.find((o) => o.value === warehouse.status)?.label || warehouse.status || '-'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Төрөл</dt>
+                <dd className="font-medium">
+                  {TYPE_OPTIONS.find((o) => o.value === warehouse.type)?.label || warehouse.type || '-'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Нөхцөл</dt>
+                <dd className="font-medium whitespace-pre-wrap">{warehouse.conditions || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Холбоо барих</dt>
+                <dd className="font-medium">{warehouse.contactInfo || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Холбоо барих хүн</dt>
+                <dd className="font-medium">
+                  {warehouse.contactName ? `${warehouse.contactName} ${warehouse.contactPosition ? `(${warehouse.contactPosition})` : ''}` : '-'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Харилцагч</dt>
+                <dd className="font-medium">{warehouse.customerName || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Багтаамж</dt>
+                <dd className="font-medium">
+                  {warehouse.capacity ? `${warehouse.capacity.value} ${CAPACITY_UNITS.find((u) => u.value === warehouse.capacity?.unit)?.label || warehouse.capacity.unit}` : '-'}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Тэмдэглэл</dt>
+                <dd className="font-medium whitespace-pre-wrap">{warehouse.note || '-'}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Агуулах засах</DialogTitle>
+              <DialogDescription>Агуулахын мэдээллийг өөрчлөөд хадгалах товчийг дарна уу.</DialogDescription>
+            </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4 px-1">
                 <FormField
                   control={form.control}
                   name="name"
@@ -620,8 +692,8 @@ export default function TmsWarehouseDetailPage() {
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
         <Card>
           <CardHeader>

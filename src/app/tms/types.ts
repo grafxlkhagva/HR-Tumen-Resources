@@ -4,6 +4,7 @@ import type { Timestamp, DocumentReference } from 'firebase/firestore';
 export interface TmsCustomer {
   id: string;
   name: string;
+  logoUrl?: string;
   registerNumber?: string;
   industryId?: string;
   address?: string;
@@ -412,4 +413,3 @@ export interface TmsTransportManagement {
 }
 
 export const TMS_TRANSPORT_MANAGEMENT_COLLECTION = 'tms_transport_management';
-

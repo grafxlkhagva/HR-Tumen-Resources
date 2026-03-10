@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -17,10 +19,11 @@ import {
 } from '@/components/patterns/data-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddWarehouseDialog } from './add-warehouse-dialog';
 import { TMS_WAREHOUSES_COLLECTION } from '@/app/tms/types';
 import type { TmsWarehouse } from '@/app/tms/types';
-import { Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, HardDrive, Package } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 const STATUS_LABELS: Record<string, string> = {
@@ -36,6 +39,14 @@ const TYPE_LABELS: Record<string, string> = {
   Bonded: 'Гаалийн',
 };
 
+const WarehousesMap = dynamic(
+  () => import('./warehouses-map'),
+  {
+    loading: () => <Skeleton className="h-[400px] w-full rounded-lg" />,
+    ssr: false,
+  }
+);
+
 export default function TmsWarehousesPage() {
   const { firestore } = useFirebase();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -46,9 +57,9 @@ export default function TmsWarehousesPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_WAREHOUSES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_WAREHOUSES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -94,7 +105,59 @@ export default function TmsWarehousesPage() {
       </div>
 
       <div className="flex-1 p-4 sm:p-6 space-y-4">
-        <div className="relative max-w-sm">
+        <WarehousesMap warehouses={filtered} />
+
+        {/* Dashboard Statistics */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Нийт агуулах</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{allWarehouses?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">Бүртгэлтэй нийт агуулахын тоо</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Идэвхтэй</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {allWarehouses?.filter((w) => w.status === 'active').length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Үйл ажиллагаа хэвийн агуулах</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Дүүрсэн</CardTitle>
+              <HardDrive className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {allWarehouses?.filter((w) => w.status === 'full').length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Багтаамж дүүрсэн агуулах</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Засвартай / Идэвхгүй</CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {allWarehouses?.filter((w) => w.status === 'maintenance' || w.status === 'inactive').length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Үйл ажиллагаа хаагдсан</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="relative max-w-sm mt-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Агуулахаар хайх (нэр, байршил, харилцагч)..."

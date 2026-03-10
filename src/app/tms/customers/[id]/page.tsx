@@ -1,30 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, addDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, collection, query, orderBy, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DataTable,
   DataTableHeader,
@@ -36,10 +18,11 @@ import {
   DataTableEmpty,
 } from '@/components/patterns/data-table';
 import { AddCustomerEmployeeDialog } from './add-customer-employee-dialog';
+import { EditCustomerDialog, type CustomerFormValues } from './edit-customer-dialog';
 import { TMS_CUSTOMERS_COLLECTION, TMS_CUSTOMER_EMPLOYEES_SUBCOLLECTION, TMS_INDUSTRIES_COLLECTION } from '@/app/tms/types';
 import type { TmsCustomer, TmsCustomerEmployee } from '@/app/tms/types';
 import type { Employee } from '@/types';
-import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,22 +34,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-
-const customerSchema = z.object({
-  name: z.string().min(1, 'Харилцагчийн нэр оруулна уу.'),
-  registerNumber: z.string().optional(),
-  industryId: z.string().optional(),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  responsibleEmployeeId: z.string().optional(),
-  note: z.string().optional(),
-});
-
-type CustomerFormValues = z.infer<typeof customerSchema>;
 
 export default function TmsCustomerDetailPage() {
   const params = useParams();
@@ -78,6 +45,7 @@ export default function TmsCustomerDetailPage() {
   const [addEmployeeOpen, setAddEmployeeOpen] = React.useState(false);
   const [deleteEmpId, setDeleteEmpId] = React.useState<string | null>(null);
   const [deleteCustomerOpen, setDeleteCustomerOpen] = React.useState(false);
+  const [editCustomerOpen, setEditCustomerOpen] = React.useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -111,35 +79,6 @@ export default function TmsCustomerDetailPage() {
   );
   const { data: companyEmployees = [] } = useCollection<Employee>(companyEmployeesQuery);
 
-  const form = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
-    defaultValues: {
-      name: '',
-      registerNumber: '',
-      industryId: '',
-      address: '',
-      phone: '',
-      email: '',
-      responsibleEmployeeId: '',
-      note: '',
-    },
-  });
-
-  React.useEffect(() => {
-    if (customer) {
-      form.reset({
-        name: customer.name ?? '',
-        registerNumber: customer.registerNumber ?? '',
-        industryId: customer.industryId ?? '',
-        address: customer.address ?? '',
-        phone: customer.phone ?? '',
-        email: customer.email ?? '',
-        responsibleEmployeeId: customer.responsibleEmployeeId ?? '',
-        note: customer.note ?? '',
-      });
-    }
-  }, [customer, form]);
-
   const handleDeleteEmployee = React.useCallback(async () => {
     if (!firestore || !customerId || !deleteEmpId) return;
     try {
@@ -159,6 +98,7 @@ export default function TmsCustomerDetailPage() {
     try {
       await updateDoc(doc(firestore, TMS_CUSTOMERS_COLLECTION, customerId), {
         name: values.name.trim(),
+        logoUrl: values.logoUrl?.trim() || null,
         registerNumber: values.registerNumber?.trim() || null,
         industryId: values.industryId || null,
         address: values.address?.trim() || null,
@@ -169,6 +109,7 @@ export default function TmsCustomerDetailPage() {
         updatedAt: serverTimestamp(),
       });
       toast({ title: 'Харилцагчийн мэдээлэл хадгалагдлаа.' });
+      setEditCustomerOpen(false);
     } catch (e: unknown) {
       toast({ variant: 'destructive', title: 'Алдаа', description: e instanceof Error ? e.message : 'Хадгалахад алдаа гарлаа.' });
     } finally {
@@ -205,6 +146,12 @@ export default function TmsCustomerDetailPage() {
     );
   }
 
+  const selectedIndustry = industries.find((item) => item.id === customer.industryId);
+  const responsibleEmployee = companyEmployees.find((item) => item.id === customer.responsibleEmployeeId);
+  const responsibleEmployeeName = responsibleEmployee
+    ? `${responsibleEmployee.lastName ?? ''} ${responsibleEmployee.firstName ?? ''}`.trim()
+    : null;
+
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
       <div className="border-b bg-background px-4 py-4 sm:px-6">
@@ -228,216 +175,124 @@ export default function TmsCustomerDetailPage() {
         />
       </div>
 
-      <div className="flex-1 p-4 sm:p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Үндсэн мэдээлэл</CardTitle>
-            <CardDescription>Харилцагчийн бүртгэлийн мэдээлэл. Засварлаад Хадгалах товч дарна уу.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSaveCustomer)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Харилцагчийн нэр</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Харилцагчийн нэр" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="registerNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Регистрийн дугаар</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Регистрийн дугаар" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+      <div className="flex-1 p-4 sm:p-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <Card className="h-fit">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Үндсэн мэдээлэл</CardTitle>
+                <CardDescription>Харилцагчийн бүртгэлийн мэдээлэл.</CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setEditCustomerOpen(true)}
+                aria-label="Харилцагчийн мэдээлэл засах"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <p className="text-sm text-muted-foreground">Байгууллагын лого</p>
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                  {customer.logoUrl ? (
+                    <img src={customer.logoUrl} alt={customer.name || 'Customer logo'} className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Лого байхгүй</span>
+                  )}
                 </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Харилцагчийн нэр</p>
+                <p className="font-medium">{customer.name || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Регистрийн дугаар</p>
+                <p className="font-medium">{customer.registerNumber || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Үйл ажиллагааны чиглэл</p>
+                <p className="font-medium">{selectedIndustry?.name || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Хариуцсан ажилтан</p>
+                <p className="font-medium">{responsibleEmployeeName || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Оффисын утас</p>
+                <p className="font-medium">{customer.phone || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Албан ёсны и-мэйл</p>
+                <p className="font-medium break-all">{customer.email || '—'}</p>
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <p className="text-sm text-muted-foreground">Албан ёсны хаяг</p>
+                <p className="font-medium">{customer.address || '—'}</p>
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <p className="text-sm text-muted-foreground">Тэмдэглэл</p>
+                <p className="whitespace-pre-wrap font-medium">{customer.note || '—'}</p>
+              </div>
+            </CardContent>
+          </Card>
 
-                <FormField
-                  control={form.control}
-                  name="industryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Үйл ажиллагааны чиглэл</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Чиглэл сонгоно уу..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {industries.map((ind) => (
-                            <SelectItem key={ind.id} value={ind.id}>
-                              {ind.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Албан ёсны хаяг</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Улаанбаатар, дүүрэг, хороо..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Оффисын утас</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Утасны дугаар" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Албан ёсны и-мэйл</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="contact@company.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="responsibleEmployeeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Хариуцсан ажилтан</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Хариуцсан ажилтан сонгоно уу..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {companyEmployees.map((emp) => (
-                            <SelectItem key={emp.id} value={emp.id}>
-                              {emp.lastName} {emp.firstName}
-                              {emp.jobTitle ? ` · ${emp.jobTitle}` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="note"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Тэмдэглэл</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Нэмэлт тэмдэглэл..." rows={3} className="resize-none" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Хадгалах
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Ажилчид</CardTitle>
-              <CardDescription>Харилцагчийн холбоо барих ажилтнууд</CardDescription>
-            </div>
-            <Button size="sm" onClick={() => setAddEmployeeOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Ажилтан нэмэх
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <DataTable>
-              <DataTableHeader>
-                <DataTableRow>
-                  <DataTableColumn>Овог, Нэр</DataTableColumn>
-                  <DataTableColumn>Албан тушаал</DataTableColumn>
-                  <DataTableColumn>Утас</DataTableColumn>
-                  <DataTableColumn>Имэйл</DataTableColumn>
-                  <DataTableColumn align="right" />
-                </DataTableRow>
-              </DataTableHeader>
-              {employeesLoading && <DataTableLoading columns={5} rows={3} />}
-              {!employeesLoading && (!customerEmployees || customerEmployees.length === 0) && (
-                <DataTableEmpty columns={5} message="Ажилтан бүртгэл байхгүй. Нэмэх товч дарж нэмнэ үү." />
-              )}
-              {!employeesLoading && customerEmployees && customerEmployees.length > 0 && (
-                <DataTableBody>
-                  {customerEmployees.map((emp) => (
-                    <DataTableRow key={emp.id}>
-                      <DataTableCell className="font-medium">
-                        {emp.lastName} {emp.firstName}
-                      </DataTableCell>
-                      <DataTableCell className="text-muted-foreground">{emp.position || '—'}</DataTableCell>
-                      <DataTableCell className="text-muted-foreground">{emp.phone || '—'}</DataTableCell>
-                      <DataTableCell className="text-muted-foreground">{emp.email || '—'}</DataTableCell>
-                      <DataTableCell align="right">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteEmpId(emp.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))}
-                </DataTableBody>
-              )}
-            </DataTable>
-          </CardContent>
-        </Card>
+          <Card className="h-fit">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Ажилчид</CardTitle>
+                <CardDescription>Харилцагчийн холбоо барих ажилтнууд</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setAddEmployeeOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Ажилтан нэмэх
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableColumn>Овог, Нэр</DataTableColumn>
+                    <DataTableColumn>Албан тушаал</DataTableColumn>
+                    <DataTableColumn>Утас</DataTableColumn>
+                    <DataTableColumn>Имэйл</DataTableColumn>
+                    <DataTableColumn align="right" />
+                  </DataTableRow>
+                </DataTableHeader>
+                {employeesLoading && <DataTableLoading columns={5} rows={3} />}
+                {!employeesLoading && (!customerEmployees || customerEmployees.length === 0) && (
+                  <DataTableEmpty columns={5} message="Ажилтан бүртгэл байхгүй. Нэмэх товч дарж нэмнэ үү." />
+                )}
+                {!employeesLoading && customerEmployees && customerEmployees.length > 0 && (
+                  <DataTableBody>
+                    {customerEmployees.map((emp) => (
+                      <DataTableRow key={emp.id}>
+                        <DataTableCell className="font-medium">
+                          {emp.lastName} {emp.firstName}
+                        </DataTableCell>
+                        <DataTableCell className="text-muted-foreground">{emp.position || '—'}</DataTableCell>
+                        <DataTableCell className="text-muted-foreground">{emp.phone || '—'}</DataTableCell>
+                        <DataTableCell className="text-muted-foreground">{emp.email || '—'}</DataTableCell>
+                        <DataTableCell align="right">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteEmpId(emp.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </DataTableCell>
+                      </DataTableRow>
+                    ))}
+                  </DataTableBody>
+                )}
+              </DataTable>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <AddCustomerEmployeeDialog
@@ -446,6 +301,16 @@ export default function TmsCustomerDetailPage() {
         customerId={customerId}
         customerRef={customerRef ?? undefined}
         onSuccess={() => setAddEmployeeOpen(false)}
+      />
+
+      <EditCustomerDialog
+        open={editCustomerOpen}
+        onOpenChange={setEditCustomerOpen}
+        customer={customer}
+        industries={industries}
+        companyEmployees={companyEmployees}
+        isSaving={isSaving}
+        onSubmit={handleSaveCustomer}
       />
 
       <AlertDialog open={!!deleteEmpId} onOpenChange={(open) => !open && setDeleteEmpId(null)}>

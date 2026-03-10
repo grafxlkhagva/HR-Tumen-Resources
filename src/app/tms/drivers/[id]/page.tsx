@@ -23,7 +23,11 @@ import { TMS_DRIVERS_COLLECTION, TMS_DRIVER_STORAGE_SUBCOLLECTION, TMS_LICENSE_C
 import type { TmsDriver, TmsDriverStorageItem } from '@/app/tms/types';
 import { Loader2, Pencil, Trash2, Camera, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { EditDriverDialog } from './edit-driver-dialog';
+import { EditDriverPersonalDialog } from './edit-driver-personal-dialog';
+import { EditDriverEmergencyDialog } from './edit-driver-emergency-dialog';
+import { EditDriverTransportDialog } from './edit-driver-transport-dialog';
+import { EditDriverLicenseDialog } from './edit-driver-license-dialog';
+import { EditDriverNationalIdDialog } from './edit-driver-national-id-dialog';
 import { cn } from '@/lib/utils';
 
 function formatDate(s: string | undefined) {
@@ -43,7 +47,11 @@ export default function TmsDriverDetailPage() {
   const { toast } = useToast();
   const driverId = params?.id as string;
 
-  const [editOpen, setEditOpen] = React.useState(false);
+  const [editPersonalOpen, setEditPersonalOpen] = React.useState(false);
+  const [editEmergencyOpen, setEditEmergencyOpen] = React.useState(false);
+  const [editTransportOpen, setEditTransportOpen] = React.useState(false);
+  const [editLicenseOpen, setEditLicenseOpen] = React.useState(false);
+  const [editNationalIdOpen, setEditNationalIdOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
@@ -57,9 +65,9 @@ export default function TmsDriverDetailPage() {
     () =>
       firestore && driverId
         ? query(
-            collection(firestore, TMS_DRIVERS_COLLECTION, driverId, TMS_DRIVER_STORAGE_SUBCOLLECTION),
-            orderBy('createdAt', 'desc')
-          )
+          collection(firestore, TMS_DRIVERS_COLLECTION, driverId, TMS_DRIVER_STORAGE_SUBCOLLECTION),
+          orderBy('createdAt', 'desc')
+        )
         : null,
     [firestore, driverId]
   );
@@ -112,10 +120,6 @@ export default function TmsDriverDetailPage() {
           backHref="/tms/drivers"
           actions={
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
-                <Pencil className="h-4 w-4" />
-                Засах
-              </Button>
               <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="gap-2 text-destructive hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
                 Устгах
@@ -140,8 +144,11 @@ export default function TmsDriverDetailPage() {
             </div>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle>Хувийн мэдээлэл</CardTitle>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditPersonalOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -168,8 +175,11 @@ export default function TmsDriverDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle>Яаралтай үед холбоо барих</CardTitle>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditEmergencyOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -184,9 +194,14 @@ export default function TmsDriverDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Тээвэрлэлтийн тохиргоо</CardTitle>
-                <CardDescription>Энэ жолооч гэрээт (тогтмол) тээвэрлэлтэд явах боломжтой эсэх.</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+                <div>
+                  <CardTitle>Тээвэрлэлтийн тохиргоо</CardTitle>
+                  <CardDescription>Энэ жолооч гэрээт (тогтмол) тээвэрлэлтэд явах боломжтой эсэх.</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditTransportOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -200,8 +215,11 @@ export default function TmsDriverDetailPage() {
           {/* Баруун багана: Жолооны үнэмлэх + Иргэний үнэмлэх */}
           <div className="space-y-6 flex-1">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle>Жолооны үнэмлэх</CardTitle>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditLicenseOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -251,8 +269,11 @@ export default function TmsDriverDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle>Иргэний үнэмлэх</CardTitle>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditNationalIdOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
@@ -300,7 +321,12 @@ export default function TmsDriverDetailPage() {
         )}
       </div>
 
-      <EditDriverDialog open={editOpen} onOpenChange={setEditOpen} driver={driver} />
+      <EditDriverPersonalDialog open={editPersonalOpen} onOpenChange={setEditPersonalOpen} driver={driver} />
+      <EditDriverEmergencyDialog open={editEmergencyOpen} onOpenChange={setEditEmergencyOpen} driver={driver} />
+      <EditDriverTransportDialog open={editTransportOpen} onOpenChange={setEditTransportOpen} driver={driver} />
+      <EditDriverLicenseDialog open={editLicenseOpen} onOpenChange={setEditLicenseOpen} driver={driver} />
+      <EditDriverNationalIdDialog open={editNationalIdOpen} onOpenChange={setEditNationalIdOpen} driver={driver} />
+
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
