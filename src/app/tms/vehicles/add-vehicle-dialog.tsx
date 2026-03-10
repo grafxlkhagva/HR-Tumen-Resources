@@ -134,6 +134,8 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
         status: values.status,
         driverId: null,
         driverName: null,
+        driverIds: [],
+        driverNames: [],
         odometer: values.odometer ?? 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

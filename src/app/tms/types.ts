@@ -172,12 +172,12 @@ export interface TmsDispatchControlTask {
 export interface TmsServiceType {
   id: string;
   name: string;
-  dispatchSteps?: { 
-    id: string; 
-    name: string; 
-    order: number; 
+  dispatchSteps?: {
+    id: string;
+    name: string;
+    order: number;
     isRequired: boolean;
-    controlTasks?: TmsDispatchControlTask[]; 
+    controlTasks?: TmsDispatchControlTask[];
   }[];
   createdAt: Timestamp;
   updatedAt?: Timestamp;
@@ -269,6 +269,8 @@ export interface TmsVehicle {
   status?: TmsVehicleStatus;
   driverId?: string | null;
   driverName?: string | null;
+  driverIds?: string[];
+  driverNames?: string[];
   imageUrls?: string[];
   odometer?: number;
   specs?: TmsVehicleSpecs;
@@ -388,7 +390,7 @@ export interface TmsTransportManagement {
   customerId: string;
   customerRef?: DocumentReference;
   status: TmsTransportManagementStatus;
-  
+
   // Тээвэрлэлтийн мэдээлэл
   loadingRegionId?: string;
   loadingWarehouseId?: string;

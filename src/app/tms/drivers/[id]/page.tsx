@@ -80,20 +80,61 @@ export default function TmsDriverDetailPage() {
   const { data: storageItems } = useCollection<TmsDriverStorageItem>(storageQuery);
 
   const vehiclesQuery = useMemoFirebase(
+    // Try array-contains first, if empty, we might need a composite or fallback handle, but Firestore supports array-contains natively
+    () => (firestore && driverId ? query(collection(firestore, TMS_VEHICLES_COLLECTION), where('driverIds', 'array-contains', driverId)) : null),
+    [firestore, driverId]
+  );
+
+  // Fallback query for legacy data (where driverId is a string). This is needed if data isn't migrated.
+  const legacyVehiclesQuery = useMemoFirebase(
     () => (firestore && driverId ? query(collection(firestore, TMS_VEHICLES_COLLECTION), where('driverId', '==', driverId)) : null),
     [firestore, driverId]
   );
-  const { data: assignedVehicles } = useCollection<any>(vehiclesQuery); // Using any to avoid importing TmsVehicle here just for display or we can import it above
+
+  const { data: newAssignedVehicles } = useCollection<any>(vehiclesQuery);
+  const { data: legacyAssignedVehicles } = useCollection<any>(legacyVehiclesQuery);
+
+  // Merge them and remove duplicates
+  const assignedVehicles = React.useMemo(() => {
+    const map = new Map();
+    if (newAssignedVehicles) newAssignedVehicles.forEach((v: any) => map.set(v.id, v));
+    if (legacyAssignedVehicles) legacyAssignedVehicles.forEach((v: any) => map.set(v.id, v));
+    return Array.from(map.values());
+  }, [newAssignedVehicles, legacyAssignedVehicles]);
 
   const handleRemoveVehicle = async (vehicleId: string) => {
     if (!firestore) return;
     setRemovingVehicleId(vehicleId);
     try {
-      await updateDoc(doc(firestore, TMS_VEHICLES_COLLECTION, vehicleId), {
-        driverId: null,
-        driverName: null,
+      const vehicle = assignedVehicles.find(v => v.id === vehicleId);
+      if (!vehicle) throw new Error("Тээврийн хэрэгсэл олдсонгүй");
+
+      let updatedDriverIds = vehicle.driverIds || [];
+      let updatedDriverNames = vehicle.driverNames || [];
+
+      // Legacy data check
+      if (vehicle.driverId && !updatedDriverIds.includes(vehicle.driverId)) {
+        updatedDriverIds.push(vehicle.driverId);
+        if (vehicle.driverName) updatedDriverNames.push(vehicle.driverName);
+      }
+
+      const index = updatedDriverIds.indexOf(driverId);
+      if (index > -1) {
+        updatedDriverIds.splice(index, 1);
+        updatedDriverNames.splice(index, 1);
+      }
+
+      const updateData: any = {
+        driverIds: updatedDriverIds,
+        driverNames: updatedDriverNames,
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      // Also backward compatibility update
+      updateData.driverId = updatedDriverIds.length > 0 ? updatedDriverIds[0] : null;
+      updateData.driverName = updatedDriverNames.length > 0 ? updatedDriverNames[0] : null;
+
+      await updateDoc(doc(firestore, TMS_VEHICLES_COLLECTION, vehicleId), updateData);
       toast({ title: 'Тээврийн хэрэгсэл салгагдлаа' });
     } catch (e: unknown) {
       toast({ variant: 'destructive', title: 'Алдаа', description: 'Салгах явцад алдаа гарлаа.' });

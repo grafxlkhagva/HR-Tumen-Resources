@@ -135,7 +135,7 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
                             <div className="flex flex-col gap-2">
                                 <FormLabel>Жолооч</FormLabel>
                                 <div className="text-sm font-medium p-3 bg-muted/50 rounded-md border flex justify-between items-center">
-                                    <span>{vehicle.driverName || 'Жолоочгүй'}</span>
+                                    <span>{vehicle.driverNames?.length ? vehicle.driverNames.join(', ') : vehicle.driverName || 'Жолоочгүй'}</span>
                                 </div>
                                 <p className="text-[0.8rem] text-muted-foreground mt-1">
                                     Жолооч оноох эсвэл салгах үйлдлийг Жолоочийн дэлгэрэнгүй хуудас руу орж хийнэ үү.
