@@ -7,7 +7,6 @@ import { doc, deleteDoc, collection, query, orderBy } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
@@ -28,6 +27,7 @@ import { EditDriverEmergencyDialog } from './edit-driver-emergency-dialog';
 import { EditDriverTransportDialog } from './edit-driver-transport-dialog';
 import { EditDriverLicenseDialog } from './edit-driver-license-dialog';
 import { EditDriverNationalIdDialog } from './edit-driver-national-id-dialog';
+import { DriverAvatarUpload } from './driver-avatar-upload';
 import { cn } from '@/lib/utils';
 
 function formatDate(s: string | undefined) {
@@ -135,13 +135,7 @@ export default function TmsDriverDetailPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Зүүн багана: Профайл + Хувийн мэдээлэл + Яаралтай холбоо + Тээвэрлэлтийн тохиргоо */}
           <div className="space-y-6 flex-1">
-            <div className="flex flex-col items-center gap-2">
-              <Avatar className="h-28 w-28 rounded-full border-4 border-background shadow-md">
-                <AvatarImage src={driver.photoURL} alt={displayName} />
-                <AvatarFallback className="rounded-full text-3xl bg-muted">{displayName.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-muted-foreground">Профайл зураг</span>
-            </div>
+            <DriverAvatarUpload driver={driver} displayName={displayName} />
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">

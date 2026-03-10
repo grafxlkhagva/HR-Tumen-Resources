@@ -34,7 +34,17 @@ import {
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import dynamic from 'next/dynamic';
+
+const MapWithSearch = dynamic(
+  () => import('@/components/map-with-search').then((mod) => mod.MapWithSearch),
+  {
+    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />,
+    ssr: false,
+  }
+);
 import {
   TMS_WAREHOUSES_COLLECTION,
   TMS_CUSTOMERS_COLLECTION,
@@ -83,7 +93,7 @@ const schema = z.object({
   capacityUnit: z.enum(['sqm', 'pallets', 'tons']).optional(),
   note: z.string().optional(),
 }).refine((d) => (d.lat === 0 && d.lng === 0) || (!Number.isNaN(d.lat) && d.lat >= -90 && d.lat <= 90), { message: 'Өргөрөг -90..90', path: ['lat'] })
- .refine((d) => (d.lat === 0 && d.lng === 0) || (!Number.isNaN(d.lng) && d.lng >= -180 && d.lng <= 180), { message: 'Уртраг -180..180', path: ['lng'] });
+  .refine((d) => (d.lat === 0 && d.lng === 0) || (!Number.isNaN(d.lng) && d.lng >= -180 && d.lng <= 180), { message: 'Уртраг -180..180', path: ['lng'] });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -121,9 +131,9 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_CUSTOMERS_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_CUSTOMERS_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -133,9 +143,9 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_REGIONS_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_REGIONS_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -158,12 +168,12 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
       const lng = Number(values.lng) || 0;
       const capacity =
         values.capacityValue !== undefined &&
-        values.capacityValue !== '' &&
-        values.capacityUnit
+          values.capacityValue !== '' &&
+          values.capacityUnit
           ? {
-              value: Number(values.capacityValue),
-              unit: values.capacityUnit as TmsCapacityUnit,
-            }
+            value: Number(values.capacityValue),
+            unit: values.capacityUnit as TmsCapacityUnit,
+          }
           : null;
       const rawCustomerId = values.customerId?.trim();
       const customerId = rawCustomerId && rawCustomerId !== NO_CUSTOMER_VALUE ? rawCustomerId : null;
@@ -207,7 +217,7 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="xl" showClose>
+      <AppDialogContent size="xl" showClose className="max-h-[90vh] overflow-y-auto">
         <AppDialogHeader>
           <AppDialogTitle>Шинэ агуулах нэмэх</AppDialogTitle>
           <AppDialogDescription>
@@ -216,7 +226,7 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
         </AppDialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <AppDialogBody className="max-h-[70vh] overflow-y-auto space-y-4">
+            <AppDialogBody className="space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -280,7 +290,8 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
                           step="any"
                           placeholder="47.9189"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber ?? e.target.value)}
+                          value={Number.isNaN(field.value) ? '' : field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : '')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -299,12 +310,27 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
                           step="any"
                           placeholder="106.9172"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber ?? e.target.value)}
+                          value={Number.isNaN(field.value) ? '' : field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : '')}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+              </div>
+              <div className="mt-4">
+                <FormLabel className="mb-2 block">Газрын зураг (хайх эсвэл зураг дээр дарж сонгох)</FormLabel>
+                <MapWithSearch
+                  lat={form.watch('lat') || 0}
+                  lng={form.watch('lng') || 0}
+                  onLocationChange={(lat, lng, label) => {
+                    form.setValue('lat', lat, { shouldValidate: true });
+                    form.setValue('lng', lng, { shouldValidate: true });
+                    if (label && !form.getValues('location')) {
+                      form.setValue('location', label, { shouldValidate: true });
+                    }
+                  }}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -449,7 +475,7 @@ export function AddWarehouseDialog({ open, onOpenChange, onSuccess }: AddWarehou
                           min={0}
                           placeholder="100"
                           {...field}
-                          value={field.value ?? ''}
+                          value={Number.isNaN(field.value) ? '' : field.value ?? ''}
                           onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : '')}
                         />
                       </FormControl>

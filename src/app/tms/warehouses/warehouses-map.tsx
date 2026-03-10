@@ -83,7 +83,7 @@ export default function WarehousesMap({ warehouses }: WarehousesMapProps) {
     }, [warehouses]);
 
     return (
-        <div className="rounded-lg overflow-hidden border">
+        <div className="rounded-lg overflow-hidden border relative z-0">
             <MapContainer
                 center={defaultCenter}
                 zoom={12}

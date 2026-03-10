@@ -76,6 +76,7 @@
     "html2pdf.js": "^0.14.0",
     "isomorphic-dompurify": "^2.35.0",
     "leaflet": "^1.9.4",
+    "leaflet-geosearch": "^4.2.2",
     "lucide-react": "0.400.0",
     "mocean-sdk": "^2.2.3",
     "next": "^16.1.6",

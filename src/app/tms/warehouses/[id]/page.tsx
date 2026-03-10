@@ -57,6 +57,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EditWarehouseLocationDialog } from './edit-warehouse-location-dialog';
 
 const WarehouseLocationMap = dynamic(
   () => import('./warehouse-location-map'),
@@ -89,9 +90,6 @@ const NO_CUSTOMER_VALUE = '__none__';
 const schema = z.object({
   name: z.string().min(1, 'Нэр оруулна уу.'),
   regionId: z.string().optional(),
-  location: z.string().optional(),
-  lat: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v === undefined || v === null ? 0 : Number(v))),
-  lng: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v === undefined || v === null ? 0 : Number(v))),
   status: z.enum(['active', 'inactive', 'full', 'maintenance']).optional(),
   type: z.enum(['General', 'Cold Storage', 'Hazardous', 'Bonded']).optional(),
   conditions: z.string().optional(),
@@ -102,8 +100,7 @@ const schema = z.object({
   capacityValue: z.union([z.string(), z.number()]).optional(),
   capacityUnit: z.enum(['sqm', 'pallets', 'tons']).optional(),
   note: z.string().optional(),
-}).refine((d) => (d.lat === 0 && d.lng === 0) || (!Number.isNaN(d.lat) && d.lat >= -90 && d.lat <= 90), { message: 'Өргөрөг -90..90', path: ['lat'] })
- .refine((d) => (d.lat === 0 && d.lng === 0) || (!Number.isNaN(d.lng) && d.lng >= -180 && d.lng <= 180), { message: 'Уртраг -180..180', path: ['lng'] });
+});
 
 type FormValues = z.infer<typeof schema>;
 
@@ -116,6 +113,7 @@ export default function TmsWarehouseDetailPage() {
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [editLocationOpen, setEditLocationOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -148,9 +146,6 @@ export default function TmsWarehouseDetailPage() {
     defaultValues: {
       name: '',
       regionId: '',
-      location: '',
-      lat: 0,
-      lng: 0,
       status: 'active',
       type: 'General',
       conditions: '',
@@ -199,9 +194,6 @@ export default function TmsWarehouseDetailPage() {
       form.reset({
         name: warehouse.name ?? '',
         regionId,
-        location: warehouse.location ?? '',
-        lat: warehouse.geolocation?.lat ?? 0,
-        lng: warehouse.geolocation?.lng ?? 0,
         status: warehouse.status ?? 'active',
         type: warehouse.type ?? 'General',
         conditions: warehouse.conditions ?? '',
@@ -221,12 +213,10 @@ export default function TmsWarehouseDetailPage() {
       if (!firestore || !warehouseId) return;
       setIsSaving(true);
       try {
-        const lat = Number(values.lat) || 0;
-        const lng = Number(values.lng) || 0;
         const capacity =
           values.capacityValue !== undefined &&
-          values.capacityValue !== '' &&
-          values.capacityUnit
+            values.capacityValue !== '' &&
+            values.capacityUnit
             ? { value: Number(values.capacityValue), unit: values.capacityUnit as TmsCapacityUnit }
             : null;
         const rawCustomerId = values.customerId?.trim();
@@ -242,8 +232,6 @@ export default function TmsWarehouseDetailPage() {
           name: values.name.trim(),
           regionId: regionIdStr,
           regionRef: regionRef ?? null,
-          location: (values.location?.trim() ?? '') || '',
-          geolocation: { lat, lng },
           status: values.status || 'active',
           type: values.type || 'General',
           conditions: (values.conditions?.trim() ?? '') || '',
@@ -451,59 +439,6 @@ export default function TmsWarehouseDetailPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Байршил *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Хаяг, дэлгэрэнгүй байршил" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="lat"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Өргөрөг (lat) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="any"
-                            {...field}
-                            value={field.value === undefined || field.value === null ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lng"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Уртраг (lng) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="any"
-                            {...field}
-                            value={field.value === undefined || field.value === null ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -696,13 +631,19 @@ export default function TmsWarehouseDetailPage() {
         </Dialog>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Байршил</CardTitle>
-            <CardDescription>Зургийн координат</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle>Байршил</CardTitle>
+              <CardDescription>Зургийн координат</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setEditLocationOpen(true)} className="gap-2">
+              <Edit2 className="h-4 w-4" />
+              Засах
+            </Button>
           </CardHeader>
           <CardContent>
             {warehouse.geolocation && (
-              <div className="rounded-lg overflow-hidden border">
+              <div className="rounded-lg overflow-hidden border relative z-0">
                 <WarehouseLocationMap
                   lat={warehouse.geolocation.lat}
                   lng={warehouse.geolocation.lng}
@@ -714,6 +655,12 @@ export default function TmsWarehouseDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EditWarehouseLocationDialog
+        open={editLocationOpen}
+        onOpenChange={setEditLocationOpen}
+        warehouse={warehouse}
+      />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

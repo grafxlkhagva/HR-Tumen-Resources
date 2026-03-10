@@ -155,7 +155,7 @@ export function AddVehicleDialog({ open, onOpenChange, onSuccess }: AddVehicleDi
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="md" showClose>
+      <AppDialogContent size="md" showClose className="max-h-[90vh] overflow-y-auto">
         <AppDialogHeader>
           <AppDialogTitle>Шинэ тээврийн хэрэгсэл нэмэх</AppDialogTitle>
           <AppDialogDescription>Үндсэн мэдээлэл оруулна уу.</AppDialogDescription>

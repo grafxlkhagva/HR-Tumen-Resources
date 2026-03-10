@@ -38,13 +38,16 @@ import { useToast } from '@/hooks/use-toast';
 import { TMS_DRIVERS_COLLECTION } from '@/app/tms/types';
 
 const schema = z.object({
-  lastName: z.string().min(1, 'Овог оруулна уу.'),
-  firstName: z.string().min(1, 'Нэр оруулна уу.'),
-  phone: z.string().min(1, 'Утас оруулна уу.'),
+  lastName: z.string().optional(),
+  firstName: z.string().optional(),
+  phone: z.string().optional(),
   email: z.string().optional(),
   licenseNumber: z.string().optional(),
   status: z.enum(['active', 'inactive']),
   note: z.string().optional(),
+}).refine((data) => !!(data.lastName?.trim() || data.firstName?.trim() || data.phone?.trim()), {
+  message: 'Овог, нэр эсвэл утасны дугаарын аль нэгийг заавал оруулна уу.',
+  path: ['phone'],
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -84,9 +87,9 @@ export function AddDriverDialog({ open, onOpenChange, onSuccess }: AddDriverDial
     setIsSubmitting(true);
     try {
       await addDoc(collection(firestore, TMS_DRIVERS_COLLECTION), {
-        lastName: values.lastName.trim(),
-        firstName: values.firstName.trim(),
-        phone: values.phone.trim(),
+        lastName: values.lastName?.trim() || null,
+        firstName: values.firstName?.trim() || null,
+        phone: values.phone?.trim() || null,
         email: values.email?.trim() || null,
         licenseNumber: values.licenseNumber?.trim() || null,
         status: values.status,
@@ -107,10 +110,10 @@ export function AddDriverDialog({ open, onOpenChange, onSuccess }: AddDriverDial
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="md" showClose>
+      <AppDialogContent size="md" showClose className="max-h-[90vh] overflow-y-auto">
         <AppDialogHeader>
           <AppDialogTitle>Шинэ тээвэрчин нэмэх</AppDialogTitle>
-          <AppDialogDescription>Тээвэрчний үндсэн мэдээлэл оруулна уу.</AppDialogDescription>
+          <AppDialogDescription>Тээвэрчний овог, нэр, утасны аль нэгийг заавал оруулна уу.</AppDialogDescription>
         </AppDialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -118,14 +121,14 @@ export function AddDriverDialog({ open, onOpenChange, onSuccess }: AddDriverDial
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="lastName" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Овог *</FormLabel>
+                    <FormLabel>Овог</FormLabel>
                     <FormControl><Input placeholder="Овог" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="firstName" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Нэр *</FormLabel>
+                    <FormLabel>Нэр</FormLabel>
                     <FormControl><Input placeholder="Нэр" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,7 +136,7 @@ export function AddDriverDialog({ open, onOpenChange, onSuccess }: AddDriverDial
               </div>
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Утас *</FormLabel>
+                  <FormLabel>Утас</FormLabel>
                   <FormControl><Input placeholder="Утасны дугаар" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
