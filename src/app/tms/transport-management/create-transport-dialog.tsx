@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { collection, query, orderBy, doc, serverTimestamp, runTransaction, where } from 'firebase/firestore';
 import {
   AppDialog,
   AppDialogContent,
@@ -21,9 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowRight, ArrowLeft, FileText, Plus, Briefcase, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, FileText, Plus, ScrollText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -31,17 +30,22 @@ import {
   TMS_CUSTOMERS_COLLECTION,
   TMS_TRANSPORT_MANAGEMENT_COLLECTION,
   TMS_QUOTATIONS_COLLECTION,
+  TMS_CONTRACTS_COLLECTION,
   TMS_SETTINGS_COLLECTION,
   TMS_GLOBAL_SETTINGS_ID,
   type TmsServiceType,
   type TmsCustomer,
   type TmsQuotation,
+  type TmsContract,
+  type TmsContractService,
 } from '@/app/tms/types';
 
 interface CreateTransportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+type CreationMethod = 'quotation' | 'new' | 'contract' | '';
 
 export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDialogProps) {
   const router = useRouter();
@@ -51,12 +55,19 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
   const [step, setStep] = React.useState(1);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const [fromQuotation, setFromQuotation] = React.useState<string>('');
+  // Creation method: quotation | new | contract
+  const [method, setMethod] = React.useState<CreationMethod>('');
+
+  // Quotation flow
   const [selectedQuotationId, setSelectedQuotationId] = React.useState<string>('');
 
+  // New flow
   const [serviceTypeId, setServiceTypeId] = React.useState<string>('');
-  const [isContracted, setIsContracted] = React.useState<string>('');
   const [customerId, setCustomerId] = React.useState<string>('');
+
+  // Contract flow
+  const [selectedContractId, setSelectedContractId] = React.useState<string>('');
+  const [selectedContractServiceId, setSelectedContractServiceId] = React.useState<string>('');
 
   // Fetch Quotations
   const quotationsQuery = useMemoFirebase(
@@ -79,18 +90,37 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
   );
   const { data: customers = [], isLoading: isLoadingCustomers } = useCollection<TmsCustomer>(customersQuery);
 
+  // Fetch Contracts (active ones)
+  const contractsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, TMS_CONTRACTS_COLLECTION), orderBy('createdAt', 'desc')) : null),
+    [firestore]
+  );
+  const { data: contracts = [], isLoading: isLoadingContracts } = useCollection<TmsContract>(contractsQuery);
+
+  // Selected contract's services
+  const selectedContract = React.useMemo(
+    () => contracts.find((c) => c.id === selectedContractId),
+    [contracts, selectedContractId]
+  );
+
   React.useEffect(() => {
     if (!open) {
       setStep(1);
-      setFromQuotation('');
+      setMethod('');
       setSelectedQuotationId('');
       setServiceTypeId('');
-      setIsContracted('');
       setCustomerId('');
+      setSelectedContractId('');
+      setSelectedContractServiceId('');
     }
   }, [open]);
 
-  const totalSteps = fromQuotation === 'yes' ? 2 : 4;
+  // Reset service selection when contract changes
+  React.useEffect(() => {
+    setSelectedContractServiceId('');
+  }, [selectedContractId]);
+
+  const totalSteps = method === 'quotation' ? 2 : method === 'contract' ? 2 : 3; // new: step1 -> step2 (service) -> step3 (customer)
 
   const handleNext = () => {
     if (step < totalSteps) setStep(step + 1);
@@ -100,16 +130,27 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
     if (step > 1) setStep(step - 1);
   };
 
+  const canProceed = () => {
+    if (step === 1) return !!method;
+    if (step === 2) {
+      if (method === 'quotation') return !!selectedQuotationId;
+      if (method === 'contract') return !!selectedContractId && !!selectedContractServiceId;
+      if (method === 'new') return !!serviceTypeId;
+    }
+    if (step === 3 && method === 'new') return !!customerId;
+    return false;
+  };
+
   const handleSubmit = async () => {
     if (!firestore) return;
-    
+
     setIsSubmitting(true);
     try {
       const newDocRef = await runTransaction(firestore, async (transaction) => {
         // 1. Get settings for code generation
         const settingsRef = doc(firestore, TMS_SETTINGS_COLLECTION, TMS_GLOBAL_SETTINGS_ID);
         const settingsDoc = await transaction.get(settingsRef);
-        
+
         let currentNum = 0;
         let prefix = 'TR';
         let padding = 5;
@@ -124,17 +165,17 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
         const nextNum = currentNum + 1;
         const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
 
-        // 2. Prepare new transport doc data
         const docRef = doc(collection(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION));
-        
-        if (fromQuotation === 'yes') {
+
+        if (method === 'quotation') {
+          // From Quotation
           const quotation = quotations.find((q) => q.id === selectedQuotationId);
           if (!quotation) throw new Error('Үнийн санал олдсонгүй');
 
           const firstTrans = quotation.transportations?.[0] || {};
-          
+
           const serviceDoc = services.find(s => s.id === firstTrans.serviceTypeId);
-          let dispatchSteps = [];
+          let dispatchSteps: any[] = [];
           if (serviceDoc?.dispatchSteps) {
             dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
               id: step.id,
@@ -170,11 +211,54 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
+        } else if (method === 'contract') {
+          // From Contract
+          const contract = contracts.find((c) => c.id === selectedContractId);
+          if (!contract) throw new Error('Гэрээ олдсонгүй');
+
+          const contractService = contract.services?.find(
+            (s: TmsContractService) => s.id === selectedContractServiceId
+          );
+          if (!contractService) throw new Error('Гэрээний үйлчилгээ олдсонгүй');
+
+          const serviceDoc = services.find(s => s.id === contractService.serviceTypeId);
+          let dispatchSteps: any[] = [];
+          if (serviceDoc?.dispatchSteps) {
+            dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
+              id: step.id,
+              name: step.name,
+              order: step.order,
+              isRequired: step.isRequired,
+              status: 'pending',
+              controlTasks: step.controlTasks || []
+            }));
+          }
+
+          transaction.set(docRef, {
+            code: newCode,
+            serviceTypeId: contractService.serviceTypeId || '',
+            isContracted: true,
+            contractId: contract.id,
+            contractCode: contract.code || null,
+            contractServiceId: contractService.id,
+            contractServiceName: contractService.name || null,
+            customerId: contract.customerId,
+            customerRef: doc(firestore, TMS_CUSTOMERS_COLLECTION, contract.customerId),
+            status: 'planning',
+            loadingRegionId: contractService.loadingRegionId || null,
+            unloadingRegionId: contractService.unloadingRegionId || null,
+            vehicleTypeId: contractService.vehicleTypeId || null,
+            trailerTypeId: contractService.trailerTypeId || null,
+            dispatchSteps,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
         } else {
+          // New (manual)
           const customerRef = doc(firestore, TMS_CUSTOMERS_COLLECTION, customerId);
           const serviceDoc = services.find(s => s.id === serviceTypeId);
-          
-          let dispatchSteps = [];
+
+          let dispatchSteps: any[] = [];
           if (serviceDoc?.dispatchSteps) {
             dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
               id: step.id,
@@ -189,7 +273,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
           transaction.set(docRef, {
             code: newCode,
             serviceTypeId,
-            isContracted: isContracted === 'yes',
+            isContracted: false,
             customerId,
             customerRef,
             status: 'draft',
@@ -199,7 +283,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
           });
         }
 
-        // 3. Update settings
+        // Update settings
         transaction.set(settingsRef, {
           transportCodeCurrentNumber: nextNum,
           transportCodePrefix: prefix,
@@ -235,54 +319,72 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
         </AppDialogHeader>
         <div className="px-6 py-2">
           <div className="flex items-center gap-2">
-             {Array.from({ length: totalSteps }).map((_, i) => (
-               <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-all duration-300", step > i ? "bg-primary" : "bg-muted")} />
-             ))}
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-all duration-300", step > i ? "bg-primary" : "bg-muted")} />
+            ))}
           </div>
         </div>
         <AppDialogBody className="space-y-6 pt-2 pb-6">
 
+          {/* Step 1: Choose creation method */}
           {step === 1 && (
             <div className="space-y-4">
               <Label className="text-base font-medium">Та тээврийн удирдлагыг хэрхэн үүсгэх вэ?</Label>
-              <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="grid grid-cols-3 gap-3 mt-2">
                 <button
                   type="button"
-                  onClick={() => setFromQuotation('yes')}
+                  onClick={() => setMethod('quotation')}
                   className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all hover:bg-muted/50",
-                    fromQuotation === 'yes' ? "border-primary bg-primary/5" : "border-muted"
+                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all hover:bg-muted/50",
+                    method === 'quotation' ? "border-primary bg-primary/5" : "border-muted"
                   )}
                 >
-                  <div className={cn("rounded-full p-3 transition-colors", fromQuotation === 'yes' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <FileText className="h-6 w-6" />
+                  <div className={cn("rounded-full p-3 transition-colors", method === 'quotation' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    <FileText className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-medium leading-none">Үнийн саналаас</p>
-                    <p className="text-xs text-muted-foreground">Батлагдсан үнийн санал дээр үндэслэж үүсгэх</p>
+                    <p className="font-medium leading-none text-sm">Үнийн саналаас</p>
+                    <p className="text-xs text-muted-foreground">Үнийн санал дээр үндэслэх</p>
                   </div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFromQuotation('no')}
+                  onClick={() => setMethod('contract')}
                   className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all hover:bg-muted/50",
-                    fromQuotation === 'no' ? "border-primary bg-primary/5" : "border-muted"
+                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all hover:bg-muted/50",
+                    method === 'contract' ? "border-primary bg-primary/5" : "border-muted"
                   )}
                 >
-                  <div className={cn("rounded-full p-3 transition-colors", fromQuotation === 'no' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <Plus className="h-6 w-6" />
+                  <div className={cn("rounded-full p-3 transition-colors", method === 'contract' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    <ScrollText className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-medium leading-none">Шинээр үүсгэх</p>
-                    <p className="text-xs text-muted-foreground">Хоосон тээврийн удирдлага шинээр үүсгэх</p>
+                    <p className="font-medium leading-none text-sm">Гэрээт тээвэр</p>
+                    <p className="text-xs text-muted-foreground">Бүртгэсэн гэрээнээс сонгох</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod('new')}
+                  className={cn(
+                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all hover:bg-muted/50",
+                    method === 'new' ? "border-primary bg-primary/5" : "border-muted"
+                  )}
+                >
+                  <div className={cn("rounded-full p-3 transition-colors", method === 'new' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium leading-none text-sm">Шинээр үүсгэх</p>
+                    <p className="text-xs text-muted-foreground">Хоосноор шинээр үүсгэх</p>
                   </div>
                 </button>
               </div>
             </div>
           )}
 
-          {step === 2 && fromQuotation === 'yes' && (
+          {/* Step 2: Quotation - select quotation */}
+          {step === 2 && method === 'quotation' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
               <Label className="text-base font-medium">Үнийн санал сонгох</Label>
               {isLoadingQuotations ? (
@@ -297,9 +399,9 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                   <SelectContent>
                     {quotations.map((q) => (
                       <SelectItem key={q.id} value={q.id}>
-                        <span className="font-medium">{q.customerName || 'Нэргүй'}</span>
+                        <span className="font-medium">{q.code || q.id.slice(0, 8)}</span>
                         <span className="text-muted-foreground ml-2">
-                          — {q.createdAt?.toDate ? q.createdAt.toDate().toLocaleDateString() : ''}
+                          — {q.customerName || 'Нэргүй'}
                         </span>
                       </SelectItem>
                     ))}
@@ -309,7 +411,69 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             </div>
           )}
 
-          {step === 2 && fromQuotation === 'no' && (
+          {/* Step 2: Contract - select contract + service */}
+          {step === 2 && method === 'contract' && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Гэрээ сонгох</Label>
+                {isLoadingContracts ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
+                  </div>
+                ) : (
+                  <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Гэрээ сонгох..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {contracts.filter(c => c.status === 'active' || c.status === 'draft').map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="font-medium">{c.code || c.id.slice(0, 8)}</span>
+                          <span className="text-muted-foreground ml-2">— {c.customerName || 'Нэргүй'}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            ({c.startDate} ~ {c.endDate})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {selectedContract && selectedContract.services?.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Үйлчилгээ сонгох</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Энэ гэрээнд бүртгэлтэй {selectedContract.services.length} үйлчилгээнээс сонгоно уу.
+                  </p>
+                  <Select value={selectedContractServiceId} onValueChange={setSelectedContractServiceId}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Үйлчилгээ сонгох..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedContract.services.map((svc) => (
+                        <SelectItem key={svc.id} value={svc.id}>
+                          <span className="font-medium">{svc.name || 'Нэргүй'}</span>
+                          {svc.price ? (
+                            <span className="text-muted-foreground ml-2">— {svc.price.toLocaleString()}₮</span>
+                          ) : null}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {selectedContract && (!selectedContract.services || selectedContract.services.length === 0) && (
+                <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                  Энэ гэрээнд үйлчилгээ бүртгэгдээгүй байна. Эхлээд гэрээнд үйлчилгээ нэмнэ үү.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: New - select service type */}
+          {step === 2 && method === 'new' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
               <Label className="text-base font-medium">Тээврийн үйлчилгээний төрөл сонгох</Label>
               {isLoadingServices ? (
@@ -331,47 +495,8 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             </div>
           )}
 
-          {step === 3 && fromQuotation === 'no' && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-              <Label className="text-base font-medium">Гэрээт тээвэр мөн эсэх?</Label>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsContracted('yes')}
-                  className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all hover:bg-muted/50",
-                    isContracted === 'yes' ? "border-primary bg-primary/5" : "border-muted"
-                  )}
-                >
-                  <div className={cn("rounded-full p-3 transition-colors", isContracted === 'yes' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <Briefcase className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium leading-none">Гэрээт тээвэр</p>
-                    <p className="text-xs text-muted-foreground">Байнгын гэрээтэй харилцагч</p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsContracted('no')}
-                  className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all hover:bg-muted/50",
-                    isContracted === 'no' ? "border-primary bg-primary/5" : "border-muted"
-                  )}
-                >
-                  <div className={cn("rounded-full p-3 transition-colors", isContracted === 'no' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <RefreshCw className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium leading-none">Нэг удаагийн</p>
-                    <p className="text-xs text-muted-foreground">Зөвхөн нэг удаагийн тээвэрлэлт</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && fromQuotation === 'no' && (
+          {/* Step 3: New - select customer */}
+          {step === 3 && method === 'new' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
               <Label className="text-base font-medium">Харилцагч байгууллага сонгох</Label>
               {isLoadingCustomers ? (
@@ -407,11 +532,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             <Button
               type="button"
               onClick={handleNext}
-              disabled={
-                (step === 1 && !fromQuotation) ||
-                (step === 2 && fromQuotation === 'no' && !serviceTypeId) ||
-                (step === 3 && fromQuotation === 'no' && !isContracted)
-              }
+              disabled={!canProceed()}
               className="gap-2"
             >
               Үргэлжлүүлэх <ArrowRight className="h-4 w-4" />
@@ -420,11 +541,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={
-                (fromQuotation === 'yes' && !selectedQuotationId) ||
-                (fromQuotation === 'no' && !customerId) ||
-                isSubmitting
-              }
+              disabled={!canProceed() || isSubmitting}
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Үүсгэх

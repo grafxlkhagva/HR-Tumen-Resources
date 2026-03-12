@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, Clock, MapPin, Loader2, Save, Plus, Trash2, Pencil, Trash, FileImage, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Loader2, Save, Plus, Trash2, Pencil, Trash, FileImage, UploadCloud, ChevronDown, ChevronUp, Banknote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import dynamic from 'next/dynamic';
@@ -164,7 +164,7 @@ export default function TransportManagementDetailPage() {
         cargos: [...(prev.cargos || []), cargo],
       };
     });
-    
+
     setNewCargo({ name: '', quantity: 1, unit: 'kg', packagingTypeId: '', note: '' });
     setDialogs(prev => ({ ...prev, cargo: false }));
   };
@@ -214,7 +214,7 @@ export default function TransportManagementDetailPage() {
 
   const handleTaskResultChange = async (stepId: string, taskId: string, value: any) => {
     if (!t?.dispatchSteps || !firestore || !id) return;
-    
+
     const newSteps = t.dispatchSteps.map((s) => {
       if (s.id === stepId) {
         return {
@@ -229,7 +229,7 @@ export default function TransportManagementDetailPage() {
     });
 
     handleChange('dispatchSteps', newSteps);
-    
+
     // Auto-save
     try {
       await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
@@ -380,13 +380,22 @@ export default function TransportManagementDetailPage() {
           ]}
           actions={
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/tms/transport-management/${id}/finance`)}
+                className="gap-2"
+              >
+                <Banknote className="h-4 w-4" />
+                Санхүү
+              </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-2">
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Хадгалах
               </Button>
-              <Button 
-                variant="destructive" 
-                size="icon-sm" 
+              <Button
+                variant="destructive"
+                size="icon-sm"
                 onClick={() => setDeleteDialogOpen(true)}
                 title="Устгах"
               >
@@ -408,9 +417,9 @@ export default function TransportManagementDetailPage() {
                 Тээврийн чиглэл
               </CardTitle>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setDialogs(prev => ({ ...prev, route: true }))}
             >
               <Pencil className="h-4 w-4" />
@@ -420,7 +429,7 @@ export default function TransportManagementDetailPage() {
             <div className="flex flex-col md:flex-row gap-8 items-center justify-center relative">
               {/* Fake map or visualization line */}
               <div className="absolute top-1/2 left-1/4 right-1/4 h-0.5 bg-border -translate-y-1/2 hidden md:block"></div>
-              
+
               <div className="relative z-10 bg-background border rounded-lg p-4 shadow-sm w-full md:w-1/3 text-center space-y-2">
                 <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Ачих</div>
                 <div className="font-semibold text-lg">{getRegionName(t.loadingRegionId)}</div>
@@ -589,15 +598,15 @@ export default function TransportManagementDetailPage() {
                 {t.dispatchSteps.sort((a, b) => a.order - b.order).map((step) => {
                   const isCompleted = step.status === 'completed';
                   const isExpanded = expandedStep === step.id;
-                  
+
                   return (
                     <div key={step.id} className={cn("border rounded-lg bg-card/50 overflow-hidden transition-all", isExpanded ? "border-primary/50 shadow-sm" : "")}>
                       <div className="flex items-start sm:items-center gap-4 p-4">
                         <div
                           className={cn(
                             "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all",
-                            isCompleted 
-                              ? "border-emerald-500 bg-emerald-500 text-white" 
+                            isCompleted
+                              ? "border-emerald-500 bg-emerald-500 text-white"
                               : "border-input bg-background text-transparent"
                           )}
                         >
@@ -617,7 +626,7 @@ export default function TransportManagementDetailPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           {(step.controlTasks && step.controlTasks.length > 0) && (
                             <Button
@@ -637,7 +646,7 @@ export default function TransportManagementDetailPage() {
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Expanded Control Tasks */}
                       {isExpanded && step.controlTasks && step.controlTasks.length > 0 && (
                         <div className="border-t bg-muted/20 p-4 pl-14 space-y-4 animate-in slide-in-from-top-2">
@@ -648,36 +657,36 @@ export default function TransportManagementDetailPage() {
                                 <Label className="text-sm font-medium flex items-center gap-1">
                                   {task.name} {task.isRequired && <span className="text-destructive">*</span>}
                                 </Label>
-                                
+
                                 {task.type === 'text' && (
-                                  <Input 
-                                    placeholder="Текст бичих..." 
-                                    value={val || ''} 
+                                  <Input
+                                    placeholder="Текст бичих..."
+                                    value={val || ''}
                                     onChange={(e) => handleTaskResultChange(step.id, task.id, e.target.value)}
                                     className="bg-background max-w-md"
                                   />
                                 )}
                                 {task.type === 'number' && (
-                                  <Input 
+                                  <Input
                                     type="number"
-                                    placeholder="0" 
-                                    value={val || ''} 
+                                    placeholder="0"
+                                    value={val || ''}
                                     onChange={(e) => handleTaskResultChange(step.id, task.id, Number(e.target.value))}
                                     className="bg-background max-w-[200px]"
                                   />
                                 )}
                                 {task.type === 'date' && (
-                                  <Input 
+                                  <Input
                                     type="datetime-local"
-                                    value={val || ''} 
+                                    value={val || ''}
                                     onChange={(e) => handleTaskResultChange(step.id, task.id, e.target.value)}
                                     className="bg-background max-w-[250px]"
                                   />
                                 )}
                                 {task.type === 'checklist' && (
                                   <div className="flex items-center gap-2 h-10">
-                                    <Checkbox 
-                                      id={`chk-${task.id}`} 
+                                    <Checkbox
+                                      id={`chk-${task.id}`}
                                       checked={val === true}
                                       onCheckedChange={(c) => handleTaskResultChange(step.id, task.id, c === true)}
                                     />
@@ -689,9 +698,9 @@ export default function TransportManagementDetailPage() {
                                     {val ? (
                                       <div className="relative group">
                                         <img src={val} alt="Control task" className="h-20 w-20 object-cover rounded-md border" />
-                                        <Button 
-                                          variant="destructive" 
-                                          size="icon-sm" 
+                                        <Button
+                                          variant="destructive"
+                                          size="icon-sm"
                                           className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                                           onClick={() => handleTaskResultChange(step.id, task.id, null)}
                                         >
@@ -866,22 +875,22 @@ export default function TransportManagementDetailPage() {
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Ачааны нэр</Label>
-              <Input 
-                placeholder="Жишээ нь: Цемент" 
-                value={newCargo.name || ''} 
-                onChange={(e) => setNewCargo(prev => ({ ...prev, name: e.target.value }))} 
+              <Input
+                placeholder="Жишээ нь: Цемент"
+                value={newCargo.name || ''}
+                onChange={(e) => setNewCargo(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Хэмжээ</Label>
-                <Input 
-                  type="number" 
-                  min={0} 
-                  step="any" 
-                  value={newCargo.quantity || ''} 
-                  onChange={(e) => setNewCargo(prev => ({ ...prev, quantity: Number(e.target.value) }))} 
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={newCargo.quantity || ''}
+                  onChange={(e) => setNewCargo(prev => ({ ...prev, quantity: Number(e.target.value) }))}
                 />
               </div>
               <div className="space-y-2">
@@ -919,10 +928,10 @@ export default function TransportManagementDetailPage() {
 
             <div className="space-y-2">
               <Label>Тэмдэглэл</Label>
-              <Input 
-                placeholder="..." 
-                value={newCargo.note || ''} 
-                onChange={(e) => setNewCargo(prev => ({ ...prev, note: e.target.value }))} 
+              <Input
+                placeholder="..."
+                value={newCargo.note || ''}
+                onChange={(e) => setNewCargo(prev => ({ ...prev, note: e.target.value }))}
               />
             </div>
 
@@ -945,11 +954,11 @@ export default function TransportManagementDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Цуцлах</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 handleDelete();
-              }} 
+              }}
               disabled={isDeleting}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >

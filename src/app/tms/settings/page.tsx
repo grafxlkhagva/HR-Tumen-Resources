@@ -87,6 +87,9 @@ const settingsSchema = z.object({
   quotationCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
   quotationCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
   quotationCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+  contractCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  contractCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  contractCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
 });
 
 type MakeFormValues = z.infer<typeof makeSchema>;
@@ -128,9 +131,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_VEHICLE_MAKES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_VEHICLE_MAKES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -140,9 +143,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_VEHICLE_MODELS_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_VEHICLE_MODELS_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -152,9 +155,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_VEHICLE_TYPES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_VEHICLE_TYPES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -164,9 +167,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_TRAILER_TYPES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_TRAILER_TYPES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -176,9 +179,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_REGIONS_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_REGIONS_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -188,9 +191,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_INDUSTRIES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_INDUSTRIES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -200,9 +203,9 @@ export default function TmsSettingsPage() {
     () =>
       firestore
         ? query(
-            collection(firestore, TMS_PACKAGING_TYPES_COLLECTION),
-            orderBy('name', 'asc')
-          )
+          collection(firestore, TMS_PACKAGING_TYPES_COLLECTION),
+          orderBy('name', 'asc')
+        )
         : null,
     [firestore]
   );
@@ -252,9 +255,10 @@ export default function TmsSettingsPage() {
   });
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: { 
+    defaultValues: {
       transportCodePrefix: 'TR', transportCodePadding: 5, transportCodeCurrentNumber: 0,
-      quotationCodePrefix: 'QU', quotationCodePadding: 5, quotationCodeCurrentNumber: 0
+      quotationCodePrefix: 'QU', quotationCodePadding: 5, quotationCodeCurrentNumber: 0,
+      contractCodePrefix: 'CT', contractCodePadding: 5, contractCodeCurrentNumber: 0
     },
   });
 
@@ -267,6 +271,9 @@ export default function TmsSettingsPage() {
         quotationCodePrefix: settings.quotationCodePrefix || 'QU',
         quotationCodePadding: settings.quotationCodePadding || 5,
         quotationCodeCurrentNumber: settings.quotationCodeCurrentNumber || 0,
+        contractCodePrefix: settings.contractCodePrefix || 'CT',
+        contractCodePadding: settings.contractCodePadding || 5,
+        contractCodeCurrentNumber: settings.contractCodeCurrentNumber || 0,
       });
     }
   }, [settings, settingsForm]);
@@ -792,6 +799,51 @@ export default function TmsSettingsPage() {
                           )}
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-card border rounded-lg p-6">
+                    <h3 className="text-lg font-medium mb-4">Гэрээний кодчилол</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractCodePrefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын угтвар</FormLabel>
+                            <FormControl>
+                              <Input placeholder="CT" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractCodePadding"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын цифрийн урт</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={10} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractCodeCurrentNumber"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Одоогийн дугаар</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   </div>
                   <Button type="submit" disabled={isSavingSettings} className="gap-2">

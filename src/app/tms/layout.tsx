@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert } from 'lucide-react';
+import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,7 @@ const navItems = [
   { href: '/tms/vehicles', label: 'Тээврийн хэрэгсэл', icon: Car },
   { href: '/tms/services', label: 'Тээврийн үйлчилгээ', icon: Briefcase },
   { href: '/tms/quotations', label: 'Үнийн санал', icon: FileText },
+  { href: '/tms/contracts', label: 'Гэрээ', icon: ScrollText },
   { href: '/tms/settings', label: 'Тохиргоо', icon: Settings },
 ] as const;
 

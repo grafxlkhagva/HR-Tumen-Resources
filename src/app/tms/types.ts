@@ -212,6 +212,9 @@ export interface TmsSettings {
   quotationCodePrefix?: string;
   quotationCodePadding?: number;
   quotationCodeCurrentNumber?: number;
+  contractCodePrefix?: string;
+  contractCodePadding?: number;
+  contractCodeCurrentNumber?: number;
   updatedAt?: Timestamp;
 }
 export const TMS_SETTINGS_COLLECTION = 'tms_settings';
@@ -387,6 +390,10 @@ export interface TmsTransportManagement {
   code?: string; // Automatically generated code
   serviceTypeId: string;
   isContracted: boolean;
+  contractId?: string | null;
+  contractCode?: string | null;
+  contractServiceId?: string | null;
+  contractServiceName?: string | null;
   customerId: string;
   customerRef?: DocumentReference;
   status: TmsTransportManagementStatus;
@@ -409,9 +416,71 @@ export interface TmsTransportManagement {
 
   cargos?: TmsQuotationCargo[];
   dispatchSteps?: TmsDispatchStep[];
+  financeTransactions?: TmsFinanceTransaction[];
 
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
 
 export const TMS_TRANSPORT_MANAGEMENT_COLLECTION = 'tms_transport_management';
+
+/** Гэрээний төлөв */
+export type TmsContractStatus = 'draft' | 'active' | 'expired' | 'terminated';
+
+/** Гэрээнд тусгагдсан тээврийн үйлчилгээ */
+export interface TmsContractService {
+  id: string;
+  serviceTypeId?: string;
+  serviceTypeName?: string;
+  name?: string;
+  loadingRegionId?: string;
+  loadingRegionName?: string;
+  unloadingRegionId?: string;
+  unloadingRegionName?: string;
+  vehicleTypeId?: string;
+  vehicleTypeName?: string;
+  trailerTypeId?: string;
+  trailerTypeName?: string;
+  price: number;
+  currency?: string;
+  conditions?: string;
+}
+
+/** TMS Гэрээ */
+export interface TmsContract {
+  id: string;
+  code?: string;
+  customerId: string;
+  customerRef?: DocumentReference;
+  customerName?: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: TmsContractStatus;
+  note?: string;
+  services: TmsContractService[];
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_CONTRACTS_COLLECTION = 'tms_contracts';
+
+/** Санхүүгийн гүйлгээний төрөл */
+export type TmsFinanceType = 'receivable' | 'payable';
+/** Санхүүгийн гүйлгээний төлөв */
+export type TmsFinanceStatus = 'pending' | 'partial' | 'paid';
+
+/** TMS Санхүүгийн гүйлгээ (Нэхэмжлэх/Төлбөр) */
+export interface TmsFinanceTransaction {
+  id: string;
+  type: TmsFinanceType;          // receivable (авлага) | payable (өглөг)
+  category: string;              // e.g. 'advance', 'remainder', 'driver_payment', 'fuel', 'other'
+  description: string;
+  amount: number;
+  paidAmount: number;
+  status: TmsFinanceStatus;
+  dueDate?: string | null;
+  paidDate?: string | null;
+  note?: string | null;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}

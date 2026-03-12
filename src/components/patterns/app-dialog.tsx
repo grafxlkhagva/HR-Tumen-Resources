@@ -143,7 +143,7 @@ export function AppDialogBody({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-6 py-5', className)} {...props} />;
+  return <div className={cn('px-6 py-5 overflow-y-auto max-h-[60vh]', className)} {...props} />;
 }
 
 export function AppDialogFooter({
