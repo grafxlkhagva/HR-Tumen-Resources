@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, FileText, Loader2, File as FileIcon, X, Trash2, ExternalLink, Plus, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Loader2, File as FileIcon, X, Trash2, ExternalLink, Plus, FolderOpen, AlertCircle } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, deleteDoc, doc } from 'firebase/firestore';
@@ -33,7 +32,45 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+class MyDocumentsErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-50/50 flex flex-col items-center justify-center p-6">
+          <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+            <AlertCircle className="h-8 w-8 text-red-400" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700">Алдаа гарлаа</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4">Хуудсыг дахин ачаалж үзнэ үү</p>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            Дахин ачаалах
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function MyDocumentsPage() {
+  return (
+    <MyDocumentsErrorBoundary>
+      <MyDocumentsContent />
+    </MyDocumentsErrorBoundary>
+  );
+}
+
+function MyDocumentsContent() {
   const router = useRouter();
   const { employeeProfile, isProfileLoading, user, isUserLoading } = useEmployeeProfile();
   const { firestore, storage } = useFirebase();
@@ -63,7 +100,7 @@ export default function MyDocumentsPage() {
     [firestore, employeeId]
   );
 
-  const { data: documents, isLoading: isLoadingDocs } = useCollection<any>(documentsQuery as any);
+  const { data: documents, isLoading: isLoadingDocs, error: docsError } = useCollection<any>(documentsQuery as any);
 
   const docTypesQuery = useMemoFirebase(
     () => (firestore ? collection(firestore, 'er_document_types') : null),
@@ -233,7 +270,7 @@ export default function MyDocumentsPage() {
       <div className="flex-1 px-6 pt-4 space-y-3">
         {/* Upload section (expandable) */}
         {isUploadOpen && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-700">Шинэ баримт байршуулах</h3>
               <button onClick={resetUploadForm} className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200">
@@ -336,51 +373,70 @@ export default function MyDocumentsPage() {
               <Skeleton key={i} className="h-20 w-full rounded-2xl" />
             ))}
           </div>
+        ) : docsError ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+              <AlertCircle className="h-8 w-8 text-red-300" />
+            </div>
+            <p className="text-sm font-semibold text-red-500">Мэдээлэл ачаалахад алдаа гарлаа</p>
+            <p className="text-xs text-slate-400 mt-1">Дахин оролдож үзнэ үү</p>
+          </div>
         ) : documents && documents.length > 0 ? (
           <div className="space-y-3">
-            {documents.map((docItem: any) => (
-              <div
-                key={docItem.id}
-                className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                    <FileText className="h-5 w-5 text-indigo-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-700 truncate">{docItem.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5">
-                        {docItem.documentType}
-                      </Badge>
-                      <span className="text-[10px] text-slate-400">
-                        {docItem.uploadDate ? new Date(docItem.uploadDate).toLocaleDateString('mn-MN') : ''}
-                      </span>
+            {documents.map((docItem: any) => {
+              let dateStr = '';
+              try {
+                if (docItem.uploadDate) {
+                  dateStr = new Date(docItem.uploadDate).toLocaleDateString();
+                }
+              } catch (_) { /* ignore date parse errors */ }
+
+              return (
+                <div
+                  key={docItem.id}
+                  className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-11 w-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{docItem.title || 'Баримт бичиг'}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {docItem.documentType && (
+                          <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5">
+                            {docItem.documentType}
+                          </Badge>
+                        )}
+                        {dateStr && (
+                          <span className="text-[10px] text-slate-400">{dateStr}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {docItem.url && (
+                        <a
+                          href={docItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                      {docItem.metadata?.uploadedBy === 'employee' && (
+                        <button
+                          onClick={() => setDeleteTarget(docItem)}
+                          className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {docItem.url && (
-                      <a
-                        href={docItem.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    )}
-                    {docItem.metadata?.uploadedBy === 'employee' && (
-                      <button
-                        onClick={() => setDeleteTarget(docItem)}
-                        className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
