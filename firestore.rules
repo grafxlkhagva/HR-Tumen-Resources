@@ -208,6 +208,21 @@ service cloud.firestore {
         allow write: if isAdmin();
     }
 
+    // Employee documents: employees can manage their own documents
+    match /documents/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        request.resource.data.metadata.employeeId == request.auth.uid
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.metadata.employeeId == request.auth.uid &&
+        resource.data.metadata.get('uploadedBy', '') == 'employee'
+      );
+    }
+
     // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
     // Writable only by admins
     match /{refCollection}/{docId} {

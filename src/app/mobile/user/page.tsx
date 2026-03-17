@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronRight, LogOut, User, Bell, Lock, HelpCircle, Sparkles, FileText, ClipboardCheck } from 'lucide-react';
+import { ChevronRight, LogOut, User, Bell, Lock, HelpCircle, Sparkles, FileText, ClipboardCheck, FolderOpen } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -225,6 +225,7 @@ export default function MobileUserPage() {
 
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">Хувийн мэдээлэл</h3>
+          <SettingsItem icon={FolderOpen} label="Миний бичиг баримт" href="/mobile/my-documents" />
           <SettingsItem icon={User} label="Анкет засах" href="/mobile/profile/edit" />
         </div>
 
