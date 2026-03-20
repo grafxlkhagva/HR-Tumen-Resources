@@ -8,13 +8,14 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, Newspaper, LogOut, PenSquare, ShieldAlert } from 'lucide-react';
+import { Loader2, Newspaper, LogOut, PenSquare, ShieldAlert, History } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/news/posts', label: 'Нийтлэлүүд', icon: Newspaper },
   { href: '/news/posts/add', label: 'Шинэ нийтлэл', icon: PenSquare },
+  { href: '/news/history', label: 'Түүхэн үйл явдал', icon: History },
 ] as const;
 
 function NewsShell({ children }: { children: React.ReactNode }) {
@@ -92,7 +93,7 @@ function NewsShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href === '/news/posts' && pathname.startsWith('/news/posts/edit'));
+            const isActive = pathname === href || (href === '/news/posts' && pathname.startsWith('/news/posts/edit')) || (href === '/news/history' && pathname.startsWith('/news/history'));
             return (
               <Link
                 key={href}
