@@ -14,7 +14,7 @@ export default function Home() {
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
   const [isNavigating, setIsNavigating] = React.useState(false);
-  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean }>({ isAdmin: false, tmsAccess: false });
+  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false });
   const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
@@ -53,10 +53,11 @@ export default function Home() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          if (userData.role === 'admin' || userData.tmsAccess) {
+          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess) {
             setUserFlags({
               isAdmin: userData.role === 'admin',
               tmsAccess: !!userData.tmsAccess,
+              newsAccess: !!userData.newsAccess,
             });
             setShowRoleChoice(true);
           } else {
@@ -95,6 +96,11 @@ export default function Home() {
     router.replace('/tms');
   }, [router]);
 
+  const handleChooseNews = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/news');
+  }, [router]);
+
   // Don't close dialog from outside - only via button clicks
   const handleOpenChange = React.useCallback((open: boolean) => {
     // Only allow opening, not closing from outside
@@ -115,6 +121,7 @@ export default function Home() {
         onChooseAdmin={userFlags.isAdmin ? handleChooseAdmin : undefined}
         onChooseEmployee={handleChooseEmployee}
         onChooseTms={userFlags.tmsAccess || userFlags.isAdmin ? handleChooseTms : undefined}
+        onChooseNews={userFlags.newsAccess || userFlags.isAdmin ? handleChooseNews : undefined}
         companyName={companyProfile?.name}
       />
     </div>

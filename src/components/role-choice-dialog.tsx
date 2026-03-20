@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Shield, User, Building, Loader2, LayoutGrid } from 'lucide-react';
+import { Shield, User, Building, Loader2, LayoutGrid, Newspaper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RoleChoiceDialogProps {
@@ -17,6 +17,7 @@ interface RoleChoiceDialogProps {
     onChooseAdmin?: () => void;
     onChooseEmployee: () => void;
     onChooseTms?: () => void;
+    onChooseNews?: () => void;
     companyName?: string;
 }
 
@@ -26,9 +27,10 @@ export function RoleChoiceDialog({
     onChooseAdmin,
     onChooseEmployee,
     onChooseTms,
+    onChooseNews,
     companyName = 'Систем',
 }: RoleChoiceDialogProps) {
-    const [isNavigating, setIsNavigating] = React.useState<'admin' | 'employee' | 'tms' | null>(null);
+    const [isNavigating, setIsNavigating] = React.useState<'admin' | 'employee' | 'tms' | 'news' | null>(null);
 
     const handleChooseAdmin = React.useCallback(() => {
         if (isNavigating || !onChooseAdmin) return;
@@ -54,6 +56,14 @@ export function RoleChoiceDialog({
             onChooseTms();
         }, 100);
     }, [isNavigating, onChooseTms]);
+
+    const handleChooseNews = React.useCallback(() => {
+        if (isNavigating || !onChooseNews) return;
+        setIsNavigating('news');
+        setTimeout(() => {
+            onChooseNews();
+        }, 100);
+    }, [isNavigating, onChooseNews]);
 
     // Reset navigating state when dialog closes
     React.useEffect(() => {
@@ -175,6 +185,36 @@ export function RoleChoiceDialog({
                                 <div className="font-semibold text-base mb-1">TMS ээр нэвтрэх</div>
                                 <div className="text-sm text-muted-foreground leading-snug">
                                     Тээврийн удирдлагын систем
+                                </div>
+                            </div>
+                        </button>
+                    )}
+
+                    {onChooseNews && (
+                        <button
+                            type="button"
+                            onClick={handleChooseNews}
+                            disabled={isNavigating !== null}
+                            className={cn(
+                                "flex items-start gap-4 w-full rounded-xl border-2 border-transparent p-5 text-left",
+                                "bg-slate-50 dark:bg-slate-900/50 hover:border-primary/30 hover:bg-primary/5",
+                                "dark:hover:bg-primary/10 transition-all duration-200",
+                                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                                "disabled:opacity-50 disabled:cursor-not-allowed",
+                                isNavigating === 'news' && "border-primary/50 bg-primary/10"
+                            )}
+                        >
+                            <div className="h-11 w-11 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                                {isNavigating === 'news' ? (
+                                    <Loader2 className="h-6 w-6 text-orange-600 dark:text-orange-400 animate-spin" />
+                                ) : (
+                                    <Newspaper className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                                <div className="font-semibold text-base mb-1">Мэдээллээр нэвтрэх</div>
+                                <div className="text-sm text-muted-foreground leading-snug">
+                                    Байгууллагын мэдээ, мэдээлэл удирдах
                                 </div>
                             </div>
                         </button>

@@ -30,6 +30,16 @@ service cloud.firestore {
       return isAdmin() || isTmsUser();
     }
 
+    function isNewsUser() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('newsAccess', false) == true;
+    }
+
+    function isNewsAllowed() {
+      return isAdmin() || isNewsUser();
+    }
+
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
@@ -54,7 +64,7 @@ service cloud.firestore {
       // Owners can update their profile, but cannot change privileged fields.
       allow update: if isAdmin() || (
         isOwner(employeeId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'tmsAccess', 'questionnaireLocked'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'tmsAccess', 'newsAccess', 'questionnaireLocked'])
       );
     }
     
@@ -108,8 +118,8 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || 
+      allow create, delete: if isNewsAllowed();
+      allow update: if isNewsAllowed() || 
                     (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
     }
 

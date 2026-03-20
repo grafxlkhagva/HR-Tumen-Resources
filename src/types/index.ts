@@ -119,6 +119,8 @@ export interface Employee {
     role?: 'admin' | 'employee';
     /** TMS системд нэвтрэх эрхтэй эсэх */
     tmsAccess?: boolean;
+    /** Мэдээлэл модулд нэвтрэх эрхтэй эсэх */
+    newsAccess?: boolean;
 }
 
 /**

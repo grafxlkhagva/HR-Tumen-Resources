@@ -34,7 +34,8 @@ import {
     Check,
     X,
     Loader2,
-    Truck
+    Truck,
+    Newspaper
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -52,6 +53,7 @@ import { OffboardingTabContent } from './offboarding-tab-content';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { MakeAdminDialog } from './make-admin-dialog';
 import { TmsAccessDialog } from './tms-access-dialog';
+import { NewsAccessDialog } from './news-access-dialog';
 import { SystemSettingsTabContent } from './system-settings-tab-content';
 import { CVTabContent } from './cv-tab-content';
 import { useToast } from '@/hooks/use-toast';
@@ -647,6 +649,7 @@ export default function EmployeeProfilePage() {
     const { user } = useUser();
     const [showAdminDialog, setShowAdminDialog] = React.useState(false);
     const [showTmsAccessDialog, setShowTmsAccessDialog] = React.useState(false);
+    const [showNewsAccessDialog, setShowNewsAccessDialog] = React.useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
     const photoInputRef = React.useRef<HTMLInputElement>(null);
     
@@ -1127,6 +1130,15 @@ export default function EmployeeProfilePage() {
                                 <Truck className="h-3.5 w-3.5 mr-1.5" />
                                 {employee.tmsAccess ? 'TMS эрхтэй' : 'TMS эрх олгох'}
                             </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn("h-8", employee.newsAccess && "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100")}
+                                onClick={() => setShowNewsAccessDialog(true)}
+                            >
+                                <Newspaper className="h-3.5 w-3.5 mr-1.5" />
+                                {employee.newsAccess ? 'Мэдээлэл эрхтэй' : 'Мэдээлэл эрх олгох'}
+                            </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
                                     <Activity className="h-3.5 w-3.5 mr-1.5" />
@@ -1424,6 +1436,13 @@ export default function EmployeeProfilePage() {
             <TmsAccessDialog
                 open={showTmsAccessDialog}
                 onOpenChange={setShowTmsAccessDialog}
+                employee={employee}
+            />
+
+            {/* News Access Dialog */}
+            <NewsAccessDialog
+                open={showNewsAccessDialog}
+                onOpenChange={setShowNewsAccessDialog}
                 employee={employee}
             />
         </>
