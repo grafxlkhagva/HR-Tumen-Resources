@@ -50,6 +50,7 @@ const schema = z.object({
     year: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v == null ? undefined : Number(v))),
     capacity: z.string().optional(),
     fuelType: z.enum(['Diesel', 'Gasoline', 'Electric', 'Hybrid']).optional(),
+    gpsDeviceId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -73,6 +74,7 @@ export function EditVehicleBasicDialog({ open, onOpenChange, vehicle }: EditVehi
             year: vehicle.year || undefined,
             capacity: vehicle.capacity || '',
             fuelType: vehicle.fuelType || undefined,
+            gpsDeviceId: vehicle.gpsDeviceId || '',
         },
     });
 
@@ -84,6 +86,7 @@ export function EditVehicleBasicDialog({ open, onOpenChange, vehicle }: EditVehi
                 year: vehicle.year || undefined,
                 capacity: vehicle.capacity || '',
                 fuelType: vehicle.fuelType || undefined,
+                gpsDeviceId: vehicle.gpsDeviceId || '',
             });
         }
     }, [open, vehicle, form]);
@@ -98,6 +101,7 @@ export function EditVehicleBasicDialog({ open, onOpenChange, vehicle }: EditVehi
                 year: values.year ?? null,
                 capacity: values.capacity?.trim() || null,
                 fuelType: values.fuelType || null,
+                gpsDeviceId: values.gpsDeviceId?.trim() || null,
                 updatedAt: serverTimestamp(),
             };
 
@@ -153,22 +157,31 @@ export function EditVehicleBasicDialog({ open, onOpenChange, vehicle }: EditVehi
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <FormField control={form.control} name="fuelType" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Шатахууны төрөл</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {FUEL_OPTIONS.map((o) => (
-                                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="fuelType" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Шатахууны төрөл</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {FUEL_OPTIONS.map((o) => (
+                                                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="gpsDeviceId" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>GPS төхөөрөмжийн ID (IMEI)</FormLabel>
+                                        <FormControl><Input placeholder="Жишээ: 9176344523" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
                         </AppDialogBody>
                         <AppDialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Цуцлах</Button>

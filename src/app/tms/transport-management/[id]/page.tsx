@@ -50,6 +50,8 @@ import {
   TMS_VEHICLE_TYPES_COLLECTION,
   TMS_TRAILER_TYPES_COLLECTION,
   TMS_PACKAGING_TYPES_COLLECTION,
+  TMS_VEHICLES_COLLECTION,
+  TMS_DRIVERS_COLLECTION,
   type TmsTransportManagement,
   type TmsCustomer,
   type TmsServiceType,
@@ -124,6 +126,14 @@ export default function TransportManagementDetailPage() {
     firestore ? collection(firestore, TMS_PACKAGING_TYPES_COLLECTION) : null
   );
 
+  const { data: vehiclesList } = useCollection<{ id: string; makeName?: string; modelName?: string; licensePlate?: string; }>(
+    firestore ? collection(firestore, TMS_VEHICLES_COLLECTION) : null
+  );
+
+  const { data: driversList } = useCollection<{ id: string; firstName: string; lastName: string; }>(
+    firestore ? collection(firestore, TMS_DRIVERS_COLLECTION) : null
+  );
+
   const [dialogs, setDialogs] = React.useState({
     route: false,
     vehicle: false,
@@ -194,6 +204,8 @@ export default function TransportManagementDetailPage() {
         frequency: t.frequency || null,
         vehicleTypeId: t.vehicleTypeId || null,
         trailerTypeId: t.trailerTypeId || null,
+        vehicleId: t.vehicleId || null,
+        driverId: t.driverId || null,
         driverPrice: t.driverPrice || null,
         profitMarginPercent: t.profitMarginPercent || null,
         hasVat: t.hasVat || false,
@@ -367,6 +379,8 @@ export default function TransportManagementDetailPage() {
 
   const loadingW = warehouses?.find((w: any) => w.id === t.loadingWarehouseId);
   const unloadingW = warehouses?.find((w: any) => w.id === t.unloadingWarehouseId);
+  const selectedVehicle = t.vehicleId ? vehiclesList?.find(v => v.id === t.vehicleId) : null;
+  const gpsDeviceId = (selectedVehicle as any)?.gpsDeviceId;
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto bg-muted/20">
@@ -410,7 +424,7 @@ export default function TransportManagementDetailPage() {
       <div className="flex-1 p-4 sm:p-6 space-y-6 max-w-6xl mx-auto w-full">
         {/* Route / Map Section */}
         <Card className="overflow-hidden">
-          <RouteMap loadingWarehouse={loadingW} unloadingWarehouse={unloadingW} />
+          <RouteMap loadingWarehouse={loadingW} unloadingWarehouse={unloadingW} gpsDeviceId={gpsDeviceId} />
           <div className="p-4 border-b flex flex-row items-center justify-between bg-card">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
@@ -504,7 +518,20 @@ export default function TransportManagementDetailPage() {
               <div className="flex flex-col gap-4">
                 <div className="border-b pb-2">
                   <div className="text-sm text-muted-foreground mb-1">Машин</div>
-                  <div className="font-medium text-sm">{getVehicleName(t.vehicleTypeId)}</div>
+                  <div className="font-medium text-sm">
+                    {t.vehicleId ? (vehiclesList?.find(v => v.id === t.vehicleId)?.licensePlate || 'Сонгоогүй') : getVehicleName(t.vehicleTypeId)}
+                  </div>
+                </div>
+                <div className="border-b pb-2">
+                  <div className="text-sm text-muted-foreground mb-1">Жолооч</div>
+                  <div className="font-medium text-sm">
+                    {t.driverId ? (
+                      (() => {
+                        const d = driversList?.find(d => d.id === t.driverId);
+                        return d ? `${d.lastName?.slice(0,1) || ''}. ${d.firstName}` : 'Сонгоогүй';
+                      })()
+                    ) : 'Сонгоогүй'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">Тэвш</div>
@@ -860,7 +887,27 @@ export default function TransportManagementDetailPage() {
           <AppDialogHeader><AppDialogTitle>Тээврийн хэрэгсэл засах</AppDialogTitle></AppDialogHeader>
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Машин</Label>
+              <Label>Тодорхой машин оноох</Label>
+              <Select value={t.vehicleId || 'none'} onValueChange={(val) => handleChange('vehicleId', val === 'none' ? null : val)}>
+                <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Сонгоогүй</SelectItem>
+                  {vehiclesList?.map((v) => <SelectItem key={v.id} value={v.id}>{v.licensePlate} {v.makeName ? `- ${v.makeName}` : ''}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Жолооч оноох</Label>
+              <Select value={t.driverId || 'none'} onValueChange={(val) => handleChange('driverId', val === 'none' ? null : val)}>
+                <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Сонгоогүй</SelectItem>
+                  {driversList?.map((d) => <SelectItem key={d.id} value={d.id}>{d.lastName ? `${d.lastName[0]}. ` : ''}{d.firstName}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Машины төрөл</Label>
               <Select value={t.vehicleTypeId || ''} onValueChange={(val) => handleChange('vehicleTypeId', val)}>
                 <SelectTrigger><SelectValue placeholder="Төрөл..." /></SelectTrigger>
                 <SelectContent>

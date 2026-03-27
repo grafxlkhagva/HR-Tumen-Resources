@@ -281,6 +281,7 @@ export interface TmsVehicle {
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   createdBy?: TmsVehicleCreatedBy;
+  gpsDeviceId?: string;
 }
 
 export const TMS_VEHICLES_COLLECTION = 'tms_vehicles';
@@ -410,6 +411,8 @@ export interface TmsTransportManagement {
   frequency?: number;
   vehicleTypeId?: string;
   trailerTypeId?: string;
+  vehicleId?: string;
+  driverId?: string;
 
   driverPrice?: number;
   profitMarginPercent?: number;
