@@ -187,6 +187,8 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             }));
           }
 
+          const acceptedOffer = firstTrans.driverOffers?.find((o: any) => o.isAccepted);
+
           transaction.set(docRef, {
             code: newCode,
             serviceTypeId: firstTrans.serviceTypeId || '',
@@ -204,6 +206,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             frequency: firstTrans.frequency || null,
             vehicleTypeId: firstTrans.vehicleTypeId || null,
             trailerTypeId: firstTrans.trailerTypeId || null,
+            driverPrice: acceptedOffer?.offerAmount || null,
             profitMarginPercent: firstTrans.profitMarginPercent || null,
             hasVat: firstTrans.hasVat || false,
             cargos: firstTrans.cargos || [],
@@ -249,6 +252,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             unloadingRegionId: contractService.unloadingRegionId || null,
             vehicleTypeId: contractService.vehicleTypeId || null,
             trailerTypeId: contractService.trailerTypeId || null,
+            driverPrice: contractService.price || null,
             dispatchSteps,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),

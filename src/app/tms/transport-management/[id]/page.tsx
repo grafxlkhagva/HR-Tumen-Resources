@@ -194,6 +194,7 @@ export default function TransportManagementDetailPage() {
         frequency: t.frequency || null,
         vehicleTypeId: t.vehicleTypeId || null,
         trailerTypeId: t.trailerTypeId || null,
+        driverPrice: t.driverPrice || null,
         profitMarginPercent: t.profitMarginPercent || null,
         hasVat: t.hasVat || false,
         cargos: t.cargos || [],
@@ -522,16 +523,33 @@ export default function TransportManagementDetailPage() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 flex-1">
-              <div className="flex flex-col gap-4">
-                <div className="border-b pb-2 flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">Ашгийн хувь</div>
-                  <div className="font-medium text-sm">{t.profitMarginPercent || 0}%</div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">НӨАТ-тэй эсэх</div>
-                  <div className="font-medium text-sm">{t.hasVat ? 'Тийм' : 'Үгүй'}</div>
-                </div>
-              </div>
+              {(() => {
+                const dp = t.driverPrice || 0;
+                const margin = t.profitMarginPercent || 0;
+                const sellingPrice = dp > 0 ? Math.round(dp * (1 + margin / 100)) : 0;
+                const vatAmount = t.hasVat ? Math.round(sellingPrice * 0.1) : 0;
+                const transportPrice = sellingPrice + vatAmount;
+                return (
+                  <div className="flex flex-col gap-3">
+                    <div className="border-b pb-2 flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">Тээвэрчиний үнэ</div>
+                      <div className="font-medium text-sm">{dp > 0 ? `${dp.toLocaleString()}₮` : '—'}</div>
+                    </div>
+                    <div className="border-b pb-2 flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">Ашгийн хувь</div>
+                      <div className="font-medium text-sm">{margin}%</div>
+                    </div>
+                    <div className="border-b pb-2 flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">НӨАТ</div>
+                      <div className="font-medium text-sm">{t.hasVat ? `${vatAmount.toLocaleString()}₮` : 'Үгүй'}</div>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <div className="text-sm font-semibold">Тээврийн үнэ</div>
+                      <div className="font-bold text-base text-primary">{transportPrice > 0 ? `${transportPrice.toLocaleString()}₮` : '—'}</div>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -854,13 +872,53 @@ export default function TransportManagementDetailPage() {
           <AppDialogHeader><AppDialogTitle>Санхүүгийн мэдээлэл засах</AppDialogTitle></AppDialogHeader>
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
+              <Label>Тээвэрчиний үнэ (₮)</Label>
+              <Input type="number" min={0} value={t.driverPrice || ''} placeholder="0" onChange={(e) => handleChange('driverPrice', Number(e.target.value))} />
+            </div>
+            <div className="space-y-2">
               <Label>Ашгийн хувь (%)</Label>
               <Input type="number" min={0} value={t.profitMarginPercent || 0} onChange={(e) => handleChange('profitMarginPercent', Number(e.target.value))} />
             </div>
             <div className="flex items-center h-10 gap-2">
               <Checkbox id="vat" checked={t.hasVat} onCheckedChange={(checked) => handleChange('hasVat', checked === true)} />
-              <Label htmlFor="vat" className="font-normal cursor-pointer">НӨАТ-тэй эсэх</Label>
+              <Label htmlFor="vat" className="font-normal cursor-pointer">НӨАТ-тэй эсэх (10%)</Label>
             </div>
+            {(() => {
+              const dp = t.driverPrice || 0;
+              const margin = t.profitMarginPercent || 0;
+              const sellingPrice = dp > 0 ? Math.round(dp * (1 + margin / 100)) : 0;
+              const profitAmount = sellingPrice - dp;
+              const vatAmount = t.hasVat ? Math.round(sellingPrice * 0.1) : 0;
+              const transportPrice = sellingPrice + vatAmount;
+              if (dp <= 0) return null;
+              return (
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Тооцоолол</div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Тээвэрчиний үнэ</span>
+                    <span>{dp.toLocaleString()}₮</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Ашиг ({margin}%)</span>
+                    <span>+{profitAmount.toLocaleString()}₮</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t pt-1">
+                    <span className="text-muted-foreground">Борлуулах үнэ</span>
+                    <span className="font-medium">{sellingPrice.toLocaleString()}₮</span>
+                  </div>
+                  {t.hasVat && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">НӨАТ (10%)</span>
+                      <span>+{vatAmount.toLocaleString()}₮</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-bold border-t pt-2 text-primary">
+                    <span>Тээврийн үнэ</span>
+                    <span>{transportPrice.toLocaleString()}₮</span>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="flex justify-end gap-2 pt-4">
               <Button onClick={() => setDialogs(prev => ({ ...prev, finance: false }))}>Хаах</Button>
             </div>

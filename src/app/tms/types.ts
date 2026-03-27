@@ -411,6 +411,7 @@ export interface TmsTransportManagement {
   vehicleTypeId?: string;
   trailerTypeId?: string;
 
+  driverPrice?: number;
   profitMarginPercent?: number;
   hasVat?: boolean;
 
