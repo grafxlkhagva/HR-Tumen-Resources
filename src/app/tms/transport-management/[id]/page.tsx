@@ -111,7 +111,7 @@ export default function TransportManagementDetailPage() {
   const { data: regions } = useCollection<{ id: string; name: string }>(
     firestore ? collection(firestore, TMS_REGIONS_COLLECTION) : null
   );
-  const { data: warehouses } = useCollection<{ id: string; name: string }>(
+  const { data: warehouses } = useCollection<{ id: string; name: string; regionId?: string }>(
     firestore ? collection(firestore, TMS_WAREHOUSES_COLLECTION) : null
   );
   const { data: vehicleTypes } = useCollection<{ id: string; name: string }>(
@@ -776,7 +776,10 @@ export default function TransportManagementDetailPage() {
                 <h4 className="font-medium flex items-center gap-2">Ачих</h4>
                 <div className="space-y-2">
                   <Label>Ачих бүс</Label>
-                  <Select value={t.loadingRegionId || ''} onValueChange={(val) => handleChange('loadingRegionId', val)}>
+                  <Select value={t.loadingRegionId || ''} onValueChange={(val) => {
+                    handleChange('loadingRegionId', val);
+                    if (val !== t.loadingRegionId) handleChange('loadingWarehouseId', '');
+                  }}>
                     <SelectTrigger><SelectValue placeholder="Ачих бүс..." /></SelectTrigger>
                     <SelectContent>
                       {regions?.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -786,11 +789,17 @@ export default function TransportManagementDetailPage() {
                 <div className="space-y-2">
                   <Label>Ачих агуулах</Label>
                   <Select value={t.loadingWarehouseId || ''} onValueChange={(val) => handleChange('loadingWarehouseId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Ачих агуулах..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t.loadingRegionId ? "Агуулах сонгох..." : "Эхлээд бүс сонгоно уу..."} /></SelectTrigger>
                     <SelectContent>
-                      {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                      {(t.loadingRegionId
+                        ? warehouses?.filter((w) => w.regionId === t.loadingRegionId)
+                        : warehouses
+                      )?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {t.loadingRegionId && warehouses?.filter((w) => w.regionId === t.loadingRegionId).length === 0 && (
+                    <p className="text-xs text-muted-foreground">Энэ бүсэд агуулах бүртгэгдээгүй байна.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Ачих огноо, цаг</Label>
@@ -802,7 +811,10 @@ export default function TransportManagementDetailPage() {
                 <h4 className="font-medium flex items-center gap-2">Буулгах</h4>
                 <div className="space-y-2">
                   <Label>Буулгах бүс</Label>
-                  <Select value={t.unloadingRegionId || ''} onValueChange={(val) => handleChange('unloadingRegionId', val)}>
+                  <Select value={t.unloadingRegionId || ''} onValueChange={(val) => {
+                    handleChange('unloadingRegionId', val);
+                    if (val !== t.unloadingRegionId) handleChange('unloadingWarehouseId', '');
+                  }}>
                     <SelectTrigger><SelectValue placeholder="Буулгах бүс..." /></SelectTrigger>
                     <SelectContent>
                       {regions?.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -812,11 +824,17 @@ export default function TransportManagementDetailPage() {
                 <div className="space-y-2">
                   <Label>Буулгах агуулах</Label>
                   <Select value={t.unloadingWarehouseId || ''} onValueChange={(val) => handleChange('unloadingWarehouseId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Буулгах агуулах..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t.unloadingRegionId ? "Агуулах сонгох..." : "Эхлээд бүс сонгоно уу..."} /></SelectTrigger>
                     <SelectContent>
-                      {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                      {(t.unloadingRegionId
+                        ? warehouses?.filter((w) => w.regionId === t.unloadingRegionId)
+                        : warehouses
+                      )?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {t.unloadingRegionId && warehouses?.filter((w) => w.regionId === t.unloadingRegionId).length === 0 && (
+                    <p className="text-xs text-muted-foreground">Энэ бүсэд агуулах бүртгэгдээгүй байна.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Буулгах огноо, цаг</Label>

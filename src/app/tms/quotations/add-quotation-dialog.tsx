@@ -22,13 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
@@ -214,24 +208,17 @@ export function AddQuotationDialog({ open, onOpenChange }: AddQuotationDialogPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Харилцагч байгууллага *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!customers.length}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Сонгох" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name || c.id}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={customers.map((c) => ({ value: c.id, label: c.name || c.id }))}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Сонгох"
+                        searchPlaceholder="Харилцагч хайх..."
+                        emptyText="Харилцагч олдсонгүй."
+                        disabled={!customers.length}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -242,26 +229,23 @@ export function AddQuotationDialog({ open, onOpenChange }: AddQuotationDialogPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Тухайн байгуулагын хариуцсан ажилтан</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || NO_CUSTOMER_EMPLOYEE_VALUE}
-                      disabled={!selectedCustomerId}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={selectedCustomerId ? 'Сонгох (заавал биш)' : 'Эхлээд харилцагч сонгоно уу'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={NO_CUSTOMER_EMPLOYEE_VALUE}>— Сонгохгүй —</SelectItem>
-                        {customerEmployees.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.lastName} {e.firstName}
-                            {e.position ? ` (${e.position})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={[
+                          { value: NO_CUSTOMER_EMPLOYEE_VALUE, label: '— Сонгохгүй —' },
+                          ...customerEmployees.map((e) => ({
+                            value: e.id,
+                            label: `${e.lastName} ${e.firstName}${e.position ? ` (${e.position})` : ''}`,
+                          })),
+                        ]}
+                        value={field.value || NO_CUSTOMER_EMPLOYEE_VALUE}
+                        onValueChange={field.onChange}
+                        placeholder={selectedCustomerId ? 'Сонгох (заавал биш)' : 'Эхлээд харилцагч сонгоно уу'}
+                        searchPlaceholder="Ажилтан хайх..."
+                        emptyText="Ажилтан олдсонгүй."
+                        disabled={!selectedCustomerId}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -272,25 +256,21 @@ export function AddQuotationDialog({ open, onOpenChange }: AddQuotationDialogPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Манай хариуцсан ажилтан / Тээврийн менежер *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!companyEmployees.length}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Сонгох" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {companyEmployees.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.firstName} {e.lastName}
-                            {e.jobTitle ? ` — ${e.jobTitle}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={companyEmployees.map((e) => ({
+                          value: e.id,
+                          label: `${e.firstName} ${e.lastName}`,
+                          description: e.jobTitle || undefined,
+                        }))}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Сонгох"
+                        searchPlaceholder="Ажилтан хайх..."
+                        emptyText="Ажилтан олдсонгүй."
+                        disabled={!companyEmployees.length}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

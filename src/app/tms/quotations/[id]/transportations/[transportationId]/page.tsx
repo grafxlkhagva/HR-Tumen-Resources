@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Loader2, Save, Plus, Trash2, CheckCircle2, Pencil, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -581,21 +582,25 @@ export default function QuotationTransportationDetailPage() {
                 <h4 className="font-medium flex items-center gap-2">Ачих</h4>
                 <div className="space-y-2">
                   <Label>Ачих бүс</Label>
-                  <Select value={t.loadingRegionId} onValueChange={(val) => handleChange('loadingRegionId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Ачих бүс..." /></SelectTrigger>
-                    <SelectContent>
-                      {regions?.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={regions?.map((r) => ({ value: r.id, label: r.name })) || []}
+                    value={t.loadingRegionId}
+                    onValueChange={(val) => handleChange('loadingRegionId', val)}
+                    placeholder="Ачих бүс..."
+                    searchPlaceholder="Бүс хайх..."
+                    emptyText="Бүс олдсонгүй."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Ачих агуулах</Label>
-                  <Select value={t.loadingWarehouseId} onValueChange={(val) => handleChange('loadingWarehouseId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Ачих агуулах..." /></SelectTrigger>
-                    <SelectContent>
-                      {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={warehouses?.map((w) => ({ value: w.id, label: w.name })) || []}
+                    value={t.loadingWarehouseId}
+                    onValueChange={(val) => handleChange('loadingWarehouseId', val)}
+                    placeholder="Ачих агуулах..."
+                    searchPlaceholder="Агуулах хайх..."
+                    emptyText="Агуулах олдсонгүй."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Ачих огноо, цаг</Label>
@@ -607,21 +612,25 @@ export default function QuotationTransportationDetailPage() {
                 <h4 className="font-medium flex items-center gap-2">Буулгах</h4>
                 <div className="space-y-2">
                   <Label>Буулгах бүс</Label>
-                  <Select value={t.unloadingRegionId} onValueChange={(val) => handleChange('unloadingRegionId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Буулгах бүс..." /></SelectTrigger>
-                    <SelectContent>
-                      {regions?.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={regions?.map((r) => ({ value: r.id, label: r.name })) || []}
+                    value={t.unloadingRegionId}
+                    onValueChange={(val) => handleChange('unloadingRegionId', val)}
+                    placeholder="Буулгах бүс..."
+                    searchPlaceholder="Бүс хайх..."
+                    emptyText="Бүс олдсонгүй."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Буулгах агуулах</Label>
-                  <Select value={t.unloadingWarehouseId} onValueChange={(val) => handleChange('unloadingWarehouseId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Буулгах агуулах..." /></SelectTrigger>
-                    <SelectContent>
-                      {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={warehouses?.map((w) => ({ value: w.id, label: w.name })) || []}
+                    value={t.unloadingWarehouseId}
+                    onValueChange={(val) => handleChange('unloadingWarehouseId', val)}
+                    placeholder="Буулгах агуулах..."
+                    searchPlaceholder="Агуулах хайх..."
+                    emptyText="Агуулах олдсонгүй."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Буулгах огноо, цаг</Label>
@@ -648,12 +657,14 @@ export default function QuotationTransportationDetailPage() {
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Үйлчилгээний төрөл</Label>
-              <Select value={t.serviceTypeId} onValueChange={(val) => handleChange('serviceTypeId', val)}>
-                <SelectTrigger><SelectValue placeholder="Төрөл..." /></SelectTrigger>
-                <SelectContent>
-                  {serviceTypes?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={serviceTypes?.map((s) => ({ value: s.id, label: s.name })) || []}
+                value={t.serviceTypeId}
+                onValueChange={(val) => handleChange('serviceTypeId', val)}
+                placeholder="Төрөл..."
+                searchPlaceholder="Үйлчилгээ хайх..."
+                emptyText="Үйлчилгээ олдсонгүй."
+              />
             </div>
             <div className="space-y-2">
               <Label>Давтамж</Label>
@@ -673,21 +684,25 @@ export default function QuotationTransportationDetailPage() {
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Машин</Label>
-              <Select value={t.vehicleTypeId} onValueChange={(val) => handleChange('vehicleTypeId', val)}>
-                <SelectTrigger><SelectValue placeholder="Төрөл..." /></SelectTrigger>
-                <SelectContent>
-                  {vehicleTypes?.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={vehicleTypes?.map((v) => ({ value: v.id, label: v.name })) || []}
+                value={t.vehicleTypeId}
+                onValueChange={(val) => handleChange('vehicleTypeId', val)}
+                placeholder="Төрөл..."
+                searchPlaceholder="Машины төрөл хайх..."
+                emptyText="Төрөл олдсонгүй."
+              />
             </div>
             <div className="space-y-2">
               <Label>Тэвш</Label>
-              <Select value={t.trailerTypeId} onValueChange={(val) => handleChange('trailerTypeId', val)}>
-                <SelectTrigger><SelectValue placeholder="Төрөл..." /></SelectTrigger>
-                <SelectContent>
-                  {trailerTypes?.map((tr) => <SelectItem key={tr.id} value={tr.id}>{tr.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={trailerTypes?.map((tr) => ({ value: tr.id, label: tr.name })) || []}
+                value={t.trailerTypeId}
+                onValueChange={(val) => handleChange('trailerTypeId', val)}
+                placeholder="Төрөл..."
+                searchPlaceholder="Тэвшний төрөл хайх..."
+                emptyText="Төрөл олдсонгүй."
+              />
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button onClick={() => setDialogs(prev => ({ ...prev, vehicle: false }))}>Хаах</Button>
@@ -723,7 +738,15 @@ export default function QuotationTransportationDetailPage() {
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Жолооч хайх</Label>
-              <Select
+              <SearchableSelect
+                options={[
+                  { value: 'none', label: 'Системд бүртгэлгүй (Гараар бичих)' },
+                  ...(drivers?.map((d) => ({
+                    value: d.id,
+                    label: `${d.lastName?.charAt(0) || ''}. ${d.firstName}`,
+                    description: d.phone || undefined,
+                  })) || []),
+                ]}
                 value={newOffer.driverId || ''}
                 onValueChange={(val) => {
                   if (val === 'none') {
@@ -738,17 +761,10 @@ export default function QuotationTransportationDetailPage() {
                     }));
                   }
                 }}
-              >
-                <SelectTrigger><SelectValue placeholder="Жолооч сонгох..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Системд бүртгэлгүй (Гараар бичих)</SelectItem>
-                  {drivers?.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.lastName?.charAt(0) || ''}. {d.firstName} ({d.phone})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Жолооч сонгох..."
+                searchPlaceholder="Нэр, утас хайх..."
+                emptyText="Жолооч олдсонгүй."
+              />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -825,17 +841,14 @@ export default function QuotationTransportationDetailPage() {
 
             <div className="space-y-2">
               <Label>Баглаа боодол</Label>
-              <Select
+              <SearchableSelect
+                options={packagingTypes?.map((pt) => ({ value: pt.id, label: pt.name })) || []}
                 value={newCargo.packagingTypeId || ''}
                 onValueChange={(val) => setNewCargo(prev => ({ ...prev, packagingTypeId: val }))}
-              >
-                <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
-                <SelectContent>
-                  {packagingTypes?.map((pt) => (
-                    <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Сонгох..."
+                searchPlaceholder="Баглаа хайх..."
+                emptyText="Баглаа олдсонгүй."
+              />
             </div>
 
             <div className="space-y-2">

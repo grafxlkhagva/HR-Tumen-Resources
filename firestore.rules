@@ -690,6 +690,9 @@ service cloud.firestore {
     match /tms_transport_management/{transportId} {
       allow read, write: if isTmsAllowed();
     }
+    match /tms_contracts/{contractId} {
+      allow read, write: if isTmsAllowed();
+    }
 
   }
 }

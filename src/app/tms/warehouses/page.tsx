@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddWarehouseDialog } from './add-warehouse-dialog';
-import { TMS_WAREHOUSES_COLLECTION } from '@/app/tms/types';
+import { TMS_WAREHOUSES_COLLECTION, TMS_REGIONS_COLLECTION } from '@/app/tms/types';
 import type { TmsWarehouse } from '@/app/tms/types';
 import { Plus, Search, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, HardDrive, Package } from 'lucide-react';
 
@@ -65,6 +65,21 @@ export default function TmsWarehousesPage() {
   );
   const { data: allWarehouses, isLoading } = useCollection<TmsWarehouse>(warehousesQuery);
 
+  const regionsQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, TMS_REGIONS_COLLECTION), orderBy('name', 'asc'))
+        : null,
+    [firestore]
+  );
+  const { data: regions = [] } = useCollection<{ id: string; name: string }>(regionsQuery);
+
+  const regionMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of regions) m.set(r.id, r.name);
+    return m;
+  }, [regions]);
+
   const filtered = React.useMemo(() => {
     if (!allWarehouses) return [];
     const q = search.trim().toLowerCase();
@@ -74,9 +89,9 @@ export default function TmsWarehousesPage() {
         w.name?.toLowerCase().includes(q) ||
         w.location?.toLowerCase().includes(q) ||
         w.customerName?.toLowerCase().includes(q) ||
-        w.regionId?.toLowerCase().includes(q)
+        regionMap.get(w.regionId)?.toLowerCase().includes(q)
     );
-  }, [allWarehouses, search]);
+  }, [allWarehouses, search, regionMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageIndex = Math.min(page, totalPages - 1);
@@ -174,16 +189,17 @@ export default function TmsWarehousesPage() {
           <DataTableHeader>
             <DataTableRow>
               <DataTableColumn>Нэр</DataTableColumn>
+              <DataTableColumn>Бүс нутаг</DataTableColumn>
               <DataTableColumn>Байршил</DataTableColumn>
               <DataTableColumn>Төлөв</DataTableColumn>
               <DataTableColumn>Төрөл</DataTableColumn>
               <DataTableColumn>Харилцагч</DataTableColumn>
             </DataTableRow>
           </DataTableHeader>
-          {isLoading && <DataTableLoading columns={5} rows={5} />}
+          {isLoading && <DataTableLoading columns={6} rows={5} />}
           {!isLoading && paginated.length === 0 && (
             <DataTableEmpty
-              columns={5}
+              columns={6}
               message={
                 filtered.length === 0 && allWarehouses?.length
                   ? 'Хайлтад тохирох агуулах олдсонгүй.'
@@ -202,6 +218,9 @@ export default function TmsWarehousesPage() {
                     >
                       {w.name || '—'}
                     </Link>
+                  </DataTableCell>
+                  <DataTableCell className="text-muted-foreground">
+                    {regionMap.get(w.regionId) || '—'}
                   </DataTableCell>
                   <DataTableCell className="text-muted-foreground">
                     {w.location || '—'}
