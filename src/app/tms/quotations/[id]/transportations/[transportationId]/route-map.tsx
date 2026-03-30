@@ -5,7 +5,10 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { TmsWarehouse } from '@/app/tms/types';
-import { getVehicleTracking } from '@/app/tms/actions/gps';
+import { getVehicleTracking, getVehicleHistory } from '@/app/tms/actions/gps';
+import { Button } from '@/components/ui/button';
+import { Loader2, History, X } from 'lucide-react';
+import { format } from 'date-fns';
 
 const iconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
 const iconRetinaUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png';
@@ -48,6 +51,10 @@ interface RouteMapProps {
 
 export function RouteMap({ loadingWarehouse, unloadingWarehouse, gpsDeviceId }: RouteMapProps) {
   const [gpsData, setGpsData] = React.useState<any>(null);
+  const [showHistory, setShowHistory] = React.useState(false);
+  const [historyLoading, setHistoryLoading] = React.useState(false);
+  const [historyData, setHistoryData] = React.useState<any[]>([]);
+  const [historyDate, setHistoryDate] = React.useState(new Date());
 
   React.useEffect(() => {
     if (!gpsDeviceId) return;
@@ -68,15 +75,42 @@ export function RouteMap({ loadingWarehouse, unloadingWarehouse, gpsDeviceId }: 
     return () => clearInterval(interval);
   }, [gpsDeviceId]);
 
+  React.useEffect(() => {
+    if (!gpsDeviceId || !showHistory) return;
+
+    const fetchHistory = async () => {
+      setHistoryLoading(true);
+      try {
+        const dateStr = format(historyDate, 'yyyy-MM-dd');
+        const res = await getVehicleHistory(gpsDeviceId, `${dateStr} 00:00:00`, `${dateStr} 23:59:59`);
+        if (res.success && res.data) {
+          setHistoryData(res.data);
+        } else {
+          setHistoryData([]);
+        }
+      } catch (err) {
+        console.error(err);
+        setHistoryData([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [gpsDeviceId, showHistory, historyDate]);
+
   const points: [number, number][] = [];
+  const routePoints: [number, number][] = [];
 
   const loadingGeo = loadingWarehouse?.geolocation;
   const unloadingGeo = unloadingWarehouse?.geolocation;
 
   if (loadingGeo && Number.isFinite(loadingGeo.lat) && Number.isFinite(loadingGeo.lng)) {
+    routePoints.push([loadingGeo.lat, loadingGeo.lng]);
     points.push([loadingGeo.lat, loadingGeo.lng]);
   }
   if (unloadingGeo && Number.isFinite(unloadingGeo.lat) && Number.isFinite(unloadingGeo.lng)) {
+    routePoints.push([unloadingGeo.lat, unloadingGeo.lng]);
     points.push([unloadingGeo.lat, unloadingGeo.lng]);
   }
 
@@ -84,11 +118,55 @@ export function RouteMap({ loadingWarehouse, unloadingWarehouse, gpsDeviceId }: 
     points.push([gpsData.lat, gpsData.lng]);
   }
 
+  const historyPoints: [number, number][] = historyData.map(d => [d.lat, d.lng]);
+  if (showHistory && historyPoints.length > 0) {
+    points.push(...historyPoints);
+  }
+
   // Default to Ulaanbaatar if no points
   const center: [number, number] = points.length > 0 ? points[0] : [47.9189, 106.9172];
 
   return (
-    <div className="h-[200px] w-full relative z-0">
+    <div className={`w-full relative z-0 transition-all ${showHistory ? 'h-[400px]' : 'h-[250px]'}`}>
+      <div className="absolute top-2 right-2 z-[1000] flex flex-col items-end gap-2">
+        {gpsDeviceId && (
+          <Button 
+            variant={showHistory ? "destructive" : "secondary"} 
+            size="sm" 
+            className="shadow-md"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? (
+              <><X className="w-4 h-4 mr-1" /> Түүх хаах</>
+            ) : (
+              <><History className="w-4 h-4 mr-1" /> Түүх харах</>
+            )}
+          </Button>
+        )}
+        {showHistory && (
+          <div className="bg-background rounded-md shadow-md p-2 flex items-center gap-2 border">
+            <input 
+              type="date" 
+              className="text-sm border-none bg-transparent outline-none"
+              value={format(historyDate, 'yyyy-MM-dd')}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setHistoryDate(new Date(e.target.value));
+                }
+              }}
+            />
+            {historyLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+            {!historyLoading && historyData.length > 0 && (
+              <span className="text-xs text-muted-foreground ml-1">{historyData.length} цэг</span>
+            )}
+            {!historyLoading && historyData.length === 0 && (
+              <span className="text-xs text-destructive ml-1">Олдсонгүй</span>
+            )}
+          </div>
+        )}
+      </div>
+
       <MapContainer
         center={center}
         zoom={12}
@@ -120,6 +198,10 @@ export function RouteMap({ loadingWarehouse, unloadingWarehouse, gpsDeviceId }: 
           </Marker>
         )}
 
+        {showHistory && historyPoints.length > 0 && (
+          <Polyline positions={historyPoints} color="hsl(var(--primary))" weight={3} opacity={0.6} />
+        )}
+
         {gpsData && Number.isFinite(gpsData.lat) && Number.isFinite(gpsData.lng) && (
           <Marker position={[gpsData.lat, gpsData.lng]} icon={carIcon}>
             <Popup>
@@ -131,8 +213,8 @@ export function RouteMap({ loadingWarehouse, unloadingWarehouse, gpsDeviceId }: 
           </Marker>
         )}
 
-        {points.length >= 2 && (
-          <Polyline positions={points} color="hsl(var(--primary))" weight={4} dashArray="5, 10" />
+        {routePoints.length >= 2 && !showHistory && (
+          <Polyline positions={routePoints} color="hsl(var(--primary))" weight={4} dashArray="5, 10" />
         )}
       </MapContainer>
     </div>

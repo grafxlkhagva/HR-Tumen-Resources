@@ -88,3 +88,79 @@ export async function getVehicleTracking(imei: string, pass: string = '123456') 
     return { success: false, error: 'Internal error while fetching GPS tracking' };
   }
 }
+
+export async function getVehicleHistory(imei: string, startTime: string, endTime: string, pass: string = '123456') {
+  try {
+    const loginPayload = new URLSearchParams({
+      Name: imei,
+      Pass: pass,
+      LoginType: '1',
+      LoginAPP: 'AKSH',
+      GMT: '8:00',
+      Key: APP_KEY
+    });
+
+    const loginRes = await fetch(`${API_BASE}/Login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: loginPayload.toString(),
+      cache: 'no-store'
+    });
+
+    const loginText = await loginRes.text();
+    const loginData = parseXmlResponse(loginText);
+
+    if (!loginData || loginData.state !== '0' || !loginData.deviceInfo) {
+      return { success: false, error: 'Failed to login to GPS service' };
+    }
+
+    const { deviceID, model, key2018 } = loginData.deviceInfo;
+
+    const histPayload = new URLSearchParams({
+      DeviceID: deviceID,
+      Model: model,
+      TimeZones: '8:00',
+      MapType: 'Google',
+      Language: 'en',
+      Key: key2018 || APP_KEY,
+      StartTime: startTime, // 'yyyy-MM-dd HH:mm:ss'
+      EndTime: endTime, // 'yyyy-MM-dd HH:mm:ss'
+      ShowLBS: '0',
+      SelectCount: '1000'
+    });
+
+    const res = await fetch(`${API_BASE}/GetDevicesHistory`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: histPayload.toString(),
+      cache: 'no-store'
+    });
+
+    const text = await res.text();
+    const data = parseXmlResponse(text);
+
+    if (!data || data.state !== '0' || !data.devices) {
+      return { success: false, error: 'Failed to get history data' };
+    }
+
+    const points = data.devices.map((d: any) => ({
+      lat: parseFloat(d.lat),
+      lng: parseFloat(d.lng),
+      speed: parseFloat(d.speed),
+      positionTime: d.deviceUtcDate || d.positionTime
+    })).filter((d: any) => !isNaN(d.lat) && !isNaN(d.lng));
+
+    return {
+      success: true,
+      data: points
+    };
+
+  } catch (error) {
+    console.error('GPS history error:', error);
+    return { success: false, error: 'Internal error while fetching GPS history' };
+  }
+}

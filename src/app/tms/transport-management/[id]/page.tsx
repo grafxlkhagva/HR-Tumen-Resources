@@ -130,7 +130,7 @@ export default function TransportManagementDetailPage() {
     firestore ? collection(firestore, TMS_VEHICLES_COLLECTION) : null
   );
 
-  const { data: driversList } = useCollection<{ id: string; firstName: string; lastName: string; }>(
+  const { data: driversList } = useCollection<{ id: string; firstName: string; lastName: string; phone?: string; }>(
     firestore ? collection(firestore, TMS_DRIVERS_COLLECTION) : null
   );
 
@@ -528,7 +528,7 @@ export default function TransportManagementDetailPage() {
                     {t.driverId ? (
                       (() => {
                         const d = driversList?.find(d => d.id === t.driverId);
-                        return d ? `${d.lastName?.slice(0,1) || ''}. ${d.firstName}` : 'Сонгоогүй';
+                        return d ? `${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim() : 'Сонгоогүй';
                       })()
                     ) : 'Сонгоогүй'}
                   </div>
@@ -902,7 +902,7 @@ export default function TransportManagementDetailPage() {
                 <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Сонгоогүй</SelectItem>
-                  {driversList?.map((d) => <SelectItem key={d.id} value={d.id}>{d.lastName ? `${d.lastName[0]}. ` : ''}{d.firstName}</SelectItem>)}
+                  {driversList?.map((d) => <SelectItem key={d.id} value={d.id}>{`${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim()}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
