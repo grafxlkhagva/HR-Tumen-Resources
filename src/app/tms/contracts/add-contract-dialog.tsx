@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Form,
     FormControl,
@@ -24,13 +25,6 @@ import {
     FormLabel,
     FormMessage,
 } from '@/components/ui/form';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
@@ -170,30 +164,26 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <AppDialogBody className="space-y-4">
-                            <FormField
+                                <FormField
                                 control={form.control}
                                 name="customerId"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Харилцагч байгууллага *</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                            disabled={!customers.length}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Сонгох" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id}>
-                                                        {c.name || c.id}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={customers.map((c) => ({
+                                                    value: c.id,
+                                                    label: c.name || c.id,
+                                                }))}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Сонгох..."
+                                                searchPlaceholder="Хайх..."
+                                                emptyText="Олдсонгүй."
+                                                disabled={!customers.length}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
