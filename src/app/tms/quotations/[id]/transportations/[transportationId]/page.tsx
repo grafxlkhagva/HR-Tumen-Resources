@@ -193,7 +193,7 @@ export default function QuotationTransportationDetailPage() {
       const offer: TmsDriverOffer = {
         id: uuidv4(),
         driverId: newOffer.driverId || '',
-        driverName: d ? `${d.lastName?.charAt(0) || ''}. ${d.firstName}` : newOffer.driverName,
+        driverName: d ? `${d.lastName || ''} ${d.firstName || ''}`.trim() : newOffer.driverName,
         driverPhone: d?.phone || newOffer.driverPhone || '',
         offerAmount: Number(newOffer.offerAmount),
         note: newOffer.note || '',
@@ -743,7 +743,7 @@ export default function QuotationTransportationDetailPage() {
                   { value: 'none', label: 'Системд бүртгэлгүй (Гараар бичих)' },
                   ...(drivers?.map((d) => ({
                     value: d.id,
-                    label: `${d.lastName?.charAt(0) || ''}. ${d.firstName}`,
+                    label: `${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim(),
                     description: d.phone || undefined,
                   })) || []),
                 ]}
@@ -756,7 +756,7 @@ export default function QuotationTransportationDetailPage() {
                     setNewOffer(prev => ({ 
                       ...prev, 
                       driverId: val,
-                      driverName: d ? `${d.lastName?.charAt(0) || ''}. ${d.firstName}` : '',
+                      driverName: d ? `${d.lastName || ''} ${d.firstName || ''}`.trim() : '',
                       driverPhone: d?.phone || ''
                     }));
                   }
