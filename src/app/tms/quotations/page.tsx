@@ -18,9 +18,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AddQuotationDialog } from './add-quotation-dialog';
-import { TMS_QUOTATIONS_COLLECTION } from '@/app/tms/types';
+import { TMS_QUOTATIONS_COLLECTION, TMS_REGIONS_COLLECTION } from '@/app/tms/types';
 import type { TmsQuotation } from '@/app/tms/types';
-import { Loader2, Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, Search, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
@@ -49,6 +49,14 @@ export default function TmsQuotationsPage() {
     [firestore]
   );
   const { data: allQuotations, isLoading } = useCollection<TmsQuotation>(quotationsQuery);
+
+  const regionsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, TMS_REGIONS_COLLECTION)) : null),
+    [firestore]
+  );
+  const { data: regions = [] } = useCollection<{ id: string; name: string }>(regionsQuery);
+
+  const getRegionName = (id?: string) => regions.find((r) => r.id === id)?.name || '...';
 
   const filtered = React.useMemo(() => {
     if (!allQuotations) return [];
@@ -110,15 +118,16 @@ export default function TmsQuotationsPage() {
             <DataTableRow>
               <DataTableColumn>Код</DataTableColumn>
               <DataTableColumn>Харилцагч</DataTableColumn>
+              <DataTableColumn>Тээврийн чиглэл</DataTableColumn>
               <DataTableColumn>Харилцагчийн хариуцсан</DataTableColumn>
               <DataTableColumn>Манай хариуцсан</DataTableColumn>
               <DataTableColumn>Төлөв</DataTableColumn>
             </DataTableRow>
           </DataTableHeader>
-          {isLoading && <DataTableLoading columns={5} rows={5} />}
+          {isLoading && <DataTableLoading columns={6} rows={5} />}
           {!isLoading && paginated.length === 0 && (
             <DataTableEmpty
-              columns={5}
+              columns={6}
               message={
                 filtered.length === 0 && allQuotations?.length
                   ? 'Хайлтад тохирох үнийн санал олдсонгүй.'
@@ -140,6 +149,26 @@ export default function TmsQuotationsPage() {
                   </DataTableCell>
                   <DataTableCell>
                     {item.customerName || '—'}
+                  </DataTableCell>
+                  <DataTableCell>
+                    {item.transportations && item.transportations.length > 0 ? (
+                      <div className="flex flex-col gap-1.5">
+                        {item.transportations.slice(0, 2).map((tr, i) => (
+                          <div key={tr.id || i} className="flex items-center gap-1.5 text-sm">
+                            <span className="truncate max-w-[120px]">{getRegionName(tr.loadingRegionId)}</span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate max-w-[120px]">{getRegionName(tr.unloadingRegionId)}</span>
+                          </div>
+                        ))}
+                        {item.transportations.length > 2 && (
+                          <div className="text-xs text-muted-foreground">
+                            ...+{item.transportations.length - 2} чиглэл
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </DataTableCell>
                   <DataTableCell className="text-muted-foreground">
                     {item.customerResponsibleEmployeeName || '—'}
