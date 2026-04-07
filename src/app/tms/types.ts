@@ -431,14 +431,28 @@ export const TMS_TRANSPORT_MANAGEMENT_COLLECTION = 'tms_transport_management';
 /** Гэрээний төлөв */
 export type TmsContractStatus = 'draft' | 'active' | 'expired' | 'terminated';
 
+/** Гэрээний үйлчилгээний төрөл (үнэ/хэлцлийн загвар) */
+export type TmsContractLineType = 'master' | 'fixed' | 'one_time' | 'bundle_transport';
+
+export const TMS_CONTRACT_LINE_TYPE_LABELS: Record<TmsContractLineType, string> = {
+  master: 'Мастер',
+  fixed: 'Тогтмол',
+  one_time: 'Нэг удаагийн',
+  bundle_transport: 'Багц тээвэр',
+};
+
 /** Гэрээнд тусгагдсан тээврийн үйлчилгээ */
 export interface TmsContractService {
   id: string;
+  /** Гэрээний мөрийн төрөл: мастер, тогтмол гэх мэт */
+  contractLineType?: TmsContractLineType;
   serviceTypeId?: string;
   serviceTypeName?: string;
   name?: string;
   loadingRegionId?: string;
   loadingRegionName?: string;
+  loadingWarehouseId?: string;
+  loadingWarehouseName?: string;
   unloadingRegionId?: string;
   unloadingRegionName?: string;
   vehicleTypeId?: string;
@@ -446,6 +460,8 @@ export interface TmsContractService {
   trailerTypeId?: string;
   trailerTypeName?: string;
   price: number;
+  /** Үйлчилгээний үнэ дээрх ашигийн хувь (жишээ нь 15 = 15%) */
+  profitMarginPercent?: number;
   currency?: string;
   conditions?: string;
 }

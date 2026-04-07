@@ -28,8 +28,8 @@ import {
     DataTableCell,
     DataTableEmpty,
 } from '@/components/patterns/data-table';
-import { TMS_CONTRACTS_COLLECTION } from '@/app/tms/types';
-import type { TmsContract, TmsContractStatus, TmsContractService } from '@/app/tms/types';
+import { TMS_CONTRACTS_COLLECTION, TMS_CONTRACT_LINE_TYPE_LABELS } from '@/app/tms/types';
+import type { TmsContract, TmsContractStatus, TmsContractService, TmsContractLineType } from '@/app/tms/types';
 import { Loader2, Pencil, Trash2, Plus, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditContractDialog } from './edit-contract-dialog';
@@ -226,16 +226,18 @@ export default function TmsContractDetailPage() {
                             <DataTableHeader>
                                 <DataTableRow>
                                     <DataTableColumn>Нэр</DataTableColumn>
+                                    <DataTableColumn>Гэрээний төрөл</DataTableColumn>
                                     <DataTableColumn>Үйлчилгээний төрөл</DataTableColumn>
                                     <DataTableColumn>Маршрут</DataTableColumn>
+                                    <DataTableColumn>Ачилтын агуулах</DataTableColumn>
                                     <DataTableColumn>ТХ төрөл</DataTableColumn>
-                                    <DataTableColumn className="text-right">Үнэ</DataTableColumn>
+                                    <DataTableColumn className="text-right">Үнэ / Ашиг</DataTableColumn>
                                     <DataTableColumn>Нөхцөл</DataTableColumn>
                                     <DataTableColumn className="w-10"></DataTableColumn>
                                 </DataTableRow>
                             </DataTableHeader>
                             {(!contract.services || contract.services.length === 0) && (
-                                <DataTableEmpty columns={7} message="Үйлчилгээ нэмэгдээгүй байна." />
+                                <DataTableEmpty columns={9} message="Үйлчилгээ нэмэгдээгүй байна." />
                             )}
                             {contract.services && contract.services.length > 0 && (
                                 <DataTableBody>
@@ -243,6 +245,11 @@ export default function TmsContractDetailPage() {
                                         <DataTableRow key={svc.id}>
                                             <DataTableCell className="font-medium">
                                                 {svc.name || '—'}
+                                            </DataTableCell>
+                                            <DataTableCell className="text-muted-foreground">
+                                                {svc.contractLineType
+                                                    ? TMS_CONTRACT_LINE_TYPE_LABELS[svc.contractLineType as TmsContractLineType] ?? svc.contractLineType
+                                                    : '—'}
                                             </DataTableCell>
                                             <DataTableCell className="text-muted-foreground">
                                                 {svc.serviceTypeName || '—'}
@@ -253,10 +260,22 @@ export default function TmsContractDetailPage() {
                                                     : '—'}
                                             </DataTableCell>
                                             <DataTableCell className="text-muted-foreground">
+                                                {svc.loadingWarehouseName || '—'}
+                                            </DataTableCell>
+                                            <DataTableCell className="text-muted-foreground">
                                                 {[svc.vehicleTypeName, svc.trailerTypeName].filter(Boolean).join(', ') || '—'}
                                             </DataTableCell>
-                                            <DataTableCell className="text-right font-medium">
-                                                {svc.price ? `${svc.price.toLocaleString()}₮` : '—'}
+                                            <DataTableCell className="text-right">
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <span className="font-medium">
+                                                        {svc.price != null ? `${Number(svc.price).toLocaleString()}₮` : '—'}
+                                                    </span>
+                                                    {svc.profitMarginPercent != null && (
+                                                        <span className="text-xs text-muted-foreground font-normal tabular-nums">
+                                                            {svc.profitMarginPercent}% ашиг
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </DataTableCell>
                                             <DataTableCell className="text-muted-foreground max-w-[200px] truncate">
                                                 {svc.conditions || '—'}

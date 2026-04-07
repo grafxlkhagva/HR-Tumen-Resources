@@ -42,19 +42,36 @@ import {
     TMS_REGIONS_COLLECTION,
     TMS_VEHICLE_TYPES_COLLECTION,
     TMS_TRAILER_TYPES_COLLECTION,
+    TMS_WAREHOUSES_COLLECTION,
+    TMS_CONTRACT_LINE_TYPE_LABELS,
 } from '@/app/tms/types';
-import type { TmsContractService, TmsServiceType, TmsRegion, TmsVehicleType, TmsTrailerType } from '@/app/tms/types';
+import type {
+    TmsContractService,
+    TmsServiceType,
+    TmsRegion,
+    TmsVehicleType,
+    TmsTrailerType,
+    TmsWarehouse,
+    TmsContractLineType,
+} from '@/app/tms/types';
 
 const NONE = '__none__';
 
+const CONTRACT_LINE_TYPES = Object.entries(TMS_CONTRACT_LINE_TYPE_LABELS) as [TmsContractLineType, string][];
+
 const schema = z.object({
+    contractLineType: z.enum(['master', 'fixed', 'one_time', 'bundle_transport'], {
+        required_error: 'Гэрээний төрлийг сонгоно уу.',
+    }),
     name: z.string().min(1, 'Үйлчилгээний нэр оруулна уу.'),
     serviceTypeId: z.string().optional(),
     loadingRegionId: z.string().optional(),
+    loadingWarehouseId: z.string().optional(),
     unloadingRegionId: z.string().optional(),
     vehicleTypeId: z.string().optional(),
     trailerTypeId: z.string().optional(),
     price: z.coerce.number().min(0, 'Үнэ оруулна уу.'),
+    profitMarginPercent: z.coerce.number().min(0, '0 эсвэл түүнээс дээш').max(100, 'Хамгийн ихдээ 100%'),
     conditions: z.string().optional(),
 });
 
@@ -79,16 +96,21 @@ export function AddContractServiceDialog({
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
+            contractLineType: 'fixed',
             name: '',
             serviceTypeId: NONE,
             loadingRegionId: NONE,
+            loadingWarehouseId: NONE,
             unloadingRegionId: NONE,
             vehicleTypeId: NONE,
             trailerTypeId: NONE,
             price: 0,
+            profitMarginPercent: 0,
             conditions: '',
         },
     });
+
+    const loadingRegionId = form.watch('loadingRegionId');
 
     // Reference data
     const serviceTypesQuery = useMemoFirebase(
@@ -115,16 +137,30 @@ export function AddContractServiceDialog({
     );
     const { data: trailerTypes = [] } = useCollection<TmsTrailerType>(trailerTypesQuery);
 
+    const warehousesQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, TMS_WAREHOUSES_COLLECTION), orderBy('name', 'asc')) : null,
+        [firestore]
+    );
+    const { data: allWarehouses = [] } = useCollection<TmsWarehouse>(warehousesQuery);
+
+    const warehousesForLoading = React.useMemo(() => {
+        if (!loadingRegionId || loadingRegionId === NONE) return [];
+        return allWarehouses.filter((w) => w.regionId === loadingRegionId);
+    }, [allWarehouses, loadingRegionId]);
+
     React.useEffect(() => {
         if (!open) {
             form.reset({
+                contractLineType: 'fixed',
                 name: '',
                 serviceTypeId: NONE,
                 loadingRegionId: NONE,
+                loadingWarehouseId: NONE,
                 unloadingRegionId: NONE,
                 vehicleTypeId: NONE,
                 trailerTypeId: NONE,
                 price: 0,
+                profitMarginPercent: 0,
                 conditions: '',
             });
         }
@@ -148,14 +184,21 @@ export function AddContractServiceDialog({
             const trailerType = values.trailerTypeId && values.trailerTypeId !== NONE
                 ? trailerTypes.find(t => t.id === values.trailerTypeId)
                 : undefined;
+            const loadingWarehouse =
+                values.loadingWarehouseId && values.loadingWarehouseId !== NONE
+                    ? allWarehouses.find((w) => w.id === values.loadingWarehouseId)
+                    : undefined;
 
             const newService: Record<string, unknown> = {
                 id: crypto.randomUUID(),
+                contractLineType: values.contractLineType,
                 name: values.name,
                 serviceTypeId: serviceType?.id ?? null,
                 serviceTypeName: serviceType?.name ?? null,
                 loadingRegionId: loadingRegion?.id ?? null,
                 loadingRegionName: loadingRegion?.name ?? null,
+                loadingWarehouseId: loadingWarehouse?.id ?? null,
+                loadingWarehouseName: loadingWarehouse?.name ?? null,
                 unloadingRegionId: unloadingRegion?.id ?? null,
                 unloadingRegionName: unloadingRegion?.name ?? null,
                 vehicleTypeId: vehicleType?.id ?? null,
@@ -163,6 +206,7 @@ export function AddContractServiceDialog({
                 trailerTypeId: trailerType?.id ?? null,
                 trailerTypeName: trailerType?.name ?? null,
                 price: values.price,
+                profitMarginPercent: values.profitMarginPercent,
                 conditions: values.conditions || null,
             };
 
@@ -196,6 +240,31 @@ export function AddContractServiceDialog({
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <AppDialogBody className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="contractLineType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Гэрээний төрөл *</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Сонгох" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {CONTRACT_LINE_TYPES.map(([value, label]) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -234,14 +303,20 @@ export function AddContractServiceDialog({
                                 )}
                             />
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="loadingRegionId"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Ачилтын бүс</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select
+                                                onValueChange={(v) => {
+                                                    field.onChange(v);
+                                                    form.setValue('loadingWarehouseId', NONE);
+                                                }}
+                                                value={field.value}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Сонгох" />
@@ -251,6 +326,39 @@ export function AddContractServiceDialog({
                                                     <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
                                                     {regions.map((r) => (
                                                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="loadingWarehouseId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Ачилтын агуулах</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={!loadingRegionId || loadingRegionId === NONE}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue
+                                                            placeholder={
+                                                                !loadingRegionId || loadingRegionId === NONE
+                                                                    ? 'Эхлээд ачилтын бүс сонгоно уу'
+                                                                    : 'Сонгох'
+                                                            }
+                                                        />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
+                                                    {warehousesForLoading.map((w) => (
+                                                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -332,19 +440,34 @@ export function AddContractServiceDialog({
                                 />
                             </div>
 
-                            <FormField
-                                control={form.control}
-                                name="price"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Үнэ (₮) *</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" placeholder="0" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="price"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Үнэ (₮) *</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" placeholder="0" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="profitMarginPercent"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Ашигийн хувь (%)</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" min={0} max={100} step="0.1" placeholder="0" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
                             <FormField
                                 control={form.control}
