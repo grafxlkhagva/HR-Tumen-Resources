@@ -28,8 +28,18 @@ import {
     DataTableCell,
     DataTableEmpty,
 } from '@/components/patterns/data-table';
-import { TMS_CONTRACTS_COLLECTION, TMS_CONTRACT_LINE_TYPE_LABELS } from '@/app/tms/types';
-import type { TmsContract, TmsContractStatus, TmsContractService, TmsContractLineType } from '@/app/tms/types';
+import {
+    TMS_CONTRACTS_COLLECTION,
+    TMS_CONTRACT_LINE_TYPE_LABELS,
+    TMS_CONTRACT_PRICE_TYPE_LABELS,
+} from '@/app/tms/types';
+import type {
+    TmsContract,
+    TmsContractStatus,
+    TmsContractService,
+    TmsContractLineType,
+    TmsContractPriceType,
+} from '@/app/tms/types';
 import { Loader2, Pencil, Trash2, Plus, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditContractDialog } from './edit-contract-dialog';
@@ -230,14 +240,15 @@ export default function TmsContractDetailPage() {
                                     <DataTableColumn>Үйлчилгээний төрөл</DataTableColumn>
                                     <DataTableColumn>Маршрут</DataTableColumn>
                                     <DataTableColumn>Ачилтын агуулах</DataTableColumn>
+                                    <DataTableColumn>Буулгалтын агуулах</DataTableColumn>
                                     <DataTableColumn>ТХ төрөл</DataTableColumn>
-                                    <DataTableColumn className="text-right">Үнэ / Ашиг</DataTableColumn>
+                                    <DataTableColumn className="text-right">Үнэ / төрөл / ашиг</DataTableColumn>
                                     <DataTableColumn>Нөхцөл</DataTableColumn>
                                     <DataTableColumn className="w-10"></DataTableColumn>
                                 </DataTableRow>
                             </DataTableHeader>
                             {(!contract.services || contract.services.length === 0) && (
-                                <DataTableEmpty columns={9} message="Үйлчилгээ нэмэгдээгүй байна." />
+                                <DataTableEmpty columns={10} message="Үйлчилгээ нэмэгдээгүй байна." />
                             )}
                             {contract.services && contract.services.length > 0 && (
                                 <DataTableBody>
@@ -263,6 +274,9 @@ export default function TmsContractDetailPage() {
                                                 {svc.loadingWarehouseName || '—'}
                                             </DataTableCell>
                                             <DataTableCell className="text-muted-foreground">
+                                                {svc.unloadingWarehouseName || '—'}
+                                            </DataTableCell>
+                                            <DataTableCell className="text-muted-foreground">
                                                 {[svc.vehicleTypeName, svc.trailerTypeName].filter(Boolean).join(', ') || '—'}
                                             </DataTableCell>
                                             <DataTableCell className="text-right">
@@ -270,6 +284,11 @@ export default function TmsContractDetailPage() {
                                                     <span className="font-medium">
                                                         {svc.price != null ? `${Number(svc.price).toLocaleString()}₮` : '—'}
                                                     </span>
+                                                    {svc.priceType && (
+                                                        <span className="text-xs text-muted-foreground font-normal">
+                                                            {TMS_CONTRACT_PRICE_TYPE_LABELS[svc.priceType as TmsContractPriceType] ?? svc.priceType}
+                                                        </span>
+                                                    )}
                                                     {svc.profitMarginPercent != null && (
                                                         <span className="text-xs text-muted-foreground font-normal tabular-nums">
                                                             {svc.profitMarginPercent}% ашиг

@@ -415,6 +415,8 @@ export interface TmsTransportManagement {
   driverId?: string;
 
   driverPrice?: number;
+  /** Гэрээний мөрөөс шилжсэн үнийн нэгж (тонн, өдөр гэх мэт) */
+  contractPriceType?: TmsContractPriceType;
   profitMarginPercent?: number;
   hasVat?: boolean;
 
@@ -441,6 +443,22 @@ export const TMS_CONTRACT_LINE_TYPE_LABELS: Record<TmsContractLineType, string> 
   bundle_transport: 'Багц тээвэр',
 };
 
+/** Гэрээний мөр дэх үнийг ямар нэгжээр ойлгож байгаа эсэх */
+export type TmsContractPriceType =
+  | 'per_ton'
+  | 'lump_sum'
+  | 'per_day'
+  | 'per_month'
+  | 'rental';
+
+export const TMS_CONTRACT_PRICE_TYPE_LABELS: Record<TmsContractPriceType, string> = {
+  per_ton: 'Жин / тонноор',
+  lump_sum: 'Нэг удаагийн',
+  per_day: 'Өдөрөөр',
+  per_month: 'Сараар',
+  rental: 'Түрээсээр',
+};
+
 /** Гэрээнд тусгагдсан тээврийн үйлчилгээ */
 export interface TmsContractService {
   id: string;
@@ -455,11 +473,15 @@ export interface TmsContractService {
   loadingWarehouseName?: string;
   unloadingRegionId?: string;
   unloadingRegionName?: string;
+  unloadingWarehouseId?: string;
+  unloadingWarehouseName?: string;
   vehicleTypeId?: string;
   vehicleTypeName?: string;
   trailerTypeId?: string;
   trailerTypeName?: string;
   price: number;
+  /** Үнэ тооцох нэгж (тонн, өдөр гэх мэт) */
+  priceType?: TmsContractPriceType;
   /** Үйлчилгээний үнэ дээрх ашигийн хувь (жишээ нь 15 = 15%) */
   profitMarginPercent?: number;
   currency?: string;

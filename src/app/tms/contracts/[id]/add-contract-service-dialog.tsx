@@ -44,6 +44,7 @@ import {
     TMS_TRAILER_TYPES_COLLECTION,
     TMS_WAREHOUSES_COLLECTION,
     TMS_CONTRACT_LINE_TYPE_LABELS,
+    TMS_CONTRACT_PRICE_TYPE_LABELS,
 } from '@/app/tms/types';
 import type {
     TmsContractService,
@@ -53,11 +54,13 @@ import type {
     TmsTrailerType,
     TmsWarehouse,
     TmsContractLineType,
+    TmsContractPriceType,
 } from '@/app/tms/types';
 
 const NONE = '__none__';
 
 const CONTRACT_LINE_TYPES = Object.entries(TMS_CONTRACT_LINE_TYPE_LABELS) as [TmsContractLineType, string][];
+const CONTRACT_PRICE_TYPES = Object.entries(TMS_CONTRACT_PRICE_TYPE_LABELS) as [TmsContractPriceType, string][];
 
 const schema = z.object({
     contractLineType: z.enum(['master', 'fixed', 'one_time', 'bundle_transport'], {
@@ -68,9 +71,13 @@ const schema = z.object({
     loadingRegionId: z.string().optional(),
     loadingWarehouseId: z.string().optional(),
     unloadingRegionId: z.string().optional(),
+    unloadingWarehouseId: z.string().optional(),
     vehicleTypeId: z.string().optional(),
     trailerTypeId: z.string().optional(),
     price: z.coerce.number().min(0, 'Үнэ оруулна уу.'),
+    priceType: z.enum(['per_ton', 'lump_sum', 'per_day', 'per_month', 'rental'], {
+        required_error: 'Үнийн төрлийг сонгоно уу.',
+    }),
     profitMarginPercent: z.coerce.number().min(0, '0 эсвэл түүнээс дээш').max(100, 'Хамгийн ихдээ 100%'),
     conditions: z.string().optional(),
 });
@@ -102,15 +109,18 @@ export function AddContractServiceDialog({
             loadingRegionId: NONE,
             loadingWarehouseId: NONE,
             unloadingRegionId: NONE,
+            unloadingWarehouseId: NONE,
             vehicleTypeId: NONE,
             trailerTypeId: NONE,
             price: 0,
+            priceType: 'lump_sum',
             profitMarginPercent: 0,
             conditions: '',
         },
     });
 
     const loadingRegionId = form.watch('loadingRegionId');
+    const unloadingRegionId = form.watch('unloadingRegionId');
 
     // Reference data
     const serviceTypesQuery = useMemoFirebase(
@@ -148,6 +158,11 @@ export function AddContractServiceDialog({
         return allWarehouses.filter((w) => w.regionId === loadingRegionId);
     }, [allWarehouses, loadingRegionId]);
 
+    const warehousesForUnloading = React.useMemo(() => {
+        if (!unloadingRegionId || unloadingRegionId === NONE) return [];
+        return allWarehouses.filter((w) => w.regionId === unloadingRegionId);
+    }, [allWarehouses, unloadingRegionId]);
+
     React.useEffect(() => {
         if (!open) {
             form.reset({
@@ -157,9 +172,11 @@ export function AddContractServiceDialog({
                 loadingRegionId: NONE,
                 loadingWarehouseId: NONE,
                 unloadingRegionId: NONE,
+                unloadingWarehouseId: NONE,
                 vehicleTypeId: NONE,
                 trailerTypeId: NONE,
                 price: 0,
+                priceType: 'lump_sum',
                 profitMarginPercent: 0,
                 conditions: '',
             });
@@ -188,6 +205,10 @@ export function AddContractServiceDialog({
                 values.loadingWarehouseId && values.loadingWarehouseId !== NONE
                     ? allWarehouses.find((w) => w.id === values.loadingWarehouseId)
                     : undefined;
+            const unloadingWarehouse =
+                values.unloadingWarehouseId && values.unloadingWarehouseId !== NONE
+                    ? allWarehouses.find((w) => w.id === values.unloadingWarehouseId)
+                    : undefined;
 
             const newService: Record<string, unknown> = {
                 id: crypto.randomUUID(),
@@ -201,11 +222,14 @@ export function AddContractServiceDialog({
                 loadingWarehouseName: loadingWarehouse?.name ?? null,
                 unloadingRegionId: unloadingRegion?.id ?? null,
                 unloadingRegionName: unloadingRegion?.name ?? null,
+                unloadingWarehouseId: unloadingWarehouse?.id ?? null,
+                unloadingWarehouseName: unloadingWarehouse?.name ?? null,
                 vehicleTypeId: vehicleType?.id ?? null,
                 vehicleTypeName: vehicleType?.name ?? null,
                 trailerTypeId: trailerType?.id ?? null,
                 trailerTypeName: trailerType?.name ?? null,
                 price: values.price,
+                priceType: values.priceType,
                 profitMarginPercent: values.profitMarginPercent,
                 conditions: values.conditions || null,
             };
@@ -372,7 +396,13 @@ export function AddContractServiceDialog({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Буулгалтын бүс</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select
+                                                onValueChange={(v) => {
+                                                    field.onChange(v);
+                                                    form.setValue('unloadingWarehouseId', NONE);
+                                                }}
+                                                value={field.value}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Сонгох" />
@@ -382,6 +412,39 @@ export function AddContractServiceDialog({
                                                     <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
                                                     {regions.map((r) => (
                                                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="unloadingWarehouseId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Буулгалтын агуулах</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={!unloadingRegionId || unloadingRegionId === NONE}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue
+                                                            placeholder={
+                                                                !unloadingRegionId || unloadingRegionId === NONE
+                                                                    ? 'Эхлээд буулгалтын бүс сонгоно уу'
+                                                                    : 'Сонгох'
+                                                            }
+                                                        />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
+                                                    {warehousesForUnloading.map((w) => (
+                                                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -440,7 +503,7 @@ export function AddContractServiceDialog({
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="price"
@@ -450,6 +513,30 @@ export function AddContractServiceDialog({
                                             <FormControl>
                                                 <Input type="number" placeholder="0" {...field} />
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="priceType"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Үнийн төрөл *</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Сонгох" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {CONTRACT_PRICE_TYPES.map(([value, label]) => (
+                                                        <SelectItem key={value} value={value}>
+                                                            {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}
