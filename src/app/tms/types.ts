@@ -86,6 +86,9 @@ export interface TmsDriver {
   note?: string;
   emergencyContact?: TmsDriverEmergencyContact;
   isAvailableForContracted?: boolean;
+  /** Байгууллагын ажилтан — КАМ / тээврийн менежер (employees collection) */
+  transportManagerEmployeeId?: string | null;
+  transportManagerEmployeeName?: string | null;
   licenseNumber?: string;
   licenseExpiryDate?: string;
   licenseClasses?: string[];
@@ -274,6 +277,9 @@ export interface TmsVehicle {
   driverName?: string | null;
   driverIds?: string[];
   driverNames?: string[];
+  /** Байгууллагын ажилтан — КАМ / тээврийн менежер (employees collection) */
+  transportManagerEmployeeId?: string | null;
+  transportManagerEmployeeName?: string | null;
   imageUrls?: string[];
   odometer?: number;
   specs?: TmsVehicleSpecs;

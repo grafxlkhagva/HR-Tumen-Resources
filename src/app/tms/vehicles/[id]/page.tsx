@@ -192,7 +192,7 @@ export default function TmsVehicleDetailPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
                 <CardTitle>Ашиглалтын мэдээлэл</CardTitle>
-                <CardDescription>Төлөв болон жолооч</CardDescription>
+                <CardDescription>Төлөв, КАМ/менежер, жолооч</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={() => setEditStatusOpen(true)} className="gap-2">
                 <Edit2 className="h-4 w-4" />
@@ -200,7 +200,7 @@ export default function TmsVehicleDetailPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
                   <dt className="text-muted-foreground">Төлөв</dt>
                   <dd className="font-medium mt-1">{vehicle.status ? STATUS_LABELS[vehicle.status] ?? vehicle.status : '—'}</dd>
@@ -210,11 +210,15 @@ export default function TmsVehicleDetailPage() {
                   <dd className="font-medium mt-1">{vehicle.driverName || '—'}</dd>
                 </div>
                 <div>
+                  <dt className="text-muted-foreground">КАМ / Тээврийн менежер</dt>
+                  <dd className="font-medium mt-1">{vehicle.transportManagerEmployeeName || '—'}</dd>
+                </div>
+                <div>
                   <dt className="text-muted-foreground">Зурвасын тоолуур (км)</dt>
                   <dd className="font-medium mt-1">{vehicle.odometer ? vehicle.odometer.toLocaleString() : '—'}</dd>
                 </div>
                 {vehicle.notes && (
-                  <div className="sm:col-span-2 md:col-span-3">
+                  <div className="sm:col-span-2 lg:col-span-4">
                     <dt className="text-muted-foreground">Тэмдэглэл</dt>
                     <dd className="font-medium mt-1 whitespace-pre-wrap">{vehicle.notes}</dd>
                   </div>

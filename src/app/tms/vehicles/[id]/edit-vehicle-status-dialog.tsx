@@ -31,12 +31,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useFirebase } from '@/firebase';
-import { updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TMS_VEHICLES_COLLECTION } from '@/app/tms/types';
 import type { TmsVehicle } from '@/app/tms/types';
+import type { Employee } from '@/types';
+import { isActiveStatus } from '@/types';
 
 const STATUS_OPTIONS = [
     { value: 'Available', label: 'Чөлөөтэй' },
@@ -45,8 +48,11 @@ const STATUS_OPTIONS = [
     { value: 'In Use', label: 'Ашиглагдаж буй' },
 ];
 
+const NO_TRANSPORT_MANAGER = '__none__';
+
 const schema = z.object({
     status: z.enum(['Available', 'Maintenance', 'Ready', 'In Use']),
+    transportManagerEmployeeId: z.string(),
     odometer: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v == null ? undefined : Number(v))),
     notes: z.string().optional(),
 });
@@ -64,10 +70,22 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    const employeesQuery = useMemoFirebase(
+        () => (firestore ? query(collection(firestore, 'employees'), orderBy('firstName', 'asc')) : null),
+        [firestore]
+    );
+    const { data: allEmployees = [] } = useCollection<Employee>(employeesQuery);
+
+    const managerSelectEmployees = React.useMemo(
+        () => allEmployees.filter((e) => isActiveStatus(e.status)),
+        [allEmployees]
+    );
+
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
             status: vehicle.status || 'Available',
+            transportManagerEmployeeId: vehicle.transportManagerEmployeeId || NO_TRANSPORT_MANAGER,
             odometer: vehicle.odometer || undefined,
             notes: vehicle.notes || '',
         },
@@ -77,6 +95,7 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
         if (open && vehicle) {
             form.reset({
                 status: vehicle.status || 'Available',
+                transportManagerEmployeeId: vehicle.transportManagerEmployeeId || NO_TRANSPORT_MANAGER,
                 odometer: vehicle.odometer || undefined,
                 notes: vehicle.notes || '',
             });
@@ -87,8 +106,18 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
         if (!firestore || !vehicle.id) return;
         setIsSubmitting(true);
         try {
+            const managerEmp =
+                values.transportManagerEmployeeId &&
+                values.transportManagerEmployeeId !== NO_TRANSPORT_MANAGER
+                    ? managerSelectEmployees.find((e) => e.id === values.transportManagerEmployeeId)
+                    : undefined;
+
             const updateData = {
                 status: values.status,
+                transportManagerEmployeeId: managerEmp?.id ?? null,
+                transportManagerEmployeeName: managerEmp
+                    ? `${managerEmp.firstName} ${managerEmp.lastName}`.trim()
+                    : null,
                 odometer: values.odometer ?? null,
                 notes: values.notes?.trim() || null,
                 updatedAt: serverTimestamp(),
@@ -111,7 +140,7 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
             <AppDialogContent size="md" showClose>
                 <AppDialogHeader>
                     <AppDialogTitle>Ашиглалтын мэдээлэл засах</AppDialogTitle>
-                    <AppDialogDescription>Төлөв, жолооч болон бусад мэдээлэл</AppDialogDescription>
+                    <AppDialogDescription>Төлөв, КАМ/менежер, жолоочийн харагдах мэдээлэл</AppDialogDescription>
                 </AppDialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -132,6 +161,36 @@ export function EditVehicleStatusDialog({ open, onOpenChange, vehicle }: EditVeh
                                     <FormMessage />
                                 </FormItem>
                             )} />
+                            <FormField
+                                control={form.control}
+                                name="transportManagerEmployeeId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>КАМ / Тээврийн менежер</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={[
+                                                    { value: NO_TRANSPORT_MANAGER, label: '— Сонгохгүй —' },
+                                                    ...managerSelectEmployees.map((e) => ({
+                                                        value: e.id,
+                                                        label: `${e.firstName} ${e.lastName}${e.jobTitle ? ` (${e.jobTitle})` : ''}`.trim(),
+                                                    })),
+                                                ]}
+                                                value={field.value || NO_TRANSPORT_MANAGER}
+                                                onValueChange={field.onChange}
+                                                placeholder="Сонгох"
+                                                searchPlaceholder="Нэр, албан тушаал хайх..."
+                                                emptyText="Идэвхтэй ажилтан олдсонгүй."
+                                                disabled={!managerSelectEmployees.length}
+                                            />
+                                        </FormControl>
+                                        <p className="text-[0.8rem] text-muted-foreground">
+                                            Байгууллагын идэвхтэй ажилтнуудаас энэ тээврийн хэрэгслийг хариуцах КАМ эсвэл тээврийн менежерийг сонгоно.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <div className="flex flex-col gap-2">
                                 <FormLabel>Жолооч</FormLabel>
                                 <div className="text-sm font-medium p-3 bg-muted/50 rounded-md border flex justify-between items-center">

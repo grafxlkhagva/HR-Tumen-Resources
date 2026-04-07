@@ -261,13 +261,17 @@ export default function TmsDriverDetailPage() {
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
                 <div>
                   <CardTitle>Тээвэрлэлтийн тохиргоо</CardTitle>
-                  <CardDescription>Энэ жолооч гэрээт (тогтмол) тээвэрлэлтэд явах боломжтой эсэх.</CardDescription>
+                  <CardDescription>КАМ/менежер, гэрээт тээвэрт явах эсэх.</CardDescription>
                 </div>
                 <Button variant="ghost" size="icon-sm" onClick={() => setEditTransportOpen(true)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">КАМ / Тээврийн менежер</p>
+                  <p className="font-medium">{driver.transportManagerEmployeeName || '—'}</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={driver.isAvailableForContracted ?? false} disabled />
                   <span className="text-sm">Гэрээт тээвэрт явах</span>

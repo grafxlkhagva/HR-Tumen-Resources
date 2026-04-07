@@ -59,6 +59,7 @@ import {
   type TmsDispatchStep
 } from '@/app/tms/types';
 import { cn } from '@/lib/utils';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const RouteMap = dynamic(() => import('@/app/tms/quotations/[id]/transportations/[transportationId]/route-map').then((mod) => mod.RouteMap), { ssr: false });
 
@@ -133,6 +134,19 @@ export default function TransportManagementDetailPage() {
   const { data: driversList } = useCollection<{ id: string; firstName: string; lastName: string; phone?: string; }>(
     firestore ? collection(firestore, TMS_DRIVERS_COLLECTION) : null
   );
+
+  const vehicleSearchOptions = React.useMemo(() => {
+    const none = { value: 'none', label: 'Сонгоогүй' };
+    const rest =
+      vehiclesList?.map((v) => {
+        const plate = v.licensePlate?.trim() || '';
+        const make = v.makeName?.trim() || '';
+        const model = v.modelName?.trim() || '';
+        const label = [plate, make, model].filter(Boolean).join(' · ') || v.id;
+        return { value: v.id, label };
+      }) ?? [];
+    return [none, ...rest];
+  }, [vehiclesList]);
 
   const [dialogs, setDialogs] = React.useState({
     route: false,
@@ -888,13 +902,14 @@ export default function TransportManagementDetailPage() {
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Тодорхой машин оноох</Label>
-              <Select value={t.vehicleId || 'none'} onValueChange={(val) => handleChange('vehicleId', val === 'none' ? null : val)}>
-                <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Сонгоогүй</SelectItem>
-                  {vehiclesList?.map((v) => <SelectItem key={v.id} value={v.id}>{v.licensePlate} {v.makeName ? `- ${v.makeName}` : ''}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={vehicleSearchOptions}
+                value={t.vehicleId || 'none'}
+                onValueChange={(val) => handleChange('vehicleId', val === 'none' ? null : val)}
+                placeholder="Сонгох..."
+                searchPlaceholder="Улсын дугаар, үйлдвэрлэгч, загвар хайх..."
+                emptyText="Тээврийн хэрэгсэл олдсонгүй."
+              />
             </div>
             <div className="space-y-2">
               <Label>Жолооч оноох</Label>
