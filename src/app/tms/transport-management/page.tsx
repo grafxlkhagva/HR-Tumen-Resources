@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -23,9 +22,10 @@ import {
   TMS_TRANSPORT_MANAGEMENT_COLLECTION,
   TMS_CUSTOMERS_COLLECTION,
   TMS_SERVICE_TYPES_COLLECTION,
+  TMS_VEHICLES_COLLECTION,
   type TmsTransportManagement,
   type TmsCustomer,
-  type TmsServiceType
+  type TmsServiceType,
 } from '@/app/tms/types';
 import { format } from 'date-fns';
 
@@ -41,7 +41,6 @@ export default function TransportManagementPage() {
   const { firestore } = useFirebase();
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // Fetch Transport Managements
   const tmsQuery = useMemoFirebase(
     () =>
       firestore
@@ -54,7 +53,6 @@ export default function TransportManagementPage() {
   );
   const { data: items = [], isLoading } = useCollection<TmsTransportManagement>(tmsQuery);
 
-  // Fetch references to show names
   const servicesQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, TMS_SERVICE_TYPES_COLLECTION)) : null),
     [firestore]
@@ -67,8 +65,28 @@ export default function TransportManagementPage() {
   );
   const { data: customers = [] } = useCollection<TmsCustomer>(customersQuery);
 
-  const getServiceName = (id: string) => services.find(s => s.id === id)?.name || '—';
-  const getCustomerName = (id: string) => customers.find(c => c.id === id)?.name || '—';
+  const vehiclesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, TMS_VEHICLES_COLLECTION) : null),
+    [firestore]
+  );
+  const { data: vehiclesList = [] } = useCollection<{
+    id: string;
+    licensePlate?: string;
+    makeName?: string;
+    modelName?: string;
+  }>(vehiclesQuery);
+
+  const getServiceName = (id: string) => services.find((s) => s.id === id)?.name || '—';
+  const getCustomerName = (id: string) => customers.find((c) => c.id === id)?.name || '—';
+
+  const vehicleLabelById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const v of vehiclesList) {
+      const label = [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id;
+      m.set(v.id, label);
+    }
+    return m;
+  }, [vehiclesList]);
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
@@ -96,17 +114,18 @@ export default function TransportManagementPage() {
               <DataTableColumn>Код / Огноо</DataTableColumn>
               <DataTableColumn>Харилцагч</DataTableColumn>
               <DataTableColumn>Үйлчилгээ</DataTableColumn>
+              <DataTableColumn>Машин</DataTableColumn>
               <DataTableColumn>Төрөл</DataTableColumn>
               <DataTableColumn>Төлөв</DataTableColumn>
               <DataTableColumn align="right"></DataTableColumn>
             </DataTableRow>
           </DataTableHeader>
-          
-          {isLoading && <DataTableLoading columns={6} rows={5} />}
-          
+
+          {isLoading && <DataTableLoading columns={7} rows={5} />}
+
           {!isLoading && items.length === 0 && (
             <DataTableEmpty
-              columns={6}
+              columns={7}
               message="Тээврийн удирдлага бүртгэгдээгүй байна."
             />
           )}
@@ -116,10 +135,13 @@ export default function TransportManagementPage() {
               {items.map((item) => {
                 const statusInfo = STATUS_MAP[item.status] || { label: item.status, variant: 'secondary' };
                 const dateStr = item.createdAt?.toDate ? format(item.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : '—';
-                
+                const firstSubVehicleId = item.subTransports?.[0]?.vehicleId ?? null;
+                const vehicleId = item.vehicleId || firstSubVehicleId || null;
+                const vehLabel = vehicleId ? vehicleLabelById.get(vehicleId) : null;
+
                 return (
-                  <DataTableRow 
-                    key={item.id} 
+                  <DataTableRow
+                    key={item.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors group"
                     onClick={() => window.location.href = `/tms/transport-management/${item.id}`}
                   >
@@ -134,6 +156,9 @@ export default function TransportManagementPage() {
                     </DataTableCell>
                     <DataTableCell>
                       {getServiceName(item.serviceTypeId)}
+                    </DataTableCell>
+                    <DataTableCell className="text-sm text-muted-foreground">
+                      {vehLabel || '—'}
                     </DataTableCell>
                     <DataTableCell>
                       {item.isContracted ? (

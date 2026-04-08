@@ -392,6 +392,14 @@ export interface TmsDispatchStep {
   taskResults?: Record<string, any>; // controlTask.id -> value (зурагны url, текст, тоо г.м)
 }
 
+export interface TmsTransportSubUnit {
+  id: string;
+  subCode: string;
+  vehicleId?: string | null;
+  driverId?: string | null;
+  dispatchSteps?: TmsDispatchStep[];
+}
+
 export interface TmsTransportManagement {
   id: string;
   code?: string; // Automatically generated code
@@ -429,6 +437,8 @@ export interface TmsTransportManagement {
   cargos?: TmsQuotationCargo[];
   dispatchSteps?: TmsDispatchStep[];
   financeTransactions?: TmsFinanceTransaction[];
+  /** Нэг тээврийн удирдлагын доторх дэд тээврийн табууд */
+  subTransports?: TmsTransportSubUnit[];
 
   createdAt: Timestamp;
   updatedAt?: Timestamp;
@@ -494,7 +504,7 @@ export interface TmsContractService {
   conditions?: string;
   /** Гэрээний мөрийн дотоод/үйл ажиллагааны нарийн тэмдэглэл (харилцагчид харагдахгүй байж болно) */
   internalNote?: string | null;
-  /** Энэ үйлчилгээг гүйцэтгэхэд зөвшөөрөгдөх тээврийн хэрэгслийн id жагсаалт */
+  /** Энэ үйлчилгээнд явах боломжтой гэж тохируулсан тээврийн хэрэгслийн id жагсаалт */
   allowedVehicleIds?: string[];
 }
 

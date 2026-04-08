@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import { CheckCircle2, Clock, MapPin, Loader2, Save, Plus, Trash2, Pencil, Trash, FileImage, UploadCloud, ChevronDown, ChevronUp, Banknote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +61,7 @@ import {
   type TmsQuotationCargo,
   type TmsDispatchStep,
   type TmsContract,
+  type TmsTransportSubUnit,
 } from '@/app/tms/types';
 import { cn } from '@/lib/utils';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -86,6 +88,7 @@ export default function TransportManagementDetailPage() {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [expandedStep, setExpandedStep] = React.useState<string | null>(null);
   const [confirmStepId, setConfirmStepId] = React.useState<string | null>(null);
+  const [activeSubTransportId, setActiveSubTransportId] = React.useState<string>('');
 
   // Fetch transport
   const docRef = React.useMemo(
@@ -109,10 +112,51 @@ export default function TransportManagementDetailPage() {
   }, [linkedContract, item?.contractServiceId]);
 
   React.useEffect(() => {
-    if (item && !t) {
-      setT(item);
-    }
+    if (!item) return;
+    setT((prev) => {
+      if (!prev || prev.id !== item.id) return item;
+      // Firestore snapshot шинэчлэгдэхэд дэд табын мэдээллийг алдчихгүй синк хийнэ.
+      if ((!prev.subTransports || prev.subTransports.length === 0) && (item.subTransports?.length || 0) > 0) {
+        return { ...prev, subTransports: item.subTransports };
+      }
+      return prev;
+    });
   }, [item]);
+
+  const normalizedSubTransports = React.useMemo<TmsTransportSubUnit[]>(() => {
+    if (!t) return [];
+    if (t.subTransports && t.subTransports.length > 0) return t.subTransports;
+    return [
+      {
+        id: 'default',
+        subCode: '1',
+        vehicleId: t.vehicleId ?? null,
+        driverId: t.driverId ?? null,
+      },
+    ];
+  }, [t]);
+
+  React.useEffect(() => {
+    if (!normalizedSubTransports.length) {
+      setActiveSubTransportId('');
+      return;
+    }
+    setActiveSubTransportId((prev) =>
+      normalizedSubTransports.some((s) => s.id === prev) ? prev : normalizedSubTransports[0]!.id
+    );
+  }, [normalizedSubTransports]);
+
+  const activeSubTransport = React.useMemo(
+    () => normalizedSubTransports.find((s) => s.id === activeSubTransportId) ?? normalizedSubTransports[0] ?? null,
+    [normalizedSubTransports, activeSubTransportId]
+  );
+
+  const activeDispatchSteps = React.useMemo(() => {
+    if (activeSubTransport?.dispatchSteps && activeSubTransport.dispatchSteps.length > 0) {
+      return activeSubTransport.dispatchSteps;
+    }
+    return t?.dispatchSteps || [];
+  }, [activeSubTransport?.dispatchSteps, t?.dispatchSteps]);
 
   // Fetch relations
   const customerRef = React.useMemo(
@@ -158,7 +202,7 @@ export default function TransportManagementDetailPage() {
     let pool = vehiclesList ?? [];
     if (allowed && allowed.length > 0) {
       const set = new Set(allowed);
-      const currentId = t?.vehicleId;
+      const currentId = activeSubTransport?.vehicleId;
       pool = pool.filter((v) => set.has(v.id) || v.id === currentId);
     }
     const rest = pool.map((v) => {
@@ -169,7 +213,7 @@ export default function TransportManagementDetailPage() {
       return { value: v.id, label };
     });
     return [none, ...rest];
-  }, [vehiclesList, linkedContractService?.allowedVehicleIds, t?.vehicleId]);
+  }, [vehiclesList, linkedContractService?.allowedVehicleIds, activeSubTransport?.vehicleId]);
 
   const [dialogs, setDialogs] = React.useState({
     route: false,
@@ -188,6 +232,42 @@ export default function TransportManagementDetailPage() {
 
   const handleChange = (field: keyof TmsTransportManagement, value: any) => {
     setT(prev => prev ? { ...prev, [field]: value } : prev);
+  };
+
+  const handleSubTransportChange = (field: 'vehicleId' | 'driverId', value: string | null) => {
+    setT((prev) => {
+      if (!prev) return prev;
+      const base = prev.subTransports && prev.subTransports.length > 0
+        ? [...prev.subTransports]
+        : [{ id: 'default', subCode: '1', vehicleId: prev.vehicleId ?? null, driverId: prev.driverId ?? null }];
+      const targetId = activeSubTransportId || base[0]!.id;
+      const next = base.map((s) => (s.id === targetId ? { ...s, [field]: value } : s));
+      const first = next[0];
+      return {
+        ...prev,
+        subTransports: next,
+        vehicleId: first?.vehicleId ?? null,
+        driverId: first?.driverId ?? null,
+      };
+    });
+  };
+
+  const handleActiveDispatchStepsChange = (newSteps: TmsDispatchStep[]) => {
+    setT((prev) => {
+      if (!prev) return prev;
+      const base = prev.subTransports && prev.subTransports.length > 0
+        ? [...prev.subTransports]
+        : [{ id: 'default', subCode: '1', vehicleId: prev.vehicleId ?? null, driverId: prev.driverId ?? null, dispatchSteps: prev.dispatchSteps || [] }];
+      const targetId = activeSubTransportId || base[0]!.id;
+      const nextSubs = base.map((s) => (s.id === targetId ? { ...s, dispatchSteps: newSteps } : s));
+      const first = nextSubs[0];
+      return {
+        ...prev,
+        subTransports: nextSubs,
+        // backward compatibility: top-level дээр эхний табын алхмыг тольдуулж хадгална.
+        dispatchSteps: first?.dispatchSteps || [],
+      };
+    });
   };
 
   const handleAddCargo = () => {
@@ -243,6 +323,7 @@ export default function TransportManagementDetailPage() {
         trailerTypeId: t.trailerTypeId || null,
         vehicleId: t.vehicleId || null,
         driverId: t.driverId || null,
+        subTransports: (t.subTransports && t.subTransports.length > 0) ? t.subTransports : null,
         driverPrice: t.driverPrice || null,
         profitMarginPercent: t.profitMarginPercent || null,
         hasVat: t.hasVat || false,
@@ -263,9 +344,9 @@ export default function TransportManagementDetailPage() {
   };
 
   const handleTaskResultChange = async (stepId: string, taskId: string, value: any) => {
-    if (!t?.dispatchSteps || !firestore || !id) return;
+    if (!firestore || !id) return;
 
-    const newSteps = t.dispatchSteps.map((s) => {
+    const newSteps = activeDispatchSteps.map((s) => {
       if (s.id === stepId) {
         return {
           ...s,
@@ -278,11 +359,17 @@ export default function TransportManagementDetailPage() {
       return s;
     });
 
-    handleChange('dispatchSteps', newSteps);
+    handleActiveDispatchStepsChange(newSteps);
 
     // Auto-save
     try {
+      const targetSubId = activeSubTransportId || t?.subTransports?.[0]?.id || 'default';
       await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
+        subTransports: (t?.subTransports && t.subTransports.length > 0)
+          ? t.subTransports.map((s) =>
+              s.id === targetSubId ? { ...s, dispatchSteps: newSteps } : s
+            )
+          : [{ id: 'default', subCode: '1', vehicleId: t?.vehicleId ?? null, driverId: t?.driverId ?? null, dispatchSteps: newSteps }],
         dispatchSteps: newSteps,
         updatedAt: new Date(),
       });
@@ -292,9 +379,9 @@ export default function TransportManagementDetailPage() {
   };
 
   const handleToggleStepClick = (stepId: string) => {
-    if (!t?.dispatchSteps) return;
+    if (!activeDispatchSteps.length) return;
 
-    const stepToToggle = t.dispatchSteps.find(s => s.id === stepId);
+    const stepToToggle = activeDispatchSteps.find(s => s.id === stepId);
     if (stepToToggle && stepToToggle.status !== 'completed') {
       // Trying to complete it, validate required tasks
       const missingTasks = (stepToToggle.controlTasks || []).filter(task => {
@@ -322,12 +409,12 @@ export default function TransportManagementDetailPage() {
 
   const executeStepToggle = async () => {
     const stepId = confirmStepId;
-    if (!stepId || !t?.dispatchSteps) {
+    if (!stepId || !activeDispatchSteps.length) {
       setConfirmStepId(null);
       return;
     }
 
-    const newSteps = t.dispatchSteps.map((s) => {
+    const newSteps = activeDispatchSteps.map((s) => {
       if (s.id === stepId) {
         if (s.status === 'completed') {
           return { ...s, status: 'pending' as const, completedAt: null };
@@ -338,13 +425,19 @@ export default function TransportManagementDetailPage() {
       return s;
     });
 
-    handleChange('dispatchSteps', newSteps);
+    handleActiveDispatchStepsChange(newSteps);
     setConfirmStepId(null);
 
     // Save automatically on toggle
     if (!firestore || !id) return;
     try {
+      const targetSubId = activeSubTransportId || t?.subTransports?.[0]?.id || 'default';
       await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
+        subTransports: (t?.subTransports && t.subTransports.length > 0)
+          ? t.subTransports.map((s) =>
+              s.id === targetSubId ? { ...s, dispatchSteps: newSteps } : s
+            )
+          : [{ id: 'default', subCode: '1', vehicleId: t?.vehicleId ?? null, driverId: t?.driverId ?? null, dispatchSteps: newSteps }],
         dispatchSteps: newSteps,
         updatedAt: new Date(),
       });
@@ -416,7 +509,7 @@ export default function TransportManagementDetailPage() {
 
   const loadingW = warehouses?.find((w: any) => w.id === t.loadingWarehouseId);
   const unloadingW = warehouses?.find((w: any) => w.id === t.unloadingWarehouseId);
-  const selectedVehicle = t.vehicleId ? vehiclesList?.find(v => v.id === t.vehicleId) : null;
+  const selectedVehicle = activeSubTransport?.vehicleId ? vehiclesList?.find(v => v.id === activeSubTransport.vehicleId) : null;
   const gpsDeviceId = (selectedVehicle as any)?.gpsDeviceId;
 
   return (
@@ -552,19 +645,28 @@ export default function TransportManagementDetailPage() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 flex-1">
+              <Tabs value={activeSubTransport?.id || ''} onValueChange={setActiveSubTransportId}>
+                <TabsList className="h-auto w-full justify-start flex-wrap">
+                  {normalizedSubTransports.map((s) => (
+                    <TabsTrigger key={s.id} value={s.id} className="text-xs">
+                      {`Тээвэр ${t.code || 'TR'}-${s.subCode}`}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
               <div className="flex flex-col gap-4">
                 <div className="border-b pb-2">
                   <div className="text-sm text-muted-foreground mb-1">Машин</div>
                   <div className="font-medium text-sm">
-                    {t.vehicleId ? (vehiclesList?.find(v => v.id === t.vehicleId)?.licensePlate || 'Сонгоогүй') : getVehicleName(t.vehicleTypeId)}
+                    {activeSubTransport?.vehicleId ? (vehiclesList?.find(v => v.id === activeSubTransport.vehicleId)?.licensePlate || 'Сонгоогүй') : getVehicleName(t.vehicleTypeId)}
                   </div>
                 </div>
                 <div className="border-b pb-2">
                   <div className="text-sm text-muted-foreground mb-1">Жолооч</div>
                   <div className="font-medium text-sm">
-                    {t.driverId ? (
+                    {activeSubTransport?.driverId ? (
                       (() => {
-                        const d = driversList?.find(d => d.id === t.driverId);
+                        const d = driversList?.find(d => d.id === activeSubTransport.driverId);
                         return d ? `${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim() : 'Сонгоогүй';
                       })()
                     ) : 'Сонгоогүй'}
@@ -673,11 +775,11 @@ export default function TransportManagementDetailPage() {
             <CardTitle className="text-lg">Диспач алхмууд (Гүйцэтгэл)</CardTitle>
           </CardHeader>
           <CardContent>
-            {(!t.dispatchSteps || t.dispatchSteps.length === 0) ? (
+            {activeDispatchSteps.length === 0 ? (
               <p className="text-sm text-muted-foreground">Диспач алхам тохируулагдаагүй байна.</p>
             ) : (
               <div className="space-y-4">
-                {t.dispatchSteps.sort((a, b) => a.order - b.order).map((step) => {
+                {[...activeDispatchSteps].sort((a, b) => a.order - b.order).map((step) => {
                   const isCompleted = step.status === 'completed';
                   const isExpanded = expandedStep === step.id;
 
@@ -923,19 +1025,24 @@ export default function TransportManagementDetailPage() {
         <AppDialogContent>
           <AppDialogHeader><AppDialogTitle>Тээврийн хэрэгсэл засах</AppDialogTitle></AppDialogHeader>
           <AppDialogBody className="space-y-4 pt-4">
+            {activeSubTransport && (
+              <div className="text-xs text-muted-foreground">
+                Засварлаж буй таб: <span className="font-medium text-foreground">{`${t.code || 'TR'}-${activeSubTransport.subCode}`}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Тодорхой машин оноох</Label>
               <SearchableSelect
                 options={vehicleSearchOptions}
-                value={t.vehicleId || 'none'}
-                onValueChange={(val) => handleChange('vehicleId', val === 'none' ? null : val)}
+                value={activeSubTransport?.vehicleId || 'none'}
+                onValueChange={(val) => handleSubTransportChange('vehicleId', val === 'none' ? null : val)}
                 placeholder="Сонгох..."
                 searchPlaceholder="Улсын дугаар, үйлдвэрлэгч, загвар хайх..."
                 emptyText="Тээврийн хэрэгсэл олдсонгүй."
               />
               {linkedContractService?.allowedVehicleIds && linkedContractService.allowedVehicleIds.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Гэрээний үйлчилгээнд зөвшөөрөгдсөн {linkedContractService.allowedVehicleIds.length} машин л сонгогдоно.
+                  Энэ үйлчилгээнд явах боломжтой гэж бүртгэсэн {linkedContractService.allowedVehicleIds.length} машин л сонгогдоно.
                   Жагсаалтыг{' '}
                   {item?.contractId && item?.contractServiceId ? (
                     <Link
@@ -953,7 +1060,7 @@ export default function TransportManagementDetailPage() {
             </div>
             <div className="space-y-2">
               <Label>Жолооч оноох</Label>
-              <Select value={t.driverId || 'none'} onValueChange={(val) => handleChange('driverId', val === 'none' ? null : val)}>
+              <Select value={activeSubTransport?.driverId || 'none'} onValueChange={(val) => handleSubTransportChange('driverId', val === 'none' ? null : val)}>
                 <SelectTrigger><SelectValue placeholder="Сонгох..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Сонгоогүй</SelectItem>

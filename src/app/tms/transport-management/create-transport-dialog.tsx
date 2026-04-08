@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, serverTimestamp, runTransaction, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import {
   AppDialog,
   AppDialogContent,
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ArrowRight, ArrowLeft, FileText, Plus, ScrollText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -33,11 +34,13 @@ import {
   TMS_CONTRACTS_COLLECTION,
   TMS_SETTINGS_COLLECTION,
   TMS_GLOBAL_SETTINGS_ID,
+  TMS_VEHICLES_COLLECTION,
   type TmsServiceType,
   type TmsCustomer,
   type TmsQuotation,
   type TmsContract,
   type TmsContractService,
+  type TmsTransportSubUnit,
 } from '@/app/tms/types';
 
 interface CreateTransportDialogProps {
@@ -68,6 +71,8 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
   // Contract flow
   const [selectedContractId, setSelectedContractId] = React.useState<string>('');
   const [selectedContractServiceId, setSelectedContractServiceId] = React.useState<string>('');
+  /** Гэрээний үйлчилгээнд зөвшөөрөгдсөн машинуудаас олон сонгох → тус бүрт тусдаа тээвэр */
+  const [pickedContractVehicleIds, setPickedContractVehicleIds] = React.useState<string[]>([]);
 
   // Fetch Quotations
   const quotationsQuery = useMemoFirebase(
@@ -97,11 +102,48 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
   );
   const { data: contracts = [], isLoading: isLoadingContracts } = useCollection<TmsContract>(contractsQuery);
 
+  const vehiclesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, TMS_VEHICLES_COLLECTION) : null),
+    [firestore]
+  );
+  const { data: vehiclesList = [], isLoading: isLoadingVehicles } = useCollection<{
+    id: string;
+    licensePlate?: string;
+    makeName?: string;
+    modelName?: string;
+  }>(vehiclesQuery);
+
   // Selected contract's services
   const selectedContract = React.useMemo(
     () => contracts.find((c) => c.id === selectedContractId),
     [contracts, selectedContractId]
   );
+
+  const selectedContractService = React.useMemo(
+    () => selectedContract?.services?.find((s) => s.id === selectedContractServiceId) ?? null,
+    [selectedContract, selectedContractServiceId]
+  );
+
+  const contractAllowedVehicleIds = selectedContractService?.allowedVehicleIds?.length
+    ? selectedContractService.allowedVehicleIds
+    : [];
+
+  const contractAllowedVehicles = React.useMemo(() => {
+    if (!contractAllowedVehicleIds.length) return [];
+    const byId = new Map(vehiclesList.map((v) => [v.id, v]));
+    const rows = contractAllowedVehicleIds.map((id) => {
+      const v = byId.get(id);
+      return v
+        ? {
+            id: v.id,
+            label: [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id,
+          }
+        : { id, label: `${id.slice(0, 8)}… (бүртгэлд олдсонгүй)` };
+    });
+    return rows.sort((a, b) => a.label.localeCompare(b.label, 'mn'));
+  }, [contractAllowedVehicleIds, vehiclesList]);
+
+  const contractHasVehiclePickStep = method === 'contract' && contractAllowedVehicleIds.length > 0;
 
   React.useEffect(() => {
     if (!open) {
@@ -112,6 +154,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
       setCustomerId('');
       setSelectedContractId('');
       setSelectedContractServiceId('');
+      setPickedContractVehicleIds([]);
     }
   }, [open]);
 
@@ -120,7 +163,18 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
     setSelectedContractServiceId('');
   }, [selectedContractId]);
 
-  const totalSteps = method === 'quotation' ? 2 : method === 'contract' ? 2 : 3; // new: step1 -> step2 (service) -> step3 (customer)
+  React.useEffect(() => {
+    setPickedContractVehicleIds([]);
+  }, [selectedContractServiceId]);
+
+  React.useEffect(() => {
+    if (method === 'contract' && step === 3 && !contractHasVehiclePickStep) {
+      setStep(2);
+    }
+  }, [method, step, contractHasVehiclePickStep]);
+
+  const totalSteps =
+    method === 'quotation' ? 2 : method === 'contract' ? (contractHasVehiclePickStep ? 3 : 2) : 3;
 
   const handleNext = () => {
     if (step < totalSteps) setStep(step + 1);
@@ -138,6 +192,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
       if (method === 'new') return !!serviceTypeId;
     }
     if (step === 3 && method === 'new') return !!customerId;
+    if (step === 3 && method === 'contract' && contractHasVehiclePickStep) return true;
     return false;
   };
 
@@ -146,8 +201,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
 
     setIsSubmitting(true);
     try {
-      const newDocRef = await runTransaction(firestore, async (transaction) => {
-        // 1. Get settings for code generation
+      const navigateAfter = await runTransaction(firestore, async (transaction) => {
         const settingsRef = doc(firestore, TMS_SETTINGS_COLLECTION, TMS_GLOBAL_SETTINGS_ID);
         const settingsDoc = await transaction.get(settingsRef);
 
@@ -162,32 +216,44 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
           padding = data.transportCodePadding || 5;
         }
 
-        const nextNum = currentNum + 1;
-        const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+        const colRef = collection(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION);
 
-        const docRef = doc(collection(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION));
+        const bumpSettings = (newCurrent: number) => {
+          transaction.set(
+            settingsRef,
+            {
+              transportCodeCurrentNumber: newCurrent,
+              transportCodePrefix: prefix,
+              transportCodePadding: padding,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        };
 
         if (method === 'quotation') {
-          // From Quotation
           const quotation = quotations.find((q) => q.id === selectedQuotationId);
           if (!quotation) throw new Error('Үнийн санал олдсонгүй');
 
           const firstTrans = quotation.transportations?.[0] || {};
 
-          const serviceDoc = services.find(s => s.id === firstTrans.serviceTypeId);
+          const serviceDoc = services.find((s) => s.id === firstTrans.serviceTypeId);
           let dispatchSteps: any[] = [];
           if (serviceDoc?.dispatchSteps) {
-            dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
+            dispatchSteps = serviceDoc.dispatchSteps.map((step) => ({
               id: step.id,
               name: step.name,
               order: step.order,
               isRequired: step.isRequired,
               status: 'pending',
-              controlTasks: step.controlTasks || []
+              controlTasks: step.controlTasks || [],
             }));
           }
 
           const acceptedOffer = firstTrans.driverOffers?.find((o: any) => o.isAccepted);
+          const nextNum = currentNum + 1;
+          const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+          const docRef = doc(colRef);
 
           transaction.set(docRef, {
             code: newCode,
@@ -214,8 +280,11 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
-        } else if (method === 'contract') {
-          // From Contract
+          bumpSettings(nextNum);
+          return { kind: 'single' as const, docId: docRef.id };
+        }
+
+        if (method === 'contract') {
           const contract = contracts.find((c) => c.id === selectedContractId);
           if (!contract) throw new Error('Гэрээ олдсонгүй');
 
@@ -224,18 +293,36 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
           );
           if (!contractService) throw new Error('Гэрээний үйлчилгээ олдсонгүй');
 
-          const serviceDoc = services.find(s => s.id === contractService.serviceTypeId);
+          const serviceDoc = services.find((s) => s.id === contractService.serviceTypeId);
           let dispatchSteps: any[] = [];
           if (serviceDoc?.dispatchSteps) {
-            dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
+            dispatchSteps = serviceDoc.dispatchSteps.map((step) => ({
               id: step.id,
               name: step.name,
               order: step.order,
               isRequired: step.isRequired,
               status: 'pending',
-              controlTasks: step.controlTasks || []
+              controlTasks: step.controlTasks || [],
             }));
           }
+
+          const vehicleSlots: (string | null)[] = pickedContractVehicleIds.length > 0 ? pickedContractVehicleIds : [null];
+          const subTransports: TmsTransportSubUnit[] = vehicleSlots.map((vehicleId, idx) => ({
+            id: crypto.randomUUID(),
+            subCode: String(idx + 1),
+            vehicleId,
+            driverId: null,
+            dispatchSteps: dispatchSteps.map((step) => ({
+              ...step,
+              taskResults: {},
+              completedAt: null,
+              completedBy: null,
+            })),
+          }));
+
+          const nextNum = currentNum + 1;
+          const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+          const docRef = doc(colRef);
 
           transaction.set(docRef, {
             code: newCode,
@@ -254,6 +341,9 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             unloadingWarehouseId: contractService.unloadingWarehouseId || null,
             vehicleTypeId: contractService.vehicleTypeId || null,
             trailerTypeId: contractService.trailerTypeId || null,
+            vehicleId: subTransports[0]?.vehicleId || null,
+            driverId: subTransports[0]?.driverId || null,
+            subTransports,
             driverPrice: contractService.price || null,
             contractPriceType: contractService.priceType ?? null,
             profitMarginPercent: contractService.profitMarginPercent ?? null,
@@ -261,50 +351,51 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
-        } else {
-          // New (manual)
-          const customerRef = doc(firestore, TMS_CUSTOMERS_COLLECTION, customerId);
-          const serviceDoc = services.find(s => s.id === serviceTypeId);
 
-          let dispatchSteps: any[] = [];
-          if (serviceDoc?.dispatchSteps) {
-            dispatchSteps = serviceDoc.dispatchSteps.map(step => ({
-              id: step.id,
-              name: step.name,
-              order: step.order,
-              isRequired: step.isRequired,
-              status: 'pending',
-              controlTasks: step.controlTasks || []
-            }));
-          }
-
-          transaction.set(docRef, {
-            code: newCode,
-            serviceTypeId,
-            isContracted: false,
-            customerId,
-            customerRef,
-            status: 'draft',
-            dispatchSteps,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
+          bumpSettings(nextNum);
+          return { kind: 'single' as const, docId: docRef.id };
         }
 
-        // Update settings
-        transaction.set(settingsRef, {
-          transportCodeCurrentNumber: nextNum,
-          transportCodePrefix: prefix,
-          transportCodePadding: padding,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        // New (manual)
+        const customerRef = doc(firestore, TMS_CUSTOMERS_COLLECTION, customerId);
+        const serviceDoc = services.find((s) => s.id === serviceTypeId);
 
-        return docRef;
+        let dispatchSteps: any[] = [];
+        if (serviceDoc?.dispatchSteps) {
+          dispatchSteps = serviceDoc.dispatchSteps.map((step) => ({
+            id: step.id,
+            name: step.name,
+            order: step.order,
+            isRequired: step.isRequired,
+            status: 'pending',
+            controlTasks: step.controlTasks || [],
+          }));
+        }
+
+        const nextNum = currentNum + 1;
+        const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+        const docRef = doc(colRef);
+
+        transaction.set(docRef, {
+          code: newCode,
+          serviceTypeId,
+          isContracted: false,
+          customerId,
+          customerRef,
+          status: 'draft',
+          dispatchSteps,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        bumpSettings(nextNum);
+        return { kind: 'single' as const, docId: docRef.id };
       });
 
-      toast({ title: 'Тээврийн удирдлага амжилттай үүсгэгдлээ.' });
+      toast({
+        title: 'Тээврийн удирдлага амжилттай үүсгэгдлээ.',
+      });
       onOpenChange(false);
-      router.push(`/tms/transport-management/${newDocRef.id}`);
+      router.push(`/tms/transport-management/${navigateAfter.docId}`);
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -469,6 +560,13 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedContractServiceId &&
+                    selectedContract?.services?.find((s) => s.id === selectedContractServiceId)?.allowedVehicleIds
+                      ?.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      Дараагийн алхамд энэ үйлчилгээнд бүртгэсэн явах боломжтой машинуудаас сонгоно.
+                    </p>
+                  ) : null}
                 </div>
               )}
 
@@ -499,6 +597,74 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Contract — allowed vehicles (multi → олон тээвэр) */}
+          {step === 3 && method === 'contract' && contractHasVehiclePickStep && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+              <div>
+                <Label className="text-base font-medium">Тээврийн хэрэгсэл сонгох</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Нэгээс олон машин сонгож болно — сонгосон машин бүр нэг тээврийн удирдлага дотор
+                  дэд табаар үүснэ. Хоосон үлдээвэл 1 табтай үүсэж, машиныг дараа нь онооно.
+                </p>
+              </div>
+              {pickedContractVehicleIds.length > 1 ? (
+                <p className="text-sm font-medium text-primary">
+                  {pickedContractVehicleIds.length} машин сонгогдсон → ижил тооны дэд таб үүснэ.
+                </p>
+              ) : null}
+              {isLoadingVehicles ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Машинууд уншиж байна...
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPickedContractVehicleIds(contractAllowedVehicles.map((v) => v.id))
+                      }
+                    >
+                      Бүгдийг сонгох
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setPickedContractVehicleIds([])}>
+                      Цэвэрлэх
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border max-h-[min(320px,50vh)] overflow-y-auto divide-y">
+                    {contractAllowedVehicles.map((v) => {
+                      const cid = `contract-veh-${v.id}`;
+                      const checked = pickedContractVehicleIds.includes(v.id);
+                      return (
+                        <div key={v.id} className="flex items-start gap-3 p-3 hover:bg-muted/30">
+                          <Checkbox
+                            id={cid}
+                            checked={checked}
+                            onCheckedChange={(c) => {
+                              if (c === true) {
+                                setPickedContractVehicleIds((prev) =>
+                                  prev.includes(v.id) ? prev : [...prev, v.id]
+                                );
+                              } else {
+                                setPickedContractVehicleIds((prev) => prev.filter((id) => id !== v.id));
+                              }
+                            }}
+                            className="mt-0.5"
+                          />
+                          <label htmlFor={cid} className="text-sm cursor-pointer flex-1 leading-snug">
+                            {v.label}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
