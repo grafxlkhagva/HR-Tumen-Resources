@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import Link from 'next/link';
 import { CheckCircle2, Clock, MapPin, Loader2, Save, Plus, Trash2, Pencil, Trash, FileImage, UploadCloud, ChevronDown, ChevronUp, Banknote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -52,11 +53,13 @@ import {
   TMS_PACKAGING_TYPES_COLLECTION,
   TMS_VEHICLES_COLLECTION,
   TMS_DRIVERS_COLLECTION,
+  TMS_CONTRACTS_COLLECTION,
   type TmsTransportManagement,
   type TmsCustomer,
   type TmsServiceType,
   type TmsQuotationCargo,
-  type TmsDispatchStep
+  type TmsDispatchStep,
+  type TmsContract,
 } from '@/app/tms/types';
 import { cn } from '@/lib/utils';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -90,6 +93,20 @@ export default function TransportManagementDetailPage() {
     [firestore, id]
   );
   const { data: item, isLoading } = useDoc<TmsTransportManagement>(docRef);
+
+  const linkedContractRef = useMemoFirebase(
+    () =>
+      firestore && item?.isContracted && item?.contractId
+        ? doc(firestore, TMS_CONTRACTS_COLLECTION, item.contractId)
+        : null,
+    [firestore, item?.isContracted, item?.contractId]
+  );
+  const { data: linkedContract } = useDoc<TmsContract>(linkedContractRef);
+
+  const linkedContractService = React.useMemo(() => {
+    if (!linkedContract?.services || !item?.contractServiceId) return null;
+    return linkedContract.services.find((s) => s.id === item.contractServiceId) ?? null;
+  }, [linkedContract, item?.contractServiceId]);
 
   React.useEffect(() => {
     if (item && !t) {
@@ -137,16 +154,22 @@ export default function TransportManagementDetailPage() {
 
   const vehicleSearchOptions = React.useMemo(() => {
     const none = { value: 'none', label: 'Сонгоогүй' };
-    const rest =
-      vehiclesList?.map((v) => {
-        const plate = v.licensePlate?.trim() || '';
-        const make = v.makeName?.trim() || '';
-        const model = v.modelName?.trim() || '';
-        const label = [plate, make, model].filter(Boolean).join(' · ') || v.id;
-        return { value: v.id, label };
-      }) ?? [];
+    const allowed = linkedContractService?.allowedVehicleIds;
+    let pool = vehiclesList ?? [];
+    if (allowed && allowed.length > 0) {
+      const set = new Set(allowed);
+      const currentId = t?.vehicleId;
+      pool = pool.filter((v) => set.has(v.id) || v.id === currentId);
+    }
+    const rest = pool.map((v) => {
+      const plate = v.licensePlate?.trim() || '';
+      const make = v.makeName?.trim() || '';
+      const model = v.modelName?.trim() || '';
+      const label = [plate, make, model].filter(Boolean).join(' · ') || v.id;
+      return { value: v.id, label };
+    });
     return [none, ...rest];
-  }, [vehiclesList]);
+  }, [vehiclesList, linkedContractService?.allowedVehicleIds, t?.vehicleId]);
 
   const [dialogs, setDialogs] = React.useState({
     route: false,
@@ -910,6 +933,23 @@ export default function TransportManagementDetailPage() {
                 searchPlaceholder="Улсын дугаар, үйлдвэрлэгч, загвар хайх..."
                 emptyText="Тээврийн хэрэгсэл олдсонгүй."
               />
+              {linkedContractService?.allowedVehicleIds && linkedContractService.allowedVehicleIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Гэрээний үйлчилгээнд зөвшөөрөгдсөн {linkedContractService.allowedVehicleIds.length} машин л сонгогдоно.
+                  Жагсаалтыг{' '}
+                  {item?.contractId && item?.contractServiceId ? (
+                    <Link
+                      className="text-primary underline underline-offset-2"
+                      href={`/tms/contracts/${item.contractId}/services/${item.contractServiceId}`}
+                    >
+                      гэрээний үйлчилгээний дэлгэц
+                    </Link>
+                  ) : (
+                    'гэрээний үйлчилгээний дэлгэц'
+                  )}
+                  -ээс өөрчилнө үү.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Жолооч оноох</Label>

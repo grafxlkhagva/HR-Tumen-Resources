@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc } from '@/firebase';
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
@@ -40,7 +41,7 @@ import type {
     TmsContractLineType,
     TmsContractPriceType,
 } from '@/app/tms/types';
-import { Loader2, Pencil, Trash2, Plus, MoreHorizontal } from 'lucide-react';
+import { Loader2, Pencil, Trash2, Plus, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditContractDialog } from './edit-contract-dialog';
 import { AddContractServiceDialog } from './add-contract-service-dialog';
@@ -255,7 +256,13 @@ export default function TmsContractDetailPage() {
                                     {contract.services.map((svc) => (
                                         <DataTableRow key={svc.id}>
                                             <DataTableCell className="font-medium">
-                                                {svc.name || '—'}
+                                                <Link
+                                                    href={`/tms/contracts/${contractId}/services/${svc.id}`}
+                                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                                >
+                                                    {svc.name || '—'}
+                                                    <ChevronRight className="h-4 w-4 opacity-70" />
+                                                </Link>
                                             </DataTableCell>
                                             <DataTableCell className="text-muted-foreground">
                                                 {svc.contractLineType
@@ -307,6 +314,12 @@ export default function TmsContractDetailPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/tms/contracts/${contractId}/services/${svc.id}`}>
+                                                                <ChevronRight className="mr-2 h-4 w-4" />
+                                                                Дэлгэрэнгүй
+                                                            </Link>
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => setEditingService(svc)}>
                                                             <Pencil className="mr-2 h-4 w-4" />
                                                             Засах

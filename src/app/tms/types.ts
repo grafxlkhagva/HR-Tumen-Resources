@@ -492,6 +492,10 @@ export interface TmsContractService {
   profitMarginPercent?: number;
   currency?: string;
   conditions?: string;
+  /** Гэрээний мөрийн дотоод/үйл ажиллагааны нарийн тэмдэглэл (харилцагчид харагдахгүй байж болно) */
+  internalNote?: string | null;
+  /** Энэ үйлчилгээг гүйцэтгэхэд зөвшөөрөгдөх тээврийн хэрэгслийн id жагсаалт */
+  allowedVehicleIds?: string[];
 }
 
 /** TMS Гэрээ */
