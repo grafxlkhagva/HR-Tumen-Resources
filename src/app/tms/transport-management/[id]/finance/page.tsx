@@ -17,10 +17,19 @@ import {
     ArrowUpRight,
     ArrowDownLeft,
     Wallet,
-    TrendingDown,
     TrendingUp,
     CreditCard
 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
     TMS_TRANSPORT_MANAGEMENT_COLLECTION,
@@ -74,6 +83,7 @@ export default function TransportFinancePage() {
     });
     const [addType, setAddType] = React.useState<TmsFinanceType>('receivable');
     const [selectedTransaction, setSelectedTransaction] = React.useState<TmsFinanceTransaction | null>(null);
+    const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
 
     const transactions = transport?.financeTransactions || [];
     const receivables = transactions.filter(t => t.type === 'receivable');
@@ -107,24 +117,20 @@ export default function TransportFinancePage() {
         };
     }, [transactions]);
 
-    const handleDelete = async (txId: string) => {
-        if (!firestore || !id || !transport) return;
-
-        if (!confirm('Энэ гүйлгээг устгахдаа итгэлтэй байна уу?')) return;
-
+    const executeDelete = async () => {
+        if (!firestore || !id || !transport || !deleteTarget) return;
         try {
-            const updatedTransactions = (transport.financeTransactions || []).filter(t => t.id !== txId);
+            const updatedTransactions = (transport.financeTransactions || []).filter(tx => tx.id !== deleteTarget);
             await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
                 financeTransactions: updatedTransactions,
                 updatedAt: new Date(),
             });
             toast({ title: 'Гүйлгээ устгагдлаа.' });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Алдаа',
-                description: 'Устгахад алдаа гарлаа.',
-            });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Устгахад алдаа гарлаа.';
+            toast({ variant: 'destructive', title: 'Алдаа', description: message });
+        } finally {
+            setDeleteTarget(null);
         }
     };
 
@@ -220,7 +226,7 @@ export default function TransportFinancePage() {
                                             variant="ghost"
                                             size="icon-sm"
                                             className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                            onClick={() => handleDelete(t.id)}
+                                            onClick={() => setDeleteTarget(t.id)}
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
@@ -381,6 +387,26 @@ export default function TransportFinancePage() {
                     allTransactions={transactions}
                 />
             )}
+
+            <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Гүйлгээ устгах</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Энэ гүйлгээг устгахдаа итгэлтэй байна уу? Энэ үйлдэл буцаагдах боломжгүй.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                            onClick={(e) => { e.preventDefault(); executeDelete(); }}
+                        >
+                            Устгах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
