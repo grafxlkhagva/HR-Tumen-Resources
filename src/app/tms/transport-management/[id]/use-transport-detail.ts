@@ -565,7 +565,7 @@ export function useTransportDetail() {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const path = `tms/transport-management/${id}/dispatch/${stepId}/${Date.now()}-${safeName}`;
         const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
+        await uploadBytes(storageRef, file, { contentType: file.type });
         const downloadUrl = await getDownloadURL(storageRef);
 
         // Immediate save (no debounce) for image upload
