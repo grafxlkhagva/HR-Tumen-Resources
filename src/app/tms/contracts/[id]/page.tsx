@@ -243,13 +243,14 @@ export default function TmsContractDetailPage() {
                                     <DataTableColumn>Ачилтын агуулах</DataTableColumn>
                                     <DataTableColumn>Буулгалтын агуулах</DataTableColumn>
                                     <DataTableColumn>ТХ төрөл</DataTableColumn>
-                                    <DataTableColumn className="text-right">Үнэ / төрөл / ашиг</DataTableColumn>
+                                    <DataTableColumn className="text-right">Харилцагч үнэ</DataTableColumn>
+                                    <DataTableColumn className="text-right">Жолооч үнэ</DataTableColumn>
                                     <DataTableColumn>Нөхцөл</DataTableColumn>
                                     <DataTableColumn className="w-10"></DataTableColumn>
                                 </DataTableRow>
                             </DataTableHeader>
                             {(!contract.services || contract.services.length === 0) && (
-                                <DataTableEmpty columns={10} message="Үйлчилгээ нэмэгдээгүй байна." />
+                                <DataTableEmpty columns={11} message="Үйлчилгээ нэмэгдээгүй байна." />
                             )}
                             {contract.services && contract.services.length > 0 && (
                                 <DataTableBody>
@@ -289,16 +290,23 @@ export default function TmsContractDetailPage() {
                                             <DataTableCell className="text-right">
                                                 <div className="flex flex-col items-end gap-0.5">
                                                     <span className="font-medium">
-                                                        {svc.price != null ? `${Number(svc.price).toLocaleString()}₮` : '—'}
+                                                        {svc.customerPrice != null ? `${Number(svc.customerPrice).toLocaleString()}₮` : svc.price != null ? `${Number(svc.price).toLocaleString()}₮` : '—'}
                                                     </span>
                                                     {svc.priceType && (
                                                         <span className="text-xs text-muted-foreground font-normal">
                                                             {TMS_CONTRACT_PRICE_TYPE_LABELS[svc.priceType as TmsContractPriceType] ?? svc.priceType}
                                                         </span>
                                                     )}
-                                                    {svc.profitMarginPercent != null && (
-                                                        <span className="text-xs text-muted-foreground font-normal tabular-nums">
-                                                            {svc.profitMarginPercent}% ашиг
+                                                </div>
+                                            </DataTableCell>
+                                            <DataTableCell className="text-right">
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <span className="font-medium">
+                                                        {svc.driverPrice != null ? `${Number(svc.driverPrice).toLocaleString()}₮` : '—'}
+                                                    </span>
+                                                    {svc.priceType && (
+                                                        <span className="text-xs text-muted-foreground font-normal">
+                                                            {TMS_CONTRACT_PRICE_TYPE_LABELS[svc.priceType as TmsContractPriceType] ?? svc.priceType}
                                                         </span>
                                                     )}
                                                 </div>

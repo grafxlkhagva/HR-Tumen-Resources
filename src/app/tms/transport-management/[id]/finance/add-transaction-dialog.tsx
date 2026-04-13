@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
 import {
     AppDialog,
     AppDialogContent,
@@ -120,22 +120,28 @@ export function AddTransactionDialog({
                 dueDate: values.dueDate || null,
                 paidDate: values.paidAmount > 0 ? new Date().toISOString() : null,
                 note: values.note || null,
-                createdAt: new Date() as any, // Firebase will handle conversion if needed or we use Timestamp later
+                createdAt: Timestamp.now(),
             };
 
-            await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, transportId), {
-                financeTransactions: [...(existingTransactions || []), newTransaction],
-                updatedAt: new Date(),
+            const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, transportId);
+            await runTransaction(firestore, async (transaction) => {
+                const snap = await transaction.get(docRef);
+                if (!snap.exists()) throw new Error('Тээврийн бүртгэл олдсонгүй.');
+                const current = snap.data();
+                transaction.update(docRef, {
+                    financeTransactions: [...(current.financeTransactions || []), newTransaction],
+                    updatedAt: serverTimestamp(),
+                });
             });
 
             toast({ title: 'Гүйлгээ амжилттай нэмэгдлээ.' });
             onOpenChange(false);
             form.reset();
-        } catch (error: any) {
+        } catch (err: unknown) {
             toast({
                 variant: 'destructive',
                 title: 'Алдаа',
-                description: error.message || 'Хадгалахад алдаа гарлаа.',
+                description: err instanceof Error ? err.message : 'Хадгалахад алдаа гарлаа.',
             });
         } finally {
             setIsSaving(false);

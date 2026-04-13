@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc } from '@/firebase';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,12 +118,18 @@ export default function TransportFinancePage() {
     }, [transactions]);
 
     const executeDelete = async () => {
-        if (!firestore || !id || !transport || !deleteTarget) return;
+        if (!firestore || !id || !deleteTarget) return;
         try {
-            const updatedTransactions = (transport.financeTransactions || []).filter(tx => tx.id !== deleteTarget);
-            await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
-                financeTransactions: updatedTransactions,
-                updatedAt: new Date(),
+            const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id);
+            await runTransaction(firestore, async (transaction) => {
+                const snap = await transaction.get(docRef);
+                if (!snap.exists()) throw new Error('Тээврийн бүртгэл олдсонгүй.');
+                const current = snap.data();
+                const updatedTransactions = (current.financeTransactions || []).filter((tx: { id: string }) => tx.id !== deleteTarget);
+                transaction.update(docRef, {
+                    financeTransactions: updatedTransactions,
+                    updatedAt: serverTimestamp(),
+                });
             });
             toast({ title: 'Гүйлгээ устгагдлаа.' });
         } catch (err: unknown) {

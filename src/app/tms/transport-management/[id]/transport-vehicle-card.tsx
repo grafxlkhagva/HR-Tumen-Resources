@@ -155,7 +155,21 @@ export function TransportVehicleCard({
                 <SearchableSelect
                   options={vehicleSearchOptions}
                   value={local.vehicleId || 'none'}
-                  onValueChange={(val) => setLocal((p) => p && { ...p, vehicleId: val === 'none' ? null : val })}
+                  onValueChange={(val) => {
+                    const vid = val === 'none' ? null : val;
+                    setLocal((p) => {
+                      if (!p) return p;
+                      // Машин сонгоход холбоотой жолоочийг автомат сонгох
+                      if (vid) {
+                        const vehicle = vehiclesList.find((v) => v.id === vid);
+                        const linkedDriverId = vehicle?.driverIds?.[0] ?? vehicle?.driverId ?? null;
+                        if (linkedDriverId) {
+                          return { ...p, vehicleId: vid, driverId: linkedDriverId };
+                        }
+                      }
+                      return { ...p, vehicleId: vid };
+                    });
+                  }}
                   placeholder="Сонгох..."
                   searchPlaceholder="Улсын дугаар, үйлдвэрлэгч, загвар хайх..."
                   emptyText="Тээврийн хэрэгсэл олдсонгүй."
@@ -180,7 +194,22 @@ export function TransportVehicleCard({
                 <SearchableSelect
                   options={driverSearchOptions}
                   value={local.driverId || 'none'}
-                  onValueChange={(val) => setLocal((p) => p && { ...p, driverId: val === 'none' ? null : val })}
+                  onValueChange={(val) => {
+                    const did = val === 'none' ? null : val;
+                    setLocal((p) => {
+                      if (!p) return p;
+                      // Жолооч сонгоход холбоотой машиныг автомат сонгох
+                      if (did && !p.vehicleId) {
+                        const linkedVehicle = vehiclesList.find((v) =>
+                          v.driverIds?.includes(did) || v.driverId === did
+                        );
+                        if (linkedVehicle) {
+                          return { ...p, driverId: did, vehicleId: linkedVehicle.id };
+                        }
+                      }
+                      return { ...p, driverId: did };
+                    });
+                  }}
                   placeholder="Сонгох..."
                   searchPlaceholder="Нэр, утасны дугаар хайх..."
                   emptyText="Жолооч олдсонгүй."

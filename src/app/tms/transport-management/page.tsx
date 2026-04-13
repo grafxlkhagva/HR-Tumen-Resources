@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import {
   DataTable,
@@ -15,7 +16,7 @@ import {
   DataTableEmpty,
 } from '@/components/patterns/data-table';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CreateTransportDialog } from './create-transport-dialog';
 import {
@@ -29,6 +30,8 @@ import {
 } from '@/app/tms/types';
 import { format } from 'date-fns';
 
+const PAGE_SIZE = 30;
+
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'destructive' }> = {
   draft: { label: 'Ноорог', variant: 'secondary' },
   planning: { label: 'Төлөвлөж буй', variant: 'default' },
@@ -38,21 +41,48 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 };
 
 export default function TransportManagementPage() {
+  const router = useRouter();
   const { firestore } = useFirebase();
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  const tmsQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? query(
-            collection(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION),
-            orderBy('createdAt', 'desc')
-          )
-        : null,
-    [firestore]
-  );
-  const { data: items = [], isLoading } = useCollection<TmsTransportManagement>(tmsQuery);
+  // ── Paginated transport list ──────────────────────────────────────
+  const [items, setItems] = React.useState<(TmsTransportManagement & { id: string })[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [lastDoc, setLastDoc] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = React.useState(true);
 
+  const loadPage = React.useCallback(async (cursor?: QueryDocumentSnapshot<DocumentData> | null) => {
+    if (!firestore) return;
+    const isFirst = !cursor;
+    if (isFirst) setIsLoading(true); else setIsLoadingMore(true);
+
+    try {
+      const constraints = [
+        orderBy('createdAt', 'desc'),
+        limit(PAGE_SIZE),
+        ...(cursor ? [startAfter(cursor)] : []),
+      ];
+      const q = query(collection(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION), ...constraints);
+      const snap = await getDocs(q);
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TmsTransportManagement & { id: string }));
+
+      if (isFirst) {
+        setItems(docs);
+      } else {
+        setItems((prev) => [...prev, ...docs]);
+      }
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [firestore]);
+
+  React.useEffect(() => { loadPage(); }, [loadPage]);
+
+  // ── Reference data (one-time read, not real-time) ─────────────────
   const servicesQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, TMS_SERVICE_TYPES_COLLECTION)) : null),
     [firestore]
@@ -76,8 +106,18 @@ export default function TransportManagementPage() {
     modelName?: string;
   }>(vehiclesQuery);
 
-  const getServiceName = (id: string) => services.find((s) => s.id === id)?.name || '—';
-  const getCustomerName = (id: string) => customers.find((c) => c.id === id)?.name || '—';
+  // ── O(1) lookup maps (instead of O(n) find per row) ───────────────
+  const serviceMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of services) m.set(s.id, s.name);
+    return m;
+  }, [services]);
+
+  const customerMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of customers) m.set(c.id, c.name);
+    return m;
+  }, [customers]);
 
   const vehicleLabelById = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -143,7 +183,7 @@ export default function TransportManagementPage() {
                   <DataTableRow
                     key={item.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors group"
-                    onClick={() => window.location.href = `/tms/transport-management/${item.id}`}
+                    onClick={() => router.push(`/tms/transport-management/${item.id}`)}
                   >
                     <DataTableCell>
                       <div className="flex flex-col">
@@ -152,10 +192,10 @@ export default function TransportManagementPage() {
                       </div>
                     </DataTableCell>
                     <DataTableCell className="font-medium">
-                      {getCustomerName(item.customerId)}
+                      {customerMap.get(item.customerId) || '—'}
                     </DataTableCell>
                     <DataTableCell>
-                      {getServiceName(item.serviceTypeId)}
+                      {serviceMap.get(item.serviceTypeId) || '—'}
                     </DataTableCell>
                     <DataTableCell className="text-sm text-muted-foreground">
                       {vehLabel || '—'}
@@ -181,6 +221,21 @@ export default function TransportManagementPage() {
             </DataTableBody>
           )}
         </DataTable>
+
+        {/* Цааш ачаалах */}
+        {!isLoading && hasMore && (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadPage(lastDoc)}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Цааш ачаалах ({items.length} харагдаж байна)
+            </Button>
+          </div>
+        )}
       </div>
 
       <CreateTransportDialog

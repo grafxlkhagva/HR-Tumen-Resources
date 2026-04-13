@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, deleteDoc, collection, query, orderBy, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, collection, query, orderBy, limit, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -38,6 +38,8 @@ export type VehicleListItem = {
   modelName?: string;
   licensePlate?: string;
   gpsDeviceId?: string;
+  driverId?: string | null;
+  driverIds?: string[];
 };
 
 export type DriverListItem = {
@@ -111,7 +113,7 @@ function buildSavePayload(t: TmsTransportManagement) {
   payload.subTransports = cleanedSubTransports;
   payload.cargos = t.cargos || [];
   payload.dispatchSteps = sanitizeDispatchStepsForDoc(t.dispatchSteps || []);
-  payload.updatedAt = new Date();
+  payload.updatedAt = serverTimestamp();
   return payload;
 }
 
@@ -217,13 +219,13 @@ export function useTransportDetail() {
 
   // Vehicles + drivers: no limit — SearchableSelect handles large lists via client-side filtering
   const vehiclesQuery = useMemoFirebase(
-    ({ firestore }) => query(collection(firestore, TMS_VEHICLES_COLLECTION), orderBy('licensePlate')),
+    ({ firestore }) => query(collection(firestore, TMS_VEHICLES_COLLECTION), orderBy('licensePlate'), limit(500)),
     [],
   );
   const { data: vehiclesList } = useCollection<VehicleListItem>(vehiclesQuery);
 
   const driversQuery = useMemoFirebase(
-    ({ firestore }) => query(collection(firestore, TMS_DRIVERS_COLLECTION), orderBy('firstName')),
+    ({ firestore }) => query(collection(firestore, TMS_DRIVERS_COLLECTION), orderBy('firstName'), limit(500)),
     [],
   );
   const { data: driversList } = useCollection<DriverListItem>(driversQuery);
@@ -368,7 +370,7 @@ export function useTransportDetail() {
     setTransport((prev) => (prev ? { ...prev, [field]: value } as TmsTransportManagement : prev));
   }, []);
 
-  const handleSubTransportChange = React.useCallback((field: 'vehicleId' | 'driverId', value: string | null) => {
+  const handleSubTransportChange = React.useCallback((field: keyof TmsTransportSubUnit, value: unknown) => {
     setTransport((prev) => {
       if (!prev) return prev;
       const base: TmsTransportSubUnit[] =
@@ -460,7 +462,7 @@ export function useTransportDetail() {
         await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
           subTransports: buildSubTransportsPayload(currentT, targetSubId, cleanedSteps),
           dispatchSteps: cleanedSteps,
-          updatedAt: new Date(),
+          updatedAt: serverTimestamp(),
         });
       } catch {
         handleActiveDispatchStepsChange(previousSteps);
@@ -538,7 +540,7 @@ export function useTransportDetail() {
       await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
         subTransports: buildSubTransportsPayload(currentT, targetSubId, cleanedNewSteps),
         dispatchSteps: cleanedNewSteps,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       });
     } catch {
       toast({ variant: 'destructive', title: 'Алдаа', description: 'Алхмыг шинэчлэхэд алдаа гарлаа.' });
@@ -582,7 +584,7 @@ export function useTransportDetail() {
           await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
             subTransports: buildSubTransportsPayload(currentT, targetSubId, cleaned),
             dispatchSteps: cleaned,
-            updatedAt: new Date(),
+            updatedAt: serverTimestamp(),
           });
         }
       } catch (err: unknown) {

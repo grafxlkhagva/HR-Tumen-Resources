@@ -31,6 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
@@ -73,11 +74,11 @@ const schema = z.object({
     unloadingWarehouseId: z.string().optional(),
     vehicleTypeId: z.string().optional(),
     trailerTypeId: z.string().optional(),
-    price: z.coerce.number().min(0, 'Үнэ оруулна уу.'),
+    customerPrice: z.coerce.number().min(0, 'Харилцагчийн үнэ оруулна уу.'),
+    driverPrice: z.coerce.number().min(0, 'Жолоочийн үнэ оруулна уу.'),
     priceType: z.enum(['per_ton', 'lump_sum', 'per_day', 'per_month', 'rental'], {
         required_error: 'Үнийн төрлийг сонгоно уу.',
     }),
-    profitMarginPercent: z.coerce.number().min(0, '0 эсвэл түүнээс дээш').max(100, 'Хамгийн ихдээ 100%'),
     conditions: z.string().optional(),
 });
 
@@ -113,9 +114,9 @@ export function EditContractServiceDialog({
             unloadingWarehouseId: service.unloadingWarehouseId || NONE,
             vehicleTypeId: service.vehicleTypeId || NONE,
             trailerTypeId: service.trailerTypeId || NONE,
-            price: service.price || 0,
+            customerPrice: service.customerPrice ?? service.price ?? 0,
+            driverPrice: service.driverPrice ?? 0,
             priceType: service.priceType || 'lump_sum',
-            profitMarginPercent: service.profitMarginPercent ?? 0,
             conditions: service.conditions || '',
         },
     });
@@ -176,9 +177,9 @@ export function EditContractServiceDialog({
                 unloadingWarehouseId: service.unloadingWarehouseId || NONE,
                 vehicleTypeId: service.vehicleTypeId || NONE,
                 trailerTypeId: service.trailerTypeId || NONE,
-                price: service.price || 0,
+                customerPrice: service.customerPrice ?? service.price ?? 0,
+                driverPrice: service.driverPrice ?? 0,
                 priceType: service.priceType || 'lump_sum',
-                profitMarginPercent: service.profitMarginPercent ?? 0,
                 conditions: service.conditions || '',
             });
         }
@@ -229,9 +230,9 @@ export function EditContractServiceDialog({
                 vehicleTypeName: vehicleType?.name ?? null,
                 trailerTypeId: trailerType?.id ?? null,
                 trailerTypeName: trailerType?.name ?? null,
-                price: values.price,
+                customerPrice: values.customerPrice,
+                driverPrice: values.driverPrice,
                 priceType: values.priceType,
-                profitMarginPercent: values.profitMarginPercent,
                 conditions: values.conditions || null,
             };
 
@@ -366,29 +367,23 @@ export function EditContractServiceDialog({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Ачилтын агуулах</FormLabel>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value}
-                                                disabled={!loadingRegionId || loadingRegionId === NONE}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue
-                                                            placeholder={
-                                                                !loadingRegionId || loadingRegionId === NONE
-                                                                    ? 'Эхлээд ачилтын бүс сонгоно уу'
-                                                                    : 'Сонгох'
-                                                            }
-                                                        />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
-                                                    {warehousesForLoading.map((w) => (
-                                                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={[
+                                                        { value: NONE, label: '— Сонгохгүй —' },
+                                                        ...warehousesForLoading.map((w) => ({ value: w.id, label: w.name })),
+                                                    ]}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder={
+                                                        !loadingRegionId || loadingRegionId === NONE
+                                                            ? 'Эхлээд ачилтын бүс сонгоно уу'
+                                                            : 'Агуулах сонгох...'
+                                                    }
+                                                    searchPlaceholder="Агуулах хайх..."
+                                                    disabled={!loadingRegionId || loadingRegionId === NONE}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -428,29 +423,23 @@ export function EditContractServiceDialog({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Буулгалтын агуулах</FormLabel>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value}
-                                                disabled={!unloadingRegionId || unloadingRegionId === NONE}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue
-                                                            placeholder={
-                                                                !unloadingRegionId || unloadingRegionId === NONE
-                                                                    ? 'Эхлээд буулгалтын бүс сонгоно уу'
-                                                                    : 'Сонгох'
-                                                            }
-                                                        />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value={NONE}>— Сонгохгүй —</SelectItem>
-                                                    {warehousesForUnloading.map((w) => (
-                                                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={[
+                                                        { value: NONE, label: '— Сонгохгүй —' },
+                                                        ...warehousesForUnloading.map((w) => ({ value: w.id, label: w.name })),
+                                                    ]}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder={
+                                                        !unloadingRegionId || unloadingRegionId === NONE
+                                                            ? 'Эхлээд буулгалтын бүс сонгоно уу'
+                                                            : 'Агуулах сонгох...'
+                                                    }
+                                                    searchPlaceholder="Агуулах хайх..."
+                                                    disabled={!unloadingRegionId || unloadingRegionId === NONE}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -506,13 +495,38 @@ export function EditContractServiceDialog({
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="priceType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Үнийн төрөл *</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Сонгох" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {CONTRACT_PRICE_TYPES.map(([value, label]) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="price"
+                                    name="customerPrice"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Үнэ (₮) *</FormLabel>
+                                            <FormLabel>Харилцагчийн үнэ (₮) *</FormLabel>
                                             <FormControl>
                                                 <Input type="number" placeholder="0" {...field} />
                                             </FormControl>
@@ -522,36 +536,12 @@ export function EditContractServiceDialog({
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="priceType"
+                                    name="driverPrice"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Үнийн төрөл *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Сонгох" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {CONTRACT_PRICE_TYPES.map(([value, label]) => (
-                                                        <SelectItem key={value} value={value}>
-                                                            {label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="profitMarginPercent"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Ашигийн хувь (%)</FormLabel>
+                                            <FormLabel>Жолоочийн үнэ (₮) *</FormLabel>
                                             <FormControl>
-                                                <Input type="number" min={0} max={100} step="0.1" placeholder="0" {...field} />
+                                                <Input type="number" placeholder="0" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

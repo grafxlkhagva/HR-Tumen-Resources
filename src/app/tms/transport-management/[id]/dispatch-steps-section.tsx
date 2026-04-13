@@ -114,7 +114,7 @@ export function DispatchStepsSection({
                         <Clock className="h-3 w-3" />
                         {(() => {
                           const ts = step.completedAt;
-                          const d = typeof ts === 'object' && ts !== null && 'toDate' in ts ? (ts as any).toDate() : new Date(ts as any);
+                          const d = typeof ts === 'object' && ts !== null && 'toDate' in ts ? (ts as { toDate: () => Date }).toDate() : new Date(String(ts));
                           return d.toLocaleDateString('mn-MN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                         })()}
                       </div>
@@ -214,9 +214,15 @@ export function DispatchStepsSection({
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
+                                      const input = e.currentTarget;
                                       if (!file) return;
-                                      await onImageUpload(step.id, task.id, file);
-                                      e.currentTarget.value = '';
+                                      try {
+                                        await onImageUpload(step.id, task.id, file);
+                                      } catch {
+                                        // алдаа гарвал input-г цэвэрлэхгүй
+                                        return;
+                                      }
+                                      if (input) input.value = '';
                                     }}
                                   />
                                   <Button variant="outline" className="h-full w-full border-dashed flex-col gap-0.5 text-[10px] text-muted-foreground hover:bg-muted/50 pointer-events-none">

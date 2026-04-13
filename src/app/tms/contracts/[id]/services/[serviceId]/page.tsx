@@ -260,9 +260,9 @@ export default function ContractServiceDetailPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Үнэ</dt>
+                <dt className="text-muted-foreground">Харилцагчийн үнэ</dt>
                 <dd className="font-medium mt-1">
-                  {service.price != null ? `${Number(service.price).toLocaleString()}₮` : '—'}
+                  {(service.customerPrice ?? service.price) != null ? `${Number(service.customerPrice ?? service.price).toLocaleString()}₮` : '—'}
                   {service.priceType ? (
                     <span className="text-muted-foreground font-normal ml-2">
                       (
@@ -271,10 +271,19 @@ export default function ContractServiceDetailPage() {
                       )
                     </span>
                   ) : null}
-                  {service.profitMarginPercent != null ? (
-                    <Badge variant="secondary" className="ml-2 font-normal">
-                      {service.profitMarginPercent}% ашиг
-                    </Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Жолоочийн үнэ</dt>
+                <dd className="font-medium mt-1">
+                  {service.driverPrice != null ? `${Number(service.driverPrice).toLocaleString()}₮` : '—'}
+                  {service.priceType ? (
+                    <span className="text-muted-foreground font-normal ml-2">
+                      (
+                      {TMS_CONTRACT_PRICE_TYPE_LABELS[service.priceType as TmsContractPriceType] ??
+                        service.priceType}
+                      )
+                    </span>
                   ) : null}
                 </dd>
               </div>

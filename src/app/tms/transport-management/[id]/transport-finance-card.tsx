@@ -17,11 +17,12 @@ interface FinanceFormData {
 }
 
 function computeFinance(dp: number, margin: number, hasVat: boolean) {
-  const sellingPrice = dp > 0 ? Math.round(dp * (1 + margin / 100)) : 0;
-  const profitAmount = sellingPrice - dp;
-  const vatAmount = hasVat ? Math.round(sellingPrice * 0.1) : 0;
-  const transportPrice = sellingPrice + vatAmount;
-  return { sellingPrice, profitAmount, vatAmount, transportPrice };
+  const priceBeforeVat = dp > 0 ? Math.round(dp * (1 + margin / 100)) : 0;
+  const profitAmount = priceBeforeVat - dp;
+  const vatAmount = Math.round(priceBeforeVat * 0.1);
+  const priceWithVat = priceBeforeVat + vatAmount;
+  const customerPrice = hasVat ? priceWithVat : priceBeforeVat;
+  return { priceBeforeVat, profitAmount, vatAmount, priceWithVat, customerPrice };
 }
 
 interface TransportFinanceCardProps {
@@ -48,7 +49,7 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
   const handleSave = () => {
     if (!local) return;
     if (local.driverPrice < 0) {
-      setValidationError('Тээвэрчиний үнэ сөрөг байж болохгүй.');
+      setValidationError('Жолоочийн үнэ сөрөг байж болохгүй.');
       return;
     }
     if (local.profitMarginPercent < 0) {
@@ -78,68 +79,76 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
         <CardContent className="space-y-2 flex-1">
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-baseline">
-              <span className="text-xs text-muted-foreground">Тээвэрчиний үнэ</span>
+              <span className="text-xs text-muted-foreground">Жолоочийн үнэ</span>
               <span className="font-medium text-sm tabular-nums">{dp > 0 ? `${dp.toLocaleString()}₮` : '—'}</span>
             </div>
             <div className="flex justify-between items-baseline">
-              <span className="text-xs text-muted-foreground">Ашиг ({margin}%)</span>
-              <span className="text-sm tabular-nums">{display.profitAmount > 0 ? `+${display.profitAmount.toLocaleString()}₮` : '—'}</span>
+              <span className="text-xs text-muted-foreground">Харилцагчийн үнэ (НӨАТ-гүй)</span>
+              <span className="text-sm tabular-nums">{display.priceBeforeVat > 0 ? `${display.priceBeforeVat.toLocaleString()}₮` : '—'}</span>
             </div>
-            {transport.hasVat && (
-              <div className="flex justify-between items-baseline">
-                <span className="text-xs text-muted-foreground">НӨАТ</span>
-                <span className="text-sm tabular-nums">+{display.vatAmount.toLocaleString()}₮</span>
-              </div>
-            )}
+            <div className="flex justify-between items-baseline">
+              <span className="text-xs text-muted-foreground">НӨАТ (10%)</span>
+              <span className="text-sm tabular-nums">{display.vatAmount > 0 ? `+${display.vatAmount.toLocaleString()}₮` : '—'}</span>
+            </div>
+            <div className="flex justify-between items-baseline">
+              <span className="text-xs text-muted-foreground">Харилцагчийн үнэ (НӨАТ-тай)</span>
+              <span className="text-sm tabular-nums">{display.priceWithVat > 0 ? `${display.priceWithVat.toLocaleString()}₮` : '—'}</span>
+            </div>
           </div>
           <div className="border-t pt-2 flex justify-between items-baseline">
-            <span className="text-xs font-medium">Нийт</span>
-            <span className="font-bold text-base tabular-nums text-primary">{display.transportPrice > 0 ? `${display.transportPrice.toLocaleString()}₮` : '—'}</span>
+            <span className="text-xs font-medium">Ашиг</span>
+            <span className="font-bold text-base tabular-nums text-primary">
+              {display.profitAmount > 0 ? `${display.profitAmount.toLocaleString()}₮` : '—'}
+              {margin > 0 && <span className="text-xs font-normal text-muted-foreground ml-1">({margin}%)</span>}
+            </span>
           </div>
         </CardContent>
       </Card>
 
       <AppDialog open={open} onOpenChange={setOpen}>
         <AppDialogContent>
-          <AppDialogHeader><AppDialogTitle>Санхүүгийн мэдээлэл засах</AppDialogTitle></AppDialogHeader>
+          <AppDialogHeader><AppDialogTitle>Борлуулалтын үнэ тооцоо</AppDialogTitle></AppDialogHeader>
           {local && (
             <AppDialogBody className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label>Тээвэрчиний үнэ (₮)</Label>
+                <Label>Өртөг / Жолоочийн үнэ (₮)</Label>
                 <Input type="number" min={0} value={local.driverPrice || ''} placeholder="0" onChange={(e) => setLocal((p) => p && { ...p, driverPrice: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
                 <Label>Ашгийн хувь (%)</Label>
                 <Input type="number" min={0} value={local.profitMarginPercent} onChange={(e) => setLocal((p) => p && { ...p, profitMarginPercent: Number(e.target.value) })} />
               </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">НӨАТ (%)</Label>
+                <Input type="number" value={10} disabled className="bg-muted" />
+              </div>
               <div className="flex items-center h-10 gap-2">
                 <Checkbox id="vat" checked={local.hasVat} onCheckedChange={(checked) => setLocal((p) => p && { ...p, hasVat: checked === true })} />
-                <Label htmlFor="vat" className="font-normal cursor-pointer">НӨАТ-тэй эсэх (10%)</Label>
+                <Label htmlFor="vat" className="font-normal cursor-pointer">НӨАТ багтсан эсэх</Label>
               </div>
+
               {preview && local.driverPrice > 0 && (
                 <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
                   <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Тооцоолол</div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Тээвэрчиний үнэ</span>
-                    <span>{local.driverPrice.toLocaleString()}₮</span>
+                    <span className="text-muted-foreground">Үнэ (НӨАТ-гүй)</span>
+                    <span className="font-medium">{preview.priceBeforeVat.toLocaleString()}₮</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ашиг ({local.profitMarginPercent}%)</span>
-                    <span>+{preview.profitAmount.toLocaleString()}₮</span>
+                    <span className="text-muted-foreground">НӨАТ</span>
+                    <span>{preview.vatAmount.toLocaleString()}₮</span>
                   </div>
                   <div className="flex justify-between text-sm border-t pt-1">
-                    <span className="text-muted-foreground">Борлуулах үнэ</span>
-                    <span className="font-medium">{preview.sellingPrice.toLocaleString()}₮</span>
+                    <span className="text-muted-foreground">Үнэ (НӨАТ-тай)</span>
+                    <span className="font-medium">{preview.priceWithVat.toLocaleString()}₮</span>
                   </div>
-                  {local.hasVat && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">НӨАТ (10%)</span>
-                      <span>+{preview.vatAmount.toLocaleString()}₮</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm font-bold border-t pt-2 text-primary">
-                    <span>Тээврийн үнэ</span>
-                    <span>{preview.transportPrice.toLocaleString()}₮</span>
+                  <div className="flex justify-between text-sm border-t pt-2">
+                    <span className="text-muted-foreground">Ашиг</span>
+                    <span className="font-bold text-primary">{preview.profitAmount.toLocaleString()}₮</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Ашиг %</span>
+                    <span className="font-bold text-primary">{local.profitMarginPercent}%</span>
                   </div>
                 </div>
               )}

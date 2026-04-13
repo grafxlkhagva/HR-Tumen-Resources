@@ -397,6 +397,14 @@ export interface TmsTransportSubUnit {
   subCode: string;
   vehicleId?: string | null;
   driverId?: string | null;
+  /** Дэд тээвэр тусгай чиглэл (заагаагүй бол эцэг transport-н чиглэл ашиглана) */
+  loadingRegionId?: string | null;
+  loadingWarehouseId?: string | null;
+  unloadingRegionId?: string | null;
+  unloadingWarehouseId?: string | null;
+  totalDistanceKm?: number | null;
+  loadingDate?: string | null;
+  unloadingDate?: string | null;
   dispatchSteps?: TmsDispatchStep[];
 }
 
@@ -495,10 +503,15 @@ export interface TmsContractService {
   vehicleTypeName?: string;
   trailerTypeId?: string;
   trailerTypeName?: string;
-  price: number;
+  /** Харилцагчийн (тохиролцсон) үнэ */
+  customerPrice?: number;
+  /** Жолоочийн үнэ */
+  driverPrice?: number;
+  /** @deprecated — хуучин price талбарыг дэмждэг (customerPrice руу шилжинэ) */
+  price?: number;
   /** Үнэ тооцох нэгж (тонн, өдөр гэх мэт) */
   priceType?: TmsContractPriceType;
-  /** Үйлчилгээний үнэ дээрх ашигийн хувь (жишээ нь 15 = 15%) */
+  /** @deprecated — ашгийн хувь (customerPrice - driverPrice зөрүүгээр тодорхойлогдоно) */
   profitMarginPercent?: number;
   currency?: string;
   conditions?: string;

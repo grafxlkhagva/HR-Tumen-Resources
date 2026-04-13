@@ -688,7 +688,14 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
     match /tms_transport_management/{transportId} {
-      allow read, write: if isTmsAllowed();
+      allow read: if isTmsAllowed();
+      allow create: if isTmsAllowed()
+        && request.resource.data.customerId is string
+        && request.resource.data.status in ['draft', 'planning', 'active', 'completed', 'cancelled'];
+      allow update: if isTmsAllowed()
+        && request.resource.data.status in ['draft', 'planning', 'active', 'completed', 'cancelled']
+        && request.resource.data.customerId == resource.data.customerId;
+      allow delete: if isAdmin();
     }
     match /tms_contracts/{contractId} {
       allow read, write: if isTmsAllowed();

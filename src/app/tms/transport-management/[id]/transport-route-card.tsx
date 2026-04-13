@@ -69,8 +69,8 @@ export function TransportRouteCard({
 
   const handleSave = () => {
     if (!local) return;
-    if (local.totalDistanceKm < 0) {
-      setValidationError('Нийт зам 0-ээс бага байж болохгүй.');
+    if (local.totalDistanceKm < 0 || !isFinite(local.totalDistanceKm)) {
+      setValidationError('Нийт зам зөв тоо байх ёстой.');
       return;
     }
     if (local.loadingDate && local.unloadingDate && local.unloadingDate < local.loadingDate) {

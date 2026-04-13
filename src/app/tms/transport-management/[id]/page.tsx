@@ -130,12 +130,12 @@ export default function TransportManagementDetailPage() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
           <Select value={t.status} onValueChange={(val) => ctx.handleChange('status', val)}>
             <SelectTrigger className="h-7 w-auto border-none shadow-none p-0 gap-1.5 focus:ring-0">
-              <Badge variant={statusInfo.variant as any} className="text-xs">{statusInfo.label}</Badge>
+              <Badge variant={statusInfo.variant} className="text-xs">{statusInfo.label}</Badge>
             </SelectTrigger>
             <SelectContent>
               {Object.entries(ctx.STATUS_MAP).map(([key, info]) => (
                 <SelectItem key={key} value={key}>
-                  <Badge variant={info.variant as any} className="pointer-events-none text-xs">{info.label}</Badge>
+                  <Badge variant={info.variant} className="pointer-events-none text-xs">{info.label}</Badge>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -164,9 +164,18 @@ export default function TransportManagementDetailPage() {
           </div>
         </div>
 
-        {/* Route */}
+        {/* Route — машин тус бүрийн чиглэл (subTransport дээрх утга, эсвэл fallback: top-level) */}
         <TransportRouteCard
-          transport={t}
+          transport={{
+            ...t,
+            loadingRegionId: ctx.activeSubTransport?.loadingRegionId ?? t.loadingRegionId,
+            loadingWarehouseId: ctx.activeSubTransport?.loadingWarehouseId ?? t.loadingWarehouseId,
+            unloadingRegionId: ctx.activeSubTransport?.unloadingRegionId ?? t.unloadingRegionId,
+            unloadingWarehouseId: ctx.activeSubTransport?.unloadingWarehouseId ?? t.unloadingWarehouseId,
+            totalDistanceKm: ctx.activeSubTransport?.totalDistanceKm ?? t.totalDistanceKm,
+            loadingDate: ctx.activeSubTransport?.loadingDate ?? t.loadingDate,
+            unloadingDate: ctx.activeSubTransport?.unloadingDate ?? t.unloadingDate,
+          }}
           regions={ctx.regions}
           warehouses={ctx.warehouses}
           vehiclesList={ctx.vehiclesList}
@@ -175,7 +184,7 @@ export default function TransportManagementDetailPage() {
           getWarehouseName={ctx.getWarehouseName}
           onRouteChange={(changes) => {
             for (const [key, value] of Object.entries(changes)) {
-              ctx.handleChange(key as keyof typeof t, value);
+              ctx.handleSubTransportChange(key as keyof import('@/app/tms/types').TmsTransportSubUnit, value);
             }
           }}
         />

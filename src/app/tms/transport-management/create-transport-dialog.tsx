@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ArrowRight, ArrowLeft, FileText, Plus, ScrollText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
 import {
   TMS_SERVICE_TYPES_COLLECTION,
@@ -344,7 +345,8 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             vehicleId: subTransports[0]?.vehicleId || null,
             driverId: subTransports[0]?.driverId || null,
             subTransports,
-            driverPrice: contractService.price || null,
+            driverPrice: contractService.driverPrice ?? contractService.price ?? null,
+            customerPrice: contractService.customerPrice ?? null,
             contractPriceType: contractService.priceType ?? null,
             profitMarginPercent: contractService.profitMarginPercent ?? null,
             dispatchSteps,
@@ -520,22 +522,17 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                     <Loader2 className="h-4 w-4 animate-spin" /> Уншиж байна...
                   </div>
                 ) : (
-                  <Select value={selectedContractId} onValueChange={setSelectedContractId}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Гэрээ сонгох..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contracts.filter(c => c.status === 'active' || c.status === 'draft').map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          <span className="font-medium">{c.code || c.id.slice(0, 8)}</span>
-                          <span className="text-muted-foreground ml-2">— {c.customerName || 'Нэргүй'}</span>
-                          <span className="text-muted-foreground ml-2 text-xs">
-                            ({c.startDate} ~ {c.endDate})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={contracts.map((c) => ({
+                      value: c.id,
+                      label: `${c.code || c.id.slice(0, 8)} — ${c.customerName || 'Нэргүй'}`,
+                      description: `${c.startDate || ''} ~ ${c.endDate || ''}`,
+                    }))}
+                    value={selectedContractId}
+                    onValueChange={setSelectedContractId}
+                    placeholder="Гэрээ сонгох..."
+                    searchPlaceholder="Гэрээ хайх..."
+                  />
                 )}
               </div>
 
@@ -545,21 +542,17 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                   <p className="text-sm text-muted-foreground">
                     Энэ гэрээнд бүртгэлтэй {selectedContract.services.length} үйлчилгээнээс сонгоно уу.
                   </p>
-                  <Select value={selectedContractServiceId} onValueChange={setSelectedContractServiceId}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Үйлчилгээ сонгох..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedContract.services.map((svc) => (
-                        <SelectItem key={svc.id} value={svc.id}>
-                          <span className="font-medium">{svc.name || 'Нэргүй'}</span>
-                          {svc.price ? (
-                            <span className="text-muted-foreground ml-2">— {svc.price.toLocaleString()}₮</span>
-                          ) : null}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={selectedContract.services.map((svc) => ({
+                      value: svc.id,
+                      label: svc.name || 'Нэргүй',
+                      description: (svc.customerPrice ?? svc.price) ? `${Number(svc.customerPrice ?? svc.price).toLocaleString()}₮` : undefined,
+                    }))}
+                    value={selectedContractServiceId}
+                    onValueChange={setSelectedContractServiceId}
+                    placeholder="Үйлчилгээ сонгох..."
+                    searchPlaceholder="Үйлчилгээ хайх..."
+                  />
                   {selectedContractServiceId &&
                     selectedContract?.services?.find((s) => s.id === selectedContractServiceId)?.allowedVehicleIds
                       ?.length ? (
