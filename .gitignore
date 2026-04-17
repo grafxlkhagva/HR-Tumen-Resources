@@ -50,3 +50,6 @@ scripts/key/*.json
 
 # ai-service (integrated into Next.js API routes)
 /ai-service
+
+# Claude Code sessions / worktrees (local tooling state)
+.claude/

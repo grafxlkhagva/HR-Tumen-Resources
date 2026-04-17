@@ -1,0 +1,14 @@
+[
+  {
+    "origin": [
+      "http://localhost:3001",
+      "http://localhost:3000",
+      "https://hr.tumentech.mn",
+      "https://hr-tumenresources.web.app",
+      "https://hr-tumenresources.firebaseapp.com"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+  }
+]
