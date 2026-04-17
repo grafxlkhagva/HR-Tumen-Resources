@@ -97,7 +97,7 @@ const SAVEABLE_SCALAR_FIELDS = [
   'status', 'loadingRegionId', 'loadingWarehouseId', 'unloadingRegionId', 'unloadingWarehouseId',
   'totalDistanceKm', 'loadingDate', 'unloadingDate', 'frequency',
   'vehicleTypeId', 'trailerTypeId', 'vehicleId', 'driverId',
-  'driverPrice', 'profitMarginPercent',
+  'driverPrice', 'customerPrice', 'profitMarginPercent',
 ] as const;
 
 function buildSavePayload(t: TmsTransportManagement) {
@@ -298,11 +298,30 @@ export function useTransportDetail() {
     return transport?.dispatchSteps || [];
   }, [activeSubTransport?.dispatchSteps, transport?.dispatchSteps]);
 
-  // ── Vehicle search options (with contract filtering) ───────────
+  /**
+   * Олон гэрээний үйлчилгээг нэг TM-д удирдах сценари:
+   * Идэвхтэй sub-тээврийн `contractServiceId`-г эхлээд харна; хоосон бол эцэг
+   * баримтын `contractServiceId` руу fallback (хуучин single-service нийцтэй).
+   */
+  const activeContractService = React.useMemo<TmsContractService | null>(() => {
+    if (!linkedContract?.services) return null;
+    const subSvcId = activeSubTransport?.contractServiceId;
+    if (subSvcId) {
+      return linkedContract.services.find((s) => s.id === subSvcId) ?? null;
+    }
+    if (item?.contractServiceId) {
+      return linkedContract.services.find((s) => s.id === item.contractServiceId) ?? null;
+    }
+    return null;
+  }, [linkedContract, activeSubTransport?.contractServiceId, item?.contractServiceId]);
+
+  // ── Vehicle search options (with per-sub contract filtering) ───
 
   const vehicleSearchOptions = React.useMemo(() => {
     const none = { value: 'none', label: 'Сонгоогүй' };
-    const allowed = linkedContractService?.allowedVehicleIds;
+    // Идэвхтэй sub-ын үйлчилгээг урьтал болгож, олдоогүй бол primary руу fallback.
+    const allowed =
+      activeContractService?.allowedVehicleIds ?? linkedContractService?.allowedVehicleIds;
     let pool = vehiclesList ?? [];
     if (allowed && allowed.length > 0) {
       const set = new Set(allowed);
@@ -317,7 +336,12 @@ export function useTransportDetail() {
       return { value: v.id, label };
     });
     return [none, ...rest];
-  }, [vehiclesList, linkedContractService?.allowedVehicleIds, activeSubTransport?.vehicleId]);
+  }, [
+    vehiclesList,
+    activeContractService?.allowedVehicleIds,
+    linkedContractService?.allowedVehicleIds,
+    activeSubTransport?.vehicleId,
+  ]);
 
   // ── Driver search options (mirror of vehicle search) ────────────
 
@@ -380,6 +404,8 @@ export function useTransportDetail() {
       const targetId = activeSubTransportIdRef.current || base[0]!.id;
       const next = base.map((s) => (s.id === targetId ? { ...s, [field]: value } : s));
       const first = next[0];
+      // Эцэг түвшний vehicleId/driverId-г эхний sub-тай тэнцүүлнэ (хуучин single-service нийцтэй).
+      // Multi-service үед энэ нь зөвхөн cosmetic — бүх баримтлал sub түвшинд хийгдэнэ.
       return { ...prev, subTransports: next, vehicleId: first?.vehicleId ?? null, driverId: first?.driverId ?? null } as TmsTransportManagement;
     });
   }, []);
@@ -660,6 +686,7 @@ export function useTransportDetail() {
     service,
     linkedContract,
     linkedContractService,
+    activeContractService,
     regions: regions ?? [],
     warehouses: warehouses ?? [],
     vehicleTypes: vehicleTypes ?? [],

@@ -178,6 +178,17 @@ export default function TransportManagementPage() {
                 const firstSubVehicleId = item.subTransports?.[0]?.vehicleId ?? null;
                 const vehicleId = item.vehicleId || firstSubVehicleId || null;
                 const vehLabel = vehicleId ? vehicleLabelById.get(vehicleId) : null;
+                // Multi-service badge: ялгаатай contractServiceId-ийн тоо болон subTransport-уудын нийт тоо.
+                const distinctServices = (() => {
+                  const set = new Set<string>();
+                  for (const s of item.subTransports ?? []) {
+                    if (s.contractServiceId) set.add(s.contractServiceId);
+                  }
+                  if (set.size === 0 && item.contractServiceId) set.add(item.contractServiceId);
+                  return set.size;
+                })();
+                const subCount = item.subTransports?.length ?? 0;
+                const showMultiBadge = distinctServices > 1 || subCount > 1;
 
                 return (
                   <DataTableRow
@@ -195,7 +206,19 @@ export default function TransportManagementPage() {
                       {customerMap.get(item.customerId) || '—'}
                     </DataTableCell>
                     <DataTableCell>
-                      {serviceMap.get(item.serviceTypeId) || '—'}
+                      <div className="flex flex-col gap-1">
+                        <span>{serviceMap.get(item.serviceTypeId) || '—'}</span>
+                        {showMultiBadge && (
+                          <Badge
+                            variant="outline"
+                            className="w-fit text-[10px] font-normal bg-primary/5 text-primary border-primary/20"
+                          >
+                            {distinctServices > 1
+                              ? `${distinctServices} үйлчилгээ · ${subCount} машин`
+                              : `${subCount} машин`}
+                          </Badge>
+                        )}
+                      </div>
                     </DataTableCell>
                     <DataTableCell className="text-sm text-muted-foreground">
                       {vehLabel || '—'}

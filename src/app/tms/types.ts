@@ -406,6 +406,21 @@ export interface TmsTransportSubUnit {
   loadingDate?: string | null;
   unloadingDate?: string | null;
   dispatchSteps?: TmsDispatchStep[];
+
+  /**
+   * Олон гэрээний үйлчилгээ нэг TM дор удирдах сценари:
+   * subUnit тус бүр өөрийн харьяалах гэрээний үйлчилгээ, үнэ, төрөл, тээврийн
+   * хэрэгслийн тохиргоог хадгалж чадна. Эдгээр нь optional — хоосон байвал
+   * эцэг баримтын утга руу fallback хийнэ (хуучин single-service нийцтэй).
+   */
+  contractServiceId?: string | null;
+  contractServiceName?: string | null;
+  serviceTypeId?: string | null;
+  vehicleTypeId?: string | null;
+  trailerTypeId?: string | null;
+  customerPrice?: number | null;
+  driverPrice?: number | null;
+  contractPriceType?: TmsContractPriceType | null;
 }
 
 export interface TmsTransportManagement {
@@ -415,8 +430,11 @@ export interface TmsTransportManagement {
   isContracted: boolean;
   contractId?: string | null;
   contractCode?: string | null;
+  /** Үндсэн/primary гэрээний үйлчилгээ (хуучин single-service нийцтэй байхад). */
   contractServiceId?: string | null;
   contractServiceName?: string | null;
+  /** Нэг TM дотор хэд хэдэн гэрээний үйлчилгээ зэрэг удирдаж байгаа бол бүх id. */
+  contractServiceIds?: string[];
   customerId: string;
   customerRef?: DocumentReference;
   status: TmsTransportManagementStatus;
@@ -437,8 +455,11 @@ export interface TmsTransportManagement {
   driverId?: string;
 
   driverPrice?: number;
+  /** Харилцагчид өгч буй үнэ (НӨАТ-гүй). Гараар оруулдаг, маржин %-г автоматаар тооцоолно. */
+  customerPrice?: number;
   /** Гэрээний мөрөөс шилжсэн үнийн нэгж (тонн, өдөр гэх мэт) */
   contractPriceType?: TmsContractPriceType;
+  /** Ашгийн хувь — `customerPrice` ба `driverPrice`-ын зөрүүнээс автоматаар шинэчлэгдэнэ. */
   profitMarginPercent?: number;
   hasVat?: boolean;
 

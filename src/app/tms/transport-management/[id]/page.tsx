@@ -79,6 +79,17 @@ export default function TransportManagementDetailPage() {
   const statusInfo = ctx.STATUS_MAP[t.status] || { label: t.status, variant: 'secondary' as const };
   const dateStr = t.createdAt?.toDate ? format(t.createdAt.toDate(), 'yyyy.MM.dd HH:mm') : '—';
 
+  // Нэг TM дотор хэдэн ялгаатай гэрээний үйлчилгээ байгааг тооцох (multi-service badge).
+  const distinctContractServiceCount = (() => {
+    const set = new Set<string>();
+    for (const s of ctx.normalizedSubTransports) {
+      if (s.contractServiceId) set.add(s.contractServiceId);
+    }
+    // Хуучин single-service баримт: subUnit-д contractServiceId байхгүй, эцэг дээр л байна.
+    if (set.size === 0 && t.contractServiceId) set.add(t.contractServiceId);
+    return set.size;
+  })();
+
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
       {/* Sticky header */}
@@ -162,6 +173,14 @@ export default function TransportManagementDetailPage() {
               {ctx.service?.name || '—'}
             </span>
           </div>
+          {distinctContractServiceCount > 1 && (
+            <>
+              <div className="h-4 w-px bg-border hidden sm:block" />
+              <Badge variant="outline" className="text-xs font-normal bg-primary/5 text-primary border-primary/20">
+                {distinctContractServiceCount} үйлчилгээ · {ctx.normalizedSubTransports.length} дэд таб
+              </Badge>
+            </>
+          )}
         </div>
 
         {/* Route — машин тус бүрийн чиглэл (subTransport дээрх утга, эсвэл fallback: top-level) */}
@@ -205,6 +224,7 @@ export default function TransportManagementDetailPage() {
             vehicleSearchOptions={ctx.vehicleSearchOptions}
             driverSearchOptions={ctx.driverSearchOptions}
             linkedContractService={ctx.linkedContractService}
+            activeContractService={ctx.activeContractService}
             onSubTransportChange={ctx.handleSubTransportChange}
             onTransportChange={ctx.handleChange}
             getVehicleTypeName={ctx.getVehicleTypeName}

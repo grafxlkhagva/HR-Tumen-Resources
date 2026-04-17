@@ -33,7 +33,10 @@ interface TransportVehicleCardProps {
   driversList: DriverListItem[];
   vehicleSearchOptions: { value: string; label: string }[];
   driverSearchOptions: { value: string; label: string }[];
+  /** Эцэг баримтын primary гэрээний үйлчилгээ (хуучин single-service нийцтэй). */
   linkedContractService: TmsContractService | null;
+  /** Идэвхтэй sub-тээврийн харьяа гэрээний үйлчилгээ (олон үйлчилгээтэй үед шаардлагатай). */
+  activeContractService?: TmsContractService | null;
   onSubTransportChange: (field: 'vehicleId' | 'driverId', value: string | null) => void;
   onTransportChange: (field: keyof TmsTransportManagement, value: unknown) => void;
   getVehicleTypeName: (vid?: string) => string;
@@ -54,6 +57,7 @@ export function TransportVehicleCard({
   vehicleSearchOptions,
   driverSearchOptions,
   linkedContractService,
+  activeContractService,
   onSubTransportChange,
   onTransportChange,
   getVehicleTypeName,
@@ -89,6 +93,60 @@ export function TransportVehicleCard({
     return `${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim();
   }, [activeSubTransport?.driverId, driversList]);
 
+  /** Нэг TM дотор хэдэн ялгаатай гэрээний үйлчилгээ байгааг эндээс тооцно. */
+  const distinctServiceCount = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const s of normalizedSubTransports) {
+      if (s.contractServiceId) set.add(s.contractServiceId);
+    }
+    return set.size;
+  }, [normalizedSubTransports]);
+
+  /** Идэвхтэй sub-ын үйлчилгээг хамт харуулах нь олон үйлчилгээтэй үед илүү тодорхой. */
+  const effectiveContractService = activeContractService ?? linkedContractService;
+
+  const contractServiceForLink = activeSubTransport?.contractServiceId ?? item?.contractServiceId;
+
+  /**
+   * Засварын диалогийн доторх машины оноосон жолоочдын id-нуудын багц.
+   * `local.vehicleId` сонгогдсон бол зөвхөн тухайн машинд холбогдсон жолооч нарыг
+   * driver dropdown-д үзүүлнэ. `null` бол шүүлт хийхгүй (бүх жолоочийг харуулна).
+   */
+  const vehicleLinkedDriverIds = React.useMemo<Set<string> | null>(() => {
+    if (!local?.vehicleId) return null;
+    const v = vehiclesList.find((x) => x.id === local.vehicleId);
+    if (!v) return null;
+    const ids = new Set<string>();
+    for (const id of v.driverIds ?? []) if (id) ids.add(id);
+    if (v.driverId) ids.add(v.driverId);
+    return ids.size > 0 ? ids : new Set<string>();
+  }, [local?.vehicleId, vehiclesList]);
+
+  /**
+   * Driver dropdown-д үзүүлэх сонголтууд:
+   * — Машин сонгоогүй бол бүх жолооч.
+   * — Машинд жолооч оноосон бол зөвхөн тэдгээрийг. Одоогийн `local.driverId`-г
+   *   холбогдолгүй байсан ч сонголт дотор үлдээнэ (state-г алдалгүй байхын тулд).
+   * — Машинд жолооч оноогдоогүй бол fallback-оор бүх жолоочийг харуулна.
+   */
+  const filteredDriverOptions = React.useMemo(() => {
+    if (!vehicleLinkedDriverIds) return driverSearchOptions;
+    if (vehicleLinkedDriverIds.size === 0) return driverSearchOptions;
+    const allowed = new Set(vehicleLinkedDriverIds);
+    if (local?.driverId) allowed.add(local.driverId);
+    return driverSearchOptions.filter(
+      (opt) => opt.value === 'none' || allowed.has(opt.value),
+    );
+  }, [driverSearchOptions, vehicleLinkedDriverIds, local?.driverId]);
+
+  const driverFilterHint = React.useMemo(() => {
+    if (!vehicleLinkedDriverIds) return null;
+    if (vehicleLinkedDriverIds.size === 0) {
+      return 'Энэ машинд жолооч бүртгэгдээгүй тул бүх жолоочоос сонгож болно.';
+    }
+    return `Энэ машинд оноосон ${vehicleLinkedDriverIds.size} жолоочоос сонгоно уу.`;
+  }, [vehicleLinkedDriverIds]);
+
   return (
     <>
       <Card className="flex flex-col h-full border-0 shadow-sm">
@@ -100,15 +158,26 @@ export function TransportVehicleCard({
         </CardHeader>
         <CardContent className="space-y-3 flex-1">
           {normalizedSubTransports.length > 1 && (
-            <Tabs value={activeSubTransport?.id || ''} onValueChange={setActiveSubTransportId}>
-              <TabsList className="h-auto w-full justify-start flex-wrap">
-                {normalizedSubTransports.map((s) => (
-                  <TabsTrigger key={s.id} value={s.id} className="text-xs">
-                    {`${transport.code || 'TR'}-${s.subCode}`}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <div className="space-y-1.5">
+              {distinctServiceCount > 1 && (
+                <div className="text-[11px] text-muted-foreground">
+                  {distinctServiceCount} үйлчилгээ · {normalizedSubTransports.length} дэд таб
+                </div>
+              )}
+              <Tabs value={activeSubTransport?.id || ''} onValueChange={setActiveSubTransportId}>
+                <TabsList className="h-auto w-full justify-start flex-wrap">
+                  {normalizedSubTransports.map((s) => {
+                    const code = `${transport.code || 'TR'}-${s.subCode}`;
+                    const svcName = s.contractServiceName?.trim();
+                    return (
+                      <TabsTrigger key={s.id} value={s.id} className="text-xs">
+                        {svcName ? `${svcName} · ${code}` : code}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
+            </div>
           )}
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center gap-2.5">
@@ -159,27 +228,42 @@ export function TransportVehicleCard({
                     const vid = val === 'none' ? null : val;
                     setLocal((p) => {
                       if (!p) return p;
-                      // Машин сонгоход холбоотой жолоочийг автомат сонгох
-                      if (vid) {
-                        const vehicle = vehiclesList.find((v) => v.id === vid);
-                        const linkedDriverId = vehicle?.driverIds?.[0] ?? vehicle?.driverId ?? null;
-                        if (linkedDriverId) {
-                          return { ...p, vehicleId: vid, driverId: linkedDriverId };
-                        }
+                      if (!vid) return { ...p, vehicleId: null };
+                      // Машин сонгоход тухайн машины жолооч нарын багцыг тодорхойлно.
+                      // Ганцхан жолоочтой бол convenience-аар автомат сонгоно.
+                      // Олон жолоочтой бол хэрэглэгчид dropdown-оос сонгуулна
+                      // (үндсэн ажиглалт — өмнөх сонгосон жолооч нь уг машинд холбогдохгүй
+                      // байвал цэвэрлэж, сонгуулахаар болгоно).
+                      const vehicle = vehiclesList.find((v) => v.id === vid);
+                      const linkedIds = new Set<string>();
+                      for (const id of vehicle?.driverIds ?? []) if (id) linkedIds.add(id);
+                      if (vehicle?.driverId) linkedIds.add(vehicle.driverId);
+                      let nextDriverId: string | null = p.driverId;
+                      if (linkedIds.size === 1) {
+                        // Ганц жолооч — автомат оноо
+                        nextDriverId = Array.from(linkedIds)[0] ?? null;
+                      } else if (linkedIds.size > 1) {
+                        // Одоогийн жолооч холбогдохгүй бол цэвэрлэнэ
+                        if (!p.driverId || !linkedIds.has(p.driverId)) nextDriverId = null;
                       }
-                      return { ...p, vehicleId: vid };
+                      return { ...p, vehicleId: vid, driverId: nextDriverId };
                     });
                   }}
                   placeholder="Сонгох..."
                   searchPlaceholder="Улсын дугаар, үйлдвэрлэгч, загвар хайх..."
                   emptyText="Тээврийн хэрэгсэл олдсонгүй."
                 />
-                {linkedContractService?.allowedVehicleIds && linkedContractService.allowedVehicleIds.length > 0 && (
+                {effectiveContractService?.allowedVehicleIds && effectiveContractService.allowedVehicleIds.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Энэ үйлчилгээнд явах боломжтой гэж бүртгэсэн {linkedContractService.allowedVehicleIds.length} машин л сонгогдоно.
+                    {effectiveContractService.name ? (
+                      <span className="font-medium text-foreground">{effectiveContractService.name}</span>
+                    ) : (
+                      'Энэ үйлчилгээ'
+                    )}
+                    -нд явах боломжтой гэж бүртгэсэн {effectiveContractService.allowedVehicleIds.length} машин л сонгогдоно.
                     Жагсаалтыг{' '}
-                    {item?.contractId && item?.contractServiceId ? (
-                      <Link className="text-primary underline underline-offset-2" href={`/tms/contracts/${item.contractId}/services/${item.contractServiceId}`}>
+                    {item?.contractId && contractServiceForLink ? (
+                      <Link className="text-primary underline underline-offset-2" href={`/tms/contracts/${item.contractId}/services/${contractServiceForLink}`}>
                         гэрээний үйлчилгээний дэлгэц
                       </Link>
                     ) : (
@@ -192,7 +276,7 @@ export function TransportVehicleCard({
               <div className="space-y-2">
                 <Label>Жолооч оноох</Label>
                 <SearchableSelect
-                  options={driverSearchOptions}
+                  options={filteredDriverOptions}
                   value={local.driverId || 'none'}
                   onValueChange={(val) => {
                     const did = val === 'none' ? null : val;
@@ -214,6 +298,9 @@ export function TransportVehicleCard({
                   searchPlaceholder="Нэр, утасны дугаар хайх..."
                   emptyText="Жолооч олдсонгүй."
                 />
+                {driverFilterHint && (
+                  <p className="text-xs text-muted-foreground">{driverFilterHint}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Машины төрөл</Label>

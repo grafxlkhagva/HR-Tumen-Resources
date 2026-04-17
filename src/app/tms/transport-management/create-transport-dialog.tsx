@@ -71,9 +71,14 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
 
   // Contract flow
   const [selectedContractId, setSelectedContractId] = React.useState<string>('');
-  const [selectedContractServiceId, setSelectedContractServiceId] = React.useState<string>('');
-  /** Гэрээний үйлчилгээнд зөвшөөрөгдсөн машинуудаас олон сонгох → тус бүрт тусдаа тээвэр */
-  const [pickedContractVehicleIds, setPickedContractVehicleIds] = React.useState<string[]>([]);
+  /** Олон гэрээний үйлчилгээ (тээвэр) нэг TM дор сонгоно. */
+  const [selectedContractServiceIds, setSelectedContractServiceIds] = React.useState<string[]>([]);
+  /**
+   * Үйлчилгээ тус бүрийн сонгосон машинууд.
+   * Key = contractServiceId, value = тухайн үйлчилгээнд сонгогдсон vehicleId[].
+   * Хоосон массив бол 1 "машингүй" дэд таб үүсч машиныг хожим оноох боломжтой.
+   */
+  const [pickedByService, setPickedByService] = React.useState<Record<string, string[]>>({});
 
   // Fetch Quotations
   const quotationsQuery = useMemoFirebase(
@@ -120,31 +125,50 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
     [contracts, selectedContractId]
   );
 
-  const selectedContractService = React.useMemo(
-    () => selectedContract?.services?.find((s) => s.id === selectedContractServiceId) ?? null,
-    [selectedContract, selectedContractServiceId]
+  /** Сонгосон гэрээний бүх үйлчилгээнүүд, Step 2-ын checkbox list-ийн эх үүсвэр. */
+  const contractServiceOptions = React.useMemo(() => {
+    return (selectedContract?.services ?? []).map((svc) => ({
+      id: svc.id,
+      label: svc.name || 'Нэргүй үйлчилгээ',
+      price: svc.customerPrice ?? svc.price ?? null,
+      vehicleCount: svc.allowedVehicleIds?.length ?? 0,
+    }));
+  }, [selectedContract]);
+
+  /** Сонгогдсон үйлчилгээнүүдийн массив (дарааллыг хадгалж). */
+  const selectedContractServices = React.useMemo(() => {
+    if (!selectedContract) return [] as TmsContractService[];
+    return selectedContractServiceIds
+      .map((sid) => selectedContract.services?.find((s) => s.id === sid))
+      .filter((s): s is TmsContractService => Boolean(s));
+  }, [selectedContract, selectedContractServiceIds]);
+
+  const vehiclesById = React.useMemo(
+    () => new Map(vehiclesList.map((v) => [v.id, v])),
+    [vehiclesList]
   );
 
-  const contractAllowedVehicleIds = selectedContractService?.allowedVehicleIds?.length
-    ? selectedContractService.allowedVehicleIds
-    : [];
+  const buildVehicleRows = React.useCallback(
+    (ids: string[] = []) => {
+      const rows = ids.map((id) => {
+        const v = vehiclesById.get(id);
+        return v
+          ? {
+              id: v.id,
+              label: [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id,
+            }
+          : { id, label: `${id.slice(0, 8)}… (бүртгэлд олдсонгүй)` };
+      });
+      return rows.sort((a, b) => a.label.localeCompare(b.label, 'mn'));
+    },
+    [vehiclesById]
+  );
 
-  const contractAllowedVehicles = React.useMemo(() => {
-    if (!contractAllowedVehicleIds.length) return [];
-    const byId = new Map(vehiclesList.map((v) => [v.id, v]));
-    const rows = contractAllowedVehicleIds.map((id) => {
-      const v = byId.get(id);
-      return v
-        ? {
-            id: v.id,
-            label: [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id,
-          }
-        : { id, label: `${id.slice(0, 8)}… (бүртгэлд олдсонгүй)` };
-    });
-    return rows.sort((a, b) => a.label.localeCompare(b.label, 'mn'));
-  }, [contractAllowedVehicleIds, vehiclesList]);
-
-  const contractHasVehiclePickStep = method === 'contract' && contractAllowedVehicleIds.length > 0;
+  /** Ядаж 1 үйлчилгээнд зөвшөөрөгдсөн машин байгаа эсэх → Step 3 харагдах уу. */
+  const contractHasVehiclePickStep = React.useMemo(() => {
+    if (method !== 'contract') return false;
+    return selectedContractServices.some((s) => (s.allowedVehicleIds?.length ?? 0) > 0);
+  }, [method, selectedContractServices]);
 
   React.useEffect(() => {
     if (!open) {
@@ -154,19 +178,30 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
       setServiceTypeId('');
       setCustomerId('');
       setSelectedContractId('');
-      setSelectedContractServiceId('');
-      setPickedContractVehicleIds([]);
+      setSelectedContractServiceIds([]);
+      setPickedByService({});
     }
   }, [open]);
 
   // Reset service selection when contract changes
   React.useEffect(() => {
-    setSelectedContractServiceId('');
+    setSelectedContractServiceIds([]);
+    setPickedByService({});
   }, [selectedContractId]);
 
+  // Үйлчилгээ сонгохоо больсон бол түүний машинуудыг pickedByService-оос хасах
   React.useEffect(() => {
-    setPickedContractVehicleIds([]);
-  }, [selectedContractServiceId]);
+    setPickedByService((prev) => {
+      const allowed = new Set(selectedContractServiceIds);
+      let changed = false;
+      const next: Record<string, string[]> = {};
+      for (const [svcId, ids] of Object.entries(prev)) {
+        if (allowed.has(svcId)) next[svcId] = ids;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedContractServiceIds]);
 
   React.useEffect(() => {
     if (method === 'contract' && step === 3 && !contractHasVehiclePickStep) {
@@ -189,7 +224,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
     if (step === 1) return !!method;
     if (step === 2) {
       if (method === 'quotation') return !!selectedQuotationId;
-      if (method === 'contract') return !!selectedContractId && !!selectedContractServiceId;
+      if (method === 'contract') return !!selectedContractId && selectedContractServiceIds.length > 0;
       if (method === 'new') return !!serviceTypeId;
     }
     if (step === 3 && method === 'new') return !!customerId;
@@ -289,37 +324,58 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
           const contract = contracts.find((c) => c.id === selectedContractId);
           if (!contract) throw new Error('Гэрээ олдсонгүй');
 
-          const contractService = contract.services?.find(
-            (s: TmsContractService) => s.id === selectedContractServiceId
-          );
-          if (!contractService) throw new Error('Гэрээний үйлчилгээ олдсонгүй');
+          const chosenServices: TmsContractService[] = selectedContractServiceIds
+            .map((sid) => contract.services?.find((s: TmsContractService) => s.id === sid))
+            .filter((s): s is TmsContractService => Boolean(s));
 
-          const serviceDoc = services.find((s) => s.id === contractService.serviceTypeId);
-          let dispatchSteps: any[] = [];
-          if (serviceDoc?.dispatchSteps) {
-            dispatchSteps = serviceDoc.dispatchSteps.map((step) => ({
+          if (chosenServices.length === 0) throw new Error('Гэрээний үйлчилгээ сонгогдоогүй байна.');
+
+          // Үйлчилгээ бүрээр subTransport-уудыг хавтгайлж үүсгэнэ.
+          const subTransports: TmsTransportSubUnit[] = [];
+          let subCounter = 1;
+
+          for (const svc of chosenServices) {
+            const serviceDoc = services.find((s) => s.id === svc.serviceTypeId);
+            const clonedSteps = (serviceDoc?.dispatchSteps ?? []).map((step) => ({
               id: step.id,
               name: step.name,
               order: step.order,
               isRequired: step.isRequired,
-              status: 'pending',
+              status: 'pending' as const,
               controlTasks: step.controlTasks || [],
-            }));
-          }
-
-          const vehicleSlots: (string | null)[] = pickedContractVehicleIds.length > 0 ? pickedContractVehicleIds : [null];
-          const subTransports: TmsTransportSubUnit[] = vehicleSlots.map((vehicleId, idx) => ({
-            id: crypto.randomUUID(),
-            subCode: String(idx + 1),
-            vehicleId,
-            driverId: null,
-            dispatchSteps: dispatchSteps.map((step) => ({
-              ...step,
               taskResults: {},
               completedAt: null,
               completedBy: null,
-            })),
-          }));
+            }));
+
+            const picks = pickedByService[svc.id] ?? [];
+            const slots: (string | null)[] = picks.length > 0 ? picks : [null];
+
+            for (const vehicleId of slots) {
+              subTransports.push({
+                id: crypto.randomUUID(),
+                subCode: String(subCounter++),
+                vehicleId,
+                driverId: null,
+                contractServiceId: svc.id,
+                contractServiceName: svc.name ?? null,
+                serviceTypeId: svc.serviceTypeId ?? null,
+                loadingRegionId: svc.loadingRegionId ?? null,
+                loadingWarehouseId: svc.loadingWarehouseId ?? null,
+                unloadingRegionId: svc.unloadingRegionId ?? null,
+                unloadingWarehouseId: svc.unloadingWarehouseId ?? null,
+                vehicleTypeId: svc.vehicleTypeId ?? null,
+                trailerTypeId: svc.trailerTypeId ?? null,
+                customerPrice: svc.customerPrice ?? null,
+                driverPrice: svc.driverPrice ?? svc.price ?? null,
+                contractPriceType: svc.priceType ?? null,
+                dispatchSteps: clonedSteps,
+              });
+            }
+          }
+
+          const primary = chosenServices[0];
+          const primaryDispatchSteps = subTransports[0]?.dispatchSteps ?? [];
 
           const nextNum = currentNum + 1;
           const newCode = `${prefix}${String(nextNum).padStart(padding, '0')}`;
@@ -327,29 +383,31 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
 
           transaction.set(docRef, {
             code: newCode,
-            serviceTypeId: contractService.serviceTypeId || '',
+            // Эцэг түвшин — эхний үйлчилгээний метадата (хуучин single-service нийцтэй)
+            serviceTypeId: primary.serviceTypeId || '',
             isContracted: true,
             contractId: contract.id,
             contractCode: contract.code || null,
-            contractServiceId: contractService.id,
-            contractServiceName: contractService.name || null,
+            contractServiceId: primary.id,
+            contractServiceName: primary.name || null,
+            contractServiceIds: chosenServices.map((s) => s.id),
             customerId: contract.customerId,
             customerRef: doc(firestore, TMS_CUSTOMERS_COLLECTION, contract.customerId),
             status: 'planning',
-            loadingRegionId: contractService.loadingRegionId || null,
-            loadingWarehouseId: contractService.loadingWarehouseId || null,
-            unloadingRegionId: contractService.unloadingRegionId || null,
-            unloadingWarehouseId: contractService.unloadingWarehouseId || null,
-            vehicleTypeId: contractService.vehicleTypeId || null,
-            trailerTypeId: contractService.trailerTypeId || null,
+            loadingRegionId: primary.loadingRegionId || null,
+            loadingWarehouseId: primary.loadingWarehouseId || null,
+            unloadingRegionId: primary.unloadingRegionId || null,
+            unloadingWarehouseId: primary.unloadingWarehouseId || null,
+            vehicleTypeId: primary.vehicleTypeId || null,
+            trailerTypeId: primary.trailerTypeId || null,
             vehicleId: subTransports[0]?.vehicleId || null,
             driverId: subTransports[0]?.driverId || null,
             subTransports,
-            driverPrice: contractService.driverPrice ?? contractService.price ?? null,
-            customerPrice: contractService.customerPrice ?? null,
-            contractPriceType: contractService.priceType ?? null,
-            profitMarginPercent: contractService.profitMarginPercent ?? null,
-            dispatchSteps,
+            driverPrice: primary.driverPrice ?? primary.price ?? null,
+            customerPrice: primary.customerPrice ?? null,
+            contractPriceType: primary.priceType ?? null,
+            profitMarginPercent: primary.profitMarginPercent ?? null,
+            dispatchSteps: primaryDispatchSteps,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
@@ -536,34 +594,92 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
                 )}
               </div>
 
-              {selectedContract && selectedContract.services?.length > 0 && (
+              {selectedContract && contractServiceOptions.length > 0 && (
                 <div className="space-y-3">
-                  <Label className="text-base font-medium">Үйлчилгээ сонгох</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Энэ гэрээнд бүртгэлтэй {selectedContract.services.length} үйлчилгээнээс сонгоно уу.
-                  </p>
-                  <SearchableSelect
-                    options={selectedContract.services.map((svc) => ({
-                      value: svc.id,
-                      label: svc.name || 'Нэргүй',
-                      description: (svc.customerPrice ?? svc.price) ? `${Number(svc.customerPrice ?? svc.price).toLocaleString()}₮` : undefined,
-                    }))}
-                    value={selectedContractServiceId}
-                    onValueChange={setSelectedContractServiceId}
-                    placeholder="Үйлчилгээ сонгох..."
-                    searchPlaceholder="Үйлчилгээ хайх..."
-                  />
-                  {selectedContractServiceId &&
-                    selectedContract?.services?.find((s) => s.id === selectedContractServiceId)?.allowedVehicleIds
-                      ?.length ? (
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Label className="text-base font-medium">Үйлчилгээ сонгох</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Энэ гэрээнд бүртгэлтэй {contractServiceOptions.length} үйлчилгээнээс нэг буюу
+                        хэд хэдийг сонгоно уу. Сонгосон бүх үйлчилгээ нэг тээврийн удирдлагад
+                        хамаарна.
+                      </p>
+                    </div>
+                    {selectedContractServiceIds.length > 0 ? (
+                      <div className="text-xs font-medium text-primary whitespace-nowrap pt-1">
+                        {selectedContractServiceIds.length} сонгогдсон
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setSelectedContractServiceIds(contractServiceOptions.map((o) => o.id))
+                      }
+                    >
+                      Бүгдийг сонгох
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedContractServiceIds([])}
+                    >
+                      Цэвэрлэх
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border max-h-[min(320px,50vh)] overflow-y-auto divide-y">
+                    {contractServiceOptions.map((opt) => {
+                      const cid = `contract-svc-${opt.id}`;
+                      const checked = selectedContractServiceIds.includes(opt.id);
+                      return (
+                        <div key={opt.id} className="flex items-start gap-3 p-3 hover:bg-muted/30">
+                          <Checkbox
+                            id={cid}
+                            checked={checked}
+                            onCheckedChange={(c) => {
+                              if (c === true) {
+                                setSelectedContractServiceIds((prev) =>
+                                  prev.includes(opt.id) ? prev : [...prev, opt.id]
+                                );
+                              } else {
+                                setSelectedContractServiceIds((prev) =>
+                                  prev.filter((id) => id !== opt.id)
+                                );
+                              }
+                            }}
+                            className="mt-0.5"
+                          />
+                          <label
+                            htmlFor={cid}
+                            className="flex-1 cursor-pointer leading-snug text-sm"
+                          >
+                            <div className="font-medium">{opt.label}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {opt.price
+                                ? `${Number(opt.price).toLocaleString()}₮`
+                                : 'Үнэ заагаагүй'}
+                              {opt.vehicleCount > 0
+                                ? ` · ${opt.vehicleCount} машин зөвшөөрсөн`
+                                : ' · машин бүртгэгдээгүй'}
+                            </div>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedContractServiceIds.length > 0 && contractHasVehiclePickStep ? (
                     <p className="text-xs text-muted-foreground">
-                      Дараагийн алхамд энэ үйлчилгээнд бүртгэсэн явах боломжтой машинуудаас сонгоно.
+                      Дараагийн алхамд үйлчилгээ тус бүрийн зөвшөөрөгдсөн машинуудаас сонгоно.
                     </p>
                   ) : null}
                 </div>
               )}
 
-              {selectedContract && (!selectedContract.services || selectedContract.services.length === 0) && (
+              {selectedContract && contractServiceOptions.length === 0 && (
                 <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
                   Энэ гэрээнд үйлчилгээ бүртгэгдээгүй байна. Эхлээд гэрээнд үйлчилгээ нэмнэ үү.
                 </div>
@@ -594,70 +710,118 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
             </div>
           )}
 
-          {/* Step 3: Contract — allowed vehicles (multi → олон тээвэр) */}
+          {/* Step 3: Contract — per-service allowed vehicles (multi-service, multi-vehicle) */}
           {step === 3 && method === 'contract' && contractHasVehiclePickStep && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
               <div>
-                <Label className="text-base font-medium">Тээврийн хэрэгсэл сонгох</Label>
+                <Label className="text-base font-medium">Үйлчилгээ тус бүрт машин сонгох</Label>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Нэгээс олон машин сонгож болно — сонгосон машин бүр нэг тээврийн удирдлага дотор
-                  дэд табаар үүснэ. Хоосон үлдээвэл 1 табтай үүсэж, машиныг дараа нь онооно.
+                  Сонгосон {selectedContractServices.length} үйлчилгээ бүрт нэгээс олон машин сонгож
+                  болно — машин бүр нэг тээврийн удирдлага дотор дэд табаар үүснэ. Хоосон
+                  үйлчилгээнд 1 машингүй таб үүсэж, машиныг дараа нь онооно.
                 </p>
               </div>
-              {pickedContractVehicleIds.length > 1 ? (
-                <p className="text-sm font-medium text-primary">
-                  {pickedContractVehicleIds.length} машин сонгогдсон → ижил тооны дэд таб үүснэ.
-                </p>
-              ) : null}
               {isLoadingVehicles ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
                   <Loader2 className="h-4 w-4 animate-spin" /> Машинууд уншиж байна...
                 </div>
               ) : (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setPickedContractVehicleIds(contractAllowedVehicles.map((v) => v.id))
-                      }
-                    >
-                      Бүгдийг сонгох
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setPickedContractVehicleIds([])}>
-                      Цэвэрлэх
-                    </Button>
-                  </div>
-                  <div className="rounded-lg border max-h-[min(320px,50vh)] overflow-y-auto divide-y">
-                    {contractAllowedVehicles.map((v) => {
-                      const cid = `contract-veh-${v.id}`;
-                      const checked = pickedContractVehicleIds.includes(v.id);
-                      return (
-                        <div key={v.id} className="flex items-start gap-3 p-3 hover:bg-muted/30">
-                          <Checkbox
-                            id={cid}
-                            checked={checked}
-                            onCheckedChange={(c) => {
-                              if (c === true) {
-                                setPickedContractVehicleIds((prev) =>
-                                  prev.includes(v.id) ? prev : [...prev, v.id]
-                                );
-                              } else {
-                                setPickedContractVehicleIds((prev) => prev.filter((id) => id !== v.id));
-                              }
-                            }}
-                            className="mt-0.5"
-                          />
-                          <label htmlFor={cid} className="text-sm cursor-pointer flex-1 leading-snug">
-                            {v.label}
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
+                <div className="space-y-4">
+                  {selectedContractServices.map((svc) => {
+                    const rows = buildVehicleRows(svc.allowedVehicleIds ?? []);
+                    const picked = pickedByService[svc.id] ?? [];
+                    const allIds = rows.map((r) => r.id);
+                    return (
+                      <section
+                        key={svc.id}
+                        className="rounded-lg border p-3 space-y-3 bg-card"
+                      >
+                        <header className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-medium text-sm">
+                              {svc.name || 'Нэргүй үйлчилгээ'}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {rows.length} машин · {picked.length} сонгогдсон
+                              {picked.length > 1
+                                ? ` → ${picked.length} дэд таб`
+                                : picked.length === 1
+                                  ? ' → 1 дэд таб'
+                                  : rows.length === 0
+                                    ? ' → 1 хоосон дэд таб'
+                                    : ' → 1 хоосон дэд таб (машин сонгоогүй)'}
+                            </div>
+                          </div>
+                          {rows.length > 0 ? (
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setPickedByService((prev) => ({ ...prev, [svc.id]: allIds }))
+                                }
+                              >
+                                Бүгд
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setPickedByService((prev) => ({ ...prev, [svc.id]: [] }))
+                                }
+                              >
+                                Цэвэрлэх
+                              </Button>
+                            </div>
+                          ) : null}
+                        </header>
+                        {rows.length === 0 ? (
+                          <p className="text-xs text-muted-foreground bg-muted/40 rounded px-3 py-2">
+                            Энэ үйлчилгээнд зөвшөөрсөн машин байхгүй — 1 машингүй дэд таб үүсэж,
+                            хожим онооно.
+                          </p>
+                        ) : (
+                          <div className="rounded-md border max-h-52 overflow-y-auto divide-y">
+                            {rows.map((v) => {
+                              const cid = `svc-${svc.id}-veh-${v.id}`;
+                              const checked = picked.includes(v.id);
+                              return (
+                                <div
+                                  key={v.id}
+                                  className="flex items-start gap-3 p-2.5 hover:bg-muted/30"
+                                >
+                                  <Checkbox
+                                    id={cid}
+                                    checked={checked}
+                                    onCheckedChange={(c) => {
+                                      setPickedByService((prev) => {
+                                        const cur = prev[svc.id] ?? [];
+                                        if (c === true) {
+                                          if (cur.includes(v.id)) return prev;
+                                          return { ...prev, [svc.id]: [...cur, v.id] };
+                                        }
+                                        return { ...prev, [svc.id]: cur.filter((id) => id !== v.id) };
+                                      });
+                                    }}
+                                    className="mt-0.5"
+                                  />
+                                  <label
+                                    htmlFor={cid}
+                                    className="text-sm cursor-pointer flex-1 leading-snug"
+                                  >
+                                    {v.label}
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
