@@ -152,7 +152,13 @@ export function TransportVehicleCard({
       <Card className="flex flex-col h-full border-0 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold">Тээврийн хэрэгсэл</CardTitle>
-          <Button variant="ghost" size="icon-sm" onClick={() => setOpen(true)} className="text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setOpen(true)}
+            aria-label="Тээврийн хэрэгсэл засах"
+            className="text-muted-foreground"
+          >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         </CardHeader>
@@ -169,9 +175,15 @@ export function TransportVehicleCard({
                   {normalizedSubTransports.map((s) => {
                     const code = `${transport.code || 'TR'}-${s.subCode}`;
                     const svcName = s.contractServiceName?.trim();
+                    const label = svcName ? `${svcName} · ${code}` : code;
                     return (
-                      <TabsTrigger key={s.id} value={s.id} className="text-xs">
-                        {svcName ? `${svcName} · ${code}` : code}
+                      <TabsTrigger
+                        key={s.id}
+                        value={s.id}
+                        className="text-xs max-w-[180px]"
+                        title={label}
+                      >
+                        <span className="truncate">{label}</span>
                       </TabsTrigger>
                     );
                   })}

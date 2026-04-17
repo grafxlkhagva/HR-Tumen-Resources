@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import {
     AppDialog,
     AppDialogContent,
@@ -38,14 +38,19 @@ import {
 } from '@/app/tms/types';
 import { Loader2 } from 'lucide-react';
 
-const formSchema = z.object({
-    category: z.string().min(1, 'Ангилал сонгоно уу'),
-    description: z.string().min(1, 'Тайлбар оруулна уу'),
-    amount: z.coerce.number().min(0, 'Дүн 0-ээс их байх ёстой'),
-    paidAmount: z.coerce.number().min(0, 'Төлсөн дүн 0-ээс их байх ёстой'),
-    dueDate: z.string().optional().nullable(),
-    note: z.string().optional().nullable(),
-});
+const formSchema = z
+    .object({
+        category: z.string().min(1, 'Ангилал сонгоно уу'),
+        description: z.string().min(1, 'Тайлбар оруулна уу'),
+        amount: z.coerce.number().min(0, 'Дүн сөрөг байж болохгүй'),
+        paidAmount: z.coerce.number().min(0, 'Төлсөн дүн сөрөг байж болохгүй'),
+        dueDate: z.string().optional().nullable(),
+        note: z.string().optional().nullable(),
+    })
+    .refine((v) => v.paidAmount <= v.amount, {
+        message: 'Төлсөн дүн нийт дүнгээс их байж болохгүй',
+        path: ['paidAmount'],
+    });
 
 interface EditTransactionDialogProps {
     open: boolean;
@@ -116,23 +121,32 @@ export function EditTransactionDialog({
                 updatedAt: new Date() as any,
             };
 
-            const newTransactions = allTransactions.map(t =>
-                t.id === transaction.id ? updatedTransaction : t
-            );
-
-            await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, transportId), {
-                financeTransactions: newTransactions,
-                updatedAt: new Date(),
+            const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, transportId);
+            // Optimistic concurrency: уншсан snapshot-оос тухайн id-тэй гүйлгээг
+            // солиод бичих. Хэрвээ өөр client-аас энэ гүйлгээ устсан/өөрчлөгдсөн
+            // бол `CONFLICT` алдаа буцаагаад хэрэглэгчид refresh санал болгоно.
+            await runTransaction(firestore, async (tx) => {
+                const snap = await tx.get(docRef);
+                if (!snap.exists()) throw new Error('Тээврийн бүртгэл олдсонгүй.');
+                const current = snap.data();
+                const list: TmsFinanceTransaction[] = current.financeTransactions || [];
+                const idx = list.findIndex((t) => t.id === transaction.id);
+                if (idx === -1) throw new Error('CONFLICT');
+                const next = list.slice();
+                next[idx] = updatedTransaction;
+                tx.update(docRef, {
+                    financeTransactions: next,
+                    updatedAt: serverTimestamp(),
+                });
             });
 
             toast({ title: 'Гүйлгээ амжилттай шинэчлэгдлээ.' });
             onOpenChange(false);
         } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Алдаа',
-                description: error.message || 'Хадгалахад алдаа гарлаа.',
-            });
+            const msg = error?.message === 'CONFLICT'
+                ? 'Энэ гүйлгээг өөр хэрэглэгч устгасан/засварласан байна. Хуудсыг дахин ачааллана уу.'
+                : error?.message || 'Хадгалахад алдаа гарлаа.';
+            toast({ variant: 'destructive', title: 'Алдаа', description: msg });
         } finally {
             setIsSaving(false);
         }

@@ -8,6 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Pencil, AlertCircle } from 'lucide-react';
 import { AppDialog, AppDialogContent, AppDialogHeader, AppDialogTitle, AppDialogBody } from '@/components/patterns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { TmsTransportManagement } from '@/app/tms/types';
 
 interface FinanceFormData {
@@ -18,26 +28,13 @@ interface FinanceFormData {
   hasVat: boolean;
 }
 
-/**
- * Харилцагчийн үнэ ба жолоочийн үнийн зөрүүнээс ашгийн хувийг тооцоолно.
- * driverPrice = 0 үед NaN/Infinity гарахаас сэргийлж 0 буцаана.
- */
-function computeMarginPercent(dp: number, cp: number): number {
-  if (!dp || dp <= 0) return 0;
-  return ((cp - dp) / dp) * 100;
-}
+// Санхүүгийн pure тооцоолол `../finance-math.ts`-д төвлөрсөн. `hasVat` нь
+// одоогоор display зорилгоор л ашиглагдах бөгөөд pure-математикт нөлөөлөхгүй
+// тул тусгаарласан.
+import { computeFinance as pureComputeFinance, computeMarginPercent } from '../finance-math';
 
-/**
- * Санхүүгийн харагдах утгуудыг бэлтгэнэ. Харилцагчийн үнэ (НӨАТ-гүй) гараар
- * оруулсан утга — жолоочийн үнээс хасч ашгийн хэмжээг тооцоолно.
- */
-function computeFinance(dp: number, cp: number, hasVat: boolean) {
-  const priceBeforeVat = cp > 0 ? Math.round(cp) : 0;
-  const profitAmount = priceBeforeVat - dp;
-  const vatAmount = Math.round(priceBeforeVat * 0.1);
-  const priceWithVat = priceBeforeVat + vatAmount;
-  const marginPercent = computeMarginPercent(dp, priceBeforeVat);
-  return { priceBeforeVat, profitAmount, vatAmount, priceWithVat, marginPercent };
+function computeFinance(dp: number, cp: number, _hasVat: boolean) {
+  return pureComputeFinance(dp, cp);
 }
 
 interface TransportFinanceCardProps {
@@ -49,6 +46,8 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
   const [open, setOpen] = React.useState(false);
   const [local, setLocal] = React.useState<FinanceFormData | null>(null);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [confirmNegativeOpen, setConfirmNegativeOpen] = React.useState(false);
+  const vatId = React.useId();
 
   React.useEffect(() => {
     if (open) {
@@ -76,6 +75,19 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
     transport.hasVat,
   ]);
 
+  const persist = React.useCallback(() => {
+    if (!local) return;
+    // Маржин %-г зөрүүнээс тооцоолон хамт хадгална (хуучин UI-тай нийцтэй).
+    const derivedMargin = computeMarginPercent(local.driverPrice, local.customerPrice);
+    onFinanceChange({
+      driverPrice: local.driverPrice,
+      customerPrice: local.customerPrice,
+      profitMarginPercent: Number.isFinite(derivedMargin) ? Number(derivedMargin.toFixed(2)) : 0,
+      hasVat: local.hasVat,
+    });
+    setOpen(false);
+  }, [local, onFinanceChange]);
+
   const handleSave = () => {
     if (!local) return;
     if (local.driverPrice < 0) {
@@ -87,15 +99,13 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
       return;
     }
     setValidationError(null);
-    // Маржин %-г зөрүүнээс тооцоолон хамт хадгална (хуучин UI-тай нийцтэй).
+    // Хасах маржин — хэрэглэгчийн санаандгүй алдагдалтай үнээс сэргийлж баталгаа хүснэ.
     const derivedMargin = computeMarginPercent(local.driverPrice, local.customerPrice);
-    onFinanceChange({
-      driverPrice: local.driverPrice,
-      customerPrice: local.customerPrice,
-      profitMarginPercent: Number.isFinite(derivedMargin) ? Number(derivedMargin.toFixed(2)) : 0,
-      hasVat: local.hasVat,
-    });
-    setOpen(false);
+    if (local.driverPrice > 0 && derivedMargin < 0) {
+      setConfirmNegativeOpen(true);
+      return;
+    }
+    persist();
   };
 
   const dp = transport.driverPrice || 0;
@@ -117,7 +127,13 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
       <Card className="flex flex-col h-full border-0 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold">Санхүү</CardTitle>
-          <Button variant="ghost" size="icon-sm" onClick={() => setOpen(true)} className="text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setOpen(true)}
+            aria-label="Санхүүгийн мэдээлэл засах"
+            className="text-muted-foreground"
+          >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         </CardHeader>
@@ -210,8 +226,8 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
                 <Input type="number" value={10} disabled className="bg-muted" />
               </div>
               <div className="flex items-center h-10 gap-2">
-                <Checkbox id="vat" checked={local.hasVat} onCheckedChange={(checked) => setLocal((p) => p && { ...p, hasVat: checked === true })} />
-                <Label htmlFor="vat" className="font-normal cursor-pointer">НӨАТ багтсан эсэх</Label>
+                <Checkbox id={vatId} checked={local.hasVat} onCheckedChange={(checked) => setLocal((p) => p && { ...p, hasVat: checked === true })} />
+                <Label htmlFor={vatId} className="font-normal cursor-pointer">НӨАТ багтсан эсэх</Label>
               </div>
 
               {preview && local.customerPrice > 0 && (
@@ -269,6 +285,32 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
           )}
         </AppDialogContent>
       </AppDialog>
+
+      <AlertDialog open={confirmNegativeOpen} onOpenChange={setConfirmNegativeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Харилцагчийн үнэ жолоочийн үнээс бага байна</AlertDialogTitle>
+            <AlertDialogDescription>
+              {preview
+                ? `Хасах маржин (${preview.marginPercent.toFixed(2)}%) үүснэ — алдагдалтай үнэ. Үргэлжлүүлэх үү?`
+                : 'Хасах маржинтай үнэ үүснэ — алдагдалтай. Үргэлжлүүлэх үү?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setConfirmNegativeOpen(false);
+                persist();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              Ойлгосон, хадгалах
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

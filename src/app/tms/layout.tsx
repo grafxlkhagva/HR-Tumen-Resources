@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
+import { TmsReferenceDataProvider } from './reference-data-context';
 
 const navItems = [
   { href: '/tms/transport-management', label: 'Тээвэрийн удирдлага', icon: Navigation },
@@ -154,5 +155,9 @@ function TmsShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function TmsLayout({ children }: { children: React.ReactNode }) {
-  return <TmsShell>{children}</TmsShell>;
+  return (
+    <TmsReferenceDataProvider>
+      <TmsShell>{children}</TmsShell>
+    </TmsReferenceDataProvider>
+  );
 }

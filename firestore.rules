@@ -40,6 +40,21 @@ service cloud.firestore {
       return isAdmin() || isNewsUser();
     }
 
+    // ─── TMS Тээврийн удирдлагын талбар түвшний баталгаажуулалт ─────────
+    // Хортой client-аар сөрөг үнэ, буруу status, хэт том массив бичүүлэхээс
+    // сэргийлнэ. Optional талбарууд байвал л шалгаж, байхгүй бол тойрно.
+    function tmTransportValid(d) {
+      return d.customerId is string
+        && d.status in ['draft', 'planning', 'active', 'completed', 'cancelled']
+        && (!('driverPrice' in d) || d.driverPrice == null || (d.driverPrice is number && d.driverPrice >= 0))
+        && (!('customerPrice' in d) || d.customerPrice == null || (d.customerPrice is number && d.customerPrice >= 0))
+        && (!('profitMarginPercent' in d) || d.profitMarginPercent == null || d.profitMarginPercent is number)
+        && (!('subTransports' in d) || d.subTransports == null || (d.subTransports is list && d.subTransports.size() <= 200))
+        && (!('financeTransactions' in d) || d.financeTransactions == null || (d.financeTransactions is list && d.financeTransactions.size() <= 500))
+        && (!('contractServiceId' in d) || d.contractServiceId == null || d.contractServiceId is string)
+        && (!('contractServiceIds' in d) || d.contractServiceIds == null || d.contractServiceIds is list);
+    }
+
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
@@ -689,11 +704,9 @@ service cloud.firestore {
     }
     match /tms_transport_management/{transportId} {
       allow read: if isTmsAllowed();
-      allow create: if isTmsAllowed()
-        && request.resource.data.customerId is string
-        && request.resource.data.status in ['draft', 'planning', 'active', 'completed', 'cancelled'];
+      allow create: if isTmsAllowed() && tmTransportValid(request.resource.data);
       allow update: if isTmsAllowed()
-        && request.resource.data.status in ['draft', 'planning', 'active', 'completed', 'cancelled']
+        && tmTransportValid(request.resource.data)
         && request.resource.data.customerId == resource.data.customerId;
       allow delete: if isAdmin();
     }

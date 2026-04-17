@@ -127,6 +127,7 @@ export default function TransportManagementDetailPage() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => ctx.setDeleteDialogOpen(true)}
+                aria-label="Тээврийн удирдлагыг устгах"
                 className="text-muted-foreground hover:text-destructive"
               >
                 <Trash className="h-3.5 w-3.5" />
@@ -242,6 +243,7 @@ export default function TransportManagementDetailPage() {
             cargos={t.cargos || []}
             packagingTypes={ctx.packagingTypes}
             onAddCargo={ctx.handleAddCargo}
+            onEditCargo={ctx.handleEditCargo}
             onRemoveCargo={ctx.handleRemoveCargo}
             cargoToDelete={ctx.cargoToDelete}
             setCargoToDelete={ctx.setCargoToDelete}

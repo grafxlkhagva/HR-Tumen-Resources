@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp, arrayUnion, Timestamp } from 'firebase/firestore';
 import {
     AppDialog,
     AppDialogContent,
@@ -39,15 +39,20 @@ import {
 } from '@/app/tms/types';
 import { Loader2 } from 'lucide-react';
 
-const formSchema = z.object({
-    type: z.enum(['receivable', 'payable']),
-    category: z.string().min(1, 'Ангилал сонгоно уу'),
-    description: z.string().min(1, 'Тайлбар оруулна уу'),
-    amount: z.coerce.number().min(0, 'Дүн 0-ээс их байх ёстой'),
-    paidAmount: z.coerce.number().min(0, 'Төлсөн дүн 0-ээс их байх ёстой'),
-    dueDate: z.string().optional().nullable(),
-    note: z.string().optional().nullable(),
-});
+const formSchema = z
+    .object({
+        type: z.enum(['receivable', 'payable']),
+        category: z.string().min(1, 'Ангилал сонгоно уу'),
+        description: z.string().min(1, 'Тайлбар оруулна уу'),
+        amount: z.coerce.number().min(0, 'Дүн сөрөг байж болохгүй'),
+        paidAmount: z.coerce.number().min(0, 'Төлсөн дүн сөрөг байж болохгүй'),
+        dueDate: z.string().optional().nullable(),
+        note: z.string().optional().nullable(),
+    })
+    .refine((v) => v.paidAmount <= v.amount, {
+        message: 'Төлсөн дүн нийт дүнгээс их байж болохгүй',
+        path: ['paidAmount'],
+    });
 
 interface AddTransactionDialogProps {
     open: boolean;
@@ -124,12 +129,14 @@ export function AddTransactionDialog({
             };
 
             const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, transportId);
+            // `arrayUnion` нь зэрэгцээ устгал/нэмэлттэй аюулгүйгээр нэгтгэнэ —
+            // хоёр хэрэглэгч зэрэг гүйлгээ нэмэхэд өгөгдөл алдагдахгүй.
+            // Баримт байгаа эсэхийг transaction.get-оор батлана.
             await runTransaction(firestore, async (transaction) => {
                 const snap = await transaction.get(docRef);
                 if (!snap.exists()) throw new Error('Тээврийн бүртгэл олдсонгүй.');
-                const current = snap.data();
                 transaction.update(docRef, {
-                    financeTransactions: [...(current.financeTransactions || []), newTransaction],
+                    financeTransactions: arrayUnion(newTransaction),
                     updatedAt: serverTimestamp(),
                 });
             });

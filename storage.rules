@@ -131,7 +131,7 @@ service firebase.storage {
         && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
             || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
     }
 
     // TMS тээврийн хэрэгслийн зураг
@@ -145,7 +145,7 @@ service firebase.storage {
         && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
             || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
     }
 
     // TMS тээврийн удирдлагын диспач зураг (хяналтын даалгавар)
@@ -158,7 +158,8 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
         && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
             || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
-        && request.resource.size < 10 * 1024 * 1024;
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
     }
 
     // Default: дээрх тусгай дүрмүүдэд ороогүй бүх зам хориглоно

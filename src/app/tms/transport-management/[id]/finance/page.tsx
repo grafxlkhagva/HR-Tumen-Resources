@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc } from '@/firebase';
-import { doc, updateDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, arrayRemove, Timestamp } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,12 +96,16 @@ export default function TransportFinancePage() {
         let payablePaid = 0;
 
         transactions.forEach(t => {
+            // `amount`/`paidAmount` null/undefined/NaN үед нийт дүнг сүйтгэхгүй байхын
+            // тулд тоон хөрвүүлэлт + fallback.
+            const amount = Number(t.amount) || 0;
+            const paid = Number(t.paidAmount) || 0;
             if (t.type === 'receivable') {
-                receivable += t.amount;
-                receivablePaid += t.paidAmount;
+                receivable += amount;
+                receivablePaid += paid;
             } else {
-                payable += t.amount;
-                payablePaid += t.paidAmount;
+                payable += amount;
+                payablePaid += paid;
             }
         });
 
@@ -120,16 +124,16 @@ export default function TransportFinancePage() {
     const executeDelete = async () => {
         if (!firestore || !id || !deleteTarget) return;
         try {
+            // Устгах target object-г одоогийн жагсаалтаас олно. `arrayRemove`-д
+            // тохирохын тулд яг ижил field-ийн дараалалтай object хэрэгтэй тул
+            // snapshot-аас уншсан объектыг дамжуулна (зэрэгцээ засвартай үед ч
+            // Firestore нь id-аар engil тохирлыг хийнэ).
+            const targetTx = transactions.find((tx) => tx.id === deleteTarget);
+            if (!targetTx) throw new Error('Устгах гүйлгээ олдсонгүй.');
             const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id);
-            await runTransaction(firestore, async (transaction) => {
-                const snap = await transaction.get(docRef);
-                if (!snap.exists()) throw new Error('Тээврийн бүртгэл олдсонгүй.');
-                const current = snap.data();
-                const updatedTransactions = (current.financeTransactions || []).filter((tx: { id: string }) => tx.id !== deleteTarget);
-                transaction.update(docRef, {
-                    financeTransactions: updatedTransactions,
-                    updatedAt: serverTimestamp(),
-                });
+            await updateDoc(docRef, {
+                financeTransactions: arrayRemove(targetTx),
+                updatedAt: serverTimestamp(),
             });
             toast({ title: 'Гүйлгээ устгагдлаа.' });
         } catch (err: unknown) {
@@ -185,8 +189,17 @@ export default function TransportFinancePage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {data.sort((a, b) => (b.createdAt as any)?.toMillis() - (a.createdAt as any)?.toMillis()).map((t) => {
-                        const remaining = t.amount - t.paidAmount;
+                    {data
+                        .slice()
+                        .sort(
+                            (a, b) =>
+                                ((b.createdAt as any)?.toMillis?.() ?? 0) -
+                                ((a.createdAt as any)?.toMillis?.() ?? 0),
+                        )
+                        .map((t) => {
+                        const amount = Number(t.amount) || 0;
+                        const paid = Number(t.paidAmount) || 0;
+                        const remaining = amount - paid;
                         const status = STATUS_MAP[t.status] || { label: t.status, variant: 'secondary' };
 
                         return (
@@ -198,10 +211,10 @@ export default function TransportFinancePage() {
                                     <p className="text-sm truncate" title={t.description}>{t.description}</p>
                                 </TableCell>
                                 <TableCell className="text-right font-medium">
-                                    {t.amount.toLocaleString()} ₮
+                                    {amount.toLocaleString()} ₮
                                 </TableCell>
                                 <TableCell className="text-right text-emerald-600 dark:text-emerald-400">
-                                    {t.paidAmount.toLocaleString()} ₮
+                                    {paid.toLocaleString()} ₮
                                 </TableCell>
                                 <TableCell className={cn(
                                     "text-right font-medium",
@@ -213,7 +226,11 @@ export default function TransportFinancePage() {
                                     <Badge variant={status.variant as any} className="text-[10px] h-5 px-1.5">{status.label}</Badge>
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
-                                    {t.dueDate ? format(new Date(t.dueDate), 'MM-dd') : '—'}
+                                    {(() => {
+                                        if (!t.dueDate) return '—';
+                                        const d = new Date(t.dueDate);
+                                        return isNaN(d.getTime()) ? '—' : format(d, 'MM.dd');
+                                    })()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-0.5">
@@ -221,6 +238,7 @@ export default function TransportFinancePage() {
                                             variant="ghost"
                                             size="icon-sm"
                                             className="h-7 w-7"
+                                            aria-label="Гүйлгээ засах"
                                             onClick={() => {
                                                 setSelectedTransaction(t);
                                                 setDialogs(prev => ({ ...prev, edit: true }));
@@ -232,6 +250,7 @@ export default function TransportFinancePage() {
                                             variant="ghost"
                                             size="icon-sm"
                                             className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                            aria-label="Гүйлгээ устгах"
                                             onClick={() => setDeleteTarget(t.id)}
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />

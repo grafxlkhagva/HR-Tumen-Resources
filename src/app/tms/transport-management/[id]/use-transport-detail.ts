@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, deleteDoc, collection, query, orderBy, limit, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { doc, deleteDoc, collection, query, orderBy, limit, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,11 +12,6 @@ import {
   TMS_TRANSPORT_MANAGEMENT_COLLECTION,
   TMS_CUSTOMERS_COLLECTION,
   TMS_SERVICE_TYPES_COLLECTION,
-  TMS_REGIONS_COLLECTION,
-  TMS_WAREHOUSES_COLLECTION,
-  TMS_VEHICLE_TYPES_COLLECTION,
-  TMS_TRAILER_TYPES_COLLECTION,
-  TMS_PACKAGING_TYPES_COLLECTION,
   TMS_VEHICLES_COLLECTION,
   TMS_DRIVERS_COLLECTION,
   TMS_CONTRACTS_COLLECTION,
@@ -59,6 +54,34 @@ function sanitizeTaskValue(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Deep-diff-д зориулсан тогтвортой serialize. `JSON.stringify` нь:
+ *  - Firestore `Timestamp`-ийг `{}` болгож false-match гаргадаг;
+ *  - object key-ийн дараалал өөрчлөгдөхөд худал positive гаргадаг.
+ * Тиймээс keys-ийг sort хийж, Timestamp-ыг millis-ээр төлөөлүүлнэ.
+ */
+function stableStringify(value: unknown): string {
+  if (value == null) return 'null';
+  if (typeof value === 'object') {
+    // Firestore Timestamp (has toMillis)
+    const anyVal = value as { toMillis?: () => number };
+    if (typeof anyVal.toMillis === 'function') return `@ts:${anyVal.toMillis()}`;
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * Хуучин TM (subTransports байхгүй) нээхэд UI-д зориулж синтетик subUnit
+ * үүсгэх үеийн id. Firestore руу бичихгүй (buildSavePayload нь хоосон массивыг
+ * null болгож хадгалдаг). Бодит UUID-тай мөргөлдөхгүй байх үүднээс нэр нь
+ * зориуд тусгай тэмдэглэгээтэй.
+ */
+const SYNTHETIC_SUB_ID = '__synthetic_default__';
+
 function sanitizeDispatchStepsForDoc(steps: TmsDispatchStep[] = []): TmsDispatchStep[] {
   return steps.map((step) => {
     if (!step.taskResults) return step;
@@ -82,10 +105,13 @@ function buildSubTransportsPayload(
   }
   return [
     {
-      id: 'default',
+      id: SYNTHETIC_SUB_ID,
       subCode: '1',
       vehicleId: currentT.vehicleId ?? null,
       driverId: currentT.driverId ?? null,
+      contractServiceId: currentT.contractServiceId ?? null,
+      contractServiceName: currentT.contractServiceName ?? null,
+      serviceTypeId: currentT.serviceTypeId ?? null,
       dispatchSteps: cleanedSteps,
     },
   ];
@@ -97,7 +123,7 @@ const SAVEABLE_SCALAR_FIELDS = [
   'status', 'loadingRegionId', 'loadingWarehouseId', 'unloadingRegionId', 'unloadingWarehouseId',
   'totalDistanceKm', 'loadingDate', 'unloadingDate', 'frequency',
   'vehicleTypeId', 'trailerTypeId', 'vehicleId', 'driverId',
-  'driverPrice', 'customerPrice', 'profitMarginPercent',
+  'driverPrice', 'customerPrice', 'profitMarginPercent', 'contractPriceType',
 ] as const;
 
 function buildSavePayload(t: TmsTransportManagement) {
@@ -117,13 +143,17 @@ function buildSavePayload(t: TmsTransportManagement) {
   return payload;
 }
 
-export const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'destructive' }> = {
-  draft: { label: 'Ноорог', variant: 'secondary' },
-  planning: { label: 'Төлөвлөж буй', variant: 'default' },
-  active: { label: 'Идэвхтэй', variant: 'success' },
-  completed: { label: 'Дууссан', variant: 'default' },
-  cancelled: { label: 'Цуцлагдсан', variant: 'destructive' },
-};
+// Shared constants/utils.
+import { TM_STATUS_MAP } from '../constants';
+import { formatVehicleLabel } from '../utils';
+import { tmTelemetry } from '../telemetry';
+import { useTmsReferenceData } from '@/app/tms/reference-data-context';
+
+/**
+ * Back-compat re-export: энэ hook-с `STATUS_MAP` гэж импорт хийдэг хэсгүүдэд
+ * API-г хадгалж байгаа — дотооддоо `TM_STATUS_MAP`-ийг ашиглана.
+ */
+export const STATUS_MAP = TM_STATUS_MAP;
 
 // ── Hook ────────────────────────────────────────────────────────────
 
@@ -186,36 +216,15 @@ export function useTransportDetail() {
   );
   const { data: service } = useDoc<TmsServiceType>(serviceRef);
 
-  // Phase 2.2: memoized collection references (prevent re-subscribe on every render)
-  const regionsQuery = useMemoFirebase(
-    ({ firestore }) => collection(firestore, TMS_REGIONS_COLLECTION),
-    [],
-  );
-  const { data: regions } = useCollection<RefItem>(regionsQuery);
-
-  const warehousesQuery = useMemoFirebase(
-    ({ firestore }) => collection(firestore, TMS_WAREHOUSES_COLLECTION),
-    [],
-  );
-  const { data: warehouses } = useCollection<WarehouseItem>(warehousesQuery);
-
-  const vehicleTypesQuery = useMemoFirebase(
-    ({ firestore }) => collection(firestore, TMS_VEHICLE_TYPES_COLLECTION),
-    [],
-  );
-  const { data: vehicleTypes } = useCollection<RefItem>(vehicleTypesQuery);
-
-  const trailerTypesQuery = useMemoFirebase(
-    ({ firestore }) => collection(firestore, TMS_TRAILER_TYPES_COLLECTION),
-    [],
-  );
-  const { data: trailerTypes } = useCollection<RefItem>(trailerTypesQuery);
-
-  const packagingTypesQuery = useMemoFirebase(
-    ({ firestore }) => collection(firestore, TMS_PACKAGING_TYPES_COLLECTION),
-    [],
-  );
-  const { data: packagingTypes } = useCollection<RefItem>(packagingTypesQuery);
+  // Phase 5.1: 5 reference collection subscription-уудыг TMS layout-ийн
+  // `TmsReferenceDataProvider`-аас авч Firebase read quota-г багасгасан.
+  // Хуучин inline `useCollection` хэрэглээг `useTmsReferenceData()`-оор орлуулав.
+  const refData = useTmsReferenceData();
+  const regions = refData.regions;
+  const warehouses = refData.warehouses;
+  const vehicleTypes = refData.vehicleTypes;
+  const trailerTypes = refData.trailerTypes;
+  const packagingTypes = refData.packagingTypes;
 
   // Vehicles + drivers: no limit — SearchableSelect handles large lists via client-side filtering
   const vehiclesQuery = useMemoFirebase(
@@ -257,11 +266,12 @@ export function useTransportDetail() {
     const keys: (keyof TmsTransportManagement)[] = [
       'loadingRegionId', 'loadingWarehouseId', 'unloadingRegionId', 'unloadingWarehouseId',
       'totalDistanceKm', 'loadingDate', 'unloadingDate', 'vehicleTypeId', 'trailerTypeId',
-      'driverPrice', 'profitMarginPercent', 'hasVat', 'status',
+      'driverPrice', 'customerPrice', 'profitMarginPercent', 'contractPriceType', 'hasVat', 'status',
     ];
-    return keys.some((k) => transport[k] !== item[k])
-      || JSON.stringify(transport.cargos) !== JSON.stringify(item.cargos)
-      || JSON.stringify(transport.subTransports) !== JSON.stringify(item.subTransports);
+    if (keys.some((k) => transport[k] !== item[k])) return true;
+    // Scalar-д өөрчлөлт байхгүй үед л үнэтэй deep compare хийнэ.
+    return stableStringify(transport.cargos) !== stableStringify(item.cargos)
+      || stableStringify(transport.subTransports) !== stableStringify(item.subTransports);
   }, [transport, item]);
 
   React.useEffect(() => {
@@ -276,7 +286,17 @@ export function useTransportDetail() {
   const normalizedSubTransports = React.useMemo<TmsTransportSubUnit[]>(() => {
     if (!transport) return [];
     if (transport.subTransports && transport.subTransports.length > 0) return transport.subTransports;
-    return [{ id: 'default', subCode: '1', vehicleId: transport.vehicleId ?? null, driverId: transport.driverId ?? null }];
+    // Backward-compat: хуучин single-service TM-д contractServiceId/Name/serviceTypeId-г
+    // эцэг баримтаас synthetic sub-д carry хийж машин шүүлт/dispatch зөв ажиллана.
+    return [{
+      id: SYNTHETIC_SUB_ID,
+      subCode: '1',
+      vehicleId: transport.vehicleId ?? null,
+      driverId: transport.driverId ?? null,
+      contractServiceId: transport.contractServiceId ?? null,
+      contractServiceName: transport.contractServiceName ?? null,
+      serviceTypeId: transport.serviceTypeId ?? null,
+    }];
   }, [transport]);
 
   React.useEffect(() => {
@@ -328,13 +348,7 @@ export function useTransportDetail() {
       const currentId = activeSubTransport?.vehicleId;
       pool = pool.filter((v) => set.has(v.id) || v.id === currentId);
     }
-    const rest = pool.map((v) => {
-      const plate = v.licensePlate?.trim() || '';
-      const make = v.makeName?.trim() || '';
-      const model = v.modelName?.trim() || '';
-      const label = [plate, make, model].filter(Boolean).join(' · ') || v.id;
-      return { value: v.id, label };
-    });
+    const rest = pool.map((v) => ({ value: v.id, label: formatVehicleLabel(v) }));
     return [none, ...rest];
   }, [
     vehiclesList,
@@ -365,7 +379,16 @@ export function useTransportDetail() {
       const base =
         prev.subTransports && prev.subTransports.length > 0
           ? [...prev.subTransports]
-          : [{ id: 'default', subCode: '1', vehicleId: prev.vehicleId ?? null, driverId: prev.driverId ?? null, dispatchSteps: prev.dispatchSteps || [] }];
+          : [{
+              id: SYNTHETIC_SUB_ID,
+              subCode: '1',
+              vehicleId: prev.vehicleId ?? null,
+              driverId: prev.driverId ?? null,
+              contractServiceId: prev.contractServiceId ?? null,
+              contractServiceName: prev.contractServiceName ?? null,
+              serviceTypeId: prev.serviceTypeId ?? null,
+              dispatchSteps: prev.dispatchSteps || [],
+            }];
       const targetId = subId || base[0]!.id;
       const nextSubs = base.map((s) => (s.id === targetId ? { ...s, dispatchSteps: newSteps } : s));
       const first = nextSubs[0];
@@ -400,7 +423,15 @@ export function useTransportDetail() {
       const base: TmsTransportSubUnit[] =
         prev.subTransports && prev.subTransports.length > 0
           ? [...prev.subTransports]
-          : [{ id: 'default', subCode: '1', vehicleId: prev.vehicleId ?? null, driverId: prev.driverId ?? null }];
+          : [{
+              id: SYNTHETIC_SUB_ID,
+              subCode: '1',
+              vehicleId: prev.vehicleId ?? null,
+              driverId: prev.driverId ?? null,
+              contractServiceId: prev.contractServiceId ?? null,
+              contractServiceName: prev.contractServiceName ?? null,
+              serviceTypeId: prev.serviceTypeId ?? null,
+            }];
       const targetId = activeSubTransportIdRef.current || base[0]!.id;
       const next = base.map((s) => (s.id === targetId ? { ...s, [field]: value } : s));
       const first = next[0];
@@ -429,16 +460,19 @@ export function useTransportDetail() {
         transaction.update(docRef, payload);
       });
 
+      tmTelemetry.event('tm.save.success', { transportId: id });
       toast({ title: 'Мэдээлэл хадгалагдлаа.' });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Хадгалахад алдаа гарлаа.';
       if (message === 'CONFLICT') {
+        tmTelemetry.event('tm.save.conflict', { transportId: id });
         toast({
           variant: 'destructive',
           title: 'Зөрчил илэрлээ',
           description: 'Өөр хэрэглэгч энэ бүртгэлийг засварласан байна. Хуудсыг дахин ачааллана уу.',
         });
       } else {
+        tmTelemetry.error('tm.save.failed', err, { transportId: id });
         toast({ variant: 'destructive', title: 'Алдаа', description: message });
       }
     } finally {
@@ -474,26 +508,76 @@ export function useTransportDetail() {
     }
   }, [firestore, id, toast, router]);
 
-  // Phase 2.1: debounced Firestore write for dispatch task changes (with rollback on error)
+  /**
+   * Dispatch алхмуудыг Firestore руу атомаар бичих нийтлэг хэсэг.
+   *
+   * `handleSave`-тай ижил optimistic-concurrency шалгуур ашиглана:
+   *   - `runTransaction` дотор баримтыг уншиж `updatedAt` server-side > local
+   *     бол `CONFLICT` шидэж хаяна (өөр хэрэглэгчийн засвар нам дарагдахаас
+   *     сэргийлнэ).
+   *   - Алдаа гарвал caller-ийн rollback callback-ийг дуудна.
+   */
+  const writeDispatchStepsAtomic = React.useCallback(
+    async (newSteps: TmsDispatchStep[], onRollback?: () => void): Promise<boolean> => {
+      if (!firestore || !id) return false;
+      const currentT = transportRef.current;
+      if (!currentT) return false;
+      const targetSubId =
+        activeSubTransportIdRef.current || currentT.subTransports?.[0]?.id || SYNTHETIC_SUB_ID;
+      const cleanedSteps = sanitizeDispatchStepsForDoc(newSteps);
+      const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id);
+      const localUpdatedAtMs = item?.updatedAt?.toMillis?.() ?? 0;
+      try {
+        await runTransaction(firestore, async (tx) => {
+          const snap = await tx.get(docRef);
+          if (!snap.exists()) throw new Error('Баримт олдсонгүй.');
+          const serverUpdatedAtMs = snap.data()?.updatedAt?.toMillis?.() ?? 0;
+          if (serverUpdatedAtMs && localUpdatedAtMs && serverUpdatedAtMs > localUpdatedAtMs) {
+            throw new Error('CONFLICT');
+          }
+          tx.update(docRef, {
+            subTransports: buildSubTransportsPayload(currentT, targetSubId, cleanedSteps),
+            dispatchSteps: cleanedSteps,
+            updatedAt: serverTimestamp(),
+          });
+        });
+        return true;
+      } catch (err: unknown) {
+        onRollback?.();
+        const message = err instanceof Error ? err.message : 'Хадгалахад алдаа гарлаа.';
+        if (message === 'CONFLICT') {
+          tmTelemetry.event('tm.dispatch.conflict', { transportId: id });
+          toast({
+            variant: 'destructive',
+            title: 'Зөрчил илэрлээ',
+            description: 'Өөр хэрэглэгч энэ бүртгэлийг засварласан байна. Хуудсыг дахин ачааллана уу.',
+          });
+        } else {
+          tmTelemetry.error('tm.dispatch.write_failed', err, { transportId: id });
+          toast({
+            variant: 'destructive',
+            title: 'Алдаа',
+            description: 'Хадгалахад алдаа гарлаа. Өмнөх утга сэргээгдлээ.',
+          });
+        }
+        return false;
+      }
+    },
+    [firestore, id, item?.updatedAt, toast],
+  );
+
+  // Phase 2.1: debounced, conflict-aware Firestore write for dispatch task changes.
   const debouncedSaveSteps = useDebouncedCallback(
     async (newSteps: TmsDispatchStep[]) => {
-      if (!firestore || !id) return;
       const currentT = transportRef.current;
       if (!currentT) return;
-      const targetSubId = activeSubTransportIdRef.current || currentT.subTransports?.[0]?.id || 'default';
+      const targetSubId =
+        activeSubTransportIdRef.current || currentT.subTransports?.[0]?.id || SYNTHETIC_SUB_ID;
       const targetSub = currentT.subTransports?.find((s) => s.id === targetSubId);
       const previousSteps = [...(targetSub?.dispatchSteps || currentT.dispatchSteps || [])];
-      const cleanedSteps = sanitizeDispatchStepsForDoc(newSteps);
-      try {
-        await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
-          subTransports: buildSubTransportsPayload(currentT, targetSubId, cleanedSteps),
-          dispatchSteps: cleanedSteps,
-          updatedAt: serverTimestamp(),
-        });
-      } catch {
+      await writeDispatchStepsAtomic(newSteps, () => {
         handleActiveDispatchStepsChange(previousSteps);
-        toast({ variant: 'destructive', title: 'Алдаа', description: 'Хадгалахад алдаа гарлаа. Өмнөх утга сэргээгдлээ.' });
-      }
+      });
     },
     400,
   );
@@ -539,13 +623,14 @@ export function useTransportDetail() {
     [activeDispatchSteps, toast],
   );
 
-  // Phase 1.1: use refs to avoid stale closure when writing to Firestore
+  // Phase 2.1: conflict-aware step toggle.
   const executeStepToggle = React.useCallback(async () => {
     const stepId = confirmStepId;
     if (!stepId || !activeDispatchSteps.length) {
       setConfirmStepId(null);
       return;
     }
+    const previousSteps = [...activeDispatchSteps];
     const newSteps = activeDispatchSteps.map((s) => {
       if (s.id === stepId) {
         return s.status === 'completed'
@@ -556,22 +641,11 @@ export function useTransportDetail() {
     });
     handleActiveDispatchStepsChange(newSteps);
     setConfirmStepId(null);
-
-    if (!firestore || !id) return;
-    try {
-      const currentT = transportRef.current;
-      if (!currentT) return;
-      const targetSubId = activeSubTransportIdRef.current || currentT.subTransports?.[0]?.id || 'default';
-      const cleanedNewSteps = sanitizeDispatchStepsForDoc(newSteps);
-      await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
-        subTransports: buildSubTransportsPayload(currentT, targetSubId, cleanedNewSteps),
-        dispatchSteps: cleanedNewSteps,
-        updatedAt: serverTimestamp(),
-      });
-    } catch {
-      toast({ variant: 'destructive', title: 'Алдаа', description: 'Алхмыг шинэчлэхэд алдаа гарлаа.' });
-    }
-  }, [confirmStepId, activeDispatchSteps, handleActiveDispatchStepsChange, firestore, id, toast]);
+    await writeDispatchStepsAtomic(newSteps, () => {
+      // Зөрчил/алдаа гарсан тохиолдолд UI-г буцаана.
+      handleActiveDispatchStepsChange(previousSteps);
+    });
+  }, [confirmStepId, activeDispatchSteps, handleActiveDispatchStepsChange, writeDispatchStepsAtomic]);
 
   // Phase 2.4: file size limit on upload
   const handleDispatchTaskImageUpload = React.useCallback(
@@ -596,23 +670,16 @@ export function useTransportDetail() {
         await uploadBytes(storageRef, file, { contentType: file.type });
         const downloadUrl = await getDownloadURL(storageRef);
 
-        // Immediate save (no debounce) for image upload
+        // Immediate save (no debounce) for image upload, conflict-aware.
+        const previousSteps = [...activeDispatchSteps];
         const newSteps = activeDispatchSteps.map((s) => {
           if (s.id === stepId) return { ...s, taskResults: { ...s.taskResults, [taskId]: downloadUrl } };
           return s;
         });
         handleActiveDispatchStepsChange(newSteps);
-
-        const currentT = transportRef.current;
-        if (firestore && currentT) {
-          const targetSubId = activeSubTransportIdRef.current || currentT.subTransports?.[0]?.id || 'default';
-          const cleaned = sanitizeDispatchStepsForDoc(newSteps);
-          await updateDoc(doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id), {
-            subTransports: buildSubTransportsPayload(currentT, targetSubId, cleaned),
-            dispatchSteps: cleaned,
-            updatedAt: serverTimestamp(),
-          });
-        }
+        await writeDispatchStepsAtomic(newSteps, () => {
+          handleActiveDispatchStepsChange(previousSteps);
+        });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Зураг оруулахад алдаа гарлаа.';
         toast({ variant: 'destructive', title: 'Алдаа', description: message });
@@ -620,7 +687,7 @@ export function useTransportDetail() {
         setUploadingTaskId(null);
       }
     },
-    [storage, id, activeDispatchSteps, handleActiveDispatchStepsChange, firestore, toast],
+    [storage, id, activeDispatchSteps, handleActiveDispatchStepsChange, writeDispatchStepsAtomic, toast],
   );
 
   const handleAddCargo = React.useCallback(
@@ -650,6 +717,33 @@ export function useTransportDetail() {
     setTransport((prev) => (prev ? { ...prev, cargos: (prev.cargos || []).filter((c) => c.id !== cargoId) } : prev));
     setCargoToDelete(null);
   }, []);
+
+  const handleEditCargo = React.useCallback(
+    (cargoId: string, patch: Partial<TmsQuotationCargo>): boolean => {
+      if (!patch.name || !patch.quantity || !patch.unit) {
+        toast({ variant: 'destructive', title: 'Мэдээлэл дутуу', description: 'Ачааны нэр болон хэмжээг оруулна уу.' });
+        return false;
+      }
+      setTransport((prev) => {
+        if (!prev) return prev;
+        const cargos = (prev.cargos || []).map((c) =>
+          c.id === cargoId
+            ? {
+                ...c,
+                name: patch.name || c.name,
+                quantity: Number(patch.quantity) || c.quantity,
+                unit: (patch.unit || c.unit) as TmsQuotationCargo['unit'],
+                packagingTypeId: patch.packagingTypeId ?? c.packagingTypeId,
+                note: patch.note ?? c.note,
+              }
+            : c,
+        );
+        return { ...prev, cargos };
+      });
+      return true;
+    },
+    [toast],
+  );
 
   // ── Derived display helpers ────────────────────────────────────
 
@@ -708,6 +802,7 @@ export function useTransportDetail() {
     handleSave,
     handleDelete,
     handleAddCargo,
+    handleEditCargo,
     handleRemoveCargo,
     handleTaskResultChange,
     handleToggleStepClick,

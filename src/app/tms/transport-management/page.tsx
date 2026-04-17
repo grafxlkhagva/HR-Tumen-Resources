@@ -29,16 +29,10 @@ import {
   type TmsServiceType,
 } from '@/app/tms/types';
 import { format } from 'date-fns';
+import { TM_STATUS_MAP } from './constants';
+import { formatVehicleLabel } from './utils';
 
 const PAGE_SIZE = 30;
-
-const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'destructive' }> = {
-  draft: { label: 'Ноорог', variant: 'secondary' },
-  planning: { label: 'Төлөвлөж буй', variant: 'default' },
-  active: { label: 'Идэвхтэй', variant: 'success' },
-  completed: { label: 'Дууссан', variant: 'default' },
-  cancelled: { label: 'Цуцлагдсан', variant: 'destructive' },
-};
 
 export default function TransportManagementPage() {
   const router = useRouter();
@@ -121,10 +115,7 @@ export default function TransportManagementPage() {
 
   const vehicleLabelById = React.useMemo(() => {
     const m = new Map<string, string>();
-    for (const v of vehiclesList) {
-      const label = [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id;
-      m.set(v.id, label);
-    }
+    for (const v of vehiclesList) m.set(v.id, formatVehicleLabel(v));
     return m;
   }, [vehiclesList]);
 
@@ -173,8 +164,8 @@ export default function TransportManagementPage() {
           {!isLoading && items.length > 0 && (
             <DataTableBody>
               {items.map((item) => {
-                const statusInfo = STATUS_MAP[item.status] || { label: item.status, variant: 'secondary' };
-                const dateStr = item.createdAt?.toDate ? format(item.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : '—';
+                const statusInfo = TM_STATUS_MAP[item.status] || { label: item.status, variant: 'secondary' };
+                const dateStr = item.createdAt?.toDate ? format(item.createdAt.toDate(), 'yyyy.MM.dd HH:mm') : '—';
                 const firstSubVehicleId = item.subTransports?.[0]?.vehicleId ?? null;
                 const vehicleId = item.vehicleId || firstSubVehicleId || null;
                 const vehLabel = vehicleId ? vehicleLabelById.get(vehicleId) : null;

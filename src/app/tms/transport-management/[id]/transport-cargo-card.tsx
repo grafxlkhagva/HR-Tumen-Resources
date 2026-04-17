@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import { AppDialog, AppDialogContent, AppDialogHeader, AppDialogTitle, AppDialogBody } from '@/components/patterns';
 import {
   AlertDialog,
@@ -25,6 +25,8 @@ interface TransportCargoCardProps {
   cargos: TmsQuotationCargo[];
   packagingTypes: RefItem[];
   onAddCargo: (cargo: Partial<TmsQuotationCargo>) => boolean;
+  /** Ачааны мэдээллийг шинэчлэх. Буруу оролт буцаах нөхцөлд `false`. */
+  onEditCargo?: (cargoId: string, patch: Partial<TmsQuotationCargo>) => boolean;
   onRemoveCargo: (cargoId: string) => void;
   cargoToDelete: string | null;
   setCargoToDelete: (id: string | null) => void;
@@ -34,11 +36,13 @@ export function TransportCargoCard({
   cargos,
   packagingTypes,
   onAddCargo,
+  onEditCargo,
   onRemoveCargo,
   cargoToDelete,
   setCargoToDelete,
 }: TransportCargoCardProps) {
   const [addOpen, setAddOpen] = React.useState(false);
+  const [editingCargoId, setEditingCargoId] = React.useState<string | null>(null);
   const [newCargo, setNewCargo] = React.useState<Partial<TmsQuotationCargo>>({
     name: '',
     quantity: 1,
@@ -47,10 +51,42 @@ export function TransportCargoCard({
     note: '',
   });
 
-  const handleAdd = () => {
+  const dialogMode: 'add' | 'edit' = editingCargoId ? 'edit' : 'add';
+
+  const openEdit = (cargo: TmsQuotationCargo) => {
+    setEditingCargoId(cargo.id);
+    setNewCargo({
+      name: cargo.name,
+      quantity: cargo.quantity,
+      unit: cargo.unit,
+      packagingTypeId: cargo.packagingTypeId ?? '',
+      note: cargo.note ?? '',
+    });
+    setAddOpen(true);
+  };
+
+  const resetForm = () => {
+    setNewCargo({ name: '', quantity: 1, unit: 'kg', packagingTypeId: '', note: '' });
+    setEditingCargoId(null);
+  };
+
+  const handleSubmit = () => {
+    if (dialogMode === 'edit' && editingCargoId) {
+      if (!onEditCargo) {
+        setAddOpen(false);
+        resetForm();
+        return;
+      }
+      const ok = onEditCargo(editingCargoId, newCargo);
+      if (ok) {
+        resetForm();
+        setAddOpen(false);
+      }
+      return;
+    }
     const ok = onAddCargo(newCargo);
     if (ok) {
-      setNewCargo({ name: '', quantity: 1, unit: 'kg', packagingTypeId: '', note: '' });
+      resetForm();
       setAddOpen(false);
     }
   };
@@ -84,10 +120,22 @@ export function TransportCargoCard({
             <div className="divide-y max-h-[180px] overflow-y-auto">
               {cargos.map((cargo) => (
                 <div key={cargo.id} className="relative px-4 py-2.5 group hover:bg-muted/30 transition-colors">
-                  <div className="absolute top-2 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-3 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onEditCargo && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`"${cargo.name}" ачааг засах`}
+                        className="text-muted-foreground hover:text-foreground h-5 w-5"
+                        onClick={() => openEdit(cargo)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon-sm"
+                      aria-label={`"${cargo.name}" ачааг устгах`}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10 h-5 w-5"
                       onClick={() => setCargoToDelete(cargo.id)}
                     >
@@ -112,10 +160,20 @@ export function TransportCargoCard({
         </CardContent>
       </Card>
 
-      {/* Add cargo dialog */}
-      <AppDialog open={addOpen} onOpenChange={setAddOpen}>
+      {/* Cargo add/edit dialog (режим нь editingCargoId байгаа эсэхээс хамаарна) */}
+      <AppDialog
+        open={addOpen}
+        onOpenChange={(v) => {
+          setAddOpen(v);
+          if (!v) resetForm();
+        }}
+      >
         <AppDialogContent size="md">
-          <AppDialogHeader><AppDialogTitle>Ачаа нэмэх</AppDialogTitle></AppDialogHeader>
+          <AppDialogHeader>
+            <AppDialogTitle>
+              {dialogMode === 'edit' ? 'Ачаа засах' : 'Ачаа нэмэх'}
+            </AppDialogTitle>
+          </AppDialogHeader>
           <AppDialogBody className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Ачааны нэр</Label>
@@ -154,8 +212,18 @@ export function TransportCargoCard({
               <Input placeholder="..." value={newCargo.note || ''} onChange={(e) => setNewCargo((p) => ({ ...p, note: e.target.value }))} />
             </div>
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setAddOpen(false)}>Цуцлах</Button>
-              <Button onClick={handleAdd}>Нэмэх</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddOpen(false);
+                  resetForm();
+                }}
+              >
+                Цуцлах
+              </Button>
+              <Button onClick={handleSubmit}>
+                {dialogMode === 'edit' ? 'Хадгалах' : 'Нэмэх'}
+              </Button>
             </div>
           </AppDialogBody>
         </AppDialogContent>

@@ -27,6 +27,7 @@ import { Loader2, ArrowRight, ArrowLeft, FileText, Plus, ScrollText } from 'luci
 import { useToast } from '@/hooks/use-toast';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
+import { formatVehicleLabel } from './utils';
 import {
   TMS_SERVICE_TYPES_COLLECTION,
   TMS_CUSTOMERS_COLLECTION,
@@ -153,10 +154,7 @@ export function CreateTransportDialog({ open, onOpenChange }: CreateTransportDia
       const rows = ids.map((id) => {
         const v = vehiclesById.get(id);
         return v
-          ? {
-              id: v.id,
-              label: [v.licensePlate, v.makeName, v.modelName].filter(Boolean).join(' · ') || v.id,
-            }
+          ? { id: v.id, label: formatVehicleLabel(v) }
           : { id, label: `${id.slice(0, 8)}… (бүртгэлд олдсонгүй)` };
       });
       return rows.sort((a, b) => a.label.localeCompare(b.label, 'mn'));
