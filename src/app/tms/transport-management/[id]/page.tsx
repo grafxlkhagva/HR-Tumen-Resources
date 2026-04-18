@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
-import { Loader2, Save, Trash, Banknote, FileX, User2, Briefcase } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, Save, Trash, Banknote, FileX, User2, Briefcase, MapPin, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -184,71 +185,102 @@ export default function TransportManagementDetailPage() {
           )}
         </div>
 
-        {/* Route — машин тус бүрийн чиглэл (subTransport дээрх утга, эсвэл fallback: top-level) */}
-        <TransportRouteCard
-          transport={{
-            ...t,
-            loadingRegionId: ctx.activeSubTransport?.loadingRegionId ?? t.loadingRegionId,
-            loadingWarehouseId: ctx.activeSubTransport?.loadingWarehouseId ?? t.loadingWarehouseId,
-            unloadingRegionId: ctx.activeSubTransport?.unloadingRegionId ?? t.unloadingRegionId,
-            unloadingWarehouseId: ctx.activeSubTransport?.unloadingWarehouseId ?? t.unloadingWarehouseId,
-            totalDistanceKm: ctx.activeSubTransport?.totalDistanceKm ?? t.totalDistanceKm,
-            loadingDate: ctx.activeSubTransport?.loadingDate ?? t.loadingDate,
-            unloadingDate: ctx.activeSubTransport?.unloadingDate ?? t.unloadingDate,
-          }}
-          regions={ctx.regions}
-          warehouses={ctx.warehouses}
-          vehiclesList={ctx.vehiclesList}
-          activeVehicleId={ctx.activeSubTransport?.vehicleId}
-          getRegionName={ctx.getRegionName}
-          getWarehouseName={ctx.getWarehouseName}
-          onRouteChange={(changes) => {
-            for (const [key, value] of Object.entries(changes)) {
-              ctx.handleSubTransportChange(key as keyof import('@/app/tms/types').TmsTransportSubUnit, value);
-            }
-          }}
-        />
+        {/*
+         * UX refactor (2026-04-18): Чиглэл / Санхүү / Ачаа гурван картыг нэг Tabs
+         * контейнер дотор нэгтгэв. Route tab нь `TransportRouteCard`-ийг хэвээр
+         * ашиглана — map (GPS байршил + loading/unloading цэгүүд) аль хэдийн
+         * дотроо агуулсан. Vehicle карт нь таб хоорондын контекст (идэвхтэй
+         * машин/жолооч) тул Tabs-ийн гадна full-width үлдэнэ.
+         */}
+        <Tabs defaultValue="route" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:inline-grid">
+            <TabsTrigger value="route" className="gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
+              Чиглэл
+            </TabsTrigger>
+            <TabsTrigger value="finance" className="gap-1.5">
+              <Banknote className="h-3.5 w-3.5" />
+              Санхүү
+            </TabsTrigger>
+            <TabsTrigger value="cargo" className="gap-1.5">
+              <Package className="h-3.5 w-3.5" />
+              Ачаа
+            </TabsTrigger>
+          </TabsList>
 
-        {/* 3-column grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <TransportVehicleCard
-            transport={t}
-            item={ctx.item}
-            normalizedSubTransports={ctx.normalizedSubTransports}
-            activeSubTransport={ctx.activeSubTransport}
-            activeSubTransportId={ctx.activeSubTransportId}
-            setActiveSubTransportId={ctx.setActiveSubTransportId}
-            vehicleTypes={ctx.vehicleTypes}
-            trailerTypes={ctx.trailerTypes}
-            vehiclesList={ctx.vehiclesList}
-            driversList={ctx.driversList}
-            vehicleSearchOptions={ctx.vehicleSearchOptions}
-            driverSearchOptions={ctx.driverSearchOptions}
-            linkedContractService={ctx.linkedContractService}
-            activeContractService={ctx.activeContractService}
-            onSubTransportChange={ctx.handleSubTransportChange}
-            onTransportChange={ctx.handleChange}
-            getVehicleTypeName={ctx.getVehicleTypeName}
-            getTrailerTypeName={ctx.getTrailerTypeName}
-          />
-          <TransportFinanceCard
-            transport={t}
-            onFinanceChange={(changes) => {
-              for (const [key, value] of Object.entries(changes)) {
-                ctx.handleChange(key as keyof typeof t, value);
-              }
-            }}
-          />
-          <TransportCargoCard
-            cargos={t.cargos || []}
-            packagingTypes={ctx.packagingTypes}
-            onAddCargo={ctx.handleAddCargo}
-            onEditCargo={ctx.handleEditCargo}
-            onRemoveCargo={ctx.handleRemoveCargo}
-            cargoToDelete={ctx.cargoToDelete}
-            setCargoToDelete={ctx.setCargoToDelete}
-          />
-        </div>
+          <TabsContent value="route" className="mt-0 min-h-[380px]">
+            {/* Чиглэл: GPS байршил зурагтай, ачих/буулгах цэг, нийт зам, огноо */}
+            <TransportRouteCard
+              transport={{
+                ...t,
+                loadingRegionId: ctx.activeSubTransport?.loadingRegionId ?? t.loadingRegionId,
+                loadingWarehouseId: ctx.activeSubTransport?.loadingWarehouseId ?? t.loadingWarehouseId,
+                unloadingRegionId: ctx.activeSubTransport?.unloadingRegionId ?? t.unloadingRegionId,
+                unloadingWarehouseId: ctx.activeSubTransport?.unloadingWarehouseId ?? t.unloadingWarehouseId,
+                totalDistanceKm: ctx.activeSubTransport?.totalDistanceKm ?? t.totalDistanceKm,
+                loadingDate: ctx.activeSubTransport?.loadingDate ?? t.loadingDate,
+                unloadingDate: ctx.activeSubTransport?.unloadingDate ?? t.unloadingDate,
+              }}
+              regions={ctx.regions}
+              warehouses={ctx.warehouses}
+              vehiclesList={ctx.vehiclesList}
+              activeVehicleId={ctx.activeSubTransport?.vehicleId}
+              getRegionName={ctx.getRegionName}
+              getWarehouseName={ctx.getWarehouseName}
+              onRouteChange={(changes) => {
+                for (const [key, value] of Object.entries(changes)) {
+                  ctx.handleSubTransportChange(key as keyof import('@/app/tms/types').TmsTransportSubUnit, value);
+                }
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="finance" className="mt-0 min-h-[380px]">
+            <TransportFinanceCard
+              transport={t}
+              onFinanceChange={(changes) => {
+                for (const [key, value] of Object.entries(changes)) {
+                  ctx.handleChange(key as keyof typeof t, value);
+                }
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="cargo" className="mt-0 min-h-[380px]">
+            <TransportCargoCard
+              cargos={t.cargos || []}
+              packagingTypes={ctx.packagingTypes}
+              onAddCargo={ctx.handleAddCargo}
+              onEditCargo={ctx.handleEditCargo}
+              onRemoveCargo={ctx.handleRemoveCargo}
+              cargoToDelete={ctx.cargoToDelete}
+              setCargoToDelete={ctx.setCargoToDelete}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Машины карт (tabs-ээс ГАДНА үлдэнэ — идэвхтэй дэд тээврийн
+            контекст нь санхүү/ачаа/чиглэл аль ч таб-д нийтлэг хэрэгтэй). */}
+        <TransportVehicleCard
+          transport={t}
+          item={ctx.item}
+          normalizedSubTransports={ctx.normalizedSubTransports}
+          activeSubTransport={ctx.activeSubTransport}
+          activeSubTransportId={ctx.activeSubTransportId}
+          setActiveSubTransportId={ctx.setActiveSubTransportId}
+          vehicleTypes={ctx.vehicleTypes}
+          trailerTypes={ctx.trailerTypes}
+          vehiclesList={ctx.vehiclesList}
+          driversList={ctx.driversList}
+          vehicleSearchOptions={ctx.vehicleSearchOptions}
+          driverSearchOptions={ctx.driverSearchOptions}
+          linkedContractService={ctx.linkedContractService}
+          activeContractService={ctx.activeContractService}
+          onSubTransportChange={ctx.handleSubTransportChange}
+          onTransportChange={ctx.handleChange}
+          getVehicleTypeName={ctx.getVehicleTypeName}
+          getTrailerTypeName={ctx.getTrailerTypeName}
+        />
 
         {/* Dispatch steps */}
         <DispatchStepsSection

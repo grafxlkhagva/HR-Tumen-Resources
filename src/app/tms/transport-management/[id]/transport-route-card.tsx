@@ -95,7 +95,7 @@ export function TransportRouteCard({
 
   return (
     <>
-      <Card className="overflow-hidden border-0 shadow-sm">
+      <Card className="overflow-hidden border-0 shadow-sm min-h-[380px] flex flex-col">
         <RouteMap loadingWarehouse={loadingW} unloadingWarehouse={unloadingW} gpsDeviceId={gpsDeviceId} />
         <CardContent className="p-0">
           <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">

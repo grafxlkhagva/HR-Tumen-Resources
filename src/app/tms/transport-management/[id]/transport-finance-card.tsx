@@ -124,7 +124,7 @@ export function TransportFinanceCard({ transport, onFinanceChange }: TransportFi
 
   return (
     <>
-      <Card className="flex flex-col h-full border-0 shadow-sm">
+      <Card className="flex flex-col h-full min-h-[380px] border-0 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold">Санхүү</CardTitle>
           <Button

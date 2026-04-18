@@ -42,6 +42,7 @@ export type DriverListItem = {
   firstName: string;
   lastName: string;
   phone?: string;
+  photoURL?: string;
 };
 
 export type RefItem = { id: string; name: string };

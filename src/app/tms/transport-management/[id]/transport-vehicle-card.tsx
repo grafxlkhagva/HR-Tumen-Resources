@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Truck, UserCircle, Container } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Pencil, Truck, UserCircle, Container, Phone, ExternalLink, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { AppDialog, AppDialogContent, AppDialogHeader, AppDialogTitle, AppDialogBody } from '@/components/patterns';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { cn } from '@/lib/utils';
+import { getVehicleTracking } from '@/app/tms/actions/gps';
 import type { TmsTransportManagement, TmsTransportSubUnit, TmsContractService } from '@/app/tms/types';
 import type { RefItem, VehicleListItem, DriverListItem } from './use-transport-detail';
 
@@ -86,21 +89,145 @@ export function TransportVehicleCard({
     setOpen(false);
   };
 
-  const activeDriverDisplay = React.useMemo(() => {
-    if (!activeSubTransport?.driverId) return 'Сонгоогүй';
-    const d = driversList.find((dr) => dr.id === activeSubTransport.driverId);
-    if (!d) return 'Сонгоогүй';
-    return `${d.lastName || ''} ${d.firstName || ''} ${d.phone ? `(${d.phone})` : ''}`.trim();
-  }, [activeSubTransport?.driverId, driversList]);
+  /** Идэвхтэй дэд тээврийн бодит машины объект (label + navigation-д хэрэглэнэ). */
+  const activeVehicle = React.useMemo(
+    () =>
+      activeSubTransport?.vehicleId
+        ? vehiclesList.find((v) => v.id === activeSubTransport.vehicleId) ?? null
+        : null,
+    [activeSubTransport?.vehicleId, vehiclesList],
+  );
 
-  /** Нэг TM дотор хэдэн ялгаатай гэрээний үйлчилгээ байгааг эндээс тооцно. */
-  const distinctServiceCount = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const s of normalizedSubTransports) {
-      if (s.contractServiceId) set.add(s.contractServiceId);
+  /** Идэвхтэй жолоочийн объект (avatar, утас, дэлгэрэнгүй холбоос). */
+  const activeDriver = React.useMemo(
+    () =>
+      activeSubTransport?.driverId
+        ? driversList.find((d) => d.id === activeSubTransport.driverId) ?? null
+        : null,
+    [activeSubTransport?.driverId, driversList],
+  );
+
+  const driverFullName = activeDriver
+    ? `${activeDriver.lastName || ''} ${activeDriver.firstName || ''}`.trim() || 'Нэргүй'
+    : null;
+
+  /** Avatar fallback-д ашиглах initials (овог+нэрний эхний үсэг). */
+  const driverInitials = React.useMemo(() => {
+    if (!activeDriver) return '';
+    const first = activeDriver.firstName?.[0] ?? '';
+    const last = activeDriver.lastName?.[0] ?? '';
+    return (last + first).toUpperCase() || '?';
+  }, [activeDriver]);
+
+  /**
+   * ── #3 GPS онлайн статус ─────────────────────────────────────────
+   * `gpsDeviceId` байгаа машинд `getVehicleTracking` action-ийг 20 сек
+   * тутамд дуудна. Хариулт success биш эсвэл fetch унтсан бол `null`.
+   * Идэвхтэй машин өөрчлөгдөх бүрт re-subscribe хийнэ.
+   */
+  type GpsSnapshot = { lat?: number; lng?: number; speed?: number; positionTime?: string; status?: string };
+  const [gpsData, setGpsData] = React.useState<GpsSnapshot | null>(null);
+  const gpsDeviceId = activeVehicle?.gpsDeviceId;
+
+  React.useEffect(() => {
+    if (!gpsDeviceId) {
+      setGpsData(null);
+      return;
     }
-    return set.size;
+    let cancelled = false;
+    const fetchOnce = async () => {
+      try {
+        const res = await getVehicleTracking(gpsDeviceId);
+        if (cancelled) return;
+        if (res.success && res.data) setGpsData(res.data as GpsSnapshot);
+      } catch {
+        /* network error — хэвийн */
+      }
+    };
+    fetchOnce();
+    const iv = setInterval(fetchOnce, 20_000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [gpsDeviceId]);
+
+  /**
+   * GPS statusHex:
+   *   🟢 idevkhtei     — `positionTime` < 5 мин өмнө
+   *   🟠 timeout biz   — 5-30 мин
+   *   🔴 offline       — > 30 мин
+   */
+  const gpsStatus = React.useMemo(() => {
+    if (!gpsDeviceId) return null;
+    if (!gpsData?.positionTime) return { tone: 'offline' as const, label: 'Мэдээлэл алга' };
+    const t = new Date(gpsData.positionTime.replace(' ', 'T')).getTime();
+    if (isNaN(t)) return { tone: 'offline' as const, label: 'Мэдээлэл алга' };
+    const diffMin = (Date.now() - t) / 60_000;
+    if (diffMin < 5)
+      return {
+        tone: 'live' as const,
+        label: `Онлайн · ${diffMin < 1 ? 'just now' : `${Math.round(diffMin)} мин`}`,
+      };
+    if (diffMin < 30)
+      return { tone: 'idle' as const, label: `${Math.round(diffMin)} мин өмнө` };
+    if (diffMin < 120)
+      return { tone: 'offline' as const, label: `${Math.round(diffMin)} мин өмнө` };
+    return { tone: 'offline' as const, label: `${Math.round(diffMin / 60)} ц өмнө` };
+  }, [gpsDeviceId, gpsData]);
+
+  const gpsSpeed =
+    gpsData && typeof gpsData.speed === 'number' && isFinite(gpsData.speed) ? Math.round(gpsData.speed) : null;
+
+  /**
+   * Нэг TM дотор хэдэн ялгаатай гэрээний үйлчилгээ байгаа, тус бүрийн
+   * дэд тээврүүд хэд байгааг жинхэнэ тооцно. 2-түвшний tab layout (үйлчилгээ
+   * → машин) бүтээхэд ашиглана.
+   */
+  const serviceGroups = React.useMemo(() => {
+    const groups: Array<{
+      id: string;
+      name: string;
+      subs: TmsTransportSubUnit[];
+    }> = [];
+    const map = new Map<string, (typeof groups)[number]>();
+    for (const s of normalizedSubTransports) {
+      const svcId = s.contractServiceId ?? '__none__';
+      const svcName = s.contractServiceName?.trim() || 'Үндсэн үйлчилгээ';
+      let g = map.get(svcId);
+      if (!g) {
+        g = { id: svcId, name: svcName, subs: [] };
+        map.set(svcId, g);
+        groups.push(g);
+      }
+      g.subs.push(s);
+    }
+    return groups;
   }, [normalizedSubTransports]);
+
+  const distinctServiceCount = serviceGroups.length;
+
+  /** Идэвхтэй sub-тэй харьяалагдах үйлчилгээний id (outer tab-ийн утга). */
+  const activeServiceId =
+    activeSubTransport?.contractServiceId ??
+    (activeSubTransport ? '__none__' : serviceGroups[0]?.id ?? '');
+
+  /**
+   * Үйлчилгээний outer tab солигдсон үед тухайн үйлчилгээний эхний дэд
+   * тээврийг автоматаар идэвхжүүлнэ.
+   */
+  const handleServiceTabChange = React.useCallback(
+    (svcId: string) => {
+      const g = serviceGroups.find((x) => x.id === svcId);
+      if (g?.subs[0]) setActiveSubTransportId(g.subs[0].id);
+    },
+    [serviceGroups, setActiveSubTransportId],
+  );
+
+  /** Активь үйлчилгээний дэд тээврүүд (inner vehicle pills-д ашиглана). */
+  const activeServiceSubs = React.useMemo(() => {
+    return serviceGroups.find((g) => g.id === activeServiceId)?.subs ?? [];
+  }, [serviceGroups, activeServiceId]);
 
   /** Идэвхтэй sub-ын үйлчилгээг хамт харуулах нь олон үйлчилгээтэй үед илүү тодорхой. */
   const effectiveContractService = activeContractService ?? linkedContractService;
@@ -149,7 +276,7 @@ export function TransportVehicleCard({
 
   return (
     <>
-      <Card className="flex flex-col h-full border-0 shadow-sm">
+      <Card className="border-0 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold">Тээврийн хэрэгсэл</CardTitle>
           <Button
@@ -162,61 +289,193 @@ export function TransportVehicleCard({
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3 flex-1">
-          {normalizedSubTransports.length > 1 && (
-            <div className="space-y-1.5">
-              {distinctServiceCount > 1 && (
-                <div className="text-[11px] text-muted-foreground">
-                  {distinctServiceCount} үйлчилгээ · {normalizedSubTransports.length} дэд таб
-                </div>
-              )}
-              <Tabs value={activeSubTransport?.id || ''} onValueChange={setActiveSubTransportId}>
-                <TabsList className="h-auto w-full justify-start flex-wrap">
-                  {normalizedSubTransports.map((s) => {
-                    const code = `${transport.code || 'TR'}-${s.subCode}`;
-                    const svcName = s.contractServiceName?.trim();
-                    const label = svcName ? `${svcName} · ${code}` : code;
-                    return (
-                      <TabsTrigger
-                        key={s.id}
-                        value={s.id}
-                        className="text-xs max-w-[180px]"
-                        title={label}
-                      >
-                        <span className="truncate">{label}</span>
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
-              </Tabs>
+        <CardContent className="space-y-3">
+          {/*
+           * 2-түвшинт сонголт:
+           *  (1) Outer tabs — гэрээний үйлчилгээнүүд (distinctServiceCount > 1 үед).
+           *  (2) Inner pills — тухайн үйлчилгээний доторх машинууд (> 1 үед).
+           *  Хоёулаа 1 үед тавьж өгөх юм алга (энэ card зөвхөн идэвхтэй sub-ийн
+           *  машин/жолоочийг харуулна).
+           */}
+          {distinctServiceCount > 1 && (
+            <Tabs value={activeServiceId} onValueChange={handleServiceTabChange}>
+              <TabsList className="h-auto w-full justify-start flex-wrap">
+                {serviceGroups.map((g) => (
+                  <TabsTrigger
+                    key={g.id}
+                    value={g.id}
+                    className="text-xs gap-1.5 max-w-[200px]"
+                    title={g.name}
+                  >
+                    <span className="truncate">{g.name}</span>
+                    <span className="inline-flex items-center justify-center h-4 min-w-[1.25rem] rounded-full bg-background/50 px-1 text-[10px] font-medium">
+                      {g.subs.length}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+          {activeServiceSubs.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {activeServiceSubs.map((s) => {
+                const v = s.vehicleId ? vehiclesList.find((x) => x.id === s.vehicleId) : null;
+                const plate = v?.licensePlate?.trim();
+                const code = `${transport.code || 'TR'}-${s.subCode}`;
+                const label = plate || code;
+                const isActive = s.id === activeSubTransportId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setActiveSubTransportId(s.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card hover:bg-muted/60',
+                    )}
+                    title={plate ? `${plate} · ${code}` : code}
+                  >
+                    <Truck className="h-3 w-3 shrink-0" />
+                    <span className="truncate max-w-[140px]">{label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2.5">
-              <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[11px] text-muted-foreground">Машин</div>
-                <div className="font-medium text-sm truncate">
-                  {activeSubTransport?.vehicleId
-                    ? vehiclesList.find((v) => v.id === activeSubTransport.vehicleId)?.licensePlate || '—'
-                    : getVehicleTypeName(transport.vehicleTypeId)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* ── #1 Машины мөр — plate + make/model + detail холбоос ──── */}
+            {activeVehicle ? (
+              <Link
+                href={`/tms/vehicles/${activeVehicle.id}`}
+                className="group flex items-start gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-muted/40"
+                title="Машины дэлгэрэнгүй"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[11px] text-muted-foreground">Машин</div>
+                    {gpsStatus && (
+                      <div
+                        className={cn(
+                          'flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full',
+                          gpsStatus.tone === 'live' &&
+                            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                          gpsStatus.tone === 'idle' &&
+                            'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                          gpsStatus.tone === 'offline' &&
+                            'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                        )}
+                        title={
+                          gpsData?.positionTime
+                            ? `Сүүлчийн GPS: ${gpsData.positionTime}${
+                                gpsData.status ? ` · ${gpsData.status}` : ''
+                              }`
+                            : 'GPS мэдээлэл олдсонгүй'
+                        }
+                      >
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            gpsStatus.tone === 'live' && 'bg-emerald-500 animate-pulse',
+                            gpsStatus.tone === 'idle' && 'bg-amber-500',
+                            gpsStatus.tone === 'offline' && 'bg-rose-500',
+                          )}
+                        />
+                        {gpsStatus.label}
+                        {gpsStatus.tone === 'live' && typeof gpsSpeed === 'number' ? ` · ${gpsSpeed} км/ц` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div className="font-semibold text-sm truncate">
+                    {activeVehicle.licensePlate || '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[activeVehicle.makeName, activeVehicle.modelName].filter(Boolean).join(' · ') ||
+                      getVehicleTypeName(transport.vehicleTypeId) ||
+                      '—'}
+                  </div>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 shrink-0 mt-1" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg border border-dashed p-3 text-left transition-colors hover:bg-muted/40',
+                )}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">Машин оноогоогүй</div>
+                  <div className="text-xs text-muted-foreground">
+                    {getVehicleTypeName(transport.vehicleTypeId) || 'Шууд энд дарж сонгоно уу'}
+                  </div>
+                </div>
+                <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            )}
+
+            {/* ── #2 Жолоочийн мөр — avatar + нэр + click-to-call + navigation ── */}
+            {activeDriver ? (
+              <div className="flex items-start gap-3 rounded-lg border bg-card p-2.5">
+                <Avatar className="h-10 w-10 shrink-0 rounded-md">
+                  <AvatarImage src={activeDriver.photoURL ?? undefined} alt={driverFullName ?? ''} />
+                  <AvatarFallback className="rounded-md text-xs">{driverInitials}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-muted-foreground">Жолооч</div>
+                  <Link
+                    href={`/tms/drivers/${activeDriver.id}`}
+                    className="font-semibold text-sm truncate hover:underline block"
+                    title="Жолоочийн дэлгэрэнгүй"
+                  >
+                    {driverFullName}
+                  </Link>
+                  {activeDriver.phone ? (
+                    <a
+                      href={`tel:${activeDriver.phone.replace(/\s+/g, '')}`}
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                      title="Залгах"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {activeDriver.phone}
+                    </a>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Утас бүртгэгдээгүй</div>
+                  )}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[11px] text-muted-foreground">Жолооч</div>
-                <div className="font-medium text-sm truncate">{activeDriverDisplay}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <Container className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[11px] text-muted-foreground">Тэвш</div>
-                <div className="font-medium text-sm truncate">{getTrailerTypeName(transport.trailerTypeId)}</div>
-              </div>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="flex items-center gap-3 rounded-lg border border-dashed p-3 text-left transition-colors hover:bg-muted/40"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <UserCircle className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">Жолооч оноогоогүй</div>
+                  <div className="text-xs text-muted-foreground">Шууд энд дарж сонгоно уу</div>
+                </div>
+                <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            )}
+
+          </div>
+          {/* Тэвш — grid-ийн гаднах footer мэт жижгэвтэр metadata row */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground px-1 pt-1">
+            <Container className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">
+              Тэвш: <span className="text-foreground">{getTrailerTypeName(transport.trailerTypeId)}</span>
+            </span>
           </div>
         </CardContent>
       </Card>
