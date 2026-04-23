@@ -80,16 +80,8 @@ export default function TransportManagementDetailPage() {
   const statusInfo = ctx.STATUS_MAP[t.status] || { label: t.status, variant: 'secondary' as const };
   const dateStr = t.createdAt?.toDate ? format(t.createdAt.toDate(), 'yyyy.MM.dd HH:mm') : '—';
 
-  // Нэг TM дотор хэдэн ялгаатай гэрээний үйлчилгээ байгааг тооцох (multi-service badge).
-  const distinctContractServiceCount = (() => {
-    const set = new Set<string>();
-    for (const s of ctx.normalizedSubTransports) {
-      if (s.contractServiceId) set.add(s.contractServiceId);
-    }
-    // Хуучин single-service баримт: subUnit-д contractServiceId байхгүй, эцэг дээр л байна.
-    if (set.size === 0 && t.contractServiceId) set.add(t.contractServiceId);
-    return set.size;
-  })();
+  // Multi-service badge: hook-оос нэгэн эх сурвалжаар ирнэ.
+  const distinctContractServiceCount = ctx.distinctContractServiceCount;
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
@@ -243,6 +235,8 @@ export default function TransportManagementDetailPage() {
                   ctx.handleChange(key as keyof typeof t, value);
                 }
               }}
+              activeServiceLine={ctx.activeServiceLine}
+              multiServiceFinance={ctx.multiServiceFinance}
             />
           </TabsContent>
 

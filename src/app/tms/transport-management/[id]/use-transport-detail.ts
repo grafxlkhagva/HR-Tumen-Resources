@@ -127,7 +127,22 @@ const SAVEABLE_SCALAR_FIELDS = [
   'driverPrice', 'customerPrice', 'profitMarginPercent', 'contractPriceType',
 ] as const;
 
-function buildSavePayload(t: TmsTransportManagement) {
+/**
+ * Олон-үйлчилгээт TM-д санхүүг гэрээнээс live тооцоолдог тул, хадгалах үед
+ * нэгдсэн дүнг denormalize хэлбэрээр TM-ийн scalar талбарт бичиж, жагсаалт
+ * /аналитик хуудас зөв үнээр ажиллана. Single-service TM-д override=null —
+ * хэрэглэгчийн гараар оруулсан утга хэвээр.
+ */
+interface MultiServiceDenormOverride {
+  customerPrice: number;
+  driverPrice: number;
+  profitMarginPercent: number;
+}
+
+function buildSavePayload(
+  t: TmsTransportManagement,
+  multiServiceOverride: MultiServiceDenormOverride | null,
+) {
   const cleanedSubTransports =
     t.subTransports && t.subTransports.length > 0
       ? t.subTransports.map((s) => ({ ...s, dispatchSteps: sanitizeDispatchStepsForDoc(s.dispatchSteps || []) }))
@@ -135,6 +150,11 @@ function buildSavePayload(t: TmsTransportManagement) {
   const payload: Record<string, unknown> = {};
   for (const key of SAVEABLE_SCALAR_FIELDS) {
     payload[key] = (t as Record<string, unknown>)[key] || null;
+  }
+  if (multiServiceOverride) {
+    payload.customerPrice = multiServiceOverride.customerPrice || null;
+    payload.driverPrice = multiServiceOverride.driverPrice || null;
+    payload.profitMarginPercent = multiServiceOverride.profitMarginPercent || null;
   }
   payload.hasVat = t.hasVat || false;
   payload.subTransports = cleanedSubTransports;
@@ -148,6 +168,11 @@ function buildSavePayload(t: TmsTransportManagement) {
 import { TM_STATUS_MAP } from '../constants';
 import { formatVehicleLabel } from '../utils';
 import { tmTelemetry } from '../telemetry';
+import {
+  computeMultiServiceFinance,
+  type MultiServiceFinance,
+  type ServiceFinanceLine,
+} from '../finance-math';
 import { useTmsReferenceData } from '@/app/tms/reference-data-context';
 
 /**
@@ -324,6 +349,61 @@ export function useTransportDetail() {
    * Идэвхтэй sub-тээврийн `contractServiceId`-г эхлээд харна; хоосон бол эцэг
    * баримтын `contractServiceId` руу fallback (хуучин single-service нийцтэй).
    */
+  /**
+   * Олон гэрээний үйлчилгээг нэг TM дор удирдаж байгаа үед санхүүг гэрээнээс
+   * live тооцоолох (`subTransport × contractService.unitPrice`). Хэрвээ ганц
+   * үйлчилгээтэй эсвэл гэрээгүй/гэрээ ачаалаагүй бол `null` — UI нь хуучин
+   * скаляр горимоо ашиглана.
+   */
+  const distinctContractServiceCount = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const s of normalizedSubTransports) {
+      if (s.contractServiceId) set.add(s.contractServiceId);
+    }
+    if (set.size === 0 && transport?.contractServiceId) set.add(transport.contractServiceId);
+    return set.size;
+  }, [normalizedSubTransports, transport?.contractServiceId]);
+
+  /**
+   * Гэрээт TM бүрт (нэг эсвэл олон үйлчилгээтэй ч хамаагүй) хайж тооцоолно —
+   * ингэснээр Санхүү карт нь идэвхтэй дэд-тээврийн (active sub) гэрээний
+   * үйлчилгээнд тохирсон утгыг харуулж, хэрэглэгч "Бонго" ⇄ "Маяти" tab
+   * сонгоход дүн өөрчлөгдөнө. `null` бол гэрээгүй / гэрээ ачаалаагүй /
+   * харгалзах sub байхгүй.
+   */
+  const multiServiceFinance = React.useMemo<MultiServiceFinance | null>(() => {
+    if (!linkedContract?.services || linkedContract.services.length === 0) return null;
+    if (!normalizedSubTransports.length) return null;
+    const finance = computeMultiServiceFinance(
+      normalizedSubTransports,
+      linkedContract.services,
+      transport?.cargos,
+    );
+    if (finance.lines.length === 0) return null;
+    return finance;
+  }, [linkedContract?.services, normalizedSubTransports, transport?.cargos]);
+
+  /**
+   * Идэвхтэй дэд-тээврийн `contractServiceId`-тэй тохирсон нэг мөрийг олоод
+   * буцаана. Хэрэв идэвхтэй sub-д contractServiceId тодорхойгүй бол эхний
+   * мөрийг буцаана (fallback).
+   */
+  const activeServiceLine = React.useMemo<ServiceFinanceLine | null>(() => {
+    if (!multiServiceFinance) return null;
+    const activeSvcId = activeSubTransport?.contractServiceId;
+    if (activeSvcId) {
+      const match = multiServiceFinance.lines.find((l) => l.contractServiceId === activeSvcId);
+      if (match) return match;
+    }
+    return multiServiceFinance.lines[0] ?? null;
+  }, [multiServiceFinance, activeSubTransport?.contractServiceId]);
+
+  // Save path-д stale closure-оос сэргийлэхийн тулд ref-ээр барина.
+  const multiServiceFinanceRef = React.useRef(multiServiceFinance);
+  React.useEffect(() => {
+    multiServiceFinanceRef.current = multiServiceFinance;
+  }, [multiServiceFinance]);
+
   const activeContractService = React.useMemo<TmsContractService | null>(() => {
     if (!linkedContract?.services) return null;
     const subSvcId = activeSubTransport?.contractServiceId;
@@ -448,7 +528,18 @@ export function useTransportDetail() {
     setIsSaving(true);
     try {
       const docRef = doc(firestore, TMS_TRANSPORT_MANAGEMENT_COLLECTION, id);
-      const payload = buildSavePayload(t);
+      const msf = multiServiceFinanceRef.current;
+      const override: MultiServiceDenormOverride | null =
+        msf && msf.lines.length > 0
+          ? {
+              customerPrice: msf.totalCustomer,
+              driverPrice: msf.totalDriver,
+              profitMarginPercent: Number.isFinite(msf.marginPercent)
+                ? Number(msf.marginPercent.toFixed(2))
+                : 0,
+            }
+          : null;
+      const payload = buildSavePayload(t, override);
 
       await runTransaction(firestore, async (transaction) => {
         const snap = await transaction.get(docRef);
@@ -782,6 +873,9 @@ export function useTransportDetail() {
     linkedContract,
     linkedContractService,
     activeContractService,
+    multiServiceFinance,
+    activeServiceLine,
+    distinctContractServiceCount,
     regions: regions ?? [],
     warehouses: warehouses ?? [],
     vehicleTypes: vehicleTypes ?? [],

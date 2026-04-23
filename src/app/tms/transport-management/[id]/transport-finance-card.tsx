@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Pencil, AlertCircle } from 'lucide-react';
+import { Pencil, AlertCircle, Info } from 'lucide-react';
 import { AppDialog, AppDialogContent, AppDialogHeader, AppDialogTitle, AppDialogBody } from '@/components/patterns';
 import {
   AlertDialog,
@@ -19,6 +20,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { TmsTransportManagement } from '@/app/tms/types';
+import { TMS_CONTRACT_PRICE_TYPE_LABELS } from '@/app/tms/types';
+import type { MultiServiceFinance, ServiceFinanceLine } from '../finance-math';
+import { computeVatAmount } from '../finance-math';
 
 interface FinanceFormData {
   /** Өртөг / жолоочийн үнэ — гараар оруулна. */
@@ -40,9 +44,184 @@ function computeFinance(dp: number, cp: number, _hasVat: boolean) {
 interface TransportFinanceCardProps {
   transport: TmsTransportManagement;
   onFinanceChange: (changes: Partial<TmsTransportManagement>) => void;
+  /**
+   * Тээврийн хэрэгсэл карт-аас сонгосон идэвхтэй sub-ын гэрээний үйлчилгээнд
+   * тохирох санхүү задаргаа. `null` бол гэрээгүй эсвэл гэрээ ачаалаагүй —
+   * scalar UI-г ашиглана.
+   */
+  activeServiceLine?: ServiceFinanceLine | null;
+  /** Бүх үйлчилгээний нэгдсэн дүн — олон үйлчилгээтэй үед footer-т харуулна. */
+  multiServiceFinance?: MultiServiceFinance | null;
 }
 
-export function TransportFinanceCard({ transport, onFinanceChange }: TransportFinanceCardProps) {
+export function TransportFinanceCard({
+  transport,
+  onFinanceChange,
+  activeServiceLine,
+  multiServiceFinance,
+}: TransportFinanceCardProps) {
+  if (activeServiceLine) {
+    return (
+      <ActiveServiceFinanceView
+        transport={transport}
+        line={activeServiceLine}
+        total={multiServiceFinance}
+      />
+    );
+  }
+  return <SingleServiceFinanceCard transport={transport} onFinanceChange={onFinanceChange} />;
+}
+
+// ── Идэвхтэй-үйлчилгээний read-only view ────────────────────────────
+
+function formatMoney(n: number): string {
+  if (!n) return '0₮';
+  return `${n.toLocaleString()}₮`;
+}
+
+interface ActiveServiceFinanceViewProps {
+  transport: TmsTransportManagement;
+  line: ServiceFinanceLine;
+  total?: MultiServiceFinance | null;
+}
+
+function ActiveServiceFinanceView({ transport, line, total }: ActiveServiceFinanceViewProps) {
+  const contractHref = transport.contractId ? `/tms/contracts/${transport.contractId}` : null;
+  const priceTypeLabel = line.priceType ? TMS_CONTRACT_PRICE_TYPE_LABELS[line.priceType] : '—';
+  const lineVat = computeVatAmount(line.lineCustomer);
+  const lineWithVat = line.lineCustomer + lineVat;
+  const hasDriver = line.lineDriver > 0;
+  const lineMargin = hasDriver ? ((line.lineProfit / line.lineDriver) * 100) : 0;
+  const multiCount = total?.lines.length ?? 0;
+  const isMulti = multiCount > 1;
+
+  return (
+    <Card className="flex flex-col h-full min-h-[380px] border-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <CardTitle className="text-sm font-semibold shrink-0">Санхүү</CardTitle>
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 truncate"
+            title={line.name}
+          >
+            {line.name}
+          </span>
+        </div>
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">
+          Гэрээнээс автомат
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-2 flex-1">
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs text-muted-foreground">Нэгж үнэ (харилцагч)</span>
+            <span className="font-medium text-sm tabular-nums">
+              {line.unitCustomerPrice > 0 ? formatMoney(line.unitCustomerPrice) : '—'}
+              {line.priceType && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  / {priceTypeLabel.toLowerCase()}
+                </span>
+              )}
+            </span>
+          </div>
+          {line.unitDriverPrice > 0 && (
+            <div className="flex justify-between items-baseline">
+              <span className="text-xs text-muted-foreground">Нэгж үнэ (жолооч)</span>
+              <span className="font-medium text-sm tabular-nums">{formatMoney(line.unitDriverPrice)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs text-muted-foreground">
+              Хэмжээ {priceTypeLabel !== '—' ? `(${priceTypeLabel.toLowerCase()})` : ''}
+            </span>
+            <span className="font-medium text-sm tabular-nums">{line.multiplier.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-baseline border-t pt-1.5">
+            <span className="text-xs text-muted-foreground">Харилцагчид өгч буй үнэ</span>
+            <span className="font-medium text-sm tabular-nums">{formatMoney(line.lineCustomer)}</span>
+          </div>
+          {hasDriver && (
+            <div className="flex justify-between items-baseline">
+              <span className="text-xs text-muted-foreground">Жолоочийн үнэ (өртөг)</span>
+              <span className="font-medium text-sm tabular-nums">{formatMoney(line.lineDriver)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs text-muted-foreground">НӨАТ (10%)</span>
+            <span className="text-sm tabular-nums">
+              {lineVat > 0 ? `+${lineVat.toLocaleString()}₮` : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs text-muted-foreground">Харилцагчийн үнэ (НӨАТ-тай)</span>
+            <span className="text-sm tabular-nums">{lineWithVat > 0 ? formatMoney(lineWithVat) : '—'}</span>
+          </div>
+        </div>
+        <div className="border-t pt-2 flex justify-between items-baseline">
+          <span className="text-xs font-medium">Ашиг</span>
+          <span className="font-bold text-base tabular-nums text-primary">
+            {line.lineProfit !== 0 ? formatMoney(line.lineProfit) : '—'}
+            {hasDriver && lineMargin !== 0 && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                ({lineMargin.toFixed(1)}%)
+              </span>
+            )}
+          </span>
+        </div>
+
+        {isMulti && total && (
+          <div className="mt-3 rounded-md border bg-muted/30 px-3 py-2 text-xs space-y-1">
+            <div className="flex items-center justify-between font-medium text-muted-foreground uppercase tracking-wider text-[10px]">
+              <span>Бүх үйлчилгээ ({multiCount})</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Нийт харилцагч</span>
+              <span className="tabular-nums font-medium">{formatMoney(total.totalCustomer)}</span>
+            </div>
+            {total.totalDriver > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Нийт жолооч</span>
+                <span className="tabular-nums">{formatMoney(total.totalDriver)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Нийт ашиг</span>
+              <span className="tabular-nums font-medium text-primary">
+                {formatMoney(total.totalProfit)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-start gap-2 text-xs text-muted-foreground pt-1">
+          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>
+            Үйлчилгээний үнэ гэрээнээс автоматаар тооцоологдоно.
+            {contractHref && (
+              <>
+                {' '}
+                <Link href={contractHref} className="underline hover:text-foreground">
+                  Гэрээ засах
+                </Link>
+                .
+              </>
+            )}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Нэг үйлчилгээт / non-contracted — хуучин скаляр UI ──────────────
+
+function SingleServiceFinanceCard({
+  transport,
+  onFinanceChange,
+}: {
+  transport: TmsTransportManagement;
+  onFinanceChange: (changes: Partial<TmsTransportManagement>) => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const [local, setLocal] = React.useState<FinanceFormData | null>(null);
   const [validationError, setValidationError] = React.useState<string | null>(null);
