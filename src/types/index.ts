@@ -121,6 +121,8 @@ export interface Employee {
     tmsAccess?: boolean;
     /** Мэдээлэл модулд нэвтрэх эрхтэй эсэх */
     newsAccess?: boolean;
+    /** CRM (Харилцагчийн удирдлага) модулд нэвтрэх эрхтэй эсэх */
+    crmAccess?: boolean;
 }
 
 /**

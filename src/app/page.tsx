@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
-import { RoleChoiceDialog } from '@/components/role-choice-dialog';
+import { RoleChoiceOrbit } from '@/components/role-choice-orbit';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -14,7 +14,7 @@ export default function Home() {
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
   const [isNavigating, setIsNavigating] = React.useState(false);
-  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false });
+  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean; crmAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false, crmAccess: false });
   const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
@@ -53,11 +53,12 @@ export default function Home() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess) {
+          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess || userData.crmAccess) {
             setUserFlags({
               isAdmin: userData.role === 'admin',
               tmsAccess: !!userData.tmsAccess,
               newsAccess: !!userData.newsAccess,
+              crmAccess: !!userData.crmAccess,
             });
             setShowRoleChoice(true);
           } else {
@@ -101,29 +102,28 @@ export default function Home() {
     router.replace('/news');
   }, [router]);
 
-  // Don't close dialog from outside - only via button clicks
-  const handleOpenChange = React.useCallback((open: boolean) => {
-    // Only allow opening, not closing from outside
-    if (open) {
-      setShowRoleChoice(true);
-    }
-  }, []);
+  const handleChooseCrm = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/crm');
+  }, [router]);
 
-  return (
-    <div className="flex h-screen items-center justify-center bg-background">
-      {!showRoleChoice && (
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      )}
-      
-      <RoleChoiceDialog
-        open={showRoleChoice}
-        onOpenChange={handleOpenChange}
+  if (showRoleChoice) {
+    return (
+      <RoleChoiceOrbit
         onChooseAdmin={userFlags.isAdmin ? handleChooseAdmin : undefined}
         onChooseEmployee={handleChooseEmployee}
         onChooseTms={userFlags.tmsAccess || userFlags.isAdmin ? handleChooseTms : undefined}
         onChooseNews={userFlags.newsAccess || userFlags.isAdmin ? handleChooseNews : undefined}
-        companyName={companyProfile?.name}
+        onChooseCrm={userFlags.crmAccess || userFlags.isAdmin ? handleChooseCrm : undefined}
+        companyName={(companyProfile as { name?: string } | null)?.name}
+        companyLogoUrl={(companyProfile as { logoUrl?: string } | null)?.logoUrl}
       />
+    );
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
 }
