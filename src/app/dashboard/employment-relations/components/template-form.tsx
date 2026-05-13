@@ -45,7 +45,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TEMPLATE_PRESETS, TEMPLATE_CATEGORIES, TemplatePreset } from '../data/template-library';
-import { generateDocumentHeader } from '../utils';
+import { generateDocumentHeader, generateDocumentSignature } from '../utils';
 
 interface TemplateFormProps {
     initialData?: Partial<ERTemplate>;
@@ -95,6 +95,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         isDeletable: false,
         version: 1,
         includeHeader: true,
+        includeSignature: true,
         printSettings: DEFAULT_PRINT_SETTINGS,
         requiredFields: [],
         customInputs: [],
@@ -354,9 +355,24 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         });
     }, [formData.includeHeader, formData.documentTypeId, docTypes, companyProfile, formData.printSettings?.headerCompanyKey]);
 
+    const generateSignatureHtml = React.useCallback(() => {
+        if (!formData.includeSignature || !formData.documentTypeId) return '';
+        const docType = docTypes.find(dt => dt.id === formData.documentTypeId);
+        return generateDocumentSignature({
+            includeSignature: true,
+            docTypeSignature: docType?.signature,
+        });
+    }, [formData.includeSignature, formData.documentTypeId, docTypes]);
+
+    const selectedDocSignature = React.useMemo(() => {
+        if (!formData.documentTypeId) return undefined;
+        return docTypes.find(dt => dt.id === formData.documentTypeId)?.signature;
+    }, [docTypes, formData.documentTypeId]);
+
     const getPreviewHtml = React.useMemo(() => {
         const headerHtml = generateHeaderHtml();
-        const contentToShow = headerHtml + (formData.content || '');
+        const signatureHtml = generateSignatureHtml();
+        const contentToShow = headerHtml + (formData.content || '') + signatureHtml;
         
         if (!contentToShow) return '';
 
@@ -401,7 +417,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             '<span style="background-color: #fee2e2; padding: 0 4px; border-radius: 2px; color: #dc2626;">{{$1}}</span>');
 
         return html;
-    }, [formData.content, formData.customInputs, generateHeaderHtml]);
+    }, [formData.content, formData.customInputs, generateHeaderHtml, generateSignatureHtml]);
 
     const handleSubmit = async () => {
         if (!firestore || !formData.name || !formData.documentTypeId || !formData.content) {
@@ -630,6 +646,24 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                                 onCheckedChange={(c) => setFormData(prev => ({ ...prev, includeHeader: c }))}
                                             />
                                         </div>
+
+                                        {/* Include Signature Option */}
+                                        <div className="flex items-center justify-between rounded-lg border p-3 bg-slate-50">
+                                            <div className="space-y-0.5">
+                                                <Label className="cursor-pointer text-sm font-medium">
+                                                    Гарын үсэг автоматаар оруулах
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {selectedDocSignature?.name || selectedDocSignature?.position
+                                                        ? <>Баримтын доод хэсэгт <strong>{selectedDocSignature?.position || 'Гүйцэтгэх захирал'}</strong>{selectedDocSignature?.name ? ` · ${selectedDocSignature.name}` : ''} автоматаар нэмэгдэнэ</>
+                                                        : 'Баримтын төрлийн тохиргоонд гарын үсгийн мэдээлэл оруулаагүй байна'}
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={formData.includeSignature ?? true}
+                                                onCheckedChange={(c) => setFormData(prev => ({ ...prev, includeSignature: c }))}
+                                            />
+                                        </div>
                                         
                                         {formData.includeHeader && (
                                             <div className="space-y-3">
@@ -724,7 +758,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                                     <TabsContent value="preview" className="mt-0">
                                         <div className="min-h-[500px] border rounded-lg bg-white overflow-auto shadow-inner">
-                                            {(formData.content || formData.includeHeader) ? (
+                                            {(formData.content || formData.includeHeader || formData.includeSignature) ? (
                                                 <div
                                                     className="p-8 prose prose-sm max-w-none"
                                                     dangerouslySetInnerHTML={{ __html: getPreviewHtml }}

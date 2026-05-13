@@ -123,6 +123,8 @@ export interface Employee {
     newsAccess?: boolean;
     /** CRM (Харилцагчийн удирдлага) модулд нэвтрэх эрхтэй эсэх */
     crmAccess?: boolean;
+    /** Бизнес төлөвлөгөө модулд нэвтрэх эрхтэй эсэх */
+    businessPlanAccess?: boolean;
 }
 
 /**

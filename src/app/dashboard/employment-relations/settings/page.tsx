@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle } from 'lucide-react';
+import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle, PenLine, User, Stamp } from 'lucide-react';
 import { generateDocCode } from '../utils';
-import { DocumentHeader, NumberingConfig } from '../types';
+import { DocumentHeader, DocumentSignature, NumberingConfig } from '../types';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,6 +28,7 @@ type ERDocumentTypeReferenceItem = ReferenceItem & {
     lastNumberYear?: number;
     isMandatory?: boolean;
     header?: DocumentHeader;
+    signature?: DocumentSignature;
     numberingConfig?: NumberingConfig;
 };
 
@@ -38,6 +39,14 @@ const DEFAULT_HEADER: DocumentHeader = {
     cityName: 'Улаанбаатар',
     showDate: true,
     showNumber: true,
+};
+
+const DEFAULT_SIGNATURE: DocumentSignature = {
+    position: 'Гүйцэтгэх захирал',
+    name: '',
+    signatureImageUrl: '',
+    showStamp: true,
+    alignment: 'left',
 };
 
 const DEFAULT_NUMBERING: NumberingConfig = {
@@ -116,6 +125,7 @@ export default function ERDocumentTypesSettingsPage() {
         category: '',
         isMandatory: false,
         header: { ...DEFAULT_HEADER } as DocumentHeader,
+        signature: { ...DEFAULT_SIGNATURE } as DocumentSignature,
         numberingConfig: { ...DEFAULT_NUMBERING } as NumberingConfig,
     });
 
@@ -135,6 +145,7 @@ export default function ERDocumentTypesSettingsPage() {
                     category: editingItem.category || '',
                     isMandatory: editingItem.isMandatory || false,
                     header: editingItem.header || { ...DEFAULT_HEADER },
+                    signature: editingItem.signature || { ...DEFAULT_SIGNATURE },
                     numberingConfig: editingItem.numberingConfig || { ...DEFAULT_NUMBERING },
                 });
             } else {
@@ -144,6 +155,7 @@ export default function ERDocumentTypesSettingsPage() {
                     category: '',
                     isMandatory: false,
                     header: { ...DEFAULT_HEADER },
+                    signature: { ...DEFAULT_SIGNATURE },
                     numberingConfig: { ...DEFAULT_NUMBERING },
                 });
             }
@@ -168,6 +180,7 @@ export default function ERDocumentTypesSettingsPage() {
             category: formData.category || null,
             isMandatory: formData.isMandatory,
             header: formData.header,
+            signature: formData.signature,
             numberingConfig: formData.numberingConfig,
             updatedAt: new Date(),
         };
@@ -333,6 +346,7 @@ export default function ERDocumentTypesSettingsPage() {
                                     { value: 'basic', label: 'Үндсэн' },
                                     { value: 'numbering', label: 'Дугаарлалт' },
                                     { value: 'header', label: 'Толгой' },
+                                    { value: 'signature', label: 'Гарын үсэг' },
                                 ]}
                             />
 
@@ -754,6 +768,153 @@ export default function ERDocumentTypesSettingsPage() {
                                             <div className="text-right">
                                                 <div>{formData.header?.cityName || 'Улаанбаатар'} хот</div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="signature" className="space-y-4 mt-4">
+                                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+                                    <div className="flex gap-2">
+                                        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                                        <div>
+                                            Энд тохируулсан албан тушаал, нэр нь хөдөлмөрийн харилцааны албан бичгийн загвар үүсгэх үед баримтын доод хэсэгт автоматаар нэмэгдэнэ.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Албан тушаал */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="sigPosition" className="flex items-center gap-2">
+                                        <User className="h-3.5 w-3.5" />
+                                        Албан тушаал
+                                    </Label>
+                                    <Input
+                                        id="sigPosition"
+                                        placeholder="жнь: Гүйцэтгэх захирал"
+                                        value={formData.signature?.position || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            signature: { ...prev.signature, position: e.target.value }
+                                        }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Баримтад гарын үсэг зурах хүний албан тушаал
+                                    </p>
+                                </div>
+
+                                {/* Нэр */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="sigName" className="flex items-center gap-2">
+                                        <PenLine className="h-3.5 w-3.5" />
+                                        Нэр
+                                    </Label>
+                                    <Input
+                                        id="sigName"
+                                        placeholder="жнь: Б.БАТ"
+                                        value={formData.signature?.name || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            signature: { ...prev.signature, name: e.target.value }
+                                        }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Томоохон үсгээр (жнь: Б.БАТ) бичих нь үр дүнтэй
+                                    </p>
+                                </div>
+
+                                {/* Гарын үсгийн зурагны URL */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="sigImageUrl" className="flex items-center gap-2">
+                                        <Image className="h-3.5 w-3.5" />
+                                        Гарын үсгийн зургын URL (заавал биш)
+                                    </Label>
+                                    <Input
+                                        id="sigImageUrl"
+                                        placeholder="https://..."
+                                        value={formData.signature?.signatureImageUrl || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            signature: { ...prev.signature, signatureImageUrl: e.target.value }
+                                        }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Хоосон үлдээвэл цэгтэй зураас (...........) гарч, хэвлэсний дараа гараар зурна
+                                    </p>
+                                </div>
+
+                                {/* Байрлал */}
+                                <div className="space-y-2">
+                                    <Label>Байрлал</Label>
+                                    <Select
+                                        value={formData.signature?.alignment || 'left'}
+                                        onValueChange={(v) => setFormData(prev => ({
+                                            ...prev,
+                                            signature: { ...prev.signature, alignment: v as 'left' | 'center' | 'right' }
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="left">Зүүн тал</SelectItem>
+                                            <SelectItem value="center">Гол</SelectItem>
+                                            <SelectItem value="right">Баруун тал</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Тамга */}
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <Label className="cursor-pointer flex items-center gap-2">
+                                            <Stamp className="h-4 w-4" />
+                                            "(Тамга)" тэмдэглэгээ харуулах
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Нэрийн хажууд тамга дарах хэсгийг тэмдэглэнэ
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={formData.signature?.showStamp ?? true}
+                                        onCheckedChange={(c) => setFormData(prev => ({
+                                            ...prev,
+                                            signature: { ...prev.signature, showStamp: c }
+                                        }))}
+                                    />
+                                </div>
+
+                                {/* Гарын үсгийн урьдчилсан харагдац */}
+                                <div className="rounded-lg border bg-slate-50 p-4">
+                                    <p className="text-xs text-muted-foreground mb-3">Гарын үсгийн урьдчилсан харагдац:</p>
+                                    <div className="bg-white border rounded-lg p-6 text-xs">
+                                        <div
+                                            style={{ textAlign: formData.signature?.alignment || 'left' }}
+                                            className="space-y-1"
+                                        >
+                                            {formData.signature?.position && (
+                                                <div>{formData.signature.position}:</div>
+                                            )}
+                                            {formData.signature?.signatureImageUrl ? (
+                                                <img
+                                                    src={formData.signature.signatureImageUrl}
+                                                    alt="Гарын үсэг"
+                                                    style={{ maxHeight: 48, display: 'inline-block', margin: '4px 0' }}
+                                                />
+                                            ) : (
+                                                <div className="text-slate-400 my-2">.........................................</div>
+                                            )}
+                                            {formData.signature?.name && (
+                                                <div className="font-bold">
+                                                    {formData.signature.name.toUpperCase()}
+                                                    {formData.signature?.showStamp && (
+                                                        <span className="text-slate-500 font-normal"> (Тамга)</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!formData.signature?.name && formData.signature?.showStamp && (
+                                                <div className="text-slate-500">(Тамга)</div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

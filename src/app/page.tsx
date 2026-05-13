@@ -14,7 +14,7 @@ export default function Home() {
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
   const [isNavigating, setIsNavigating] = React.useState(false);
-  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean; crmAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false, crmAccess: false });
+  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean; crmAccess: boolean; businessPlanAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false, crmAccess: false, businessPlanAccess: false });
   const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
@@ -53,12 +53,13 @@ export default function Home() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess || userData.crmAccess) {
+          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess || userData.crmAccess || userData.businessPlanAccess) {
             setUserFlags({
               isAdmin: userData.role === 'admin',
               tmsAccess: !!userData.tmsAccess,
               newsAccess: !!userData.newsAccess,
               crmAccess: !!userData.crmAccess,
+              businessPlanAccess: !!userData.businessPlanAccess,
             });
             setShowRoleChoice(true);
           } else {
@@ -107,6 +108,11 @@ export default function Home() {
     router.replace('/crm');
   }, [router]);
 
+  const handleChooseBusinessPlan = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/business-plan');
+  }, [router]);
+
   if (showRoleChoice) {
     return (
       <RoleChoiceOrbit
@@ -115,6 +121,7 @@ export default function Home() {
         onChooseTms={userFlags.tmsAccess || userFlags.isAdmin ? handleChooseTms : undefined}
         onChooseNews={userFlags.newsAccess || userFlags.isAdmin ? handleChooseNews : undefined}
         onChooseCrm={userFlags.crmAccess || userFlags.isAdmin ? handleChooseCrm : undefined}
+        onChooseBusinessPlan={userFlags.businessPlanAccess || userFlags.isAdmin ? handleChooseBusinessPlan : undefined}
         companyName={(companyProfile as { name?: string } | null)?.name}
         companyLogoUrl={(companyProfile as { logoUrl?: string } | null)?.logoUrl}
       />

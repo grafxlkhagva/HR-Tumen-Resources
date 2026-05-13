@@ -10,13 +10,14 @@ import {
     LayoutGrid,
     Newspaper,
     HeartHandshake,
+    Target,
     Lock,
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
 
 interface PortalModule {
-    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm';
+    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan';
     icon: React.ReactElement;
     label: string;
     description: string;
@@ -31,6 +32,7 @@ interface RoleChoiceOrbitProps {
     onChooseTms?: () => void;
     onChooseNews?: () => void;
     onChooseCrm?: () => void;
+    onChooseBusinessPlan?: () => void;
     companyName?: string;
     companyLogoUrl?: string;
 }
@@ -46,6 +48,7 @@ export function RoleChoiceOrbit({
     onChooseTms,
     onChooseNews,
     onChooseCrm,
+    onChooseBusinessPlan,
     companyName = 'Систем',
     companyLogoUrl,
 }: RoleChoiceOrbitProps) {
@@ -57,8 +60,8 @@ export function RoleChoiceOrbit({
             list.push({
                 id: 'admin',
                 icon: <Shield />,
-                label: 'Админ',
-                description: 'Системийн удирдлага, тохиргоо',
+                label: 'Хүний нөөц',
+                description: 'Ажилтнууд, бүтэц, хөдөлмөрийн харилцаа',
                 color: '#3b82f6',
                 enabled: true,
                 onChoose: onChooseAdmin,
@@ -106,8 +109,19 @@ export function RoleChoiceOrbit({
                 onChoose: onChooseCrm,
             });
         }
+        if (onChooseBusinessPlan) {
+            list.push({
+                id: 'business_plan',
+                icon: <Target />,
+                label: 'Бизнес төлөвлөгөө',
+                description: 'Стратеги, OKR, KPI, гүйцэтгэл',
+                color: '#6366f1',
+                enabled: true,
+                onChoose: onChooseBusinessPlan,
+            });
+        }
         return list;
-    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm]);
+    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm, onChooseBusinessPlan]);
 
     const N = modules.length;
     const STEP = N > 0 ? 360 / N : 360;

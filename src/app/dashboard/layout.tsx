@@ -13,6 +13,7 @@ import { UserNav } from '@/components/user-nav';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { AIChatWidget } from '@/components/ai-chat-widget';
+import { PortalSwitcher } from '@/components/portal-switcher';
 
 interface CompanyProfile {
   name?: string;
@@ -50,10 +51,14 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
         <div className="flex h-14 items-center justify-between gap-4 px-page">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link href="/dashboard">
+              <Link href="/">
                 <Home className="h-4 w-4" />
-                <span className="sr-only">Нүүр хуудас</span>
+                <span className="sr-only">Бүх портал</span>
               </Link>
+            </Button>
+            <div className="h-4 w-px bg-border" />
+            <Button variant="ghost" size="sm" asChild className="text-sm font-medium px-2 h-8">
+              <Link href="/dashboard">Хүний нөөц</Link>
             </Button>
             <div className="h-4 w-px bg-border" />
             <Link href="/dashboard/company" className="inline-flex items-center gap-2 transition-opacity hover:opacity-80">
@@ -77,6 +82,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1">
+            <PortalSwitcher currentPortalId="admin" />
             <ImplementationGuideWidget />
             <ActionIconButton
               label="Тохиргоо"

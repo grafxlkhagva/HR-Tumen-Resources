@@ -214,6 +214,47 @@ export function generateDocumentHeader(opts: {
     return parts.join('');
 }
 
+/**
+ * Гарын үсгийн блок HTML үүсгэх.
+ * Template-ийн includeSignature=true бөгөөд document type-ийн signature
+ * тохиргоо байвал баримтын төгсгөлд албан тушаал + нэр + гарын үсгийн мөрийг нэмнэ.
+ */
+export function generateDocumentSignature(opts: {
+    includeSignature?: boolean;
+    docTypeSignature?: {
+        position?: string;
+        name?: string;
+        signatureImageUrl?: string;
+        showStamp?: boolean;
+        alignment?: 'left' | 'center' | 'right';
+    };
+}): string {
+    if (!opts.includeSignature) return '';
+    const sig = opts.docTypeSignature;
+    if (!sig || (!sig.position && !sig.name && !sig.signatureImageUrl)) return '';
+
+    const alignment = sig.alignment || 'left';
+    const position = sig.position || '';
+    const name = (sig.name || '').toUpperCase();
+    const logoImg = sig.signatureImageUrl
+        ? `<img src="${sig.signatureImageUrl}" alt="Гарын үсэг" style="max-height: 48px; display: block; margin: 4px 0;">`
+        : '';
+    const stampText = sig.showStamp ? `<span style="color:#64748b;"> (Тамга)</span>` : '';
+
+    const parts: string[] = [];
+    parts.push(`<p></p>`);
+    parts.push(`<p></p>`);
+    parts.push(
+        `<div style="text-align: ${alignment}; font-size: 12px; line-height: 1.6;">` +
+            (position ? `<div>${position}:</div>` : '') +
+            (logoImg || `<div style="margin: 6px 0;">.................................</div>`) +
+            (name ? `<div style="font-weight: 700;">${name}${stampText}</div>` : stampText) +
+        `</div>`
+    );
+
+    return parts.join('');
+}
+
 export function generateDocumentContent(
     templateContent: string,
     data: Parameters<typeof getReplacementMap>[0]

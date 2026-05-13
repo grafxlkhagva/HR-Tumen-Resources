@@ -35,7 +35,9 @@ import {
     X,
     Loader2,
     Truck,
-    Newspaper
+    Newspaper,
+    HeartHandshake,
+    Target
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -54,6 +56,8 @@ import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { MakeAdminDialog } from './make-admin-dialog';
 import { TmsAccessDialog } from './tms-access-dialog';
 import { NewsAccessDialog } from './news-access-dialog';
+import { CrmAccessDialog } from './crm-access-dialog';
+import { BusinessPlanAccessDialog } from './business-plan-access-dialog';
 import { SystemSettingsTabContent } from './system-settings-tab-content';
 import { CVTabContent } from './cv-tab-content';
 import { useToast } from '@/hooks/use-toast';
@@ -650,6 +654,8 @@ export default function EmployeeProfilePage() {
     const [showAdminDialog, setShowAdminDialog] = React.useState(false);
     const [showTmsAccessDialog, setShowTmsAccessDialog] = React.useState(false);
     const [showNewsAccessDialog, setShowNewsAccessDialog] = React.useState(false);
+    const [showCrmAccessDialog, setShowCrmAccessDialog] = React.useState(false);
+    const [showBusinessPlanAccessDialog, setShowBusinessPlanAccessDialog] = React.useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
     const photoInputRef = React.useRef<HTMLInputElement>(null);
     
@@ -1139,6 +1145,24 @@ export default function EmployeeProfilePage() {
                                 <Newspaper className="h-3.5 w-3.5 mr-1.5" />
                                 {employee.newsAccess ? 'Мэдээлэл эрхтэй' : 'Мэдээлэл эрх олгох'}
                             </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn("h-8", employee.crmAccess && "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100")}
+                                onClick={() => setShowCrmAccessDialog(true)}
+                            >
+                                <HeartHandshake className="h-3.5 w-3.5 mr-1.5" />
+                                {employee.crmAccess ? 'CRM эрхтэй' : 'CRM эрх олгох'}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn("h-8", employee.businessPlanAccess && "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100")}
+                                onClick={() => setShowBusinessPlanAccessDialog(true)}
+                            >
+                                <Target className="h-3.5 w-3.5 mr-1.5" />
+                                {employee.businessPlanAccess ? 'Бизнес төлөвлөгөө эрхтэй' : 'Бизнес төлөвлөгөө эрх олгох'}
+                            </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
                                     <Activity className="h-3.5 w-3.5 mr-1.5" />
@@ -1443,6 +1467,20 @@ export default function EmployeeProfilePage() {
             <NewsAccessDialog
                 open={showNewsAccessDialog}
                 onOpenChange={setShowNewsAccessDialog}
+                employee={employee}
+            />
+
+            {/* CRM Access Dialog */}
+            <CrmAccessDialog
+                open={showCrmAccessDialog}
+                onOpenChange={setShowCrmAccessDialog}
+                employee={employee}
+            />
+
+            {/* Business Plan Access Dialog */}
+            <BusinessPlanAccessDialog
+                open={showBusinessPlanAccessDialog}
+                onOpenChange={setShowBusinessPlanAccessDialog}
                 employee={employee}
             />
         </>

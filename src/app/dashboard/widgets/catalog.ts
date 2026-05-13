@@ -1,38 +1,38 @@
 // src/app/dashboard/widgets/catalog.ts
 // Widget catalog for dashboard KPI cards
 
-import { 
-    Network, 
+import {
+    Network,
     Users,
-    UserCheck, 
-    Palmtree, 
-    Newspaper, 
-    Handshake, 
-    Sparkles, 
+    UserCheck,
+    Palmtree,
+    Newspaper,
+    Handshake,
+    Sparkles,
     FolderKanban,
     GraduationCap,
     DoorOpen,
     Award,
-    BarChart3,
     ClipboardList,
+    Stamp,
     LucideIcon
 } from 'lucide-react';
 
-export type WidgetId = 
+export type WidgetId =
     | 'projects'
     | 'employees'
-    | 'structure' 
-    | 'attendance' 
-    | 'vacation' 
-    | 'posts' 
-    | 'recruitment' 
-    | 'points' 
+    | 'structure'
+    | 'attendance'
+    | 'vacation'
+    | 'posts'
+    | 'recruitment'
+    | 'points'
     | 'er'
     | 'training'
     | 'meetings'
     | 'skills'
-    | 'business-plan'
-    | 'survey';
+    | 'survey'
+    | 'official-letters';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -61,7 +61,6 @@ export const DEFAULT_ORDER: WidgetId[] = [
     'training',
     'meetings',
     'skills',
-    'business-plan',
     'survey'
 ];
 
@@ -188,16 +187,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         requiredData: [],
         category: 'core'
     },
-    'business-plan': {
-        id: 'business-plan',
-        label: 'Бизнес төлөвлөгөө',
-        description: 'Бизнес төлөвлөлт, стратеги',
-        href: '/dashboard/business-plan',
-        size: 'compact',
-        icon: BarChart3,
-        requiredData: [],
-        category: 'core'
-    },
     survey: {
         id: 'survey',
         label: 'Санал асуулга',
@@ -205,6 +194,16 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         href: '/dashboard/survey',
         size: 'compact',
         icon: ClipboardList,
+        requiredData: [],
+        category: 'core'
+    },
+    'official-letters': {
+        id: 'official-letters',
+        label: 'Албан бичиг',
+        description: 'Стандартын дагуу албан бланк удирдах',
+        href: '/dashboard/official-letters',
+        size: 'compact',
+        icon: Stamp,
         requiredData: [],
         category: 'core'
     }

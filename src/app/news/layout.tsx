@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Newspaper, LogOut, PenSquare, ShieldAlert, History } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
+import { PortalSwitcher } from '@/components/portal-switcher';
 
 const navItems = [
   { href: '/news/posts', label: 'Нийтлэлүүд', icon: Newspaper },
@@ -83,13 +84,14 @@ function NewsShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <aside className="flex w-56 flex-col border-r bg-muted/30">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <Link href="/news" className="flex items-center gap-2 font-semibold">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10">
+        <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+          <Link href="/news" className="flex items-center gap-2 font-semibold min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10 shrink-0">
               <Newspaper className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
-            <span>Мэдээлэл</span>
+            <span className="truncate">Мэдээлэл</span>
           </Link>
+          <PortalSwitcher currentPortalId="news" />
         </div>
         <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map(({ href, label, icon: Icon }) => {

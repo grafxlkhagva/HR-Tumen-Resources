@@ -41,6 +41,15 @@ export interface DocumentHeader {
     // Байрлал: Огноо зүүн талд, гарчиг голд, дугаар баруун талд
 }
 
+// Гарын үсгийн блокын тохиргоо - баримтын доод хэсэгт байрлах
+export interface DocumentSignature {
+    position?: string;           // Албан тушаал (жнь: "Гүйцэтгэх захирал")
+    name?: string;               // Гарын үсэг зурагчийн нэр (жнь: "Б.БАТ")
+    signatureImageUrl?: string;  // Гарын үсгийн зураг (заавал биш)
+    showStamp?: boolean;         // "(Тамга)" үг харуулах эсэх
+    alignment?: 'left' | 'center' | 'right';  // Байрлал
+}
+
 // Дугаарлалтын тохиргоо - Unique, Human-readable, Auto-generated, Immutable, Traceable
 export interface NumberingConfig {
     includePrefix?: boolean;      // Үсгэн код оруулах (жнь: ГЭР)
@@ -65,6 +74,7 @@ export interface ERDocumentType {
     lastNumberMonth?: number; // Сүүлд дугаар олгосон сар
     lastNumberDay?: number;   // Сүүлд дугаар олгосон өдөр
     header?: DocumentHeader;  // Толгойн тохиргоо
+    signature?: DocumentSignature;  // Гарын үсгийн тохиргоо
     numberingConfig?: NumberingConfig;  // Дугаарлалтын тохиргоо
     createdAt?: any;
     updatedAt?: any;
@@ -82,6 +92,7 @@ export interface ERTemplate {
     /** Системийн загвар (устгаж, нэрийг өөрчилж болохгүй, агуулгыг засаж болно) */
     isSystem?: boolean;
     includeHeader?: boolean;     // Толгой хэсэг оруулах эсэх
+    includeSignature?: boolean;  // Гарын үсгийн блок оруулах эсэх
     printSettings?: PrintSettings;
     customInputs?: {
         key: string;

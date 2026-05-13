@@ -81,3 +81,11 @@ export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
 export * from './secondary-auth';
+// Single-tenant compatibility re-exports (multi-tenant SaaS-аас ирсэн код).
+export {
+    useFetchDoc,
+    useFetchCollection,
+    useTenantWrite,
+    tenantCollection,
+    tenantDoc,
+} from './tenant-compat';

@@ -402,31 +402,6 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'business-plan':
-                return (
-                    <div className="relative z-10 space-y-2">
-                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
-                            Бизнес төлөвлөгөө
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-2xl font-semibold text-white">{data.bpPlanProgress ?? 0}%</div>
-                                <div className="text-[10px] text-slate-400">Прогресс</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-700" />
-                            <div>
-                                <div className="text-2xl font-semibold text-emerald-400">{data.bpOkrCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400">OKR</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-700" />
-                            <div>
-                                <div className="text-2xl font-semibold text-lime-400">{data.bpKpiGreenCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400">KPI ✓</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
             case 'survey':
                 return (
                     <div className="relative z-10 space-y-2">
@@ -476,8 +451,6 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-orange-500/10 to-amber-500/10';
             case 'skills':
                 return 'bg-gradient-to-br from-indigo-500/10 to-violet-500/10';
-            case 'business-plan':
-                return 'bg-gradient-to-br from-emerald-500/10 to-lime-500/10';
             case 'survey':
                 return 'bg-gradient-to-br from-rose-500/10 to-pink-500/10';
             default:
@@ -551,7 +524,6 @@ export function DashboardWidgetCard({
                                 id === 'training' && "text-teal-400",
                                 id === 'meetings' && "text-orange-400",
                                 id === 'skills' && "text-indigo-400",
-                                id === 'business-plan' && "text-emerald-400",
                                 id === 'survey' && "text-rose-400"
                             )}
                         />

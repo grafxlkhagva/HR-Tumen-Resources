@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText, Satellite } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
+import { PortalSwitcher } from '@/components/portal-switcher';
 import { TmsReferenceDataProvider } from './reference-data-context';
 
 const navItems = [
@@ -92,13 +93,14 @@ function TmsShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside className="flex w-56 flex-col border-r bg-muted/30">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <Link href="/tms" className="flex items-center gap-2 font-semibold">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10">
+        <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+          <Link href="/tms" className="flex items-center gap-2 font-semibold min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 shrink-0">
               <LayoutGrid className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
-            <span>TMS</span>
+            <span className="truncate">TMS</span>
           </Link>
+          <PortalSwitcher currentPortalId="tms" />
         </div>
         <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map(({ href, label, icon: Icon }) => {

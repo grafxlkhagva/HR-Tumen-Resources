@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
+import { PortalSwitcher } from '@/components/portal-switcher';
 
 type NavItem = {
     href: string;
@@ -138,13 +139,14 @@ function CrmShell({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex h-screen overflow-hidden bg-background">
             <aside className="flex w-60 flex-col border-r bg-muted/30">
-                <div className="flex h-14 items-center gap-2 border-b px-4">
-                    <Link href="/crm" className="flex items-center gap-2 font-semibold">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10">
+                <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+                    <Link href="/crm" className="flex items-center gap-2 font-semibold min-w-0">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 shrink-0">
                             <HeartHandshake className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                         </div>
-                        <span>CRM</span>
+                        <span className="truncate">CRM</span>
                     </Link>
+                    <PortalSwitcher currentPortalId="crm" />
                 </div>
 
                 <div className="px-3 py-3 border-b">
